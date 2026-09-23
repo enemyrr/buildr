@@ -1909,6 +1909,14 @@ function WorkspaceScreenContent({
   );
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
   const pullRequestOpenLocation = useSettings((settings) => settings.pullRequestOpenLocation);
+  const handleOpenPullRequest = useCallback(() => {
+    openWorkspacePullRequest({
+      isCompact: isMobile,
+      workspaceKey: persistenceKey,
+      checkout: activeExplorerCheckout,
+      destination: pullRequestOpenLocation,
+    });
+  }, [activeExplorerCheckout, isMobile, persistenceKey, pullRequestOpenLocation]);
   const focusWorkspaceTab = useWorkspaceLayoutStore((state) => state.focusTab);
   const selectWorkspaceTabInPane = useWorkspaceLayoutStore((state) => state.selectTabInPane);
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
@@ -3863,6 +3871,7 @@ function WorkspaceScreenContent({
               serverId={normalizedServerId}
               cwd={workspaceDirectory}
               prStripVisible={isExplorerSidebarShowing}
+              onOpenPullRequest={handleOpenPullRequest}
             />
             <WorkspaceHeaderExplorerToggle
               owner={explorerToggleOwner}
@@ -3899,6 +3908,7 @@ function WorkspaceScreenContent({
       handleScriptTerminalStarted,
       handleViewScriptTerminal,
       handleOpenUrlInBrowserTab,
+      handleOpenPullRequest,
       handleToggleExplorerSidebar,
       explorerSidebarToggleLabel,
       explorerSidebarToggleAccessibilityState,
@@ -3933,9 +3943,13 @@ function WorkspaceScreenContent({
   const renderExplorerSidebarStatus = useCallback(
     () =>
       workspaceDirectory ? (
-        <PrStatusStrip serverId={normalizedServerId} cwd={workspaceDirectory} />
+        <PrStatusStrip
+          serverId={normalizedServerId}
+          cwd={workspaceDirectory}
+          onOpenPullRequest={handleOpenPullRequest}
+        />
       ) : null,
-    [normalizedServerId, workspaceDirectory],
+    [normalizedServerId, workspaceDirectory, handleOpenPullRequest],
   );
   const createTerminalDisabled = useMemo(
     () => createTerminalMutation.isPending || pendingTerminalCreateInput !== null,

@@ -28,6 +28,8 @@ interface WorkspaceActionsProps {
   cwd: string;
   /** The Explorer shows the PR strip; otherwise the header carries it inline. */
   prStripVisible: boolean;
+  /** Opens the in-app pull request view from the strip's number. */
+  onOpenPullRequest?: () => void;
 }
 
 function GitMenuItem({ action }: { action: GitAction }) {
@@ -49,7 +51,12 @@ function GitMenuItem({ action }: { action: GitAction }) {
 }
 
 /** The header's git area: Create PR before a PR exists, the PR lifecycle strip after. */
-export function WorkspaceActions({ serverId, cwd, prStripVisible }: WorkspaceActionsProps) {
+export function WorkspaceActions({
+  serverId,
+  cwd,
+  prStripVisible,
+  onOpenPullRequest,
+}: WorkspaceActionsProps) {
   const { t } = useTranslation();
   const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
@@ -74,7 +81,14 @@ export function WorkspaceActions({ serverId, cwd, prStripVisible }: WorkspaceAct
   if (!prUrl) return <CreatePrSplitButton flow={flow} />;
   return (
     <View style={styles.group}>
-      {prStripVisible ? null : <PrStatusStrip serverId={serverId} cwd={cwd} variant="inline" />}
+      {prStripVisible ? null : (
+        <PrStatusStrip
+          serverId={serverId}
+          cwd={cwd}
+          variant="inline"
+          onOpenPullRequest={onOpenPullRequest}
+        />
+      )}
       {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
         <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
       )}

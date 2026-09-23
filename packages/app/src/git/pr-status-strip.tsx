@@ -62,14 +62,21 @@ interface PrStatusStripProps {
   cwd: string;
   /** `bar` spans the Explorer above its tabs; `inline` sits among the header actions. */
   variant?: "bar" | "inline";
+  /** Opens the in-app pull request view. Without it, the number opens the browser too. */
+  onOpenPullRequest?: () => void;
 }
 
 /**
- * The change request's lifecycle on a wash of its state's color: `#N` `↗` copy chips, the state,
- * and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
+ * The change request's lifecycle on a wash of its state's color: the `#N` `↗` link, a copy chip,
+ * the state, and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
  * Commit and push while local work is unpushed. Continue or Archive once merged or closed.
  */
-export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripProps) {
+export function PrStatusStrip({
+  serverId,
+  cwd,
+  variant = "bar",
+  onOpenPullRequest,
+}: PrStatusStripProps) {
   const { t } = useTranslation();
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
   const { hasUncommittedChanges, hasUnpushedCommits, uncommittedCount, baseRef } = useLocalWork({
@@ -153,21 +160,31 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
       style={[variant === "bar" ? styles.bar : styles.inline, tone.tint]}
       testID={variant === "bar" ? "workspace-pr-status-strip" : "workspace-pr-status-inline"}
     >
-      <PrChip
-        tone={state.tone}
-        onPress={openPr}
-        accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
-        testID="workspace-pr-status-number"
-      >
-        <Text style={[styles.chipText, tone.text]}>{numberLabel}</Text>
-      </PrChip>
-      <PrChip
-        tone={state.tone}
-        onPress={openPr}
-        accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
-      >
-        <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
-      </PrChip>
+      <View style={[styles.link, tone.border]}>
+        <PrSegment
+          tone={state.tone}
+          onPress={onOpenPullRequest ?? openPr}
+          role={onOpenPullRequest ? "button" : "link"}
+          accessibilityLabel={
+            onOpenPullRequest
+              ? t("panels.pullRequest.label")
+              : t("workspace.git.prFlow.openPr", { ref: numberLabel })
+          }
+          testID="workspace-pr-status-number"
+        >
+          <Text style={[styles.chipText, tone.text]}>{numberLabel}</Text>
+        </PrSegment>
+        <PrSegment
+          tone={state.tone}
+          onPress={openPr}
+          role="link"
+          accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
+          divided
+          testID="workspace-pr-status-open-external"
+        >
+          <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
+        </PrSegment>
+      </View>
       <PrChip
         tone={state.tone}
         onPress={copyPrUrl}
@@ -303,6 +320,45 @@ function PrChip({
       hovered && TONE_SHEETS[tone].tint,
     ],
     [tone],
+  );
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole={role}
+      accessibilityLabel={accessibilityLabel}
+      style={style}
+      testID={testID}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
+/** One half of the `#N` `↗` link: the number opens the PR in the app, the arrow in the browser. */
+function PrSegment({
+  tone,
+  onPress,
+  role,
+  accessibilityLabel,
+  divided = false,
+  testID,
+  children,
+}: {
+  tone: PrStripTone;
+  onPress: () => void;
+  role: "link" | "button";
+  accessibilityLabel: string;
+  divided?: boolean;
+  testID?: string;
+  children: ReactNode;
+}) {
+  const style = useCallback(
+    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.segment,
+      divided && [styles.segmentDivided, TONE_SHEETS[tone].border],
+      hovered && TONE_SHEETS[tone].tint,
+    ],
+    [tone, divided],
   );
   return (
     <Pressable
@@ -576,6 +632,23 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     borderWidth: theme.borderWidth[1],
     borderRadius: theme.borderRadius.base,
+  },
+  link: {
+    height: CHIP_SIZE,
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderWidth: theme.borderWidth[1],
+    borderRadius: theme.borderRadius.base,
+    overflow: "hidden",
+  },
+  segment: {
+    minWidth: CHIP_SIZE - theme.borderWidth[1] * 2,
+    paddingHorizontal: theme.spacing[1],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentDivided: {
+    borderLeftWidth: theme.borderWidth[1],
   },
   chipText: {
     fontSize: theme.fontSize.sm,
