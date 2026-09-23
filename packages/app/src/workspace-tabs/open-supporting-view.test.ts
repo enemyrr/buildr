@@ -105,6 +105,18 @@ describe("openWorkspacePullRequest", () => {
     expect(state.sidePaneIdByWorkspace[WORKSPACE_KEY]).toBeUndefined();
   });
 
+  it("reuses a main-panel PR instead of creating another", () => {
+    openWorkspacePullRequest({ ...input, destination: "main" });
+    openWorkspacePullRequest({ ...input, destination: "main" });
+
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY];
+    const pullRequestTabs = collectAllTabs(layout.root).filter(
+      (tab) => tab.target.kind === "pull_request",
+    );
+    // The default Explorer Checks tab plus one main-panel instance.
+    expect(pullRequestTabs).toHaveLength(2);
+  });
+
   it("opens PRs in the side panel when configured", () => {
     openWorkspacePullRequest({ ...input, destination: "side" });
 
@@ -112,11 +124,13 @@ describe("openWorkspacePullRequest", () => {
     const layout = state.layoutByWorkspace[WORKSPACE_KEY];
     const sidePaneId = state.sidePaneIdByWorkspace[WORKSPACE_KEY];
     const sidePane = layout && sidePaneId ? findPaneById(layout.root, sidePaneId) : null;
-    const pullRequestTab = layout
-      ? collectAllTabs(layout.root).find((tab) => tab.target.kind === "pull_request")
-      : null;
+    const pullRequestTabIds = layout
+      ? collectAllTabs(layout.root)
+          .filter((tab) => tab.target.kind === "pull_request")
+          .map((tab) => tab.tabId)
+      : [];
 
-    expect(sidePane?.tabIds).toContain(pullRequestTab?.tabId);
+    expect(sidePane?.tabIds.some((tabId) => pullRequestTabIds.includes(tabId))).toBe(true);
   });
 });
 
@@ -168,6 +182,8 @@ describe("automatic PR placement", () => {
         target: { kind: "agent", agentId: "agent-1" },
         intent: "reveal",
       });
+      // Layouts saved before Checks became a default Explorer tab have no PR tab.
+      store.closeTab(WORKSPACE_KEY, "pull_request");
       const paneId = destination === "main" ? "main" : store.ensureSidePane(WORKSPACE_KEY)!;
       store.openTab({
         workspaceKey: WORKSPACE_KEY,
@@ -197,6 +213,7 @@ describe("automatic PR placement", () => {
       target: { kind: "agent", agentId: "agent-1" },
       intent: "reveal",
     });
+    store.closeTab(WORKSPACE_KEY, "pull_request");
     autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination: "side" });
     const state = useWorkspaceLayoutStore.getState();
     const layout = state.layoutByWorkspace[WORKSPACE_KEY];

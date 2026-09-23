@@ -1069,6 +1069,7 @@ function toCurrentPullRequestStatus(item: GiteaPrListItem): CurrentPullRequestSt
     ...(owner && name ? { projectPath: `${owner}/${name}` } : {}),
     url: item.url,
     title: item.title,
+    ...(item.body ? { body: item.body } : {}),
     state,
     baseRefName: item.base ?? "",
     headRefName: stripHeadOwner(item.head),

@@ -3,13 +3,15 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { Check, ChevronDown } from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
+import { Check, ChevronDown, Copy } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { EditorTargetIcon } from "@/components/icons/editor-target-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/contexts/toast-context";
@@ -48,6 +50,7 @@ const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedEditorTargetIcon = withUnistyles(EditorTargetIcon);
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedCheckIcon = withUnistyles(Check);
+const ThemedCopyIcon = withUnistyles(Copy);
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -183,11 +186,20 @@ export function WorkspaceOpenInEditorButton({
     [openMutation],
   );
 
+  // Picking a target opens it there and makes it the primary, like Conductor's "open in" menu.
   const handleSelectTarget = useCallback(
     (target: OpenTarget) => {
       void updatePreferredEditor(target.id).catch(() => undefined);
+      handleOpenTarget(target);
     },
-    [updatePreferredEditor],
+    [handleOpenTarget, updatePreferredEditor],
+  );
+  const handleCopyPath = useCallback(() => {
+    void Clipboard.setStringAsync(cwd);
+  }, [cwd]);
+  const copyPathLeading = useMemo(
+    () => <ThemedCopyIcon size={16} uniProps={mutedColorMapping} />,
+    [],
   );
 
   const primaryPressableStyle = useCallback(
@@ -252,7 +264,7 @@ export function WorkspaceOpenInEditorButton({
             </View>
           )}
         </Pressable>
-        {targets.length > 1 ? (
+        {targets.length > 0 ? (
           <DropdownMenu>
             <DropdownMenuTrigger
               testID="workspace-open-in-editor-caret"
@@ -276,6 +288,14 @@ export function WorkspaceOpenInEditorButton({
                   onSelect={handleSelectTarget}
                 />
               ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                testID="workspace-open-in-editor-copy-path"
+                leading={copyPathLeading}
+                onSelect={handleCopyPath}
+              >
+                {t("workspace.header.actions.copyPath")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}

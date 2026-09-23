@@ -1,11 +1,10 @@
 import { useCallback, useEffect } from "react";
-import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native-unistyles";
 import { buildWorkspaceAttachmentScopeKey } from "@/attachments/workspace-attachments-store";
 import { useToast } from "@/contexts/toast-context";
 import { useCheckoutGitActionsStore } from "@/git/actions-store";
 import {
+  NoPullRequestPane,
   PullRequestPane,
   PullRequestPaneError,
   PullRequestPaneSkeleton,
@@ -89,10 +88,11 @@ export function PullRequestContent(input: {
     return <PullRequestPaneSkeleton />;
   }
   return (
-    <View style={styles.empty} testID="pull-request-empty-state">
-      <Text style={styles.emptyTitle}>{t("panels.pullRequest.emptyTitle")}</Text>
-      <Text style={styles.emptyDescription}>{t("panels.pullRequest.emptyDescription")}</Text>
-    </View>
+    <NoPullRequestPane
+      serverId={input.serverId}
+      workspaceId={input.workspaceId ?? undefined}
+      cwd={input.cwd}
+    />
   );
 }
 
@@ -104,19 +104,3 @@ export function usePullRequestData(input: {
 }) {
   return usePrPaneData(input);
 }
-
-const styles = StyleSheet.create((theme) => ({
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    padding: 24,
-  },
-  emptyTitle: {
-    color: theme.colors.foreground,
-  },
-  emptyDescription: {
-    color: theme.colors.foregroundMuted,
-  },
-}));

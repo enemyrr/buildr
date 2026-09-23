@@ -91,6 +91,8 @@ export interface PrPaneData {
   /** Neutral project identity (GitLab namespaces nest beyond owner/name). */
   projectPath?: string;
   title: string;
+  /** PR description as markdown; empty when the forge has none or the daemon predates it. */
+  body: string;
   state: PrState;
   url: string;
   reviewDecision: "approved" | "changes_requested" | "pending";
@@ -136,6 +138,7 @@ export function mapPrPaneData(
     repoName: status.repoName,
     projectPath: status.projectPath,
     title: status.title,
+    body: status.body ?? "",
     state: derivePrState(status),
     url: status.url,
     reviewDecision: mapReviewDecision(status.reviewDecision),

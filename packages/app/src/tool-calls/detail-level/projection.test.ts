@@ -152,11 +152,11 @@ describe("tool call detail-level projection", () => {
 
     expect(group).toMatchObject({
       isLoading: true,
-      summary: { commandCount: 1 },
+      toolCallCount: 1,
     });
   });
 
-  it("keeps an active overview group on its latest call until a visible boundary arrives", () => {
+  it("keeps the answer outside an active group and seals it when the turn ends", () => {
     const calls = [
       toolCall("1", { type: "shell", command: "one" }),
       toolCall("2", { type: "read", filePath: "/repo/a.ts" }),
@@ -164,29 +164,29 @@ describe("tool call detail-level projection", () => {
       toolCall("4", { type: "edit", filePath: "/repo/a.ts" }),
     ];
     const prepared = prepareToolCallHistory("overview", []);
+    const answer = assistant("answer");
     const active = project({
       level: "overview",
-      head: calls,
+      head: [...calls, answer],
       isTurnActive: true,
       preparedHistory: prepared,
     });
-    const activeGroup = active.groupsByHostId.get("1");
 
-    expect(activeGroup).toMatchObject({
+    expect(active.head).toEqual([expect.objectContaining({ id: "1" }), answer]);
+    expect(active.groupsByHostId.get("1")).toMatchObject({
       mode: "overview",
-      run: { id: "1", latest: calls[3], isSealed: false },
+      run: { id: "1", latest: calls[3], isSealed: false, items: calls },
     });
-    const boundary = assistant("answer");
-    const sealed = project({
+    const ended = project({
       level: "overview",
-      head: [...calls, boundary],
-      isTurnActive: true,
+      head: [...calls, answer],
+      isTurnActive: false,
       preparedHistory: prepared,
     });
-    expect(sealed.groupsByHostId.get("1")).toMatchObject({
-      mode: "overview",
+    expect(ended.groupsByHostId.get("1")).toMatchObject({
       run: { latest: calls[3], isSealed: true },
-      summary: { editedFileCount: 1, readFileCount: 2, commandCount: 1 },
+      toolCallCount: 4,
+      messageCount: 0,
     });
   });
 
@@ -204,7 +204,7 @@ describe("tool call detail-level projection", () => {
     expect(result.groupsByHostId.get("1")).toMatchObject({
       run: { latest: calls[3], isSealed: false },
       isLoading: true,
-      summary: { commandCount: 4 },
+      toolCallCount: 4,
     });
   });
 
@@ -238,116 +238,6 @@ describe("tool call detail-level projection", () => {
       isSealed: false,
     });
     expect(ended.groupsByHostId.get("1")?.run.isSealed).toBe(true);
-  });
-
-  it("builds overview summaries without category-specific presentation data", () => {
-    const calls = [
-      toolCall("1", { type: "read", filePath: "/repo/src/a.ts" }),
-      toolCall("2", { type: "read", filePath: "/repo/src/b.ts" }),
-      toolCall("3", { type: "shell", command: "npm test" }),
-      toolCall("4", { type: "edit", filePath: "/repo/src/a.ts" }, { status: "failed" }),
-    ];
-
-    const overview = project({ level: "overview", head: calls });
-
-    expect(overview.groupsByHostId.get("1")).toEqual({
-      mode: "overview",
-      run: expect.any(Object),
-      isLoading: false,
-      summary: {
-        editedFileCount: 1,
-        commandCount: 1,
-        readFileCount: 2,
-        searchCount: 0,
-        otherToolCount: 0,
-        paseoCallCount: 0,
-      },
-    });
-  });
-
-  it("distinguishes reads, searches, and other tools in overview", () => {
-    const calls = [
-      toolCall("1", { type: "read", filePath: "/repo/src/a.ts" }),
-      toolCall("2", { type: "read", filePath: "C:\\repo\\src\\beta.ts" }),
-      toolCall("3", { type: "fetch", url: "https://github.com/org/repo" }),
-      toolCall(
-        "4",
-        { type: "search", query: "paseo", toolName: "web_search" },
-        { status: "failed" },
-      ),
-      toolCall("5", { type: "fetch", url: "not a url" }),
-    ];
-
-    const result = project({ level: "overview", head: calls });
-
-    expect(result.groupsByHostId.get("1")).toMatchObject({
-      summary: {
-        editedFileCount: 0,
-        commandCount: 0,
-        readFileCount: 2,
-        searchCount: 1,
-        otherToolCount: 2,
-      },
-    });
-  });
-
-  it("counts unique edited files and every shell command in overview", () => {
-    const calls = [
-      toolCall("1", { type: "edit", filePath: "/repo/a.ts" }),
-      toolCall("2", { type: "edit", filePath: "/repo/a.ts" }),
-      toolCall("3", { type: "write", filePath: "/repo/b.ts" }),
-      toolCall("4", { type: "shell", command: "npm test" }),
-      toolCall("5", { type: "shell", command: "npm run lint" }),
-      toolCall("6", { type: "read", filePath: "/repo/c.ts" }),
-    ];
-
-    const result = project({ level: "overview", head: calls });
-
-    expect(result.groupsByHostId.get("1")).toMatchObject({
-      summary: {
-        editedFileCount: 2,
-        commandCount: 2,
-        readFileCount: 1,
-        otherToolCount: 0,
-      },
-    });
-  });
-
-  it("counts Paseo calls separately from other tools", () => {
-    const calls = [
-      toolCall("1", { type: "unknown", input: null, output: null }, { name: "paseo.list_agents" }),
-      toolCall(
-        "2",
-        { type: "unknown", input: null, output: null },
-        { name: "mcp__paseo__list_worktrees" },
-      ),
-      toolCall("3", { type: "fetch", url: "https://paseo.sh" }),
-      toolCall("4", { type: "fetch", url: "https://github.com/getpaseo" }),
-    ];
-
-    const result = project({ level: "overview", head: calls });
-
-    expect(result.groupsByHostId.get("1")).toMatchObject({
-      summary: { otherToolCount: 2, paseoCallCount: 2 },
-    });
-  });
-
-  it("classifies direct Brave search and Paseo runtime tool names", () => {
-    const unknownDetail = { type: "unknown" as const, input: null, output: null };
-    const calls = [
-      toolCall("1", unknownDetail, { name: "brave-search_brave_web_search" }),
-      toolCall("2", unknownDetail, { name: "brave-search_brave_llm_context" }),
-      toolCall("3", unknownDetail, { name: "paseo_list_providers" }),
-      toolCall("4", unknownDetail, { name: "paseo_list_worktrees" }),
-      toolCall("5", unknownDetail, { name: "paseo_list_worktrees" }),
-      toolCall("6", unknownDetail, { name: "mcp__exa__web_search" }),
-    ];
-
-    const result = project({ level: "overview", head: calls });
-
-    expect(result.groupsByHostId.get("1")).toMatchObject({
-      summary: { searchCount: 3, otherToolCount: 0, paseoCallCount: 3 },
-    });
   });
 
   it("reuses prepared history and sealed group models across live-head updates", () => {
@@ -390,7 +280,7 @@ describe("tool call detail-level projection", () => {
     expect(second.groupsByHostId.get("5")?.run.calls).toHaveLength(2);
   });
 
-  it("preserves projected history identity during assistant-only head updates", () => {
+  it("keeps the live history group identity stable during assistant-only head updates", () => {
     const trailingCalls = [
       toolCall("1", { type: "shell", command: "one" }),
       toolCall("2", { type: "read", filePath: "/repo/a.ts" }),
@@ -420,9 +310,12 @@ describe("tool call detail-level projection", () => {
 
     expect(first.tail).toBe(prepared.grouped.tail);
     expect(second.tail).toBe(prepared.grouped.tail);
-    expect(first.groupsByHostId).toBe(prepared.grouped.groupsByHostId);
-    expect(second.groupsByHostId).toBe(prepared.grouped.groupsByHostId);
-    expect(first.historyGroupUpdatesByHostId.size).toBe(0);
+    expect(second.groupsByHostId).toBe(first.groupsByHostId);
+    expect(first.groupsByHostId.get("1")?.run).toMatchObject({
+      items: tail,
+      isSealed: false,
+    });
+    expect(first.historyGroupUpdatesByHostId.size).toBe(1);
     expect(second.historyGroupUpdatesByHostId).toBe(first.historyGroupUpdatesByHostId);
   });
 
@@ -440,11 +333,11 @@ describe("tool call detail-level projection", () => {
     const result = project({ level: "overview", tail, head, isTurnActive: true });
 
     expect(result.tail).toEqual([
-      tail[0],
       expect.objectContaining({ id: "1", timestamp: tail[2]?.timestamp }),
     ]);
     expect(result.head).toEqual([]);
     expect(result.groupsByHostId.get("1")?.run).toMatchObject({
+      items: [...tail, ...head],
       calls: [...tail.slice(1), ...head],
       latest: head[1],
       isSealed: false,

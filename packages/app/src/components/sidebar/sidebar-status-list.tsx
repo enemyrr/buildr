@@ -498,7 +498,6 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
   showShortcutBadge,
   canPin,
   onToggleWorkspacePin,
-  reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
   onWorkspacePress,
   drag,
@@ -513,7 +512,6 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
   showShortcutBadge: boolean;
   canPin: boolean;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  reserveIdleStatusIndicatorSpace?: boolean;
   /**
    * Whether the row sits under a status header, which is what it indents from. Pinned rows
    * are a flat list under their own header and sit flush.
@@ -546,7 +544,6 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
       showShortcutBadge={showShortcutBadge}
       canPin={canPin}
       onToggleWorkspacePin={onToggleWorkspacePin}
-      reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       inStatusGroup={inStatusGroup}
       onPress={handlePress}
       drag={drag}
@@ -566,7 +563,6 @@ function StatusWorkspaceRowWithMenu({
   showShortcutBadge,
   canPin,
   onToggleWorkspacePin,
-  reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
   onPress,
   drag,
@@ -582,7 +578,6 @@ function StatusWorkspaceRowWithMenu({
   showShortcutBadge: boolean;
   canPin: boolean;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  reserveIdleStatusIndicatorSpace?: boolean;
   /**
    * Whether the row sits under a status header, which is what it indents from. Pinned rows
    * are a flat list under their own header and sit flush.
@@ -693,7 +688,6 @@ function StatusWorkspaceRowWithMenu({
         archiveShortcutKeys={selected ? archiveShortcutKeys : null}
         isPinned={isPinned}
         onTogglePin={onTogglePin}
-        reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
         inStatusGroup={inStatusGroup}
         drag={drag}
         isDragging={isDragging}
@@ -731,7 +725,6 @@ interface StatusWorkspaceRowInnerProps {
   archiveShortcutKeys?: ShortcutKey[][] | null;
   isPinned?: boolean;
   onTogglePin?: () => void;
-  reserveIdleStatusIndicatorSpace?: boolean;
   /** Pinned rows are flat under their own header; status-group rows indent from theirs. */
   inStatusGroup?: boolean;
   drag?: () => void;
@@ -778,7 +771,6 @@ function StatusWorkspaceRowInnerContent({
   archiveShortcutKeys,
   isPinned,
   onTogglePin,
-  reserveIdleStatusIndicatorSpace = true,
   inStatusGroup = true,
   isDragging = false,
   dragHandleProps,
@@ -901,7 +893,6 @@ function StatusWorkspaceRowInnerContent({
                 isLoading={isArchiving}
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
-                reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
               >
                 {renderSlot ? (
                   <StatusWorkspaceActionSlot
@@ -990,6 +981,7 @@ function StatusWorkspaceActionSlot({
           <SidebarWorkspaceMenu
             {...kebab.menuProps}
             workspaceKey={workspace.workspaceKey}
+            prHint={workspace.prHint}
             serverId={workspace.serverId}
             workspaceId={workspace.workspaceId}
             workspaceLabels={workspace.labels}
@@ -1053,15 +1045,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   // Matches `projectBlockExpanded` in sidebar-workspace-list.tsx. See the note there.
   statusGroupBlockExpanded: {
-    paddingBottom: theme.spacing[3],
+    paddingBottom: theme.spacing[2],
   },
   statusWorkspaceListContainer: {},
   statusGroupRow: {
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
+    minHeight: 28,
+    paddingVertical: theme.spacing[0.5],
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing[0.5],
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1097,9 +1089,9 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
   },
   statusGroupTitle: {
-    color: theme.colors.foregroundMuted,
+    color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
-    fontWeight: "400",
+    fontWeight: theme.fontWeight.medium,
     minWidth: 0,
     flexShrink: 1,
   },
@@ -1107,12 +1099,12 @@ const styles = StyleSheet.create((theme) => ({
     position: "relative",
   },
   workspaceRow: {
-    minHeight: 36,
+    minHeight: 28,
     marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
-    paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    paddingRight: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "flex-start",

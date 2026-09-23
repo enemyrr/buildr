@@ -128,9 +128,8 @@ test.describe("Project with no workspaces persists", () => {
       await expect(projectRow).toContainText(path.basename(repo.path));
       await expect(page.getByTestId(`sidebar-workspace-list-${projectId}`)).toHaveCount(0);
 
-      const newWorkspaceRow = page.getByTestId(`sidebar-project-new-workspace-row-${projectId}`);
-      await expect(newWorkspaceRow).toBeVisible({ timeout: 30_000 });
-      await expect(newWorkspaceRow).toContainText("New workspace");
+      const newWorkspaceButton = page.getByTestId(`sidebar-project-new-worktree-${projectId}`);
+      await expect(newWorkspaceButton).toBeVisible({ timeout: 30_000 });
 
       const workspaces = await client.fetchWorkspaces({ filter: { projectId } });
       expect(workspaces.entries).toEqual([]);
@@ -151,9 +150,7 @@ test.describe("Project with no workspaces persists", () => {
     try {
       const projectViewKey = projectEquivalenceViewKey(workspace.projectKey);
       const projectRow = page.getByTestId(`sidebar-project-row-${projectViewKey}`);
-      const newWorkspaceRow = page.getByTestId(
-        `sidebar-project-new-workspace-row-${projectViewKey}`,
-      );
+      const newWorkspaceButton = page.getByTestId(`sidebar-project-new-worktree-${projectViewKey}`);
       const globalNewWorkspace = page.getByTestId("sidebar-global-new-workspace");
 
       await gotoAppShell(page);
@@ -175,15 +172,14 @@ test.describe("Project with no workspaces persists", () => {
       });
       expect(existsSync(workspace.repoPath)).toBe(true);
       await expect(projectRow).toBeVisible({ timeout: 30_000 });
-      await expect(newWorkspaceRow).toBeVisible({ timeout: 30_000 });
-      await expect(newWorkspaceRow).toContainText("New workspace");
+      await expect(newWorkspaceButton).toBeVisible({ timeout: 30_000 });
       await expect(globalNewWorkspace).toBeVisible({ timeout: 30_000 });
 
       // The project survives a reload after its last workspace is archived.
       await page.reload();
       await waitForSidebarHydration(page);
       await expect(projectRow).toBeVisible({ timeout: 30_000 });
-      await expect(newWorkspaceRow).toBeVisible({ timeout: 30_000 });
+      await expect(newWorkspaceButton).toBeVisible({ timeout: 30_000 });
     } finally {
       await workspace.cleanup();
     }
@@ -233,7 +229,7 @@ test.describe("Project remove", () => {
       await expect(projectRow).not.toContainText(workspace.repoPath);
       await expect(
         page.getByTestId(
-          `sidebar-project-new-workspace-row-${projectEquivalenceViewKey(readdedProjectKey)}`,
+          `sidebar-project-new-worktree-${projectEquivalenceViewKey(readdedProjectKey)}`,
         ),
       ).toBeVisible({ timeout: 30_000 });
     } finally {

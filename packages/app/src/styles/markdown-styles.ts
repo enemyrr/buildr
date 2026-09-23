@@ -22,6 +22,9 @@ function contentHeadingLineHeight(contentSize: number, tier: keyof typeof FONT_S
  * react-native-markdown-display builds its own parser with `typographer: true`,
  * which rewrites a literal `(c)` as ©.
  */
+/** Assistant prose reads as long-form text, so it gets more air than UI copy. */
+const PROSE_LINE_HEIGHT = 1.55;
+
 export function createMarkdownStyles(theme: Theme) {
   return {
     // =========================================================================
@@ -34,7 +37,7 @@ export function createMarkdownStyles(theme: Theme) {
       fontSize: theme.fontSize.content,
       // Prose line-height scales with the content size, not the
       // code-size-coupled lineHeight.diff token used by code/diff surfaces.
-      lineHeight: Math.round(theme.fontSize.content * 1.4),
+      lineHeight: Math.round(theme.fontSize.content * PROSE_LINE_HEIGHT),
       flexShrink: 1,
       minWidth: 0,
       width: "100%" as const,
@@ -295,7 +298,7 @@ export function createMarkdownStyles(theme: Theme) {
       color: theme.colors.foregroundMuted,
       marginRight: 4,
       fontSize: theme.fontSize.content,
-      lineHeight: Math.round(theme.fontSize.content * 1.4),
+      lineHeight: Math.round(theme.fontSize.content * PROSE_LINE_HEIGHT),
     },
 
     ordered_list_icon: {
@@ -304,7 +307,7 @@ export function createMarkdownStyles(theme: Theme) {
       marginRight: 4,
       fontSize: theme.fontSize.content,
       fontWeight: theme.fontWeight.normal,
-      lineHeight: Math.round(theme.fontSize.content * 1.4),
+      lineHeight: Math.round(theme.fontSize.content * PROSE_LINE_HEIGHT),
       minWidth: 12,
     },
 
@@ -370,7 +373,7 @@ export function createCompactMarkdownStyles(theme: Theme) {
     body: {
       ...baseStyles.body,
       fontSize: theme.fontSize.content,
-      lineHeight: Math.round(theme.fontSize.content * 1.4),
+      lineHeight: Math.round(theme.fontSize.content * PROSE_LINE_HEIGHT),
     },
 
     heading1: {

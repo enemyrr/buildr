@@ -118,7 +118,7 @@ export const ru: TranslationResources = {
   composer: {
     loadout: en.composer.loadout,
     placeholders: {
-      desktop: "Напишите агенту сообщение, отметьте @files или используйте /commands и /skills.",
+      desktop: "Попросите внести изменения, упомяните файлы через @, запустите /commands",
       mobile: "Сообщение,@files,/commands",
       fallback: "Сообщение...",
       terminal: "Prompt",
@@ -256,7 +256,31 @@ export const ru: TranslationResources = {
       unarchive: "Разархивировать",
     },
   },
+  dashboard: {
+    title: "Панель",
+    allProjects: "Все проекты",
+    more: "Ещё",
+    emptyColumn: "Нет рабочих пространств",
+    columns: {
+      backlog: "Бэклог",
+      inProgress: "В работе",
+      inReview: "На ревью",
+      done: "Готово",
+      canceled: "Отменено",
+    },
+    actions: {
+      archive: "Архивировать",
+      setStatus: "Задать статус",
+      resetStatus: "Использовать статус PR",
+    },
+  },
   sessions: {
+    filters: {
+      allProjects: "Во всех проектах",
+      inProject: "В {{project}}",
+      hidingArchived: "Архивные скрыты",
+      showingArchived: "Архивные показаны",
+    },
     title: "История",
     empty: "Сессий пока нет",
     noMatches: "Подходящих сессий не найдено",
@@ -592,6 +616,17 @@ export const ru: TranslationResources = {
       unableToSubscribe: "Не удалось подключиться к терминалу",
     },
     tabs: {
+      closedChats: {
+        title: "Закрытые чаты",
+        empty: "Нет закрытых чатов",
+        restoreFailed: "Не удалось восстановить чат",
+      },
+      newChat: {
+        title: "Новый чат в {{path}}.",
+        addTranscripts: "Добавить расшифровки чатов:",
+        more: "ещё {{count}}",
+        attachFailed: "Не удалось прикрепить расшифровку",
+      },
       loading: "Загрузка...",
       modified: "Несохранённые изменения",
       loadingAgentTitle: "Загрузка названия агента",
@@ -612,6 +647,7 @@ export const ru: TranslationResources = {
       menu: {
         openFor: "Открыть меню для {{label}}",
         copyResumeCommand: "Копировать команду продолжения",
+        copyTranscript: "Копировать расшифровку",
         copyAgentId: "Скопировать идентификатор агента",
         copyTerminalId: "Скопировать идентификатор терминала",
         copyFilePath: "Скопировать путь к файлу",
@@ -657,6 +693,8 @@ export const ru: TranslationResources = {
       toasts: {
         copyFailed: "Не удалось скопировать",
         agentIdCopiedLabel: "ID агента",
+        transcriptCopiedLabel: "Расшифровка",
+        transcriptUnavailable: "Расшифровка недоступна",
         terminalIdCopiedLabel: "Идентификатор терминала",
         resumeCommandCopiedLabel: "команда продолжения",
         filePathCopiedLabel: "Путь к файлу",
@@ -861,7 +899,7 @@ export const ru: TranslationResources = {
           updateCurrent: "Обновление недоступно: эта ветка уже синхронизирована с {{baseRef}}.",
           mergePrNoGithub: "Слияние PR сейчас недоступно: GitHub не подключён.",
           archiveNotWorktree:
-            "Архивирование недоступно: это рабочее пространство не было создано как worktree Paseo.",
+            "Архивирование недоступно: это рабочее пространство не было создано как worktree Buildr.",
           mergePrNoForge: "Слияние {{noun}} сейчас недоступно: {{brand}} не подключён.",
           mergePrMissing: "Слияние PR недоступно: PR ещё не создан.",
           mergePrDraft: "Слияние PR недоступно: PR всё ещё является черновиком.",
@@ -959,6 +997,62 @@ export const ru: TranslationResources = {
         openIn: "Открыть рабочее пространство в {{target}}",
         openFileIn: "Открыть {{fileName}} в {{target}}",
         failedOpen: "Не удалось открыть рабочее пространство",
+      },
+      prFlow: {
+        createPr: "Создать PR",
+        createDraftPr: "Создать черновик PR",
+        createPrDirectly: "Создать PR напрямую",
+        createPrManually: "Создать PR вручную",
+        options: "Параметры PR",
+        review: "Ревью",
+        openPr: "Открыть pull request {{ref}}",
+        commitAndPush: "Закоммитить и отправить",
+        continue: "Продолжить",
+        continueTooltip: "Продолжить в новой ветке с теми же чатами",
+        archive: "Архивировать",
+        merge: "Слить",
+        resolve: "Разрешить",
+        fix: "Исправить",
+        autoMerge: "Автослияние",
+        state: {
+          open: "Открыт",
+          draft: "Черновик",
+          merged: "Слит",
+          closed: "Закрыт",
+          conflicts: "Конфликты слияния",
+          checksFailed: "Проверки не прошли",
+          checksRunning: "Проверки выполняются",
+          autoMergeEnabled: "Автослияние включено",
+          changesRequested: "Запрошены изменения",
+          reviewRequired: "Требуется ревью",
+        },
+        tabs: {
+          allFiles: "Все файлы",
+          changes: "Изменения",
+          checks: "Проверки",
+        },
+        changes: {
+          filesChanged_one: "Изменён {{count}} файл",
+          filesChanged_other: "Изменено файлов: {{count}}",
+          showAsTree: "Показать деревом",
+        },
+        checks: {
+          titlePlaceholder: "Заголовок PR",
+          descriptionPlaceholder: "Описание PR",
+          gitStatus: "Статус Git",
+          noPr: "Нет открытого PR",
+          prOpen: "PR {{ref}} открыт",
+          prDraft: "Черновик PR {{ref}} открыт",
+          prMerged: "PR {{ref}} слит",
+          prClosed: "PR {{ref}} закрыт",
+          uncommitted_one: "{{count}} незакоммиченное изменение",
+          uncommitted_other: "Незакоммиченных изменений: {{count}}",
+          uncommittedUnknown: "Незакоммиченные изменения",
+          clean: "Нет незакоммиченных изменений",
+          comments: "Комментарии",
+          addAllToChat: "Добавить всё в чат",
+          noComments: "Комментариев пока нет",
+        },
       },
       pr: {
         actions: {
@@ -1152,7 +1246,7 @@ export const ru: TranslationResources = {
       discord: "Discord",
       github: "Создать issue на GitHub",
       whatsNew: "Что нового",
-      appName: "Paseo",
+      appName: "Buildr",
     },
     resources: {
       trigger: "Ресурсы и использование",
@@ -1170,6 +1264,7 @@ export const ru: TranslationResources = {
       updateHost: "Обновите хост, чтобы видеть загрузку ЦП и памяти.",
     },
     sections: {
+      dashboard: "Панель",
       sessions: "История",
       search: "Поиск",
       schedules: "Расписания",
@@ -1183,6 +1278,7 @@ export const ru: TranslationResources = {
     project: {
       actions: {
         menu: "Действия проекта",
+        createFrom: "Создать из...",
         openSettings: "Открыть настройки проекта",
         openNewWindow: "Открыть в новом окне",
         openNewWindowFailed: "Не удалось открыть новое окно",
@@ -1236,6 +1332,8 @@ export const ru: TranslationResources = {
         archive: "Архивировать",
         archiveWorkspace: "Архивировать рабочее пространство",
         hideFromSidebar: "Скрыть на боковой панели",
+        copyLink: "Копировать ссылку",
+        setStatus: "Задать статус",
         archiving: "Архивирование...",
         hiding: "Скрытие...",
       },
@@ -1246,6 +1344,14 @@ export const ru: TranslationResources = {
         hideConfirm: "Скрыть",
         cancel: "Отмена",
       },
+      boardStatus: {
+        backlog: "Бэклог",
+        inProgress: "В работе",
+        inReview: "На ревью",
+        done: "Готово",
+        canceled: "Отменено",
+        automatic: "Автоматически",
+      },
       rename: {
         title: "Переименовать рабочее пространство",
         submit: "Переименовать",
@@ -1253,6 +1359,7 @@ export const ru: TranslationResources = {
       },
       toasts: {
         workspacePathUnavailable: "Путь к рабочему пространству недоступен",
+        linkCopied: "Ссылка скопирована",
         pathCopied: "Путь скопирован",
         branchNameCopied: "Имя ветки скопировано",
         hostDisconnected: "Хост не подключён",
@@ -1262,6 +1369,18 @@ export const ru: TranslationResources = {
     },
   },
   newWorkspace: {
+    promptPlaceholder: "Над чем хотите поработать?",
+    moreOptions: "Другие параметры",
+    createFrom: {
+      title: "Создать из",
+      searchPlaceholder: "Поиск pull request и веток",
+      pullRequests: "PR",
+      branches: "Ветки",
+      select: "Выбрать",
+      noPullRequests: "Нет подходящих pull request",
+      noBranches: "Нет подходящих веток",
+      targetBranch: "Целевая ветка",
+    },
     title: "Новое рабочее пространство",
     create: "Создать",
     isolation: {
@@ -1315,7 +1434,7 @@ export const ru: TranslationResources = {
       close: "Закрыть окно",
     },
     quitting: {
-      title: "Завершение работы Paseo...",
+      title: "Завершение работы Buildr...",
       detail: "Остановка локального демона.",
     },
     daemon: {
@@ -1330,20 +1449,20 @@ export const ru: TranslationResources = {
       },
       management: {
         title: "Управление встроенным демоном",
-        hint: "Разрешить Paseo запускать и останавливать встроенный демон",
+        hint: "Разрешить Buildr запускать и останавливать встроенный демон",
         pauseTitle: "Приостановить встроенный демон",
         pauseMessage:
           "Это немедленно остановит встроенный демон. Запущенные агенты и терминалы, подключенные к встроенному демону, будут остановлены.",
         pauseAndStop: "Приостановить управление и остановить демон",
         registrationFailed:
-          "Встроенный демон запущен, но Paseo не удалось сохранить подключение к localhost. Выключите и снова включите управление демоном или добавьте localhost вручную.",
+          "Встроенный демон запущен, но Buildr не удалось сохранить подключение к localhost. Выключите и снова включите управление демоном или добавьте localhost вручную.",
         pausedStopFailed:
-          "Встроенное управление демоном было приостановлено, но Paseo не смог остановить демон.",
+          "Встроенное управление демоном было приостановлено, но Buildr не смог остановить демон.",
         updateFailed: "Не удалось изменить настройки управления встроенным демоном.",
       },
       keepRunning: {
         title: "Продолжать работу демона после выхода",
-        hint: "Демон продолжит работать после выхода из Paseo",
+        hint: "Демон продолжит работать после выхода из Buildr",
       },
       logs: {
         title: "Файл журнала",
@@ -1414,7 +1533,7 @@ export const ru: TranslationResources = {
     },
     rosetta: {
       title: "Загрузите сборку Apple Silicon",
-      runningIntel: "Вы используете сборку Paseo для Intel через Rosetta на Apple Silicon.",
+      runningIntel: "Вы используете сборку Buildr для Intel через Rosetta на Apple Silicon.",
       highCpu:
         "Из-за этого процессор сильно загружен. Чтобы устранить проблему, скачайте сборку для Apple Silicon.",
       download: "Скачать",
@@ -1459,7 +1578,7 @@ export const ru: TranslationResources = {
         microphone: "Состояние микрофона ещё не проверялось.",
       },
       testNotification: {
-        title: "Тест уведомлений Paseo",
+        title: "Тест уведомлений Buildr",
         body: "Если вы это видите, уведомления на рабочем столе работают.",
         notDelivered:
           "Уведомление не доставлено. Проверьте раздел «Уведомления» в системных настройках.",
@@ -1469,12 +1588,12 @@ export const ru: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "Не удалось проверить состояние установки CLI.",
-        installFailed: "Не удалось установить Paseo CLI.",
+        installFailed: "Не удалось установить Buildr CLI.",
       },
     },
   },
   rootError: {
-    title: "В Paseo возникла проблема.",
+    title: "В Buildr возникла проблема.",
     body: "Попробуйте перезагрузить приложение. Если ошибка повторится, приложите приведённые ниже сведения к отчёту.",
     details: "Подробности",
   },
@@ -1570,7 +1689,7 @@ export const ru: TranslationResources = {
     },
   },
   onboarding: {
-    title: "Добро пожаловать в Paseo",
+    title: "Добро пожаловать в Buildr",
     subtitle: "Подключите компьютер, чтобы начать",
     actions: {
       settings: "Настройки",
@@ -1656,7 +1775,7 @@ export const ru: TranslationResources = {
     },
     direct: {
       title: "Прямое подключение",
-      helper: "Введите адрес сервера Paseo.",
+      helper: "Введите адрес сервера Buildr.",
       fields: {
         host: "Хост",
         port: "Порт",
@@ -1699,7 +1818,7 @@ export const ru: TranslationResources = {
     },
     remoteSsh: {
       title: "Удалённый SSH",
-      helper: "Подключитесь к демону Paseo на удалённом хосте.",
+      helper: "Подключитесь к демону Buildr на удалённом хосте.",
       fields: {
         target: "Хост SSH",
       },
@@ -1757,15 +1876,15 @@ export const ru: TranslationResources = {
       enableDescription:
         "Ретранслятор позволяет этому устройству подключаться откуда угодно. Трафик сопряжения защищён сквозным шифрованием.",
       relayDocs: "Как работает ретранслятор",
-      relayDocsAccessibility: "Узнать, как работает ретранслятор Paseo",
+      relayDocsAccessibility: "Узнать, как работает ретранслятор Buildr",
       enableRelay: "Включить ретранслятор",
       enablingRelay: "Включение ретранслятора...",
       notNow: "Не сейчас",
       directConnectionHint:
         "Без ретранслятора подключайтесь напрямую через TCP, Tailscale или другую VPN. QR-код создаваться не будет.",
-      updateRequired: "Обновите хост, чтобы включить ретранслятор из Paseo Desktop.",
+      updateRequired: "Обновите хост, чтобы включить ретранслятор из Buildr Desktop.",
       unavailable: "Данные для сопряжения недоступны.",
-      hint: "Отсканируйте этот QR-код с помощью Paseo на телефоне или скопируйте ссылку ниже.",
+      hint: "Отсканируйте этот QR-код с помощью Buildr на телефоне или скопируйте ссылку ниже.",
       securityWarning:
         "Обращайтесь с этой ссылкой для сопряжения как с паролем. Любой, у кого она есть, может получить доступ к этому демону.",
       qrUnavailable: "QR-код недоступен.",
@@ -1800,7 +1919,7 @@ export const ru: TranslationResources = {
   serviceUrl: {
     title: "Открыть URL сервиса",
     message: "Открыть {{url}}?",
-    inPaseo: "В Paseo",
+    inPaseo: "В Buildr",
     externalBrowser: "Внешний браузер",
     dontAskAgain: "Больше не спрашивать",
   },
@@ -1900,31 +2019,14 @@ export const ru: TranslationResources = {
     output: "Выходные данные",
   },
   toolCallGroup: {
-    editedFiles: {
-      one: "изменён {{count}} файл",
-      other: "изменены файлы ({{count}})",
+    toolCalls: {
+      one: "{{count}} вызов инструмента",
+      other: "{{count}} вызовов инструментов",
     },
-    commands: {
-      one: "выполнена {{count}} команда",
-      other: "выполнены команды ({{count}})",
+    messages: {
+      one: "{{count}} сообщение",
+      other: "{{count}} сообщений",
     },
-    readFiles: {
-      one: "прочитан {{count}} файл",
-      other: "прочитаны файлы ({{count}})",
-    },
-    searches: {
-      one: "выполнен {{count}} поиск",
-      other: "выполнены поисковые запросы ({{count}})",
-    },
-    otherTools: {
-      one: "использован {{count}} другой инструмент",
-      other: "использованы другие инструменты ({{count}})",
-    },
-    paseoCalls: {
-      one: "выполнен {{count}} вызов Paseo",
-      other: "выполнены вызовы Paseo ({{count}})",
-    },
-    and: "и",
   },
   renameModal: {
     rename: "Переименовать",
@@ -2004,7 +2106,7 @@ export const ru: TranslationResources = {
       send: "Отправить",
       sending: "Отправка...",
       sentTitle: "Тестовое уведомление отправлено",
-      sentDescription: "Paseo передал уведомление операционной системе.",
+      sentDescription: "Buildr передал уведомление операционной системе.",
       sendFailedTitle: "Не удалось отправить тестовое уведомление",
     },
     hostSections: {
@@ -2023,14 +2125,14 @@ export const ru: TranslationResources = {
     metadataGeneration: {
       title: "Генерация метаданных",
       description:
-        "Выберите модель, которую Paseo будет использовать для названий рабочих пространств и веток, сообщений коммитов и черновиков PR",
+        "Выберите модель, которую Buildr будет использовать для названий рабочих пространств и веток, сообщений коммитов и черновиков PR",
       selection: "Выбор модели",
       automatic: "Автоматически",
       preferred: "Вручную",
-      automaticHint: "Paseo выбирает быструю доступную модель",
-      preferredHint: "Выберите модель, которую использует Paseo",
+      automaticHint: "Buildr выбирает быструю доступную модель",
+      preferredHint: "Выберите модель, которую использует Buildr",
       model: "Модель",
-      fallbackHint: "Если она недоступна, Paseo использует другую доступную модель",
+      fallbackHint: "Если она недоступна, Buildr использует другую доступную модель",
       docs: "Документация",
       saveError: "Не удалось обновить настройки генерации метаданных",
     },
@@ -2039,7 +2141,7 @@ export const ru: TranslationResources = {
       browserData: {
         title: "Данные браузера",
         siteData: "Файлы cookie и данные сайтов",
-        description: "Вкладки браузера в Paseo используют общие данные входа и данные сайтов.",
+        description: "Вкладки браузера в Buildr используют общие данные входа и данные сайтов.",
         clear: "Очистить данные браузера",
         clearing: "Очистка...",
         confirmTitle: "Очистить данные браузера?",
@@ -2069,7 +2171,7 @@ export const ru: TranslationResources = {
         description: "Где открывать URL-адреса запущенных скриптов",
         options: {
           ask: "Спрашивать",
-          inApp: "В Paseo",
+          inApp: "В Buildr",
           external: "Внешний браузер",
         },
       },
@@ -2149,7 +2251,7 @@ export const ru: TranslationResources = {
       releaseChannel: {
         label: "Канал выпуска",
         description:
-          "Переключитесь на бета-канал, чтобы раньше получать обновления и помогать развивать Paseo.",
+          "Переключитесь на бета-канал, чтобы раньше получать обновления и помогать развивать Buildr.",
         stable: "Стабильный",
         beta: "Бета",
       },
@@ -2157,7 +2259,7 @@ export const ru: TranslationResources = {
         label: "Обновления приложения",
         readyToInstall: "Версия {{version}} готова к установке",
         installTitle: "Установить обновление настольного приложения",
-        installMessage: "Это обновит Paseo на этом компьютере.",
+        installMessage: "Это обновит Buildr на этом компьютере.",
         installConfirm: "Установить обновление",
         update: "Обновить",
         updateTo: "Обновить до {{version}}",
@@ -2180,6 +2282,7 @@ export const ru: TranslationResources = {
           claude: "Claude",
           ghostty: "Ghostty",
           pureBlack: "Абсолютно чёрная",
+          paseo: "Buildr",
           auto: "Системная",
         },
       },
@@ -2393,11 +2496,11 @@ export const ru: TranslationResources = {
         unavailable: "Подключитесь к этому хосту, чтобы управлять навыками оркестрации",
         unsupported: "Обновите этот хост, чтобы управлять навыками оркестрации",
         updateAvailable: "Доступно обновление",
-        updateTitle: "Обновить навыки Paseo?",
+        updateTitle: "Обновить навыки Buildr?",
         updateFallback: "Встроенные навыки будут синхронизированы с этим хостом.",
-        uninstallTitle: "Удалить навыки Paseo?",
+        uninstallTitle: "Удалить навыки Buildr?",
         uninstallMessage:
-          "Удаляет все навыки оркестрации Paseo из ~/.agents, ~/.claude и ~/.codex на этом хосте.",
+          "Удаляет все навыки оркестрации Buildr из ~/.agents, ~/.claude и ~/.codex на этом хосте.",
         choose: "Выбрать навыки",
         chooseAll: "Все навыки",
         chooseAllHint: "Устанавливать все встроенные навыки, включая добавленные позже.",
@@ -2433,9 +2536,9 @@ export const ru: TranslationResources = {
         title: "Оркестрация",
         unavailable: "Подключитесь к этому хосту, чтобы управлять оркестрацией.",
         enableTools: {
-          title: "Включить инструменты Paseo",
+          title: "Включить инструменты Buildr",
           hint: "Агенты смогут управлять worktree, агентами и расписаниями.",
-          accessibilityLabel: "Добавить инструменты Paseo",
+          accessibilityLabel: "Добавить инструменты Buildr",
         },
         systemPrompt: {
           title: "Системный промпт",
@@ -2540,15 +2643,15 @@ export const ru: TranslationResources = {
             "Этот хост не подключён. Дождитесь его появления в сети перед перезапуском.",
           offlineTitle: "Хост не в сети",
           offlineMessage:
-            "Этот хост не в сети. Paseo переподключится автоматически. Дождитесь подключения перед перезапуском.",
+            "Этот хост не в сети. Buildr переподключится автоматически. Дождитесь подключения перед перезапуском.",
           requestFailedTitle: "Ошибка",
           requestFailedMessage:
-            "Не удалось отправить запрос на перезапуск. Paseo переподключается автоматически. Повторите попытку, когда хост появится в сети.",
+            "Не удалось отправить запрос на перезапуск. Buildr переподключается автоматически. Повторите попытку, когда хост появится в сети.",
           dialogFailedMessage: "Не удалось открыть диалог подтверждения перезапуска.",
         },
         update: {
           desktopManagedHint:
-            "Этот демон управляется Paseo Desktop. Обновите Paseo Desktop на хосте.",
+            "Этот демон управляется Buildr Desktop. Обновите Buildr Desktop на хосте.",
           title: "Обновить демон",
           hint: "Обновить демон до последней версии и перезапустить его",
           confirm: "Обновить",
@@ -2725,7 +2828,7 @@ export const ru: TranslationResources = {
         newScript: "Новый скрипт",
         editScript: "Изменить {{name}}",
         runAsService: "Запускать как сервис",
-        serviceHint: "Paseo управляет процессом и назначает порт через переменную $PASEO_PORT.",
+        serviceHint: "Buildr управляет процессом и назначает порт через переменную $PASEO_PORT.",
         actions: {
           add: "Добавить скрипт",
           edit: "Редактировать",
@@ -2734,7 +2837,7 @@ export const ru: TranslationResources = {
       },
       metadata: {
         title: "Генерация метаданных",
-        info: "Инструкции для этого проекта, добавляемые в промпты ИИ, с помощью которых Paseo генерирует метаданные. Используйте их, чтобы соблюдать принятые в команде правила именования веток, оформления коммитов и формата PR.",
+        info: "Инструкции для этого проекта, добавляемые в промпты ИИ, с помощью которых Buildr генерирует метаданные. Используйте их, чтобы соблюдать принятые в команде правила именования веток, оформления коммитов и формата PR.",
         branchName: "Названия веток",
         branchNamePlaceholder:
           "Добавляйте к веткам префиксы feat/ или fix/, а к личным веткам — mb/",

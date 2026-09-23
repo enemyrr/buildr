@@ -15,6 +15,7 @@ const changesPreferencesSchema = z.strictObject({
   hideWhitespace: z.boolean().optional(),
   inlineDiff: z.boolean().optional(),
   commitsCollapsed: z.boolean().optional(),
+  sidebarListMode: z.enum(["flat", "tree"]).optional(),
 });
 
 export interface ChangesPreferences {
@@ -24,6 +25,8 @@ export interface ChangesPreferences {
   hideWhitespace: boolean;
   inlineDiff: boolean;
   commitsCollapsed: boolean;
+  /** How the Explorer's Changes view lists files: a flat path list or a folder tree. */
+  sidebarListMode: "flat" | "tree";
 }
 
 export const DEFAULT_CHANGES_PREFERENCES: ChangesPreferences = {
@@ -33,6 +36,7 @@ export const DEFAULT_CHANGES_PREFERENCES: ChangesPreferences = {
   hideWhitespace: false,
   inlineDiff: false,
   commitsCollapsed: true,
+  sidebarListMode: "flat",
 };
 
 export interface KeyValueStorage {

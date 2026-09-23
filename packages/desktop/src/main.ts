@@ -103,6 +103,7 @@ import { installAppUpdateOnQuit } from "./features/auto-updater.js";
 import {
   applyDesktopVariantHome,
   applyDesktopVariantListen,
+  getAppDisplayName,
   getDesktopVariant,
 } from "./desktop-variant.js";
 import {
@@ -140,6 +141,8 @@ const bootstrapComplete = new Promise<void>((resolve) => {
 let bootstrapIsComplete = false;
 
 app.setName(APP_NAME);
+// The default About panel reads CFBundleName, which a variant build keeps.
+app.setAboutPanelOptions({ applicationName: getAppDisplayName() });
 log.info("[desktop] app startup", {
   version: app.getVersion(),
   platform: process.platform,
@@ -699,7 +702,8 @@ async function createWindow(
     ? clampWindowStateToWorkAreas(savedWindowState, getWorkAreasPrimaryFirst())
     : null;
 
-  const title = devWorktreeName ? `${APP_NAME} (${devWorktreeName})` : APP_NAME;
+  const appDisplayName = getAppDisplayName();
+  const title = devWorktreeName ? `${appDisplayName} (${devWorktreeName})` : appDisplayName;
   const mainWindow = new BrowserWindow({
     title,
     ...resolveWindowBounds(restoredWindowState),

@@ -105,10 +105,12 @@ import {
 } from "./new-workspace-fork-context";
 import {
   buildPickerOptionData,
+  createFromTabForItem,
   defaultBasePickerItem,
   pickerItemLabel,
   pickerItemToCheckoutRequest,
   type BranchPickerDetail,
+  type CreateFromTab,
   type PickerCheckoutRequest,
   type PickerItem,
   type PickerOptionData,
@@ -132,6 +134,8 @@ import {
 } from "./workspace/terminals/state";
 import { captureWorkspaceDraftCleanup } from "./new-workspace/background-handoff";
 import { useNewWorkspaceScreenPresence } from "./new-workspace/screen-presence";
+import { CreateFromPicker, type CreateFromPickerProps } from "./new-workspace/create-from-picker";
+import { NewWorkspaceOptionsMenu } from "./new-workspace/options-menu";
 
 const ThemedFolderPlus = withUnistyles(FolderPlus);
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -191,6 +195,8 @@ interface NewWorkspaceScreenProps {
   projectId?: string;
   displayName?: string;
   draftId?: string;
+  /** Opens the "Create from…" picker on arrival (the sidebar's project menu entry). */
+  createFrom?: boolean;
 }
 
 // A terminal launch sends argv, not a message: there is nothing to attach and
@@ -311,6 +317,7 @@ function ProjectPickerTrigger({
   iconDataUri,
   iconColor,
   iconSize,
+  emphasized = false,
 }: {
   pickerAnchorRef: React.RefObject<View | null>;
   onPress: () => void;
@@ -322,6 +329,8 @@ function ProjectPickerTrigger({
   iconDataUri: string | null;
   iconColor: string;
   iconSize: number;
+  /** The card header names the project, so it reads as the title rather than a muted chip. */
+  emphasized?: boolean;
 }) {
   const placeholderLabel = projectIconPlaceholderLabelFromDisplayName(label);
   const placeholderInitial = placeholderLabel.charAt(0).toUpperCase() || "?";
@@ -351,7 +360,10 @@ function ProjectPickerTrigger({
               <Folder size={iconSize} color={iconColor} />
             )}
           </View>
-          <Text style={styles.badgeText} numberOfLines={1}>
+          <Text
+            style={[styles.badgeText, emphasized && styles.badgeTextEmphasized]}
+            numberOfLines={1}
+          >
             {label}
           </Text>
         </ComboboxTrigger>
@@ -360,66 +372,6 @@ function ProjectPickerTrigger({
         <Text style={styles.tooltipText}>{tooltipLabel}</Text>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function PickerOptionItem({
-  testID,
-  label,
-  description,
-  selected,
-  active,
-  disabled,
-  onPress,
-  isBranch,
-  trailingLabel,
-  accessibilityLabel,
-  iconColor,
-  iconSize,
-}: {
-  testID: string;
-  label: string;
-  description: string | undefined;
-  selected: boolean;
-  active: boolean;
-  disabled: boolean;
-  onPress: () => void;
-  isBranch: boolean;
-  trailingLabel?: string;
-  accessibilityLabel?: string;
-  iconColor: string;
-  iconSize: number;
-}) {
-  const leadingSlot = useMemo(
-    () => (
-      <View style={styles.rowIconBox}>
-        {isBranch ? (
-          <GitBranch size={iconSize} color={iconColor} />
-        ) : (
-          <GitPullRequest size={iconSize} color={iconColor} />
-        )}
-      </View>
-    ),
-    [isBranch, iconSize, iconColor],
-  );
-  const trailingSlot = useMemo(
-    () =>
-      trailingLabel ? <Text style={styles.refDivergenceLabel}>{trailingLabel}</Text> : undefined,
-    [trailingLabel],
-  );
-  return (
-    <ComboboxItem
-      testID={testID}
-      label={label}
-      description={description}
-      selected={selected}
-      active={active}
-      disabled={disabled}
-      onPress={onPress}
-      leadingSlot={leadingSlot}
-      trailingSlot={trailingSlot}
-      accessibilityLabel={accessibilityLabel}
-    />
   );
 }
 
@@ -515,53 +467,6 @@ function ProjectOptionItem({
       disabled={disabled}
       onPress={onPress}
       leadingSlot={leadingSlot}
-    />
-  );
-}
-
-function NewWorkspacePickerOption({
-  option,
-  selected,
-  active,
-  onPress,
-  itemById,
-  isPending,
-}: {
-  option: ComboboxOptionType;
-  selected: boolean;
-  active: boolean;
-  onPress: () => void;
-  itemById: Map<string, PickerItem>;
-  isPending: boolean;
-}) {
-  const { theme } = useUnistyles();
-  const { t } = useTranslation();
-  const item = itemById.get(option.id);
-  if (!item) return <View key={option.id} />;
-
-  const isBranch = item.kind === "branch";
-  const testID = isBranch
-    ? `new-workspace-ref-picker-branch-${item.name}`
-    : `new-workspace-ref-picker-pr-${item.item.number}`;
-  const description =
-    !isBranch && item.item.baseRefName
-      ? t("newWorkspace.refPicker.intoBase", { baseRef: item.item.baseRefName })
-      : undefined;
-
-  return (
-    <PickerOptionItem
-      testID={testID}
-      label={pickerItemLabel(item)}
-      description={description}
-      selected={selected}
-      active={active}
-      disabled={isPending}
-      onPress={onPress}
-      isBranch={isBranch}
-      trailingLabel={isBranch ? item.divergenceLabel : undefined}
-      accessibilityLabel={isBranch ? item.accessibilityLabel : undefined}
-      iconColor={theme.colors.foregroundMuted}
-      iconSize={theme.iconSize.sm}
     />
   );
 }
@@ -743,6 +648,12 @@ function isolationLabel(t: TFunction, isolation: "local" | "worktree"): string {
   return isolation === "worktree"
     ? t("newWorkspace.isolation.worktree")
     : t("newWorkspace.isolation.local");
+}
+
+// A PR checkout merges back into the PR's base; a branch pick is its own target.
+function resolveTargetBranchLabel(selectedItem: PickerItem | null, baseLabel: string): string {
+  if (selectedItem?.kind === "github-pr") return selectedItem.item.baseRefName ?? baseLabel;
+  return baseLabel;
 }
 
 function normalizeBranchDetails(
@@ -1398,20 +1309,20 @@ interface NewWorkspaceFormStackInput {
     effectiveIsolation: "local" | "worktree";
     options: ComboboxOptionType[];
     onSelect: (id: string) => void;
+    onSelectValue: (value: "local" | "worktree") => void;
     renderOption: RefPickerRenderOption;
     canCreateWorktree: boolean;
   };
   base: FormPickerControl & {
     selectedSourceDirectory: string | null;
     selectedItem: PickerItem | null;
+    /** The resolved ref the workspace starts from, including the default base. */
     triggerLabel: string;
-    options: ComboboxOptionType[];
-    selectedOptionId: string;
-    onSelect: (id: string) => void;
-    setSearchQuery: (query: string) => void;
-    emptyText: string;
-    renderOption: RefPickerRenderOption;
+    /** What the target-branch row reads: the PR's base when a PR is picked. */
+    targetBranchLabel: string;
+    openTargetBranch: () => void;
     showRefPicker: boolean;
+    picker: Omit<CreateFromPickerProps, "anchorRef" | "open" | "onOpenChange">;
   };
   launch: {
     serverId: string;
@@ -1422,7 +1333,54 @@ interface NewWorkspaceFormStackInput {
   };
 }
 
-function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactElement {
+function CardHeaderOptionsMenu({
+  isPending,
+  badgePressableStyle,
+  base,
+  isolation,
+}: {
+  isPending: boolean;
+  badgePressableStyle: React.ComponentProps<typeof Pressable>["style"];
+  base: NewWorkspaceFormStackInput["base"];
+  isolation: NewWorkspaceFormStackInput["isolation"];
+}): ReactElement {
+  const showTargetBranch = base.showRefPicker && base.selectedSourceDirectory !== null;
+  const targetBranch = useMemo(
+    () =>
+      showTargetBranch ? { label: base.targetBranchLabel, onOpen: base.openTargetBranch } : null,
+    [base.openTargetBranch, base.targetBranchLabel, showTargetBranch],
+  );
+  const isolationMenu = useMemo(
+    () => ({
+      value: isolation.effectiveIsolation,
+      canCreateWorktree: isolation.canCreateWorktree,
+      onSelect: isolation.onSelectValue,
+    }),
+    [isolation.canCreateWorktree, isolation.effectiveIsolation, isolation.onSelectValue],
+  );
+  return (
+    <NewWorkspaceOptionsMenu
+      disabled={isPending}
+      badgePressableStyle={badgePressableStyle}
+      targetBranch={targetBranch}
+      isolation={isolationMenu}
+    />
+  );
+}
+
+interface NewWorkspaceCardHeader {
+  leading: ReactElement;
+  actions: ReactElement;
+}
+
+interface NewWorkspaceFormParts {
+  /** The chip stack above the composer on the full-screen layouts. */
+  formStack: ReactElement | null;
+  /** The card header on the desktop dialog, which replaces the chip stack. */
+  cardHeader: NewWorkspaceCardHeader | null;
+}
+
+function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspaceFormParts {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const { isCompact, isDialog, isPending, project, host, isolation, base, launch } = input;
@@ -1465,6 +1423,7 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
         }
         iconColor={theme.colors.foregroundMuted}
         iconSize={theme.iconSize.sm}
+        emphasized={isDialog}
       />
       <Combobox
         options={project.options}
@@ -1569,20 +1528,11 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
         iconColor={theme.colors.foregroundMuted}
         iconSize={theme.iconSize.sm}
       />
-      <Combobox
-        options={base.options}
-        value={base.selectedOptionId}
-        onSelect={base.onSelect}
-        searchable
-        searchPlaceholder={t("newWorkspace.refPicker.searchPlaceholder")}
-        title={t("newWorkspace.refPicker.title")}
+      <CreateFromPicker
+        {...base.picker}
+        anchorRef={base.anchorRef}
         open={base.openState}
         onOpenChange={base.onOpenChange}
-        onSearchQueryChange={base.setSearchQuery}
-        desktopPlacement="bottom-start"
-        anchorRef={base.anchorRef}
-        emptyText={base.emptyText}
-        renderOption={base.renderOption}
       />
     </View>
   ) : null;
@@ -1598,7 +1548,29 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
     />
   );
 
-  return isCompact ? (
+  if (isDialog) {
+    return {
+      formStack: null,
+      cardHeader: {
+        leading: (
+          <View style={styles.cardHeaderLeading} testID="new-workspace-ref-picker-row">
+            {projectControl}
+            {hostControl}
+            {baseControl}
+            <CardHeaderOptionsMenu
+              isPending={isPending}
+              badgePressableStyle={badgePressableStyle}
+              base={base}
+              isolation={isolation}
+            />
+          </View>
+        ),
+        actions: launchControl,
+      },
+    };
+  }
+
+  const formStack = isCompact ? (
     <View testID="new-workspace-ref-picker-row" style={styles.formStack} pointerEvents="box-none">
       <FormRow>{projectControl}</FormRow>
       {hostControl ? <FormRow>{hostControl}</FormRow> : null}
@@ -1612,7 +1584,7 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
   ) : (
     <View
       testID="new-workspace-ref-picker-row"
-      style={isDialog ? styles.formStackDialog : styles.formStackDesktop}
+      style={styles.formStackDesktop}
       pointerEvents="box-none"
     >
       {projectControl}
@@ -1623,6 +1595,7 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
       {launchControl}
     </View>
   );
+  return { formStack, cardHeader: null };
 }
 
 export function NewWorkspaceScreen({
@@ -1631,13 +1604,14 @@ export function NewWorkspaceScreen({
   projectId,
   displayName: displayNameProp,
   draftId,
+  createFrom = false,
 }: NewWorkspaceScreenProps) {
   const queryClient = useQueryClient();
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const isDialog = useIsNewWorkspaceDialog();
-  const composerSurface = newWorkspaceComposerSurface(isDialog, t("newWorkspace.create"));
+  const composerSurface = newWorkspaceComposerSurface(isDialog, `${t("newWorkspace.create")} ↵`);
   const toast = useToast();
   const mergeWorkspaces = useCallback(
     (targetServerId: string, workspaces: Iterable<WorkspaceDescriptor>) => {
@@ -1674,6 +1648,7 @@ export function NewWorkspaceScreen({
   >({ workspace: null });
   const [pendingAction, setPendingAction] = useState<"chat" | "empty" | "terminal" | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTab, setPickerTab] = useState<CreateFromTab>(createFrom ? "prs" : "branches");
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
   const openAddProjectPicker = useOpenAddProject();
   const [isolationPickerOpen, setIsolationPickerOpen] = useState(false);
@@ -1955,8 +1930,28 @@ export function NewWorkspaceScreen({
   }, [openAddProjectPicker, selectedServerId]);
 
   const openPicker = useCallback(() => {
+    setPickerTab(createFromTabForItem(selectedItem));
+    setPickerOpen(true);
+  }, [selectedItem]);
+
+  const openTargetBranchPicker = useCallback(() => {
+    setPickerTab("branches");
     setPickerOpen(true);
   }, []);
+
+  // The sidebar's "Create from…" lands here with the picker open. A PR or branch only means
+  // something for a worktree, so a remembered Local choice yields to it.
+  const createFromHandledRef = useRef(!createFrom);
+  useEffect(() => {
+    if (createFromHandledRef.current || !selectedSourceDirectory) return;
+    createFromHandledRef.current = true;
+    if (canCreateWorktree && effectiveIsolation !== "worktree") {
+      setIsolation("worktree");
+    } else if (!showRefPicker) {
+      return;
+    }
+    setPickerOpen(true);
+  }, [canCreateWorktree, effectiveIsolation, selectedSourceDirectory, setIsolation, showRefPicker]);
 
   const openProjectPicker = useCallback(() => {
     setProjectPickerOpen(true);
@@ -2266,16 +2261,6 @@ export function NewWorkspaceScreen({
     withConnectedClient,
   ]);
 
-  const renderPickerOption = useCallback(
-    (props: {
-      option: ComboboxOptionType;
-      selected: boolean;
-      active: boolean;
-      onPress: () => void;
-    }) => <NewWorkspacePickerOption {...props} itemById={itemById} isPending={isPending} />,
-    [isPending, itemById],
-  );
-
   const renderProjectOption = useCallback(
     (props: {
       option: ComboboxOptionType;
@@ -2312,12 +2297,11 @@ export function NewWorkspaceScreen({
     [composerState, isPending],
   );
 
-  const pickerEmptyText =
-    branchSuggestionsQuery.isFetching || githubPrSearchQuery.isFetching
-      ? t("newWorkspace.refPicker.searching")
-      : t("newWorkspace.refPicker.noMatchingRefs");
+  const isPickerSearching = [branchSuggestionsQuery, githubPrSearchQuery].some(
+    (query) => query.isFetching,
+  );
 
-  const formStack = useNewWorkspaceFormStack({
+  const { formStack, cardHeader } = useNewWorkspaceFormParts({
     isCompact,
     isDialog,
     isPending,
@@ -2350,6 +2334,7 @@ export function NewWorkspaceScreen({
       effectiveIsolation,
       options: isolationOptions,
       onSelect: handleSelectIsolationOption,
+      onSelectValue: setIsolation,
       openState: isolationPickerOpen,
       onOpenChange: handleIsolationPickerOpenChange,
       renderOption: renderIsolationOption,
@@ -2361,15 +2346,23 @@ export function NewWorkspaceScreen({
       selectedSourceDirectory,
       selectedItem,
       triggerLabel,
-      options,
-      selectedOptionId,
-      onSelect: handleSelectOption,
+      targetBranchLabel: resolveTargetBranchLabel(selectedItem, triggerLabel),
+      openTargetBranch: openTargetBranchPicker,
       openState: pickerOpen,
       onOpenChange: handlePickerOpenChange,
-      setSearchQuery: setPickerSearchQuery,
-      emptyText: pickerEmptyText,
-      renderOption: renderPickerOption,
       showRefPicker,
+      picker: {
+        tab: pickerTab,
+        onTabChange: setPickerTab,
+        showPullRequests: [supportsForgeSearch, forgeSearchAuthenticated].every(Boolean),
+        options,
+        itemById,
+        selectedOptionId,
+        onSelect: handleSelectOption,
+        onSearchQueryChange: setPickerSearchQuery,
+        isSearching: isPickerSearching,
+        disabled: isPending,
+      },
     },
     launch: {
       serverId: selectedServerId,
@@ -2441,6 +2434,7 @@ export function NewWorkspaceScreen({
       agentControls={agentControlsWithDisabled}
       inputWrapperStyle={composerSurface.inputWrapperStyle}
       submitLabel={composerSurface.submitLabel}
+      placeholder={t("newWorkspace.promptPlaceholder")}
     />
   );
 
@@ -2450,6 +2444,7 @@ export function NewWorkspaceScreen({
       isCompact={isCompact}
       title={t("newWorkspace.title")}
       formStack={formStack}
+      cardHeader={cardHeader}
       errorMessage={errorMessage}
       headerLeft={screenHeaderLeft}
     >
@@ -2463,6 +2458,7 @@ function NewWorkspaceFrame({
   isCompact,
   title,
   formStack,
+  cardHeader,
   errorMessage,
   headerLeft,
   children,
@@ -2471,13 +2467,14 @@ function NewWorkspaceFrame({
   isCompact: boolean;
   title: string;
   formStack: ReactNode;
+  cardHeader: NewWorkspaceCardHeader | null;
   errorMessage: string | null;
   headerLeft: ReactNode;
   children: ReactNode;
 }) {
-  if (isDialog) {
+  if (isDialog && cardHeader) {
     return (
-      <NewWorkspaceDialog title={title} formStack={formStack}>
+      <NewWorkspaceDialog cardHeader={cardHeader}>
         {children}
         {errorMessage ? <Text style={styles.dialogErrorText}>{errorMessage}</Text> : null}
       </NewWorkspaceDialog>
@@ -2516,30 +2513,35 @@ function closeNewWorkspaceDialog() {
   router.replace("/");
 }
 
+// The card is the whole create flow: the header names the project and holds the rarely touched
+// settings, the body is the prompt, and the composer's own toolbar is the footer.
 function NewWorkspaceDialog({
-  title,
-  formStack,
+  cardHeader,
   children,
 }: {
-  title: string;
-  formStack: ReactNode;
+  cardHeader: NewWorkspaceCardHeader;
   children: ReactNode;
 }) {
-  const header = useMemo<SheetHeader>(() => ({ title }), [title]);
+  const header = useMemo<SheetHeader>(
+    () => ({
+      title: "",
+      leading: cardHeader.leading,
+      actions: cardHeader.actions,
+      borderless: true,
+    }),
+    [cardHeader.actions, cardHeader.leading],
+  );
   return (
     <AdaptiveModalSheet
       header={header}
       visible={true}
       onClose={closeNewWorkspaceDialog}
       testID="new-workspace-dialog"
-      desktopMaxWidth={760}
+      desktopMaxWidth={720}
       scrollable={false}
       contentStyle={styles.dialogContent}
     >
-      <FileDropZone style={styles.dialogBody}>
-        {formStack}
-        {children}
-      </FileDropZone>
+      <FileDropZone style={styles.dialogBody}>{children}</FileDropZone>
     </AdaptiveModalSheet>
   );
 }
@@ -2614,15 +2616,18 @@ const styles = StyleSheet.create((theme) => ({
   },
   // The badge adds its own left padding; this inset lands the first chip's icon
   // on the sheet title's rail.
-  formStackDialog: {
+  // The badge carries its own left padding; pulling the row back by it lands the project avatar
+  // on the sheet header's rail.
+  cardHeaderLeading: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: theme.spacing[4],
-    gap: theme.spacing[2],
+    marginLeft: -theme.spacing[2],
+    gap: theme.spacing[1],
+    minWidth: 0,
   },
   dialogContent: {
     paddingHorizontal: 0,
-    paddingTop: theme.spacing[3],
+    paddingTop: 0,
     paddingBottom: 0,
   },
   dialogBody: {
@@ -2636,9 +2641,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing[4],
   },
   // The card is the composer surface. The composer's own gutter plus this
-  // inset puts the text on the same rail as the title and chips.
+  // inset puts the text on the same rail as the header's project avatar.
   dialogComposerInput: {
-    minHeight: 200,
+    minHeight: 220,
     justifyContent: "space-between",
     backgroundColor: "transparent",
     borderWidth: 0,
@@ -2692,6 +2697,10 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.foregroundMuted,
     flexShrink: 1,
+  },
+  badgeTextEmphasized: {
+    color: theme.colors.foreground,
+    fontWeight: theme.fontWeight.medium,
   },
   tooltipText: {
     fontSize: theme.fontSize.base,

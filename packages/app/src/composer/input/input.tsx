@@ -66,7 +66,7 @@ import {
 } from "@/components/ui/text-input";
 
 const ComposerTextInput = withUnistyles(EditingTextInput, (theme) => ({
-  placeholderTextColor: theme.colors.surface4,
+  placeholderTextColor: theme.colors.foregroundExtraMuted,
 }));
 import {
   resolveSendTooltipLabel,
@@ -1918,15 +1918,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.surface1,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
-    borderRadius: 12,
-    paddingVertical: {
+    borderRadius: 10,
+    paddingTop: {
       xs: theme.spacing[2],
       md: theme.spacing[3],
     },
-    paddingHorizontal: {
-      xs: theme.spacing[3],
-      md: theme.spacing[4],
-    },
+    paddingBottom: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
     ...(isWeb
       ? {
           transitionProperty: "border-color",
@@ -1943,7 +1941,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   textInputScrollWrapper: {
     flexShrink: 1,
     position: "relative",
-    minHeight: { xs: 44, md: 72 },
+    minHeight: { xs: 44, md: 56 },
   },
   focusHintText: {
     position: "absolute",

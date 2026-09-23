@@ -14,10 +14,7 @@ import {
   usesCompactExplorerSidebar,
   type ExplorerSidebarView,
 } from "@/workspace-tabs/explorer-sidebar";
-import {
-  openPreferredWorkspaceTarget,
-  openWorkspaceTargetAtLocation,
-} from "@/workspace-tabs/open-beside";
+import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
 
 interface WorkspaceViewInput {
   isCompact: boolean;
@@ -59,11 +56,32 @@ export function openWorkspacePullRequest(input: OpenWorkspacePullRequestInput): 
     openExplorerView(input, "pr");
     return null;
   }
-  return openWorkspaceTargetAtLocation({
-    isCompact: input.isCompact,
-    workspaceKey: input.workspaceKey,
+  if (!input.workspaceKey) return null;
+  const workspaceKey = input.workspaceKey;
+  const store = useWorkspaceLayoutStore.getState();
+  const layout = store.layoutByWorkspace[workspaceKey];
+  // Explorer always carries a Checks tab, so main and side get their own instance.
+  if (layout) {
+    const explorerPaneId = resolveExplorerSidebarPaneId(
+      layout,
+      store.explorerSidebarPaneIdByWorkspace[workspaceKey],
+    );
+    const existing = collectAllTabs(layout.root).find(
+      (tab) =>
+        tab.target.kind === "pull_request" &&
+        findPaneContainingTab(layout.root, tab.tabId)?.id !== explorerPaneId,
+    );
+    if (existing) {
+      store.focusTab(workspaceKey, existing.tabId);
+      return existing.tabId;
+    }
+  }
+  const sidePaneId = input.destination === "side" ? store.ensureSidePane(workspaceKey) : null;
+  return store.openTab({
+    workspaceKey,
     target: { kind: "pull_request" },
-    location: input.destination,
+    intent: "new",
+    placement: sidePaneId ? { mode: "prefer", paneId: sidePaneId } : undefined,
   });
 }
 

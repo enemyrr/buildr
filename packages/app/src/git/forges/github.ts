@@ -87,6 +87,7 @@ export const githubForgeLogic = {
     blobInfix: "/blob/",
     lineAnchor: GITHUB_LINE_ANCHOR,
     changeRequestChecksSuffix: "/checks",
+    compareChangeRequest: (base: string, head: string) => `/compare/${base}...${head}?expand=1`,
     referencePaths: [
       { kind: "change_request", infix: "/pull/" },
       { kind: "issue", infix: "/issues/" },

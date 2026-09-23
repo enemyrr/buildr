@@ -37,49 +37,58 @@ describe("derivePrStripState", () => {
   it("offers Continue and Archive once merged", () => {
     const archive = action("archive-workspace");
     expect(summarize({ ...open, state: "MERGED", isMerged: true }, actions(archive))).toEqual({
-      label: "Merged",
+      label: "merged",
       tone: "merged",
-      actions: ["Continue", "Archive"],
+      actions: ["continue", "archive"],
     });
   });
 
-  it("offers Merge when a direct merge is available", () => {
+  it("offers Continue and Archive once closed", () => {
+    const archive = action("archive-workspace");
+    expect(summarize({ ...open, state: "CLOSED" }, actions(archive))).toEqual({
+      label: "closed",
+      tone: "danger",
+      actions: ["continue", "archive"],
+    });
+  });
+
+  it("shows an open PR with Merge when a direct merge is available", () => {
     const merge = action("merge-pr-squash");
     expect(summarize(open, actions(merge))).toEqual({
-      label: "Ready to merge",
+      label: "open",
       tone: "success",
-      actions: ["Merge"],
+      actions: ["merge"],
     });
   });
 
   it("ignores a merge action the policy marks unavailable", () => {
     const merge = action("merge-pr-squash", { unavailableMessage: "No" });
-    expect(summarize(open, actions(null, [merge])).label).toBe("Open");
+    expect(summarize(open, actions(null, [merge])).label).toBe("open");
   });
 
   it("puts conflicts ahead of failing checks", () => {
     expect(summarize({ ...open, mergeable: "CONFLICTING", checksStatus: "failure" })).toEqual({
-      label: "Merge conflicts",
+      label: "conflicts",
       tone: "danger",
-      actions: ["Resolve"],
+      actions: ["resolve"],
     });
   });
 
   it("offers Fix for failing checks", () => {
-    expect(summarize({ ...open, checksStatus: "failure" }).actions).toEqual(["Fix"]);
+    expect(summarize({ ...open, checksStatus: "failure" }).actions).toEqual(["fix"]);
   });
 
   it("shows running checks with auto-merge when allowed", () => {
     const autoMerge = action("enable-pr-auto-merge-squash");
     expect(summarize({ ...open, checksStatus: "pending" }, actions(autoMerge))).toEqual({
-      label: "Checks running",
+      label: "checksRunning",
       tone: "warning",
-      actions: ["Auto-merge"],
+      actions: ["autoMerge"],
     });
   });
 
   it("marks drafts and closed PRs", () => {
-    expect(summarize({ ...open, isDraft: true }).label).toBe("Draft");
-    expect(summarize({ ...open, state: "CLOSED" }).label).toBe("Closed");
+    expect(summarize({ ...open, isDraft: true }).label).toBe("draft");
+    expect(summarize({ ...open, state: "CLOSED" }).label).toBe("closed");
   });
 });

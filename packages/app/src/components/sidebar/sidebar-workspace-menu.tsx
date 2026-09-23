@@ -14,12 +14,14 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import * as Clipboard from "expo-clipboard";
 import {
   Archive,
   Circle,
   CircleCheck,
   Copy,
-  MoreVertical,
+  Link,
+  MoreHorizontal,
   Pencil,
   Pin,
   PinOff,
@@ -30,14 +32,18 @@ import { isNative, isWeb } from "@/constants/platform";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { useAppSettings } from "@/hooks/use-settings";
+import { useToast } from "@/contexts/toast-context";
+import type { PrHint } from "@/git/pr-hint";
 import type { Theme } from "@/styles/theme";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  type MenuPageDefinition,
 } from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
@@ -59,13 +65,22 @@ import {
   WORKSPACE_LABEL_PAGE_ID,
   type WorkspaceLabelTarget,
 } from "@/workspace-labels/picker";
+import {
+  WORKSPACE_STATUS_PAGE_ID,
+  WorkspaceBoardStatusIcon,
+  useResolvedWorkspaceBoardStatus,
+  useWorkspaceStatusMenuPage,
+  workspaceBoardStatusLabelKey,
+  type WorkspaceStatusTarget,
+} from "@/components/sidebar/workspace-status-menu";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundMuted,
 });
 
-const ThemedMoreVertical = withUnistyles(MoreVertical);
+const ThemedMoreHorizontal = withUnistyles(MoreHorizontal);
+const ThemedLink = withUnistyles(Link);
 const ThemedCopy = withUnistyles(Copy);
 const ThemedArchive = withUnistyles(Archive);
 const ThemedCircle = withUnistyles(Circle);
@@ -77,6 +92,7 @@ const ThemedTag = withUnistyles(Tag);
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 
 const copyLeadingIcon = <ThemedCopy size={14} uniProps={foregroundMutedColorMapping} />;
+const linkLeadingIcon = <ThemedLink size={14} uniProps={foregroundMutedColorMapping} />;
 const renameLeadingIcon = <ThemedPencil size={14} uniProps={foregroundMutedColorMapping} />;
 const markAsReadLeadingIcon = (
   <ThemedCircleCheck size={14} uniProps={foregroundMutedColorMapping} />
@@ -88,7 +104,7 @@ const unpinLeadingIcon = <ThemedPinOff size={14} uniProps={foregroundMutedColorM
 
 function renderTriggerIcon({ hovered }: { hovered?: boolean }) {
   return (
-    <ThemedMoreVertical
+    <ThemedMoreHorizontal
       size={14}
       uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
     />
@@ -97,6 +113,8 @@ function renderTriggerIcon({ hovered }: { hovered?: boolean }) {
 
 export interface SidebarWorkspaceMenuProps {
   workspaceKey: string;
+  /** Drives the `Set status` fallback and `Copy link`. */
+  prHint?: PrHint | null;
   serverId?: string;
   workspaceId?: string;
   workspaceLabels?: readonly string[];
@@ -146,6 +164,7 @@ function WorkspaceMenuItem({
 function SidebarWorkspaceMenuItems({
   surface,
   workspaceKey,
+  prHint = null,
   serverId,
   workspaceId,
   onCopyPath,
@@ -163,6 +182,7 @@ function SidebarWorkspaceMenuItems({
   openInFileManagerPath,
 }: SidebarWorkspaceMenuItemsProps & { surface: MenuSurface }): ReactNode {
   const { t } = useTranslation();
+  const toast = useToast();
   const archiveTrailing = useMemo(
     () => (archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null),
     [archiveShortcutKeys],
@@ -171,39 +191,19 @@ function SidebarWorkspaceMenuItems({
     () => <ThemedTag size={14} uniProps={foregroundMutedColorMapping} />,
     [],
   );
+  const statusTarget = useMemo<WorkspaceStatusTarget>(
+    () => ({ workspaceKey, prHint }),
+    [prHint, workspaceKey],
+  );
+  const prUrl = prHint?.url ?? null;
+  const handleCopyLink = useCallback(() => {
+    if (!prUrl) return;
+    void Clipboard.setStringAsync(prUrl);
+    toast.copied(t("sidebar.workspace.toasts.linkCopied"));
+  }, [prUrl, t, toast]);
 
   return (
     <>
-      {onCopyPath ? (
-        <WorkspaceMenuItem
-          surface={surface}
-          testID={`sidebar-workspace-menu-copy-path-${workspaceKey}`}
-          leading={copyLeadingIcon}
-          onSelect={onCopyPath}
-        >
-          {t("sidebar.workspace.actions.copyPath")}
-        </WorkspaceMenuItem>
-      ) : null}
-      {onCopyBranchName ? (
-        <WorkspaceMenuItem
-          surface={surface}
-          testID={`sidebar-workspace-menu-copy-branch-name-${workspaceKey}`}
-          leading={copyLeadingIcon}
-          onSelect={onCopyBranchName}
-        >
-          {t("sidebar.workspace.actions.copyBranchName")}
-        </WorkspaceMenuItem>
-      ) : null}
-      {onRename ? (
-        <WorkspaceMenuItem
-          surface={surface}
-          testID={`sidebar-workspace-menu-rename-${workspaceKey}`}
-          leading={renameLeadingIcon}
-          onSelect={onRename}
-        >
-          {t("sidebar.workspace.actions.rename")}
-        </WorkspaceMenuItem>
-      ) : null}
       {onMarkAsRead ? (
         <WorkspaceMenuItem
           surface={surface}
@@ -234,6 +234,7 @@ function SidebarWorkspaceMenuItems({
           {isPinned ? t("sidebar.workspace.actions.unpin") : t("sidebar.workspace.actions.pin")}
         </WorkspaceMenuItem>
       ) : null}
+      <WorkspaceStatusSubTrigger target={statusTarget} />
       {serverId && workspaceId ? (
         <DropdownMenuSubTrigger
           id={WORKSPACE_LABEL_PAGE_ID}
@@ -243,25 +244,97 @@ function SidebarWorkspaceMenuItems({
           {t("workspaceLabels.title")}
         </DropdownMenuSubTrigger>
       ) : null}
+      {onRename ? (
+        <WorkspaceMenuItem
+          surface={surface}
+          testID={`sidebar-workspace-menu-rename-${workspaceKey}`}
+          leading={renameLeadingIcon}
+          onSelect={onRename}
+        >
+          {t("sidebar.workspace.actions.rename")}
+        </WorkspaceMenuItem>
+      ) : null}
+      {prUrl ? (
+        <WorkspaceMenuItem
+          surface={surface}
+          testID={`sidebar-workspace-menu-copy-link-${workspaceKey}`}
+          leading={linkLeadingIcon}
+          onSelect={handleCopyLink}
+        >
+          {t("sidebar.workspace.actions.copyLink")}
+        </WorkspaceMenuItem>
+      ) : null}
+      {onCopyPath ? (
+        <WorkspaceMenuItem
+          surface={surface}
+          testID={`sidebar-workspace-menu-copy-path-${workspaceKey}`}
+          leading={copyLeadingIcon}
+          onSelect={onCopyPath}
+        >
+          {t("sidebar.workspace.actions.copyPath")}
+        </WorkspaceMenuItem>
+      ) : null}
+      {onCopyBranchName ? (
+        <WorkspaceMenuItem
+          surface={surface}
+          testID={`sidebar-workspace-menu-copy-branch-name-${workspaceKey}`}
+          leading={copyLeadingIcon}
+          onSelect={onCopyBranchName}
+        >
+          {t("sidebar.workspace.actions.copyBranchName")}
+        </WorkspaceMenuItem>
+      ) : null}
       <OpenInFileManagerMenuItem
         surface={surface}
         path={openInFileManagerPath}
         testID={`sidebar-workspace-menu-open-folder-${workspaceKey}`}
       />
       {onArchive ? (
-        <WorkspaceMenuItem
-          surface={surface}
-          testID={`sidebar-workspace-menu-archive-${workspaceKey}`}
-          leading={archiveLeadingIcon}
-          trailing={archiveTrailing}
-          status={archiveStatus}
-          pendingLabel={archivePendingLabel}
-          onSelect={onArchive}
-        >
-          {archiveLabel ?? t("sidebar.workspace.actions.archive")}
-        </WorkspaceMenuItem>
+        <>
+          <DropdownMenuSeparator />
+          <WorkspaceMenuItem
+            surface={surface}
+            testID={`sidebar-workspace-menu-archive-${workspaceKey}`}
+            leading={archiveLeadingIcon}
+            trailing={archiveTrailing}
+            status={archiveStatus}
+            pendingLabel={archivePendingLabel}
+            onSelect={onArchive}
+          >
+            {archiveLabel ?? t("sidebar.workspace.actions.archive")}
+          </WorkspaceMenuItem>
+        </>
       ) : null}
     </>
+  );
+}
+
+function WorkspaceStatusSubTrigger({ target }: { target: WorkspaceStatusTarget }) {
+  const { t } = useTranslation();
+  const status = useResolvedWorkspaceBoardStatus(target);
+  const leading = useMemo(() => <WorkspaceBoardStatusIcon status={status} />, [status]);
+  return (
+    <DropdownMenuSubTrigger
+      id={WORKSPACE_STATUS_PAGE_ID}
+      leading={leading}
+      value={t(workspaceBoardStatusLabelKey(status))}
+      testID={`sidebar-workspace-menu-status-${target.workspaceKey}`}
+    >
+      {t("sidebar.workspace.actions.setStatus")}
+    </DropdownMenuSubTrigger>
+  );
+}
+
+/** Label and status pages, merged so both menus declare the same set. */
+function useWorkspaceMenuPages(
+  labelTarget: WorkspaceLabelTarget | null,
+  statusTarget: WorkspaceStatusTarget,
+): readonly MenuPageDefinition[] {
+  const labelPages = useWorkspaceLabelMenuPages(labelTarget);
+  const statusPage = useWorkspaceStatusMenuPage(statusTarget);
+  return useMemo(
+    () => (statusPage ? [...labelPages, statusPage] : labelPages),
+    [labelPages, statusPage],
   );
 }
 
@@ -328,6 +401,7 @@ function SidebarWorkspaceArchiveButton({
 
 function SidebarWorkspaceKebabMenu({
   workspaceKey,
+  prHint = null,
   serverId,
   workspaceId,
   workspaceLabels,
@@ -353,7 +427,11 @@ function SidebarWorkspaceKebabMenu({
       serverId && workspaceId ? { serverId, workspaceId, labels: workspaceLabels ?? [] } : null,
     [serverId, workspaceId, workspaceLabels],
   );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const statusTarget = useMemo<WorkspaceStatusTarget>(
+    () => ({ workspaceKey, prHint }),
+    [prHint, workspaceKey],
+  );
+  const pages = useWorkspaceMenuPages(workspaceTarget, statusTarget);
   return (
     <DropdownMenu compactMode="sheet" open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -374,6 +452,7 @@ function SidebarWorkspaceKebabMenu({
         <SidebarWorkspaceMenuItems
           surface="dropdown"
           workspaceKey={workspaceKey}
+          prHint={prHint}
           serverId={serverId}
           workspaceId={workspaceId}
           workspaceLabels={workspaceLabels}
@@ -466,7 +545,11 @@ export function SidebarWorkspaceContextMenu({
     }),
     [workspace],
   );
-  const pages = useWorkspaceLabelMenuPages(workspaceTarget);
+  const statusTarget = useMemo<WorkspaceStatusTarget>(
+    () => ({ workspaceKey, prHint: workspace.prHint }),
+    [workspace.prHint, workspaceKey],
+  );
+  const pages = useWorkspaceMenuPages(workspaceTarget, statusTarget);
 
   return (
     <ContextMenu open={contextMenuOpen} onOpenChange={onContextMenuOpenChange}>
@@ -487,6 +570,7 @@ export function SidebarWorkspaceContextMenu({
         <SidebarWorkspaceMenuItems
           surface="context"
           workspaceKey={workspaceKey}
+          prHint={workspace.prHint}
           serverId={workspaceTarget.serverId}
           workspaceId={workspaceTarget.workspaceId}
           workspaceLabels={workspaceTarget.labels}
@@ -524,9 +608,9 @@ const styles = StyleSheet.create((theme) => ({
     padding: 2,
     borderRadius: 4,
     marginLeft: 2,
-    // MoreVertical paints only around the center of its SVG. Keep the padded hit box, but
-    // pull the painted dots through that unused view-box space onto the trailing-content rail.
-    marginRight: -7,
+    // Keep the padded hit box, but pull the painted dots through the unused view-box space onto
+    // the trailing-content rail.
+    marginRight: -4,
   },
   // The archive glyph fills its view box, so only the padding needs pulling onto the rail.
   archiveTrigger: {

@@ -5,7 +5,9 @@ import {
   branchPickerOptionId,
   buildBranchPickerItems,
   buildPickerOptionData,
+  createFromTabForItem,
   defaultBasePickerItem,
+  filterPickerOptionsByTab,
   pickerItemToCheckoutRequest,
   type PickerItem,
 } from "./new-workspace-picker-item";
@@ -356,5 +358,24 @@ describe("defaultBasePickerItem", () => {
 
   it("has no default for detached HEAD", () => {
     expect(defaultBasePickerItem({ currentBranch: null })).toBeNull();
+  });
+});
+
+describe("filterPickerOptionsByTab", () => {
+  it("splits one option list into PR and branch tabs", () => {
+    const data = buildPickerOptionData({
+      branchDetails: [{ name: "feature", committerDate: 1 }],
+      prItems: [prItem],
+      baseItem: null,
+    });
+    const prs = filterPickerOptionsByTab({ ...data, tab: "prs" });
+    const branches = filterPickerOptionsByTab({ ...data, tab: "branches" });
+    expect(prs.map((option) => option.id)).toEqual(["github-pr:42"]);
+    expect(branches.map((option) => option.id)).toEqual([branchPickerOptionId("feature")]);
+  });
+
+  it("opens on the tab of the current selection", () => {
+    expect(createFromTabForItem({ kind: "github-pr", item: prItem })).toBe("prs");
+    expect(createFromTabForItem(null)).toBe("branches");
   });
 });

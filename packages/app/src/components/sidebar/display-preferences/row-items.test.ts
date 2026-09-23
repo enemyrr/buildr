@@ -11,7 +11,7 @@ describe("parseSidebarRowItems", () => {
       branch: false,
       project: false,
       host: true,
-      changeRequest: true,
+      changeRequest: false,
       services: true,
       labels: true,
     });

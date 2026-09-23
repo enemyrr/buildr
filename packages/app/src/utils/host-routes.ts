@@ -428,6 +428,10 @@ export function buildSchedulesRoute() {
   return "/schedules" as const;
 }
 
+export function buildDashboardRoute() {
+  return "/dashboard" as const;
+}
+
 export function buildOpenProjectRoute() {
   return "/open-project" as const;
 }
@@ -438,6 +442,8 @@ interface NewWorkspaceRouteOptions {
   displayName?: string;
   projectId?: string;
   draftId?: string;
+  /** Opens the "Create from…" PR/branch picker on arrival. */
+  createFrom?: boolean;
 }
 
 function buildNewWorkspaceSearch(options: NewWorkspaceRouteOptions): string {
@@ -457,6 +463,9 @@ function buildNewWorkspaceSearch(options: NewWorkspaceRouteOptions): string {
   }
   if (options.draftId) {
     params.set("draftId", options.draftId);
+  }
+  if (options.createFrom) {
+    params.set("createFrom", "1");
   }
   return params.toString();
 }

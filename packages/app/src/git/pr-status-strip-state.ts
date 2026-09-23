@@ -2,16 +2,32 @@ import type { GitAction, GitActions } from "@/git/policy";
 
 export type PrStripTone = "success" | "danger" | "warning" | "merged" | "muted";
 
+/** Translation keys under `workspace.git.prFlow.state`. */
+export type PrStripLabel =
+  | "open"
+  | "draft"
+  | "merged"
+  | "closed"
+  | "conflicts"
+  | "checksFailed"
+  | "checksRunning"
+  | "autoMergeEnabled"
+  | "changesRequested"
+  | "reviewRequired";
+
+/** Translation keys under `workspace.git.prFlow`. */
+export type PrStripActionLabel = "continue" | "archive" | "merge" | "resolve" | "fix" | "autoMerge";
+
 export type PrStripAction =
-  | { kind: "git"; action: GitAction; label: string; emphasis: "filled" | "outline" }
+  | { kind: "git"; action: GitAction; label: PrStripActionLabel; emphasis: "filled" | "outline" }
   | {
       kind: "continue" | "fix-checks" | "resolve-conflicts";
-      label: string;
+      label: PrStripActionLabel;
       emphasis: "filled" | "outline";
     };
 
 export interface PrStripState {
-  label: string;
+  label: PrStripLabel;
   tone: PrStripTone;
   actions: PrStripAction[];
 }
@@ -35,9 +51,22 @@ function findAction(gitActions: GitActions, prefix: string): GitAction | null {
   return matches.find((action) => !action.unavailableMessage) ?? null;
 }
 
-function archiveAction(gitActions: GitActions, emphasis: "filled" | "outline"): PrStripAction[] {
+/** A finished PR offers the same two ways on: a fresh branch in this workspace, or archive it. */
+function wrapUpActions(gitActions: GitActions): PrStripAction[] {
   const archive = findAction(gitActions, "archive-workspace");
-  return archive ? [{ kind: "git", action: archive, label: "Archive", emphasis }] : [];
+  return [
+    { kind: "continue", label: "continue", emphasis: "outline" },
+    ...(archive
+      ? [
+          {
+            kind: "git" as const,
+            action: archive,
+            label: "archive" as const,
+            emphasis: "filled" as const,
+          },
+        ]
+      : []),
+  ];
 }
 
 /** Maps a change request's status to the Explorer strip's label, tone, and actions. */
@@ -46,63 +75,56 @@ export function derivePrStripState(
   gitActions: GitActions,
 ): PrStripState {
   if (status.isMerged || status.state.toLowerCase() === "merged") {
-    return {
-      label: "Merged",
-      tone: "merged",
-      actions: [
-        { kind: "continue", label: "Continue", emphasis: "outline" },
-        ...archiveAction(gitActions, "filled"),
-      ],
-    };
+    return { label: "merged", tone: "merged", actions: wrapUpActions(gitActions) };
   }
   if (status.state.toLowerCase() !== "open") {
-    return { label: "Closed", tone: "danger", actions: archiveAction(gitActions, "outline") };
+    return { label: "closed", tone: "danger", actions: wrapUpActions(gitActions) };
   }
   if (status.isDraft) {
-    return { label: "Draft", tone: "muted", actions: [] };
+    return { label: "draft", tone: "muted", actions: [] };
   }
   if (status.mergeable === "CONFLICTING") {
     return {
-      label: "Merge conflicts",
+      label: "conflicts",
       tone: "danger",
-      actions: [{ kind: "resolve-conflicts", label: "Resolve", emphasis: "filled" }],
+      actions: [{ kind: "resolve-conflicts", label: "resolve", emphasis: "filled" }],
     };
   }
   if (status.checksStatus === "failure") {
     return {
-      label: "Checks failed",
+      label: "checksFailed",
       tone: "danger",
-      actions: [{ kind: "fix-checks", label: "Fix", emphasis: "filled" }],
+      actions: [{ kind: "fix-checks", label: "fix", emphasis: "filled" }],
     };
   }
   const merge = findAction(gitActions, "merge-pr-");
   const autoMerge = findAction(gitActions, "enable-pr-auto-merge-");
   if (status.autoMergeEnabled) {
-    return { label: "Auto-merge enabled", tone: "success", actions: [] };
+    return { label: "autoMergeEnabled", tone: "success", actions: [] };
   }
   if (status.checksStatus === "pending") {
     return {
-      label: "Checks running",
+      label: "checksRunning",
       tone: "warning",
       actions:
         autoMerge && !autoMerge.unavailableMessage
-          ? [{ kind: "git", action: autoMerge, label: "Auto-merge", emphasis: "outline" }]
+          ? [{ kind: "git", action: autoMerge, label: "autoMerge", emphasis: "outline" }]
           : [],
     };
   }
   const review = status.reviewDecision?.toLowerCase();
   if (review === "changes_requested") {
-    return { label: "Changes requested", tone: "danger", actions: [] };
+    return { label: "changesRequested", tone: "danger", actions: [] };
   }
   if (merge && !merge.unavailableMessage) {
     return {
-      label: "Ready to merge",
+      label: "open",
       tone: "success",
-      actions: [{ kind: "git", action: merge, label: "Merge", emphasis: "filled" }],
+      actions: [{ kind: "git", action: merge, label: "merge", emphasis: "filled" }],
     };
   }
   if (review === "review_required") {
-    return { label: "Review required", tone: "warning", actions: [] };
+    return { label: "reviewRequired", tone: "warning", actions: [] };
   }
-  return { label: "Open", tone: "success", actions: [] };
+  return { label: "open", tone: "success", actions: [] };
 }

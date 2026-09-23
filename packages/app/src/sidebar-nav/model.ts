@@ -1,6 +1,12 @@
 import type { PluginSidebarGroup } from "@/plugins/sidebar-groups";
 
-export const BUILTIN_SIDEBAR_NAV_IDS = ["new-workspace", "history", "search", "schedules"] as const;
+export const BUILTIN_SIDEBAR_NAV_IDS = [
+  "dashboard",
+  "history",
+  "new-workspace",
+  "search",
+  "schedules",
+] as const;
 export type BuiltinSidebarNavId = (typeof BUILTIN_SIDEBAR_NAV_IDS)[number];
 
 /** Persisted shape. Array order is the display order. */
@@ -26,6 +32,7 @@ export interface PluginSidebarNavItem {
 export type SidebarNavItem = BuiltinSidebarNavItem | PluginSidebarNavItem;
 
 const BUILTIN_LABEL_KEYS: Record<BuiltinSidebarNavId, string> = {
+  dashboard: "sidebar.sections.dashboard",
   "new-workspace": "sidebar.actions.newWorkspace",
   history: "sidebar.sections.sessions",
   search: "sidebar.sections.search",
@@ -42,6 +49,7 @@ export function builtinSidebarNavLabelKey(id: BuiltinSidebarNavId): string {
  * two never disagree about which shortcut belongs to which item.
  */
 const BUILTIN_SHORTCUT_ACTIONS: Record<BuiltinSidebarNavId, string | null> = {
+  dashboard: null,
   "new-workspace": "new-workspace",
   history: null,
   search: "toggle-command-center",
@@ -91,7 +99,10 @@ export function resolveSidebarNavItems(input: {
 
   for (const id of BUILTIN_SIDEBAR_NAV_IDS) {
     if (placed.has(id)) continue;
-    items.push({ kind: "builtin", key: id, id, visible: true });
+    const item: BuiltinSidebarNavItem = { kind: "builtin", key: id, id, visible: true };
+    // Dashboard shipped after users had saved an order; it still leads until they move it.
+    if (id === "dashboard") items.unshift(item);
+    else items.push(item);
   }
   for (const [key, group] of groupsByKey) {
     if (placed.has(key)) continue;

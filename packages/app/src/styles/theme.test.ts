@@ -5,6 +5,7 @@ import {
   FONT_SIZE,
   getNextThemePreference,
   lightTheme,
+  REGISTERED_THEMES,
   THEME_OPTIONS,
 } from "./theme";
 
@@ -30,6 +31,7 @@ describe("Theme catalog", () => {
       "light",
       "dark",
       "auto",
+      "paseo",
       "zinc",
       "midnight",
       "claude",
@@ -38,6 +40,15 @@ describe("Theme catalog", () => {
     ]);
     expect(getNextThemePreference("dark")).toBe("auto");
     expect(getNextThemePreference("pureBlack")).toBe("light");
+  });
+});
+
+describe("Conductor theme", () => {
+  it("is the default dark theme", () => {
+    expect(darkTheme.colors.surface0).toBe("#161413");
+    expect(darkTheme.colors.surfaceWorkspace).toBe("#161413");
+    expect(darkTheme.colors.surfaceSidebar).toBe("#1c1a19");
+    expect(darkTheme.colors.tabIndicator).toBe("#e0a080");
   });
 });
 
@@ -92,5 +103,27 @@ describe("Built-in light theme", () => {
         brightBlack: "#3f3f46",
       },
     });
+  });
+});
+
+describe("Status subtle colors", () => {
+  it("tints each status color at one alpha per scheme", () => {
+    expect(darkTheme.colors.statusMergedSubtle).toBe("rgba(168, 144, 213, 0.14)");
+    expect(darkTheme.colors.statusSuccessSubtle).toBe("rgba(108, 177, 123, 0.14)");
+    expect(lightTheme.colors.statusDangerSubtle).toBe("rgba(157, 67, 59, 0.1)");
+  });
+
+  it("derives neutral from the theme foreground", () => {
+    expect(darkTheme.colors.statusNeutralSubtle).toBe("rgba(232, 230, 227, 0.06)");
+  });
+
+  it("exists on every registered theme", () => {
+    for (const theme of Object.values(REGISTERED_THEMES)) {
+      expect(theme.colors.statusSuccessSubtle).toMatch(/^rgba\(/);
+      expect(theme.colors.statusDangerSubtle).toMatch(/^rgba\(/);
+      expect(theme.colors.statusWarningSubtle).toMatch(/^rgba\(/);
+      expect(theme.colors.statusMergedSubtle).toMatch(/^rgba\(/);
+      expect(theme.colors.statusNeutralSubtle).toMatch(/^rgba\(/);
+    }
   });
 });

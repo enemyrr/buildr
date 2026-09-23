@@ -52,6 +52,7 @@ import {
 } from "@/workspace-tabs/model";
 import { openWorkspaceChanges } from "@/workspace-tabs/open-supporting-view";
 import { useSettings } from "@/hooks/use-settings";
+import { NewChatIntro } from "@/panels/new-chat-intro";
 
 const EMPTY_PENDING_PERMISSIONS = new Map();
 const DRAFT_CAPABILITIES: AgentCapabilityFlags = {
@@ -639,6 +640,7 @@ export function WorkspaceDraftAgentTab({
       ) : (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.configScrollContent}>
           <View style={styles.configSection}>
+            <NewChatIntro serverId={serverId} workspaceId={workspaceId} draftId={draftId} />
             {formErrorMessage ? (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{formErrorMessage}</Text>

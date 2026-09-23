@@ -146,6 +146,9 @@ export function normalizeCheckoutPrStatusPayload(
     checksStatus: status.checksStatus,
     reviewDecision: status.reviewDecision,
   };
+  if (status.body) {
+    payload.body = status.body;
+  }
   if (status.projectPath) {
     payload.projectPath = status.projectPath;
   } else if (status.repoOwner && status.repoName) {

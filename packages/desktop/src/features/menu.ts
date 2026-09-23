@@ -1,5 +1,6 @@
 import { app, Menu, BrowserWindow, ipcMain } from "electron";
 import { getActivePaseoBrowserWebContentsForHostWindow } from "./browser-webviews/index.js";
+import { getAppDisplayName } from "../desktop-variant.js";
 
 interface ShowContextMenuInput {
   kind?: "terminal";
@@ -70,22 +71,23 @@ function buildApplicationMenuTemplate(
 ): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === "darwin";
   const zoomEnabled = !capturing;
+  const appName = getAppDisplayName();
 
   return [
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: appName,
             submenu: [
-              { role: "about" as const },
+              { role: "about" as const, label: `About ${appName}` },
               { type: "separator" as const },
               { role: "services" as const },
               { type: "separator" as const },
-              { role: "hide" as const },
+              { role: "hide" as const, label: `Hide ${appName}` },
               { role: "hideOthers" as const },
               { role: "unhide" as const },
               { type: "separator" as const },
-              { role: "quit" as const },
+              { role: "quit" as const, label: `Quit ${appName}` },
             ],
           },
         ]

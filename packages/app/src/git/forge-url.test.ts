@@ -3,6 +3,7 @@ import {
   buildForgeBlobUrl,
   buildForgeBranchTreeUrl,
   buildForgeChecksUrl,
+  buildForgeCompareUrl,
   hasForgeWebUrls,
 } from "./forge-url";
 
@@ -23,6 +24,37 @@ describe("buildForgeChecksUrl", () => {
     ["gitlab", "not a url", null],
   ] as const)("maps the %s checks URL", (forge, url, expected) => {
     expect(buildForgeChecksUrl(forge, url)).toBe(expected);
+  });
+});
+
+describe("buildForgeCompareUrl", () => {
+  it.each([
+    [
+      "github",
+      "git@github.com:acme/repo.git",
+      "origin/main",
+      "feature/x",
+      "https://github.com/acme/repo/compare/main...feature/x?expand=1",
+    ],
+    [
+      "gitlab",
+      "https://gitlab.com/acme/repo.git",
+      "refs/remotes/upstream/main",
+      "fix",
+      "https://gitlab.com/acme/repo/-/merge_requests/new?merge_request[source_branch]=fix&merge_request[target_branch]=main",
+    ],
+    [
+      "codeberg",
+      "https://codeberg.org/acme/repo.git",
+      "main",
+      "fix",
+      "https://codeberg.org/acme/repo/compare/main...fix",
+    ],
+    ["github", "git@github.com:acme/repo.git", "main", "main", null],
+    ["github", "git@github.com:acme/repo.git", null, "fix", null],
+    ["bitbucket", "https://bitbucket.org/acme/repo.git", "main", "fix", null],
+  ] as const)("maps the %s compare URL", (forge, remoteUrl, baseRef, branch, expected) => {
+    expect(buildForgeCompareUrl(forge, { remoteUrl, baseRef, branch })).toBe(expected);
   });
 });
 

@@ -7,6 +7,7 @@ import {
   expectWorkspaceIsolationSelected,
   openNewWorkspaceComposer,
   openProjectViaDaemon,
+  workspaceIsolationControl,
 } from "../support/helpers/new-workspace";
 import { expectNoTruncation } from "../support/helpers/no-truncation";
 import { createTempGitRepo } from "../support/helpers/workspace";
@@ -57,11 +58,11 @@ test.describe("New workspace isolation memory", () => {
         projectDisplayName: openedProject.projectDisplayName,
       });
       await expectWorkspaceIsolationSelected(page, "worktree");
-      await page.getByTestId("workspace-create-isolation-trigger").click();
-      const isolationPopup = page.getByTestId("combobox-desktop-container").last();
-      await expect(isolationPopup).toBeVisible({ timeout: 30_000 });
-      await expectNoTruncation(isolationPopup);
-      await page.getByTestId("workspace-create-isolation-local").click();
+      await workspaceIsolationControl(page).click();
+      const isolationOption = page.getByTestId("workspace-create-isolation-local");
+      await expect(isolationOption).toBeVisible({ timeout: 30_000 });
+      await expectNoTruncation(isolationOption);
+      await isolationOption.click();
       await expectWorkspaceIsolationSelected(page, "local");
 
       const createButton = page

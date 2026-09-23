@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ChevronDown, Eye, GitPullRequest } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
+import { ChevronDown, Eye, GitPullRequestCreateArrow } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,15 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GitActionsSplitButton } from "@/git/actions-split-button";
-import { GIT_ACTION_ICONS } from "@/git/action-icons";
-import { useGitActions, useGitActionRunner, type GitAction } from "@/git/use-actions";
-import { useCheckoutStatusQuery } from "@/git/use-status-query";
-import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
-import { useInstructionRequests } from "@/git/use-instruction-requests";
-import { sendPrRequest } from "@/git/pr-instructions";
-import { selectPrHintFromStatus } from "@/git/pr-hint";
-import { PrBadge } from "@/components/sidebar-workspace-list";
+import { PrStatusStrip } from "@/git/pr-status-strip";
 import { sendReviewRequest } from "@/git/review-instructions";
+import { useGitActionRunner, type GitAction } from "@/git/use-actions";
+import { useInstructionRequests } from "@/git/use-instruction-requests";
+import { usePrFlow, type PrFlow } from "@/git/use-pr-flow";
 
 const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
   color: theme.colors.foregroundMuted,
@@ -29,145 +26,138 @@ interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
   agentId: string | null;
+  /** The Explorer shows the PR strip; otherwise the header carries it inline. */
   prStripVisible: boolean;
 }
-
-const STRIP_ACTION_IDS = /^(pr$|merge-pr-|enable-pr-auto-merge-|archive-workspace$)/;
 
 function GitMenuItem({ action }: { action: GitAction }) {
   const run = useGitActionRunner();
   const onSelect = useCallback(() => run(action), [run, action]);
   return (
-    <DropdownMenuItem onSelect={onSelect} disabled={action.disabled}>
+    <DropdownMenuItem
+      leading={action.icon}
+      onSelect={onSelect}
+      disabled={action.disabled}
+      muted={Boolean(action.unavailableMessage)}
+      status={action.status}
+      pendingLabel={action.pendingLabel}
+      successLabel={action.successLabel}
+    >
       {action.label}
     </DropdownMenuItem>
   );
 }
 
+/** The header's git area: Create PR before a PR exists, the PR lifecycle strip after. */
 export function WorkspaceActions({
   serverId,
   cwd,
   agentId,
   prStripVisible,
 }: WorkspaceActionsProps) {
-  const { gitActions, isGit } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
-  const { status } = useCheckoutStatusQuery({ serverId, cwd });
-  const { status: prStatus } = useCheckoutPrStatusQuery({ serverId, cwd });
-  const { send: sendRequest, pending, busy } = useInstructionRequests({ serverId, cwd, agentId });
-  const branch = status?.currentBranch ?? null;
-  const baseRef = status?.baseRef ?? null;
-  const prUrl = prStatus?.url ?? null;
-  const requestPr = useCallback(
-    (draft: boolean) =>
-      sendRequest("PR request", (input) => sendPrRequest({ ...input, branch, baseRef, draft })),
-    [sendRequest, branch, baseRef],
-  );
-  const requestReview = useCallback(() => {
-    void sendRequest("Review request", (input) => sendReviewRequest({ ...input, baseRef, prUrl }));
-  }, [sendRequest, baseRef, prUrl]);
-  const createPr = useCallback(() => {
-    void requestPr(false);
-  }, [requestPr]);
-  const createDraftPr = useCallback(() => {
-    void requestPr(true);
-  }, [requestPr]);
-  const actions = [gitActions.primary, ...gitActions.secondary, ...gitActions.menu].filter(
-    (action): action is GitAction => action !== null,
-  );
-  const manual = actions.find((action) => action.id === "pr");
-  const run = useGitActionRunner();
-  const createManually = useCallback(() => {
-    if (manual) run(manual);
-  }, [manual, run]);
+  const flow = usePrFlow({ serverId, cwd, agentId });
+  const prUrl = flow.prStatus?.url ?? null;
 
-  if (!isGit) return <GitActionsSplitButton gitActions={gitActions} />;
-  if (prStripVisible && prUrl) {
-    // The Explorer PR strip owns merge, continue, and archive.
-    const primaryInStrip = gitActions.primary && STRIP_ACTION_IDS.test(gitActions.primary.id);
-    return (
-      <View style={styles.group}>
-        {prStatus?.isMerged ? null : (
-          <Button
-            variant="outline"
-            size="xs"
-            leftIcon={Eye}
-            onPress={requestReview}
-            disabled={busy}
-            loading={pending}
-            testID="workspace-pr-review"
-          >
-            Review
-          </Button>
-        )}
-        <GitActionsSplitButton gitActions={gitActions} menuOnly={Boolean(primaryInStrip)} />
-      </View>
-    );
-  }
-  if (prStatus?.isMerged) {
-    // Archive is the policy primary once merged; Continue lives in the Explorer PR strip.
-    const hint = selectPrHintFromStatus(prStatus);
-    return (
-      <View style={styles.group}>
-        {hint ? <PrBadge hint={hint} /> : null}
-        <GitActionsSplitButton gitActions={gitActions} />
-      </View>
-    );
-  }
-  if (prUrl) {
-    return (
-      <View style={styles.group}>
-        <Button
-          variant="outline"
-          size="xs"
-          leftIcon={Eye}
-          onPress={requestReview}
-          disabled={busy}
-          loading={pending}
-          testID="workspace-pr-review"
-        >
-          Review
-        </Button>
-        <GitActionsSplitButton gitActions={gitActions} />
-      </View>
-    );
-  }
+  if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
+  if (!prUrl) return <CreatePrSplitButton flow={flow} />;
+  return (
+    <View style={styles.group}>
+      {prStripVisible ? null : (
+        <PrStatusStrip serverId={serverId} cwd={cwd} agentId={agentId} variant="inline" />
+      )}
+      {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
+        <ReviewButton
+          serverId={serverId}
+          cwd={cwd}
+          agentId={agentId}
+          baseRef={flow.baseRef}
+          prUrl={prUrl}
+        />
+      )}
+      <GitActionsSplitButton gitActions={flow.gitActions} menuOnly />
+    </View>
+  );
+}
+
+function ReviewButton({
+  serverId,
+  cwd,
+  agentId,
+  baseRef,
+  prUrl,
+}: {
+  serverId: string;
+  cwd: string;
+  agentId: string | null;
+  baseRef: string | null;
+  prUrl: string;
+}) {
+  const { t } = useTranslation();
+  const { send, pending, busy } = useInstructionRequests({ serverId, cwd, agentId });
+  const requestReview = useCallback(() => {
+    void send("Review request", (input) => sendReviewRequest({ ...input, baseRef, prUrl }));
+  }, [send, baseRef, prUrl]);
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      leftIcon={Eye}
+      onPress={requestReview}
+      disabled={busy}
+      loading={pending}
+      testID="workspace-pr-review"
+    >
+      {t("workspace.git.prFlow.review")}
+    </Button>
+  );
+}
+
+/** `[Create PR | v]`: the agent opens the PR; the menu has draft, direct, and manual routes. */
+function CreatePrSplitButton({ flow }: { flow: PrFlow }) {
+  const { t } = useTranslation();
+  const otherActions = flow.actions.filter((action) => action.id !== "pr");
   return (
     <View style={styles.row}>
       <Button
         variant="outline"
         size="xs"
         style={styles.primary}
-        leftIcon={GitPullRequest}
-        onPress={createPr}
-        disabled={busy}
-        loading={pending}
+        leftIcon={GitPullRequestCreateArrow}
+        onPress={flow.createPr}
+        disabled={flow.busy || !flow.canCreatePr}
+        loading={flow.pending}
         testID="workspace-create-pr"
       >
-        Create PR
+        {t("workspace.git.prFlow.createPr")}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger
           style={styles.caret}
-          accessibilityLabel="PR options"
+          accessibilityLabel={t("workspace.git.prFlow.options")}
           testID="workspace-pr-options"
         >
           <ThemedChevronDown size={14} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" width={240}>
-          <DropdownMenuItem onSelect={createDraftPr} disabled={busy}>
-            Create draft PR
-          </DropdownMenuItem>
-          {manual ? (
-            <DropdownMenuItem onSelect={createManually} disabled={manual.disabled}>
-              Create PR manually
+          {flow.createDraftPr ? (
+            <DropdownMenuItem onSelect={flow.createDraftPr} disabled={flow.busy}>
+              {t("workspace.git.prFlow.createDraftPr")}
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuSeparator />
-          {actions
-            .filter((action) => action.id !== "pr")
-            .map((action) => (
-              <GitMenuItem key={action.id} action={action} />
-            ))}
+          {flow.createPrDirectly && flow.hasAgent ? (
+            <DropdownMenuItem onSelect={flow.createPrDirectly}>
+              {t("workspace.git.prFlow.createPrDirectly")}
+            </DropdownMenuItem>
+          ) : null}
+          {flow.openCompare ? (
+            <DropdownMenuItem onSelect={flow.openCompare}>
+              {t("workspace.git.prFlow.createPrManually")}
+            </DropdownMenuItem>
+          ) : null}
+          {otherActions.length > 0 ? <DropdownMenuSeparator /> : null}
+          {otherActions.map((action) => (
+            <GitMenuItem key={action.id} action={action} />
+          ))}
         </DropdownMenuContent>
       </DropdownMenu>
     </View>
@@ -176,12 +166,12 @@ export function WorkspaceActions({
 
 const styles = StyleSheet.create((theme) => ({
   row: { flexDirection: "row", alignItems: "stretch" },
-  group: { flexDirection: "row", alignItems: "center", gap: theme.spacing[2] },
+  group: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
   primary: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
   caret: {
     justifyContent: "center",
     paddingHorizontal: 7,
-    borderWidth: 1,
+    borderWidth: theme.borderWidth[1],
     borderLeftWidth: 0,
     borderColor: theme.colors.borderAccent,
     borderTopRightRadius: theme.borderRadius.md,

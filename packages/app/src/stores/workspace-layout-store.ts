@@ -216,8 +216,9 @@ function visiblePane<TPane extends SplitPane>(pane: TPane): Omit<TPane, "hidden"
   return visible;
 }
 
-function createExplorerSidebarNode(): SplitNode {
-  const layout = createWorkspaceLayoutWithExplorerSidebar();
+function createExplorerSidebarNode(existingRoot: SplitNode): SplitNode {
+  const excludeTabIds = new Set(collectAllTabs(existingRoot).map((tab) => tab.tabId));
+  const layout = createWorkspaceLayoutWithExplorerSidebar({ excludeTabIds });
   const pane = findPaneById(layout.root, EXPLORER_SIDEBAR_PANE_ID);
   if (!pane) {
     throw new Error("Default Explorer pane is missing");
@@ -304,7 +305,8 @@ function migrateVersionOneWorkspaceLayout(input: {
     (tab) =>
       legacyExplorerPane.tabIds.includes(tab.tabId) &&
       tab.target.kind !== "files" &&
-      tab.target.kind !== "changes_tree",
+      tab.target.kind !== "changes_tree" &&
+      tab.target.kind !== "pull_request",
   );
   const preservedSide = preserveVersionOneSideTabs({
     layout: strippedLayout,
@@ -313,7 +315,7 @@ function migrateVersionOneWorkspaceLayout(input: {
     tabs: preservedTabs,
     ids: input.ids,
   });
-  const explorerNode = createExplorerSidebarNode();
+  const explorerNode = createExplorerSidebarNode(preservedSide.root);
   const focusedPaneId =
     strippedLayout.focusedPaneId === legacyExplorerPane.id
       ? (preservedSide.sidePaneId ?? collectAllPanes(preservedSide.root)[0]?.id ?? DEFAULT_PANE_ID)

@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { darkHighlightColors, lightHighlightColors } from "@getpaseo/highlight";
+import { hexColorWithAlpha } from "@/utils/color";
 
 export const baseColors = {
   // Base colors
@@ -203,6 +204,31 @@ const darkStatusDotColors = {
   statusDotRunning: "#5caaf6",
 };
 
+// Status *subtle* colors — a wash behind a whole strip or card that is in one state, such as the
+// PR strip once a change request is merged. Derived, not picked: each is its status color at one
+// alpha, so the tint keeps the status family's hue and stays on whatever surface the theme has.
+// Neutral is the foreground at a lower alpha, for states with no hue of their own (draft).
+// Dark needs more alpha than light for the same visible step off the surface.
+const LIGHT_STATUS_SUBTLE_ALPHA = 0.1;
+const DARK_STATUS_SUBTLE_ALPHA = 0.14;
+const LIGHT_NEUTRAL_SUBTLE_ALPHA = 0.05;
+const DARK_NEUTRAL_SUBTLE_ALPHA = 0.06;
+
+function buildStatusSubtleColors(input: {
+  status: typeof lightStatusColors;
+  foreground: string;
+  alpha: number;
+  neutralAlpha: number;
+}) {
+  return {
+    statusSuccessSubtle: hexColorWithAlpha(input.status.statusSuccess, input.alpha),
+    statusDangerSubtle: hexColorWithAlpha(input.status.statusDanger, input.alpha),
+    statusWarningSubtle: hexColorWithAlpha(input.status.statusWarning, input.alpha),
+    statusMergedSubtle: hexColorWithAlpha(input.status.statusMerged, input.alpha),
+    statusNeutralSubtle: hexColorWithAlpha(input.foreground, input.neutralAlpha),
+  };
+}
+
 export interface LightThemeConfig {
   surface0: string;
   surface1: string;
@@ -219,6 +245,7 @@ export interface LightThemeConfig {
   accent: string;
   accentBright: string;
   accentForeground?: string;
+  tabIndicator?: string;
   primary: string;
   primaryForeground: string;
   destructive: string;
@@ -268,6 +295,8 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
     accent: tint.accent,
     accentBright: tint.accentBright,
     accentForeground: tint.accentForeground ?? tint.surface0,
+    // Underline under the active workspace tab. Neutral unless a theme gives it a hue.
+    tabIndicator: tint.tabIndicator ?? tint.foreground,
 
     destructive: tint.destructive,
     destructiveForeground: tint.surface0,
@@ -289,6 +318,12 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
 
     ...lightDiffColors,
     ...lightStatusColors,
+    ...buildStatusSubtleColors({
+      status: lightStatusColors,
+      foreground: tint.foreground,
+      alpha: LIGHT_STATUS_SUBTLE_ALPHA,
+      neutralAlpha: LIGHT_NEUTRAL_SUBTLE_ALPHA,
+    }),
     ...lightStatusDotColors,
 
     terminal: {
@@ -348,6 +383,7 @@ export interface DarkThemeConfig {
   accent: string;
   accentBright: string;
   accentForeground?: string;
+  tabIndicator?: string;
   destructive: string;
   terminalBlack: string;
   terminalBrightBlack: string;
@@ -398,6 +434,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
     accent: tint.accent,
     accentBright: tint.accentBright,
     accentForeground: tint.accentForeground ?? "#ffffff",
+    tabIndicator: tint.tabIndicator ?? foreground,
 
     destructive: tint.destructive,
     destructiveForeground: "#ffffff",
@@ -420,6 +457,12 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 
     ...darkDiffColors,
     ...darkStatusColors,
+    ...buildStatusSubtleColors({
+      status: darkStatusColors,
+      foreground,
+      alpha: DARK_STATUS_SUBTLE_ALPHA,
+      neutralAlpha: DARK_NEUTRAL_SUBTLE_ALPHA,
+    }),
     ...darkStatusDotColors,
 
     terminal: {
@@ -440,27 +483,50 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 // Dark tint definitions
 // ---------------------------------------------------------------------------
 
-// Warm charcoal palette for this fork, matched to the Conductor reference.
+// Conductor — warm near-black, flat, hairline borders. The fork's default dark theme.
+// The workspace sits on surface0; the sidebar is one step lighter. Peach is reserved for the
+// active tab underline, so the accent CTA stays a quiet warm neutral.
+const conductorDarkColors = buildDarkSemanticColors({
+  surface0: "#161413",
+  surface1: "#1f1d1b",
+  surface2: "#282523",
+  surface3: "#34302d",
+  surface4: "#5a5550",
+  surfaceDiffEmpty: "#1c1a18",
+  surfaceSidebar: "#1c1a19",
+  foreground: "#e8e6e3",
+  foregroundMuted: "#9a9590",
+  foregroundExtraMuted: "#6b6661",
+  border: "#2a2725",
+  borderAccent: "#35312e",
+  accent: "#c6b3a5",
+  accentBright: "#ddcabb",
+  accentForeground: "#161413",
+  tabIndicator: "#e0a080",
+  ring: "#9b8778",
+  destructive: "#c64f43", // warm red, hue ~7 — reads as red, not pink, on warm surfaces
+  terminalBlack: "#1c1a19",
+  terminalBrightBlack: "#5a5550",
+});
+
+// Paseo — subtle teal-green tint (upstream default)
 const paseoDarkColors = buildDarkSemanticColors({
-  surface0: "#151110",
-  surface1: "#211F1D",
-  surface2: "#2B2825",
-  surface3: "#373330",
-  surface4: "#625C57",
-  surfaceDiffEmpty: "#211C19",
-  surfaceSidebar: "#1B1917",
-  foreground: "#EAE8E6",
-  foregroundMuted: "#A39E99",
-  foregroundExtraMuted: "#77716C",
-  border: "#302C29",
-  borderAccent: "#3A3531",
-  accent: "#C6B3A5",
-  accentBright: "#DDCABB",
-  accentForeground: "#151110",
-  ring: "#9B8778",
+  surface0: "#181B1A",
+  surface1: "#1E2120",
+  surface2: "#272A29",
+  surface3: "#434645",
+  surface4: "#595B5B",
+  surfaceDiffEmpty: "#252827",
+  surfaceSidebar: "#141716",
+  foregroundMuted: "#A1A5A4",
+  foregroundExtraMuted: "#717574",
+  border: "#252B2A",
+  borderAccent: "#2F3534",
+  accent: "#20744A",
+  accentBright: "#7ccba0",
   destructive: "#c64f43", // warm red, hue ~7 — reads as red (not pink) against the green tint
-  terminalBlack: "#211F1D",
-  terminalBrightBlack: "#625C57",
+  terminalBlack: "#141716",
+  terminalBrightBlack: "#434645",
 });
 
 // Zinc — neutral gray, no tint
@@ -691,7 +757,13 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
   } as const;
 }
 
-export const darkTheme = buildDarkTheme({ ...paseoDarkColors, surfaceWorkspace: "#151110" });
+export const darkConductorTheme = buildDarkTheme({
+  ...conductorDarkColors,
+  surfaceWorkspace: conductorDarkColors.surface0,
+});
+// "dark" is also the adaptive dark theme, so pointing it at Conductor makes it the default.
+export const darkTheme = darkConductorTheme;
+export const darkPaseoTheme = buildDarkTheme(paseoDarkColors);
 export const darkZincTheme = buildDarkTheme(zincDarkColors);
 export const darkMidnightTheme = buildDarkTheme(midnightDarkColors);
 export const darkClaudeTheme = buildDarkTheme(claudeDarkColors);
@@ -771,9 +843,16 @@ export const THEME_OPTIONS = [
     group: "primary",
     unistylesName: "dark",
     theme: darkTheme,
-    swatch: "#2D8B62",
+    swatch: "#e0a080",
   },
   { name: "auto", group: "primary" },
+  {
+    name: "paseo",
+    group: "variant",
+    unistylesName: "darkPaseo",
+    theme: darkPaseoTheme,
+    swatch: "#2D8B62",
+  },
   {
     name: "zinc",
     group: "variant",

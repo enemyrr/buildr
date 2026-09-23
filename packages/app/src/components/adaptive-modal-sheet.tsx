@@ -71,6 +71,8 @@ export interface SheetHeader {
   leading?: ReactNode;
   actions?: ReactNode;
   search?: SheetHeaderSearch;
+  /** Drops the rule under the header, for a card whose body continues the header's surface. */
+  borderless?: boolean;
 }
 
 const SCROLL_CONTENT_GROW = { flexGrow: 1 };
@@ -103,6 +105,9 @@ const styles = StyleSheet.create((theme) => ({
   headerContainer: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.surface2,
+  },
+  headerContainerBorderless: {
+    borderBottomWidth: 0,
   },
   headerRow: {
     paddingHorizontal: theme.spacing[SHEET_HORIZONTAL_PADDING_SCALE],
@@ -323,7 +328,10 @@ export function SheetHeaderView({
   );
 
   return (
-    <View style={styles.headerContainer} testID={testID}>
+    <View
+      style={[styles.headerContainer, header.borderless && styles.headerContainerBorderless]}
+      testID={testID}
+    >
       <View style={styles.headerRow}>
         {handleBackPress ? (
           <Pressable

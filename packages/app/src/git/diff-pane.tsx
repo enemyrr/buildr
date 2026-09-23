@@ -32,6 +32,9 @@ import { type ParsedDiffFile } from "@/git/use-diff-query";
 import type { ChangesState } from "@/panels/changes/state";
 import { defaultChangesState } from "@/panels/changes/state";
 import { DiffDocument, type WorkingDiffMode } from "@/git/diff-document";
+import { ChangedFilesList } from "@/git/changed-files-list";
+import { summarizeDiffFiles } from "@/git/use-working-diff-summary";
+import { WORKSPACE_PANE_TRAILING_GLYPH_RAIL } from "@/components/tree-primitives";
 import { ChangedFilesTree } from "@/git/changed-files-tree";
 import { JUMP_TO_FILE_CLEARANCE, JumpToFile } from "@/git/jump-to-file";
 import {
@@ -372,6 +375,7 @@ type ChangesToolbarMode =
       kind: "tree";
       onOpenDiff: () => void;
       inlineDiff: ChangesToolbarInlineDiffToggle | null;
+      listAsTree: ChangesToolbarInlineDiffToggle;
       refresh: ChangesToolbarRefreshAction | null;
     }
   | {
@@ -400,6 +404,7 @@ function buildChangesToolbarMode(input: {
   treeVisible: boolean;
   onOpenDiff: () => void;
   inlineDiff: ChangesToolbarInlineDiffToggle | null;
+  listAsTree: ChangesToolbarInlineDiffToggle;
   onRefresh: () => void;
   onCollapseAll: () => void;
   onExpandAll: () => void;
@@ -417,6 +422,7 @@ function buildChangesToolbarMode(input: {
       kind: "tree",
       onOpenDiff: input.onOpenDiff,
       inlineDiff: input.inlineDiff,
+      listAsTree: input.listAsTree,
       refresh,
     };
   }
@@ -900,7 +906,11 @@ function ChangesOptionsMenu({ mode, compact }: { mode: ChangesOptionsMenuMode; c
   const optionsLabel = t("workspace.git.diff.options");
   const content =
     mode.kind === "tree" ? (
-      <ChangesTreeOptions onOpenDiff={mode.onOpenDiff} inlineDiff={mode.inlineDiff} />
+      <ChangesTreeOptions
+        onOpenDiff={mode.onOpenDiff}
+        inlineDiff={mode.inlineDiff}
+        listAsTree={mode.listAsTree}
+      />
     ) : (
       <>
         <ChangesDiffOptions options={mode.options} />
@@ -936,9 +946,11 @@ function ChangesOptionsMenu({ mode, compact }: { mode: ChangesOptionsMenuMode; c
 function ChangesTreeOptions({
   onOpenDiff,
   inlineDiff,
+  listAsTree,
 }: {
   onOpenDiff: () => void;
   inlineDiff: ChangesToolbarInlineDiffToggle | null;
+  listAsTree: ChangesToolbarInlineDiffToggle;
 }) {
   const { t } = useTranslation();
   return (
@@ -949,6 +961,14 @@ function ChangesTreeOptions({
         onSelect={onOpenDiff}
       >
         {t("workspace.git.diff.openDiffTab")}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        selected={listAsTree.value}
+        testID="changes-toggle-list-tree"
+        onSelect={listAsTree.onToggle}
+      >
+        {t("workspace.git.prFlow.changes.showAsTree")}
       </DropdownMenuItem>
       {inlineDiff ? (
         <>
@@ -1313,8 +1333,10 @@ function ChangesBody({
   onTreeWidthChange,
   collapsedFolderPaths,
   onCollapsedFolderPathsChange,
+  listMode,
 }: {
   presentation: ChangesPresentation;
+  listMode: "flat" | "tree";
   children: ReactElement;
   desktopTreeVisible: boolean;
   isMobile: boolean;
@@ -1329,13 +1351,20 @@ function ChangesBody({
   if (presentation === "tree") {
     if (files.length === 0) return children;
     return (
-      <ChangedFilesTree
-        files={files}
-        mode={mode}
-        onSelectFile={onSelectFile}
-        collapsedFolderPaths={collapsedFolderPaths}
-        onCollapsedFolderPathsChange={onCollapsedFolderPathsChange}
-      />
+      <View style={styles.listBody}>
+        <ChangesListSummary files={files} />
+        {listMode === "flat" ? (
+          <ChangedFilesList files={files} mode={mode} onSelectFile={onSelectFile} />
+        ) : (
+          <ChangedFilesTree
+            files={files}
+            mode={mode}
+            onSelectFile={onSelectFile}
+            collapsedFolderPaths={collapsedFolderPaths}
+            onCollapsedFolderPathsChange={onCollapsedFolderPathsChange}
+          />
+        )}
+      </View>
     );
   }
   if (presentation === "diff") return children;
@@ -1352,6 +1381,19 @@ function ChangesBody({
     >
       {children}
     </ChangesTreeRail>
+  );
+}
+
+function ChangesListSummary({ files }: { files: ParsedDiffFile[] }) {
+  const { t } = useTranslation();
+  const stat = useMemo(() => summarizeDiffFiles(files), [files]);
+  return (
+    <View style={styles.listSummary} testID="changes-list-summary">
+      <Text style={styles.listSummaryText} numberOfLines={1}>
+        {t("workspace.git.prFlow.changes.filesChanged", { count: stat.fileCount })}
+      </Text>
+      <DiffStat additions={stat.additions} deletions={stat.deletions} />
+    </View>
   );
 }
 
@@ -1485,6 +1527,12 @@ export function ChangesSurface({
   const handleToggleInlineDiff = useCallback(() => {
     void updatePreferences({ inlineDiff: !preferences.inlineDiff });
   }, [preferences.inlineDiff, updatePreferences]);
+
+  const handleToggleListAsTree = useCallback(() => {
+    void updatePreferences({
+      sidebarListMode: preferences.sidebarListMode === "tree" ? "flat" : "tree",
+    });
+  }, [preferences.sidebarListMode, updatePreferences]);
 
   const handleToggleLayout = useCallback(() => {
     const layout = preferences.layout === "unified" ? "split" : "unified";
@@ -1803,6 +1851,7 @@ export function ChangesSurface({
   const bodyContent = (
     <ChangesBody
       presentation={presentation}
+      listMode={preferences.sidebarListMode}
       desktopTreeVisible={desktopTreeVisible}
       isMobile={isMobile}
       files={files}
@@ -1833,6 +1882,10 @@ export function ChangesSurface({
         inlineDiff: !isMobile
           ? { value: preferences.inlineDiff, onToggle: handleToggleInlineDiff }
           : null,
+        listAsTree: {
+          value: preferences.sidebarListMode === "tree",
+          onToggle: handleToggleListAsTree,
+        },
         onRefresh: handleRefresh,
         onCollapseAll: handleCollapseAllFiles,
         onExpandAll: handleExpandAllFiles,
@@ -1850,6 +1903,7 @@ export function ChangesSurface({
       handleExpandAllFiles,
       handleOpenDiff,
       handleToggleInlineDiff,
+      handleToggleListAsTree,
       handleRefresh,
       handleToggleDesktopTree,
       handleToggleHideWhitespace,
@@ -1859,6 +1913,7 @@ export function ChangesSurface({
       preferences.hideWhitespace,
       preferences.inlineDiff,
       preferences.layout,
+      preferences.sidebarListMode,
       isMobile,
       isRefreshing,
       presentation,
@@ -1880,7 +1935,8 @@ export function ChangesSurface({
         onSelectBase: handleSelectBase,
         onSelectUncommitted: handleSelectUncommitted,
         pullRequest: selectPrHintFromStatus(pullRequestStatus, forge),
-        selectedDiffStat,
+        // The tree presentation states the stat in its list summary instead.
+        selectedDiffStat: presentation === "tree" ? null : selectedDiffStat,
         serverId,
         workspaceId,
       }),
@@ -1895,6 +1951,7 @@ export function ChangesSurface({
       handleSelectUncommitted,
       isMobile,
       forge,
+      presentation,
       pullRequestStatus,
       selectedDiffStat,
       serverId,
@@ -2000,6 +2057,24 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minHeight: 0,
     position: "relative",
+  },
+  listBody: {
+    flex: 1,
+    minHeight: 0,
+  },
+  listSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
+    paddingLeft: theme.spacing[3],
+    paddingRight: WORKSPACE_PANE_TRAILING_GLYPH_RAIL,
+    paddingVertical: theme.spacing[1],
+  },
+  listSummaryText: {
+    flexShrink: 1,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
   },
   scrollContainer: {
     flex: 1,

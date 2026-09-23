@@ -37,6 +37,9 @@ import { workspaceTabTargetsEqual } from "@/workspace-tabs/identity";
 import type { PanelIconProps } from "@/panels/panel-registry";
 import { panelTargetSupportsHost } from "@/plugins/workspace-panels/locations";
 import type { Theme } from "@/styles/theme";
+import { useWorkingDiffSummary } from "@/git/use-working-diff-summary";
+import { useWorkspaceDirectory } from "@/stores/session-store-hooks";
+import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import {
   HorizontalScrollBoundaryShades,
   useHorizontalScrollBoundary,
@@ -60,6 +63,32 @@ interface ExplorerSidebarTabRailProps {
   onMoveTabToMain: (tabId: string) => void;
   onReorderTabs: (tabs: WorkspaceTabDescriptor[]) => void;
   trailingAccessory?: ReactNode;
+}
+
+/** The Explorer's own views read as a text segment row: `All files | Changes N | Checks`. */
+const SEGMENT_LABEL_KEYS: Partial<Record<WorkspaceTabTarget["kind"], string>> = {
+  files: "workspace.git.prFlow.tabs.allFiles",
+  changes_tree: "workspace.git.prFlow.tabs.changes",
+  pull_request: "workspace.git.prFlow.tabs.checks",
+};
+
+function ChangesCount({
+  serverId,
+  workspaceId,
+  active,
+}: {
+  serverId: string;
+  workspaceId: string;
+  active: boolean;
+}) {
+  const cwd = useWorkspaceDirectory(serverId, workspaceId) ?? "";
+  const summary = useWorkingDiffSummary({ serverId, workspaceId, cwd });
+  if (!summary || summary.fileCount === 0) return null;
+  return (
+    <Text selectable={false} style={[styles.tabCount, active ? styles.tabCountActive : null]}>
+      {summary.fileCount}
+    </Text>
+  );
 }
 
 function tabKey(item: WorkspaceDesktopTabRowItem): string {
@@ -107,6 +136,7 @@ function ExplorerSidebarTab({
   );
   const closeLeading = useMemo(() => <ThemedX size={14} uniProps={mutedColorMapping} />, []);
   const accessibilityState = useMemo(() => ({ selected: item.isActive }), [item.isActive]);
+  const segmentLabelKey = SEGMENT_LABEL_KEYS[item.tab.target.kind];
   const renderPresentation = useCallback(
     (presentation: WorkspaceTabPresentation) => (
       <ContextMenu>
@@ -130,20 +160,29 @@ function ExplorerSidebarTab({
                 isDragging ? styles.tabDragging : null,
               ]}
             >
-              <WorkspaceTabIcon
-                presentation={presentation}
-                active={item.isActive}
-                size={iconButtonChromeGlyphSize("small")}
-                strokeWidth={1.5}
-              />
+              {segmentLabelKey ? null : (
+                <WorkspaceTabIcon
+                  presentation={presentation}
+                  active={item.isActive}
+                  size={iconButtonChromeGlyphSize("small")}
+                  strokeWidth={1.5}
+                />
+              )}
               <Text
                 selectable={false}
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={[styles.tabLabel, item.isActive ? styles.tabLabelActive : null]}
               >
-                {presentation.label}
+                {segmentLabelKey ? t(segmentLabelKey) : presentation.label}
               </Text>
+              {item.tab.target.kind === "changes_tree" ? (
+                <ChangesCount
+                  serverId={normalizedServerId}
+                  workspaceId={normalizedWorkspaceId}
+                  active={item.isActive}
+                />
+              ) : null}
             </ContextMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom" align="center" offset={8}>
@@ -177,6 +216,9 @@ function ExplorerSidebarTab({
       canMoveToMain,
       closeLeading,
       moveToMainLeading,
+      normalizedServerId,
+      normalizedWorkspaceId,
+      segmentLabelKey,
       t,
     ],
   );
@@ -423,7 +465,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.interactionHighlight,
   },
   tabActive: {
-    backgroundColor: theme.colors.interactionHighlight,
+    backgroundColor: theme.colors.surface2,
   },
   tabLabel: {
     minWidth: 0,
@@ -435,6 +477,15 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabLabelActive: {
     color: theme.colors.foreground,
+  },
+  tabCount: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.sm,
+    fontVariant: ["tabular-nums"],
+    userSelect: "none",
+  },
+  tabCountActive: {
+    color: theme.colors.foregroundMuted,
   },
   tabDragging: {
     opacity: 0.3,

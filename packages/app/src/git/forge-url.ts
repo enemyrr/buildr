@@ -150,6 +150,33 @@ export function buildForgeBlobUrl(forge: string, input: ForgeBlobUrlInput): stri
   return url;
 }
 
+export interface ForgeCompareUrlInput {
+  remoteUrl: string | null | undefined;
+  baseRef: string | null | undefined;
+  branch: string | null | undefined;
+}
+
+/** A remote-tracking or fully qualified ref as the bare branch name the forge knows. */
+function bareBranchName(ref: string): string {
+  return ref
+    .trim()
+    .replace(/^refs\/heads\//, "")
+    .replace(/^refs\/remotes\/[^/]+\//, "")
+    .replace(/^origin\//, "");
+}
+
+/** The forge's "new change request" form for `branch` into `baseRef`, or null when unknown. */
+export function buildForgeCompareUrl(forge: string, input: ForgeCompareUrlInput): string | null {
+  const compare = getClientForgeLogicModule(forge)?.urlGrammar?.compareChangeRequest;
+  const location = resolveForgeWebLocation(forge, input.remoteUrl);
+  const branch = input.branch?.trim();
+  const base = input.baseRef ? bareBranchName(input.baseRef) : "";
+  if (!compare || !location || !branch || branch === "HEAD" || !base || base === branch) {
+    return null;
+  }
+  return `https://${forgeAuthority(location)}/${location.repo}${compare(encodeBranch(base), encodeBranch(branch))}`;
+}
+
 /** Whether the forge has web URL builders (i.e. a known URL grammar). */
 export function hasForgeWebUrls(forge: string): boolean {
   return getClientForgeLogicModule(forge)?.urlGrammar !== undefined;

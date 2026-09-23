@@ -45,6 +45,29 @@ describe("checkout status projection", () => {
     expect(CheckoutPrStatusSchema.parse(payload)).toEqual(payload);
   });
 
+  test("carries the PR body on the wire payload and omits it when empty", () => {
+    const base = {
+      number: 7,
+      url: "https://github.com/getpaseo/paseo/pull/7",
+      title: "Describe PRs",
+      state: "open",
+      baseRefName: "main",
+      headRefName: "feature/pr-body",
+      isMerged: false,
+    };
+
+    const withBody = normalizeCheckoutPrStatusPayload(
+      { ...base, body: "## Summary\n\nRenders the PR description." },
+      "github",
+    );
+    const withoutBody = normalizeCheckoutPrStatusPayload({ ...base, body: "" }, "github");
+
+    expect(withBody).toHaveProperty("body", "## Summary\n\nRenders the PR description.");
+    expect(CheckoutPrStatusSchema.parse(withBody)).toEqual(withBody);
+    expect(withoutBody).not.toHaveProperty("body");
+    expect(CheckoutPrStatusSchema.parse(withoutBody)).not.toHaveProperty("body");
+  });
+
   test("projects PR 993 GitHub merge facts without changing top-level status fields", () => {
     const payload = normalizeCheckoutPrStatusPayload(
       {

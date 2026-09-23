@@ -24,6 +24,11 @@ import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { HighlightedText } from "@/components/ui/highlighted-text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/status-badge";
 import { findHighlightRanges } from "@/components/ui/highlighted-text-segments";
+import { DiffStat } from "@/components/diff-stat";
+import { ProjectIconView } from "@/components/project-icon-view";
+import { useWorkspaceFields } from "@/stores/session-store-hooks";
+import type { WorkspaceDescriptor } from "@/stores/session-store";
+import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 
 interface AgentListProps {
   agents: AggregatedAgent[];
@@ -49,7 +54,7 @@ const DATE_SECTION_ORDER = [
 ] as const satisfies readonly DateSectionKey[];
 
 type FlatListItem =
-  | { type: "header"; key: string; section: DateSectionKey }
+  | { type: "header"; key: string; section: DateSectionKey; count: number }
   | { type: "agent"; key: string; agent: AggregatedAgent };
 
 function deriveDateSectionKey(lastActivityAt: Date): DateSectionKey {
@@ -242,6 +247,7 @@ function SessionRow({
       accessibilityRole="button"
       testID={`agent-row-${agent.serverId}-${agent.id}`}
     >
+      <SessionProjectAvatar agent={agent} />
       <View style={styles.rowContent}>
         <View style={styles.rowTitleRow}>
           <HighlightedText
@@ -297,13 +303,7 @@ function SessionRow({
       </View>
       {!isMobile ? (
         <View style={styles.rowColumns}>
-          <HighlightedText
-            text={projectName}
-            ranges={ranges.project}
-            style={styles.columnMeta}
-            numberOfLines={1}
-            testID={`agent-row-project-${agent.serverId}-${agent.id}`}
-          />
+          <SessionWorkspaceDiffStat serverId={agent.serverId} workspaceId={agent.workspaceId} />
           {showHostColumn ? (
             <Text style={styles.columnMetaHost} numberOfLines={1}>
               {agent.serverLabel}
@@ -327,6 +327,46 @@ function SessionRow({
         requiresAttention={agent.requiresAttention}
       />
     </Pressable>
+  );
+}
+
+function SessionProjectAvatar({ agent }: { agent: AggregatedAgent }) {
+  const projectKey = agent.projectPlacement?.projectKey ?? agent.cwd;
+  const initial = projectIconPlaceholderLabelFromDisplayName(
+    agent.projectPlacement?.projectName || projectKey,
+  )
+    .charAt(0)
+    .toUpperCase();
+  return (
+    <View style={styles.projectAvatar}>
+      <ProjectIconView
+        iconDataUri={null}
+        initial={initial}
+        projectViewKey={projectKey}
+        size={16}
+        textStyle={styles.projectAvatarText}
+      />
+    </View>
+  );
+}
+
+function selectDiffStat(workspace: WorkspaceDescriptor): WorkspaceDescriptor["diffStat"] {
+  return workspace.diffStat;
+}
+
+/** The workspace's live diff stat, when this host still has the workspace loaded. */
+function SessionWorkspaceDiffStat({
+  serverId,
+  workspaceId,
+}: {
+  serverId: string;
+  workspaceId: string | null | undefined;
+}) {
+  const diffStat = useWorkspaceFields(serverId, workspaceId ?? null, selectDiffStat);
+  return (
+    <View style={styles.columnDiff}>
+      {diffStat ? <DiffStat additions={diffStat.additions} deletions={diffStat.deletions} /> : null}
+    </View>
   );
 }
 
@@ -421,7 +461,7 @@ export function AgentList({
       if (!data || data.length === 0) {
         continue;
       }
-      result.push({ type: "header", key: `header:${section}`, section });
+      result.push({ type: "header", key: `header:${section}`, section, count: data.length });
       for (const agent of data) {
         result.push({ type: "agent", key: `${agent.serverId}:${agent.id}`, agent });
       }
@@ -435,6 +475,7 @@ export function AgentList({
         return (
           <View style={styles.sectionHeading}>
             <Text style={styles.sectionTitle}>{formatDateSectionLabel(t, item.section)}</Text>
+            <Text style={styles.sectionCount}>{item.count}</Text>
           </View>
         );
       }
@@ -559,31 +600,48 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1],
   },
   sectionHeading: {
-    marginTop: theme.spacing[2],
+    marginTop: theme.spacing[3],
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[3],
-    paddingHorizontal: theme.spacing[3],
-    marginBottom: theme.spacing[2],
+    gap: theme.spacing[1.5],
+    paddingHorizontal: theme.spacing[2],
+    marginBottom: theme.spacing[1],
   },
   sectionTitle: {
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
     color: theme.colors.foregroundMuted,
+  },
+  sectionCount: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundExtraMuted,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: {
-      xs: theme.borderRadius.lg,
-      md: 0,
+    gap: theme.spacing[2],
+    minHeight: {
+      xs: 44,
+      md: 32,
     },
-    marginBottom: {
-      xs: theme.spacing[1],
-      md: 0,
+    paddingVertical: {
+      xs: theme.spacing[2],
+      md: theme.spacing[1],
     },
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
+  },
+  projectAvatar: {
+    flexShrink: 0,
+  },
+  projectAvatarText: {
+    fontSize: 10,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  columnDiff: {
+    width: 80,
+    flexShrink: 0,
+    alignItems: "flex-end",
   },
   rowContent: {
     flex: 1,
@@ -627,7 +685,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface2,
   },
   rowHovered: {
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colors.interactionHighlight,
   },
   rowPressed: {
     backgroundColor: theme.colors.surface2,

@@ -1,5 +1,6 @@
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import type { StreamItem, ToolCallItem } from "@/types/stream";
+import { continuesTurn } from "@/agent-stream/turn-membership";
 
 export interface ToolCallDescriptor {
   detail: ToolCallDetail;
@@ -9,17 +10,33 @@ export interface ToolCallDescriptor {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * The activity of one turn folded into a single row: tool calls, thoughts, todo updates, and
+ * the assistant text between them. The turn's final assistant text is never a member; it stays
+ * in the stream so the answer is always visible.
+ */
 export interface ToolCallRun {
   id: string;
+  items: readonly StreamItem[];
   calls: readonly ToolCallItem[];
   latest: ToolCallItem;
   isSealed: boolean;
 }
 
+interface OpenSegment {
+  items: readonly StreamItem[];
+  run: ToolCallRun | null;
+  /** Assistant text after the run was emitted into the tail, so the run cannot grow in place. */
+  hasTrailing: boolean;
+}
+
 export interface GroupedHistory<TGroup> {
   tail: StreamItem[];
   groupsByHostId: Map<string, TGroup>;
-  pendingCalls: readonly ToolCallItem[];
+  /** The segment still open at the end of the tail, which the live head may extend. */
+  open: OpenSegment | null;
+  /** Unsealed variant of `open`, cached so live-head ticks keep group identity. */
+  liveVariant?: { groupsByHostId: Map<string, TGroup>; updates: Map<string, TGroup> };
 }
 
 export interface GroupedToolCalls<TGroup> {
@@ -70,20 +87,13 @@ export function isGroupableToolCall(item: StreamItem): item is ToolCallItem {
   return descriptor.detail.type !== "plan" && descriptor.name.trim().toLowerCase() !== "speak";
 }
 
-function createRun(calls: readonly ToolCallItem[], isSealed: boolean): ToolCallRun {
-  const first = calls[0];
-  const latest = calls.at(-1);
-  if (!first || !latest) {
-    throw new Error("Cannot group an empty tool call run");
-  }
-  return { id: first.id, calls, latest, isSealed };
-}
-
-function createHost(run: ToolCallRun): ToolCallItem {
-  if (run.calls.length === 1) {
-    return run.latest;
-  }
-  return { ...run.latest, id: run.id };
+function isRunMember(item: StreamItem): boolean {
+  return (
+    isGroupableToolCall(item) ||
+    item.kind === "thought" ||
+    item.kind === "todo_list" ||
+    item.kind === "assistant_message"
+  );
 }
 
 function isRunning(call: ToolCallItem): boolean {
@@ -91,59 +101,160 @@ function isRunning(call: ToolCallItem): boolean {
   return status === "running" || status === "executing";
 }
 
-function appendRun<TGroup>(input: {
-  calls: readonly ToolCallItem[];
-  isSealed: boolean;
+/** Everything up to the last non-text member; the text after it is the turn's answer so far. */
+function splitTrailingText(segment: readonly StreamItem[]): number {
+  let end = segment.length;
+  while (end > 0 && segment[end - 1]?.kind === "assistant_message") {
+    end -= 1;
+  }
+  return end;
+}
+
+function createRun(items: readonly StreamItem[], isSealed: boolean): ToolCallRun | null {
+  const calls = items.filter(isGroupableToolCall);
+  const first = calls[0];
+  const latest = calls.at(-1);
+  if (!first || !latest) {
+    return null;
+  }
+  return { id: first.id, items, calls, latest, isSealed };
+}
+
+function createHost(run: ToolCallRun): ToolCallItem {
+  if (run.items.length === 1) {
+    return run.latest;
+  }
+  return { ...run.latest, id: run.id };
+}
+
+interface Segmented<TGroup> {
   output: StreamItem[];
   groups: Map<string, TGroup>;
+  open: OpenSegment | null;
+}
+
+/**
+ * Folds each turn's contiguous activity into one host row. `isLastSealed` decides whether the
+ * segment still open at the end of `items` is built sealed.
+ */
+function segmentItems<TGroup>(input: {
+  items: readonly StreamItem[];
   buildGroup: (run: ToolCallRun) => TGroup;
-}): void {
-  if (input.calls.length === 0) {
-    return;
+  isLastSealed: (run: ToolCallRun) => boolean;
+}): Segmented<TGroup> {
+  const output: StreamItem[] = [];
+  const groups = new Map<string, TGroup>();
+  let segment: StreamItem[] = [];
+
+  const flush = (isLast: boolean): OpenSegment | null => {
+    if (segment.length === 0) {
+      return null;
+    }
+    const items = segment;
+    segment = [];
+    const end = splitTrailingText(items);
+    const draft = createRun(items.slice(0, end), true);
+    if (!draft) {
+      output.push(...items);
+      return { items, run: null, hasTrailing: true };
+    }
+    const run = isLast && !input.isLastSealed(draft) ? { ...draft, isSealed: false } : draft;
+    output.push(createHost(run), ...items.slice(end));
+    groups.set(run.id, input.buildGroup(run));
+    return { items, run, hasTrailing: end < items.length };
+  };
+
+  for (const item of input.items) {
+    const previous = segment.at(-1) ?? null;
+    if (isRunMember(item)) {
+      if (previous && !continuesTurn(previous, item)) {
+        flush(false);
+      }
+      segment.push(item);
+      continue;
+    }
+    flush(false);
+    output.push(item);
   }
-  const run = createRun(input.calls, input.isSealed);
-  const host = createHost(run);
-  input.output.push(host);
-  input.groups.set(host.id, input.buildGroup(run));
+  const open = flush(true);
+  return { output, groups, open };
 }
 
 export function prepareGroupedHistory<TGroup>(input: {
   tail: StreamItem[];
   buildGroup: (run: ToolCallRun) => TGroup;
 }): GroupedHistory<TGroup> {
-  const output: StreamItem[] = [];
-  const groups = new Map<string, TGroup>();
-  let pending: ToolCallItem[] = [];
-
-  for (const item of input.tail) {
-    if (isGroupableToolCall(item)) {
-      pending.push(item);
-      continue;
-    }
-    appendRun({
-      calls: pending,
-      isSealed: true,
-      output,
-      groups,
-      buildGroup: input.buildGroup,
-    });
-    pending = [];
-    output.push(item);
-  }
-
-  appendRun({
-    calls: pending,
-    isSealed: true,
-    output,
-    groups,
+  const segmented = segmentItems({
+    items: input.tail,
     buildGroup: input.buildGroup,
+    isLastSealed: () => true,
   });
-
   return {
-    tail: groups.size > 0 ? output : input.tail,
-    groupsByHostId: groups,
-    pendingCalls: pending,
+    tail: segmented.groups.size > 0 ? segmented.output : input.tail,
+    groupsByHostId: segmented.groups,
+    open: segmented.open,
   };
+}
+
+/** Head members that extend the tail's open run in place, and where the rest of the head begins. */
+function absorbHeadPrefix(
+  open: OpenSegment,
+  head: readonly StreamItem[],
+): { absorbed: StreamItem[]; restStart: number } {
+  let previous = open.items.at(-1) ?? null;
+  let index = 0;
+  for (; index < head.length; index += 1) {
+    const item = head[index]!;
+    if (!isRunMember(item) || !continuesTurn(previous, item)) {
+      break;
+    }
+    previous = item;
+  }
+  const end = splitTrailingText(head.slice(0, index));
+  return { absorbed: head.slice(0, end), restStart: end };
+}
+
+type HistoryRunUpdate<TGroup> =
+  | { kind: "none" }
+  | { kind: "unsealed" }
+  | { kind: "extended"; id: string; group: TGroup };
+
+/** How the live head changes the tail's open run: untouched, reopened, or extended in place. */
+function resolveHistoryRunUpdate<TGroup>(input: {
+  open: OpenSegment | null;
+  absorbed: readonly StreamItem[];
+  isLast: boolean;
+  isRunLive: (run: ToolCallRun) => boolean;
+  buildGroup: (run: ToolCallRun) => TGroup;
+}): HistoryRunUpdate<TGroup> {
+  const run = input.open?.run;
+  if (!run) {
+    return { kind: "none" };
+  }
+  if (input.absorbed.length === 0) {
+    return input.isLast && input.isRunLive(run) ? { kind: "unsealed" } : { kind: "none" };
+  }
+  const extended = createRun([...run.items, ...input.absorbed], true);
+  if (!extended) {
+    return { kind: "none" };
+  }
+  const isSealed = !(input.isLast && input.isRunLive(extended));
+  return { kind: "extended", id: run.id, group: input.buildGroup({ ...extended, isSealed }) };
+}
+
+function getLiveVariant<TGroup>(
+  history: GroupedHistory<TGroup>,
+  run: ToolCallRun,
+  buildGroup: (run: ToolCallRun) => TGroup,
+): NonNullable<GroupedHistory<TGroup>["liveVariant"]> {
+  if (!history.liveVariant) {
+    const group = buildGroup({ ...run, isSealed: false });
+    history.liveVariant = {
+      groupsByHostId: new Map(history.groupsByHostId).set(run.id, group),
+      updates: new Map([[run.id, group]]),
+    };
+  }
+  return history.liveVariant;
 }
 
 export function groupLiveToolCalls<TGroup>(input: {
@@ -152,77 +263,55 @@ export function groupLiveToolCalls<TGroup>(input: {
   isTurnActive: boolean;
   buildGroup: (run: ToolCallRun) => TGroup;
 }): GroupedToolCalls<TGroup> {
-  const head: StreamItem[] = [];
-  const liveGroups = new Map<string, TGroup>();
-  let pending = [...input.history.pendingCalls];
-  let hostPlacement: "history" | "head" | null = pending.length > 0 ? "history" : null;
-  let pendingIncludesHead = false;
+  const { history } = input;
+  const open = history.open;
+  const isRunLive = (run: ToolCallRun) => input.isTurnActive || run.calls.some(isRunning);
 
-  const flush = (isSealed: boolean) => {
-    if (pending.length === 0) {
-      return;
-    }
-    const run = createRun(pending, isSealed);
-    if (hostPlacement === "head") {
-      head.push(createHost(run));
-    }
-    if (hostPlacement === "head" || pendingIncludesHead || !isSealed) {
-      liveGroups.set(run.id, input.buildGroup(run));
-    }
-    pending = [];
-    hostPlacement = null;
-    pendingIncludesHead = false;
-  };
+  const { absorbed, restStart } =
+    open?.run && !open.hasTrailing
+      ? absorbHeadPrefix(open, input.head)
+      : { absorbed: [], restStart: 0 };
+  const headSegmented = segmentItems({
+    items: restStart === 0 ? input.head : input.head.slice(restStart),
+    buildGroup: input.buildGroup,
+    isLastSealed: (run) => !isRunLive(run),
+  });
+  const head = headSegmented.groups.size > 0 || restStart > 0 ? headSegmented.output : input.head;
+  const update = resolveHistoryRunUpdate({
+    open,
+    absorbed,
+    isLast: headSegmented.groups.size === 0,
+    isRunLive,
+    buildGroup: input.buildGroup,
+  });
 
-  for (const item of input.head) {
-    if (isGroupableToolCall(item)) {
-      if (pending.length === 0) {
-        hostPlacement = "head";
-      }
-      pending.push(item);
-      pendingIncludesHead = true;
-      continue;
-    }
-    flush(true);
-    head.push(item);
-  }
-  // Tool calls live in retained tail rather than the streaming head. The agent
-  // lifecycle snapshot can still be idle while a newly received tool call is
-  // already running, so its direct timeline status is the authoritative start
-  // signal. The lifecycle state continues to keep completed calls live between
-  // sequential tool updates.
-  const trailingRunIsActive = input.isTurnActive || pending.some(isRunning);
-  flush(!trailingRunIsActive);
-
-  if (liveGroups.size === 0) {
+  if (update.kind === "unsealed" && open?.run) {
+    const variant = getLiveVariant(history, open.run, input.buildGroup);
     return {
-      tail: input.history.tail,
-      head: input.head,
-      groupsByHostId: input.history.groupsByHostId,
-      historyGroupUpdatesByHostId: EMPTY_GROUPS,
-    };
-  }
-  if (input.history.groupsByHostId.size === 0) {
-    return {
-      tail: input.history.tail,
+      tail: history.tail,
       head,
-      groupsByHostId: liveGroups,
+      groupsByHostId: variant.groupsByHostId,
+      historyGroupUpdatesByHostId: variant.updates,
+    };
+  }
+  if (update.kind !== "extended" && headSegmented.groups.size === 0) {
+    return {
+      tail: history.tail,
+      head,
+      groupsByHostId: history.groupsByHostId,
       historyGroupUpdatesByHostId: EMPTY_GROUPS,
     };
   }
-  const groupsByHostId = new Map(input.history.groupsByHostId);
-  let historyGroupUpdatesByHostId: Map<string, TGroup> | null = null;
-  for (const [id, group] of liveGroups) {
-    groupsByHostId.set(id, group);
-    if (input.history.groupsByHostId.has(id)) {
-      historyGroupUpdatesByHostId ??= new Map();
-      historyGroupUpdatesByHostId.set(id, group);
-    }
+
+  const groupsByHostId = new Map([...history.groupsByHostId, ...headSegmented.groups]);
+  if (update.kind !== "extended") {
+    return { tail: history.tail, head, groupsByHostId, historyGroupUpdatesByHostId: EMPTY_GROUPS };
   }
+  groupsByHostId.set(update.id, update.group);
   return {
-    tail: input.history.tail,
+    tail: history.tail,
     head,
     groupsByHostId,
-    historyGroupUpdatesByHostId: historyGroupUpdatesByHostId ?? EMPTY_GROUPS,
+    historyGroupUpdatesByHostId: new Map([[update.id, update.group]]),
   };
 }

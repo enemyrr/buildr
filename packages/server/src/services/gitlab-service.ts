@@ -725,6 +725,7 @@ function toCurrentPullRequestStatus(
     ...(projectPath ? { projectPath } : {}),
     url: mr.web_url,
     title: mr.title,
+    ...(mr.description ? { body: mr.description } : {}),
     state: mapMergeRequestState(mr.state),
     baseRefName: mr.target_branch,
     headRefName: mr.source_branch,

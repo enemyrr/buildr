@@ -6,6 +6,7 @@ import { buildDeterministicWorkspaceTabId } from "@/workspace-tabs/identity";
 export type WorkspaceTabMenuSurface = "desktop" | "mobile";
 
 export interface WorkspaceTabMenuLabels {
+  copyTranscript?: string;
   copyResumeCommand: string;
   copyAgentId: string;
   copyTerminalId: string;
@@ -22,6 +23,7 @@ export interface WorkspaceTabMenuLabels {
 }
 
 export const DEFAULT_WORKSPACE_TAB_MENU_LABELS: WorkspaceTabMenuLabels = {
+  copyTranscript: i18n.t("workspace.tabs.menu.copyTranscript"),
   copyResumeCommand: i18n.t("workspace.tabs.menu.copyResumeCommand"),
   copyAgentId: i18n.t("workspace.tabs.menu.copyAgentId"),
   copyTerminalId: i18n.t("workspace.tabs.menu.copyTerminalId"),
@@ -68,6 +70,8 @@ interface BuildWorkspaceTabMenuEntriesInput {
   index: number;
   tabCount: number;
   menuTestIDBase: string;
+  /** Agent tabs only. Omitted when the host cannot build a transcript. */
+  onCopyTranscript?: (agentId: string) => Promise<void> | void;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
   onCopyTerminalId: (terminalId: string) => Promise<void> | void;
@@ -85,6 +89,7 @@ interface BuildWorkspaceDesktopTabActionsInput {
   tab: WorkspaceTabDescriptor;
   index: number;
   tabCount: number;
+  onCopyTranscript?: (agentId: string) => Promise<void> | void;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
   onCopyTerminalId: (terminalId: string) => Promise<void> | void;
@@ -172,6 +177,7 @@ export function buildWorkspaceTabMenuEntries(
     index,
     tabCount,
     menuTestIDBase,
+    onCopyTranscript,
     onCopyResumeCommand,
     onCopyAgentId,
     onCopyTerminalId,
@@ -189,8 +195,39 @@ export function buildWorkspaceTabMenuEntries(
   const isOnlyTab = tabCount <= 1;
   const entries: WorkspaceTabMenuEntry[] = [];
 
+  // Rename first, then copies, then closes: the order Conductor uses for chat tabs.
+  if (tab.target.kind === "agent" || tab.target.kind === "terminal") {
+    entries.push({
+      kind: "item",
+      key: "rename",
+      label: labels.rename,
+      icon: "pencil",
+      testID: `${menuTestIDBase}-rename`,
+      onSelect: () => {
+        onRenameTab(tab);
+      },
+    });
+    entries.push({
+      kind: "separator",
+      key: "rename-separator",
+    });
+  }
+
+  const copyEntryCount = entries.length;
   if (tab.target.kind === "agent") {
     const { agentId } = tab.target;
+    if (onCopyTranscript) {
+      entries.push({
+        kind: "item",
+        key: "copy-transcript",
+        label: labels.copyTranscript ?? DEFAULT_WORKSPACE_TAB_MENU_LABELS.copyTranscript ?? "",
+        icon: "copy",
+        testID: `${menuTestIDBase}-copy-transcript`,
+        onSelect: () => {
+          void onCopyTranscript(agentId);
+        },
+      });
+    }
     entries.push({
       kind: "item",
       key: "copy-resume-command",
@@ -242,24 +279,31 @@ export function buildWorkspaceTabMenuEntries(
       },
     });
   }
-
-  if (tab.target.kind === "agent" || tab.target.kind === "terminal") {
-    entries.push({
-      kind: "item",
-      key: "rename",
-      label: labels.rename,
-      icon: "pencil",
-      testID: `${menuTestIDBase}-rename`,
-      onSelect: () => {
-        onRenameTab(tab);
-      },
-    });
-    entries.push({
-      kind: "separator",
-      key: "rename-separator",
-    });
+  if (entries.length > copyEntryCount) {
+    entries.push({ kind: "separator", key: "copy-separator" });
   }
 
+  entries.push({
+    kind: "item",
+    key: "close",
+    label: labels.close,
+    icon: "x",
+    testID: `${menuTestIDBase}-close`,
+    onSelect: () => {
+      void onCloseTab(tab.tabId);
+    },
+  });
+  entries.push({
+    kind: "item",
+    key: "close-others",
+    label: labels.closeOthers,
+    icon: "copy-x",
+    disabled: isOnlyTab,
+    testID: `${menuTestIDBase}-close-others`,
+    onSelect: () => {
+      void onCloseOtherTabs(tab.tabId);
+    },
+  });
   entries.push({
     kind: "item",
     key: "close-before",
@@ -282,19 +326,9 @@ export function buildWorkspaceTabMenuEntries(
       void onCloseTabsAfter(tab.tabId);
     },
   });
-  entries.push({
-    kind: "item",
-    key: "close-others",
-    label: labels.closeOthers,
-    icon: "copy-x",
-    disabled: isOnlyTab,
-    testID: `${menuTestIDBase}-close-others`,
-    onSelect: () => {
-      void onCloseOtherTabs(tab.tabId);
-    },
-  });
   if (tab.target.kind === "agent") {
     const { agentId } = tab.target;
+    entries.push({ kind: "separator", key: "reload-separator" });
     entries.push({
       kind: "item",
       key: "reload-agent",
@@ -307,16 +341,6 @@ export function buildWorkspaceTabMenuEntries(
       },
     });
   }
-  entries.push({
-    kind: "item",
-    key: "close",
-    label: labels.close,
-    icon: "x",
-    testID: `${menuTestIDBase}-close`,
-    onSelect: () => {
-      void onCloseTab(tab.tabId);
-    },
-  });
 
   return entries;
 }
@@ -333,6 +357,7 @@ export function buildWorkspaceDesktopTabActions(
       index: input.index,
       tabCount: input.tabCount,
       menuTestIDBase: contextMenuTestId,
+      onCopyTranscript: input.onCopyTranscript,
       onCopyResumeCommand: input.onCopyResumeCommand,
       onCopyAgentId: input.onCopyAgentId,
       onCopyTerminalId: input.onCopyTerminalId,

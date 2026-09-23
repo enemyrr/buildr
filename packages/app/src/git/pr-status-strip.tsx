@@ -1,15 +1,13 @@
 import { useCallback, useMemo } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-  type PressableStateCallbackType,
-} from "react-native";
+import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { useTranslation } from "react-i18next";
 import { Archive, ArrowUpRight, FastForward, GitMerge, Wrench } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GIT_ACTION_ICONS } from "@/git/action-icons";
+import { getForgePresentation } from "@/git/forge";
 import { deriveMergeCapability } from "@/git/merge-capability";
 import {
   sendContinueRequest,
@@ -26,7 +24,6 @@ import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
-import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 
@@ -34,11 +31,17 @@ interface PrStatusStripProps {
   serverId: string;
   cwd: string;
   agentId: string | null;
+  /** `bar` spans the Explorer above its tabs; `inline` sits among the header actions. */
+  variant?: "bar" | "inline";
 }
 
-/** The change request's state and next step, pinned above the Explorer tabs. */
-export function PrStatusStrip({ serverId, cwd, agentId }: PrStatusStripProps) {
-  const { status: prStatus } = useCheckoutPrStatusQuery({ serverId, cwd });
+/**
+ * The change request's lifecycle: `#N ↗`, its state in the state's color, and the next step —
+ * Merge while open, Continue or Archive once merged or closed.
+ */
+export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrStatusStripProps) {
+  const { t } = useTranslation();
+  const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
   const { gitActions } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
   const requests = useInstructionRequests({ serverId, cwd, agentId });
@@ -77,23 +80,32 @@ export function PrStatusStrip({ serverId, cwd, agentId }: PrStatusStripProps) {
   }, [prUrl]);
 
   if (!prStatus || !state) return null;
-  const tone = TONE_STYLES[state.tone];
+  const numberLabel = prStatus.number
+    ? `${getForgePresentation(forge).numberPrefix}${prStatus.number}`
+    : "PR";
   return (
-    <View style={[styles.strip, tone.strip]} testID="workspace-pr-status-strip">
-      <Pressable
+    <View
+      style={[variant === "bar" ? styles.bar : styles.inline, TONE_SHEETS[state.tone].tint]}
+      testID={variant === "bar" ? "workspace-pr-status-strip" : "workspace-pr-status-inline"}
+    >
+      <Button
+        variant="ghost"
+        size="xs"
         onPress={openPr}
-        style={chipStyle(tone)}
         accessibilityRole="link"
-        accessibilityLabel={`Open pull request ${prStatus.number ?? ""}`.trim()}
+        accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
+        textStyle={styles.chipText}
+        trailing={CHIP_ARROW}
         testID="workspace-pr-status-number"
       >
-        <Text style={[styles.chipText, tone.text]}>
-          {prStatus.number ? `#${prStatus.number}` : "PR"}
-        </Text>
-        <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
-      </Pressable>
-      <Text style={[styles.label, tone.text]} numberOfLines={1} testID="workspace-pr-status-label">
-        {state.label}
+        {numberLabel}
+      </Button>
+      <Text
+        style={[styles.label, variant === "bar" && styles.labelFill, TONE_SHEETS[state.tone].text]}
+        numberOfLines={1}
+        testID="workspace-pr-status-label"
+      >
+        {t(`workspace.git.prFlow.state.${state.label}`)}
       </Text>
       <View style={styles.actions}>
         {state.actions.map((action) => (
@@ -129,44 +141,51 @@ function StripButton({
   disabled: boolean;
   onPress: (action: PrStripAction) => void;
 }) {
+  const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(action), [onPress, action]);
-  const sheet = TONE_STYLES[tone];
-  const filled = action.emphasis === "filled";
-  const style = useCallback(
-    ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.button,
-      filled ? sheet.filled : sheet.outline,
-      (Boolean(hovered) || pressed) && (filled ? sheet.filledHover : sheet.outlineHover),
-      disabled && styles.disabled,
-    ],
-    [filled, sheet, disabled],
-  );
   const icon = actionIcon(action);
-  return (
-    <Pressable
+  const onToneIcon = useMemo(() => <ToneIcon icon={icon} tone="onTone" size={13} />, [icon]);
+  const label = t(`workspace.git.prFlow.${action.label}`);
+  const testID = `workspace-pr-status-${action.label}`;
+  if (action.emphasis === "filled") {
+    return (
+      <Button
+        variant="default"
+        size="xs"
+        leftIcon={onToneIcon}
+        onPress={handlePress}
+        disabled={disabled}
+        loading={pending}
+        style={TONE_SHEETS[tone].fill}
+        textStyle={styles.onToneText}
+        testID={testID}
+      >
+        {label}
+      </Button>
+    );
+  }
+  const button = (
+    <Button
+      variant="ghost"
+      size="xs"
+      leftIcon={icon}
       onPress={handlePress}
-      disabled={disabled || pending}
-      style={style}
-      testID={`workspace-pr-status-${action.label.toLowerCase()}`}
+      disabled={disabled}
+      loading={pending}
+      testID={testID}
     >
-      {pending ? (
-        <ToneSpinner tone={filled ? "onTone" : tone} />
-      ) : (
-        <ToneIcon icon={icon} tone={filled ? "onTone" : tone} size={13} />
-      )}
-      <Text style={[styles.buttonText, filled ? sheet.filledText : sheet.text]}>
-        {action.label}
-      </Text>
-    </Pressable>
+      {label}
+    </Button>
   );
-}
-
-function chipStyle(tone: ToneSheet) {
-  return ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
-    styles.chip,
-    tone.chip,
-    (Boolean(hovered) || pressed) && tone.outlineHover,
-  ];
+  if (action.kind !== "continue") return button;
+  return (
+    <Tooltip delayDuration={300} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="bottom" align="end">
+        <Text style={styles.tooltipText}>{t("workspace.git.prFlow.continueTooltip")}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 type IconTone = PrStripTone | "onTone";
@@ -188,15 +207,6 @@ function toneColor(theme: Theme, tone: IconTone): string {
   }
 }
 
-const TONE_ICONS: Record<IconTone, ReturnType<typeof themedIcon>> = {
-  success: themedIcon("success"),
-  danger: themedIcon("danger"),
-  warning: themedIcon("warning"),
-  merged: themedIcon("merged"),
-  muted: themedIcon("muted"),
-  onTone: themedIcon("onTone"),
-};
-
 function themedIcon(tone: IconTone) {
   return withUnistyles(
     ({ icon: Icon, size, color }: { icon: LucideIcon; size: number; color?: string }) => (
@@ -206,54 +216,50 @@ function themedIcon(tone: IconTone) {
   );
 }
 
-const TONE_SPINNERS = {
-  success: themedSpinner("success"),
-  danger: themedSpinner("danger"),
-  warning: themedSpinner("warning"),
-  merged: themedSpinner("merged"),
-  muted: themedSpinner("muted"),
-  onTone: themedSpinner("onTone"),
+const TONE_ICONS: Record<IconTone, ReturnType<typeof themedIcon>> = {
+  success: themedIcon("success"),
+  danger: themedIcon("danger"),
+  warning: themedIcon("warning"),
+  merged: themedIcon("merged"),
+  muted: themedIcon("muted"),
+  onTone: themedIcon("onTone"),
 };
-
-function themedSpinner(tone: IconTone) {
-  return withUnistyles(ActivityIndicator, (theme) => ({ color: toneColor(theme, tone) }));
-}
-
-function ToneSpinner({ tone }: { tone: IconTone }) {
-  const Themed = TONE_SPINNERS[tone];
-  return <Themed size="small" style={styles.spinner} />;
-}
 
 function ToneIcon({ icon, tone, size }: { icon: LucideIcon; tone: IconTone; size: number }) {
   const Themed = TONE_ICONS[tone];
   return <Themed icon={icon} size={size} />;
 }
 
-// Web theme colors are CSS variables, so only native can take a hex alpha suffix.
-function withAlpha(color: string, alpha: number): string {
-  if (isWeb) return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`;
-  return `${color}${Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, "0")}`;
+const CHIP_ARROW = <ToneIcon icon={ArrowUpRight} tone="muted" size={12} />;
+
+function toneTint(theme: Theme, tone: PrStripTone): string {
+  switch (tone) {
+    case "success":
+      return theme.colors.statusSuccessSubtle;
+    case "danger":
+      return theme.colors.statusDangerSubtle;
+    case "warning":
+      return theme.colors.statusWarningSubtle;
+    case "merged":
+      return theme.colors.statusMergedSubtle;
+    case "muted":
+      return theme.colors.statusNeutralSubtle;
+  }
 }
 
 function createToneSheet(tone: PrStripTone) {
   return StyleSheet.create((theme) => {
     const color = toneColor(theme, tone);
     return {
-      strip: { backgroundColor: withAlpha(color, 0.12) },
       text: { color },
-      chip: { borderColor: withAlpha(color, 0.35) },
-      filled: { backgroundColor: color, borderColor: color },
-      filledHover: { backgroundColor: withAlpha(color, 0.85) },
-      filledText: { color: theme.colors.surface0 },
-      outline: { borderColor: withAlpha(color, 0.35) },
-      outlineHover: { backgroundColor: withAlpha(color, 0.2) },
+      fill: { backgroundColor: color, borderColor: color },
+      // The whole strip takes the state's wash, so the state reads before the label does.
+      tint: { backgroundColor: toneTint(theme, tone) },
     };
   });
 }
 
-const TONE_STYLES = {
+const TONE_SHEETS = {
   success: createToneSheet("success"),
   danger: createToneSheet("danger"),
   warning: createToneSheet("warning"),
@@ -261,60 +267,46 @@ const TONE_STYLES = {
   muted: createToneSheet("muted"),
 };
 
-type ToneSheet = (typeof TONE_STYLES)[PrStripTone];
-
 const styles = StyleSheet.create((theme) => ({
-  strip: {
+  bar: {
     height: HEADER_INNER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[2],
-    paddingHorizontal: theme.spacing[2],
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[1],
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
   },
-  chip: {
+  inline: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[0.5],
-    height: 22,
-    paddingHorizontal: theme.spacing[1.5],
-    borderWidth: theme.borderWidth[1],
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[1],
+    paddingVertical: theme.spacing[0.5],
     borderRadius: theme.borderRadius.md,
   },
   chipText: {
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
+    color: theme.colors.foreground,
     fontVariant: ["tabular-nums"],
   },
   label: {
-    flex: 1,
     minWidth: 0,
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
+  },
+  labelFill: {
+    flex: 1,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[1.5],
-  },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: theme.spacing[1],
-    height: 24,
-    paddingHorizontal: theme.spacing[2],
-    borderWidth: theme.borderWidth[1],
-    borderRadius: theme.borderRadius.md,
   },
-  buttonText: {
+  onToneText: {
+    color: theme.colors.surface0,
+  },
+  tooltipText: {
+    color: theme.colors.popoverForeground,
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
-  },
-  spinner: {
-    transform: [{ scale: 0.6 }],
-    width: 13,
-    height: 13,
-  },
-  disabled: {
-    opacity: theme.opacity[50],
   },
 }));

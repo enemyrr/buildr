@@ -29,6 +29,8 @@ export interface ForgeUrlGrammar {
   lineAnchor: (start: number, end?: number) => string;
   /** Suffix for the change request's checks/pipelines overview. */
   changeRequestChecksSuffix?: string;
+  /** Path and query that open the forge's new change request form for `head` into `base`. */
+  compareChangeRequest?: (base: string, head: string) => string;
   /**
    * Web-path infixes used when recognizing pasted links for this forge. The
    * parser anchors each infix after the current remote's full repository path,
@@ -53,6 +55,7 @@ export const GITEA_FAMILY_URL_GRAMMAR: ForgeUrlGrammar = {
   treeInfix: "/src/branch/",
   blobInfix: "/src/branch/",
   lineAnchor: GITHUB_LINE_ANCHOR,
+  compareChangeRequest: (base, head) => `/compare/${base}...${head}`,
   referencePaths: [
     { kind: "change_request", infix: "/pulls/" },
     { kind: "issue", infix: "/issues/" },

@@ -86,12 +86,12 @@ export function SidebarGroupToggleRow({
 const styles = StyleSheet.create((theme) => ({
   // Kept in step with `workspaceRow` in sidebar-workspace-list.tsx and sidebar-status-list.tsx.
   row: {
-    minHeight: 36,
+    minHeight: 28,
     marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
-    paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    paddingRight: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -113,7 +113,7 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
   },
   text: {
-    color: theme.colors.foregroundMuted,
+    color: theme.colors.foregroundExtraMuted,
     fontSize: theme.fontSize.base,
     minWidth: 0,
     flexShrink: 1,

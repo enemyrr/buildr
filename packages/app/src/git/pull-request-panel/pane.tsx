@@ -63,6 +63,7 @@ import {
   canAddPullRequestActivityToChat,
 } from "./context-attachment";
 import { ChecksSection, getCheckIdentity } from "./checks-section";
+import { GitStatusSection } from "./git-status-section";
 import { getActivityVerb, getStateLabel } from "./data";
 import type { PrPaneActivity, PrPaneCheck, PrPaneData, PrState } from "./data";
 import type { ForgeSpecificStatusFacts } from "@/git/merge-capability";
@@ -553,6 +554,15 @@ export function PullRequestPane({
             </>
           )}
         </Pressable>
+        {data.body.trim() !== "" ? (
+          <View style={styles.description} testID="pr-pane-description">
+            <MarkdownRenderer text={data.body} compact onLinkPress={handleMarkdownLinkPress} />
+          </View>
+        ) : null}
+
+        <View style={styles.divider} />
+        <GitStatusSection serverId={serverId} cwd={cwd} />
+        <View style={styles.divider} />
 
         {nativeChecksSection ?? (
           <ChecksSection
@@ -568,7 +578,7 @@ export function PullRequestPane({
         <View style={styles.divider} />
 
         <Section
-          title="Activity"
+          title={t("workspace.git.prFlow.checks.comments")}
           open={activityOpen}
           onToggle={handleToggleActivity}
           summary={
@@ -592,13 +602,15 @@ export function PullRequestPane({
                 onPress={handleAddAllToChat}
                 disabled={activityLoading}
               >
-                Add all to chat
+                {t("workspace.git.prFlow.checks.addAllToChat")}
               </Button>
             </View>
           ) : null}
           {activityLoading ? <PrActivitySkeleton /> : null}
           {!activityLoading && visibleEntries.length === 0 ? (
-            <Text style={sectionKitStyles.emptyText}>No activity yet</Text>
+            <Text style={sectionKitStyles.emptyText}>
+              {t("workspace.git.prFlow.checks.noComments")}
+            </Text>
           ) : null}
           {!activityLoading
             ? visibleEntries.map(({ entry, collapsed }) => (
@@ -1208,12 +1220,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   title: {
     fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.normal,
+    fontWeight: theme.fontWeight.semibold,
     color: theme.colors.foreground,
     lineHeight: 22,
   },
   titleNumber: {
     color: theme.colors.foregroundMuted,
+  },
+  description: {
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[4],
+    marginTop: -theme.spacing[2],
   },
   metaLine: {
     flexDirection: "row",

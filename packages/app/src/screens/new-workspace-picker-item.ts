@@ -328,3 +328,22 @@ function disambiguate(item: PickerItem, existing: readonly TimedOption[]): Picke
     accessibilityLabel: `${name}${item.accessibilityLabel.slice(item.name.length)}`,
   };
 }
+
+// "Create from…" splits the one ref list into tabs. The selection model stays shared: a tab is
+// only a view over the same options, so picking a row behaves exactly as it did in the flat list.
+export type CreateFromTab = "prs" | "branches";
+
+export function createFromTabForItem(item: PickerItem | null): CreateFromTab {
+  return item?.kind === "github-pr" ? "prs" : "branches";
+}
+
+export function filterPickerOptionsByTab<T extends { id: string }>(input: {
+  options: readonly T[];
+  itemById: ReadonlyMap<string, PickerItem>;
+  tab: CreateFromTab;
+}): T[] {
+  return input.options.filter((option) => {
+    const item = input.itemById.get(option.id);
+    return item ? createFromTabForItem(item) === input.tab : false;
+  });
+}

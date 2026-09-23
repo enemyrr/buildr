@@ -157,6 +157,7 @@ export interface WorkspaceGitRuntimeSnapshot {
       projectPath?: string;
       url: string;
       title: string;
+      body?: string;
       state: string;
       baseRefName: string;
       headRefName: string;

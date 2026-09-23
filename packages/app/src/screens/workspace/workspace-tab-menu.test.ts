@@ -45,14 +45,14 @@ describe("buildWorkspaceTabMenuEntries", () => {
     });
 
     expect(entries.filter((entry) => entry.kind === "item").map((entry) => entry.label)).toEqual([
+      "Rename",
       "Copy resume command",
       "Copy agent id",
-      "Rename",
+      "Close",
+      "Close other tabs",
       "Close to the left",
       "Close to the right",
-      "Close other tabs",
       "Reload agent",
-      "Close",
     ]);
   });
 
@@ -76,14 +76,14 @@ describe("buildWorkspaceTabMenuEntries", () => {
     });
 
     expect(entries.filter((entry) => entry.kind === "item").map((entry) => entry.label)).toEqual([
+      "Rename",
       "Copy resume command",
       "Copy agent id",
-      "Rename",
+      "Close",
+      "Close other tabs",
       "Close tabs above",
       "Close tabs below",
-      "Close other tabs",
       "Reload agent",
-      "Close",
     ]);
   });
 
@@ -119,6 +119,36 @@ describe("buildWorkspaceTabMenuEntries", () => {
     );
     expect(entries.some((entry) => entry.kind === "item" && entry.label === "Rename")).toBe(false);
     expect(entries.some((entry) => entry.kind === "separator")).toBe(false);
+  });
+
+  it("offers copy transcript on agent tabs when the host supports it", () => {
+    const onCopyTranscript = vi.fn();
+    const entries = buildWorkspaceTabMenuEntries({
+      surface: "desktop",
+      tab: createAgentTab(),
+      index: 0,
+      tabCount: 1,
+      menuTestIDBase: "workspace-tab-context-agent_123",
+      onCopyTranscript,
+      onCopyResumeCommand: vi.fn(),
+      onCopyAgentId: vi.fn(),
+      onCopyTerminalId: vi.fn(),
+      onCopyFilePath: vi.fn(),
+      onReloadAgent: vi.fn(),
+      onRenameTab: vi.fn(),
+      onCloseTab: vi.fn(),
+      onCloseTabsBefore: vi.fn(),
+      onCloseTabsAfter: vi.fn(),
+      onCloseOtherTabs: vi.fn(),
+    });
+
+    const entry = entries.find((item) => item.kind === "item" && item.key === "copy-transcript");
+    if (!entry || entry.kind !== "item") {
+      throw new Error("Copy transcript entry missing");
+    }
+    expect(entry.label).toBe("Copy transcript");
+    entry.onSelect();
+    expect(onCopyTranscript).toHaveBeenCalledWith("agent-123");
   });
 
   it("adds reload tooltip copy for agent tabs", () => {
@@ -207,8 +237,8 @@ describe("buildWorkspaceTabMenuEntries", () => {
     });
 
     const labels = entries.filter((entry) => entry.kind === "item").map((entry) => entry.label);
-    expect(labels[0]).toBe("Copy terminal id");
-    expect(labels[1]).toBe("Rename");
+    expect(labels[0]).toBe("Rename");
+    expect(labels[1]).toBe("Copy terminal id");
     expect(labels).not.toContain("Copy resume command");
     expect(labels).not.toContain("Copy agent id");
     expect(labels).not.toContain("Copy file path");

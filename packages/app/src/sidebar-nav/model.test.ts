@@ -35,18 +35,19 @@ describe("resolveSidebarNavItems", () => {
     const items = resolveSidebarNavItems({ pluginGroups: [kanban, notes], preferences: [] });
 
     expect(summarize(items)).toEqual([
-      { key: "new-workspace", visible: true },
+      { key: "dashboard", visible: true },
       { key: "history", visible: true },
+      { key: "new-workspace", visible: true },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
       { key: kanbanKey, visible: true },
       { key: notesKey, visible: true },
     ]);
-    expect(items[4]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
+    expect(items[5]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
     expect(items[0]).toEqual({
       kind: "builtin",
-      key: "new-workspace",
-      id: "new-workspace",
+      key: "dashboard",
+      id: "dashboard",
       visible: true,
     });
   });
@@ -62,6 +63,7 @@ describe("resolveSidebarNavItems", () => {
     });
 
     expect(summarize(items)).toEqual([
+      { key: "dashboard", visible: true },
       { key: kanbanKey, visible: false },
       { key: "schedules", visible: true },
       { key: "new-workspace", visible: false },
@@ -82,6 +84,7 @@ describe("resolveSidebarNavItems", () => {
     });
 
     expect(items.map((item) => item.key)).toEqual([
+      "dashboard",
       "history",
       "new-workspace",
       "search",
@@ -99,6 +102,7 @@ describe("resolveSidebarNavItems", () => {
     });
 
     expect(summarize(items)).toEqual([
+      { key: "dashboard", visible: true },
       { key: "history", visible: false },
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
@@ -114,8 +118,9 @@ describe("setSidebarNavItemVisible", () => {
     const next = setSidebarNavItemVisible({ items, key: "search", visible: false, previous: [] });
 
     expect(next).toEqual([
-      { key: "new-workspace", visible: true },
+      { key: "dashboard", visible: true },
       { key: "history", visible: true },
+      { key: "new-workspace", visible: true },
       { key: "search", visible: false },
       { key: "schedules", visible: true },
       { key: kanbanKey, visible: true },
@@ -133,6 +138,7 @@ describe("setSidebarNavItemVisible", () => {
 
     expect(next).toEqual([
       { key: notesKey, visible: false },
+      { key: "dashboard", visible: true },
       { key: "history", visible: false },
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
@@ -142,6 +148,7 @@ describe("setSidebarNavItemVisible", () => {
 
   it("keeps an unavailable plugin in its configured position", () => {
     const previous: SidebarNavPreference[] = [
+      { key: "dashboard", visible: true },
       { key: "new-workspace", visible: true },
       { key: notesKey, visible: false },
       { key: "history", visible: true },
@@ -153,6 +160,7 @@ describe("setSidebarNavItemVisible", () => {
     const next = setSidebarNavItemVisible({ items, key: "history", visible: false, previous });
 
     expect(next).toEqual([
+      { key: "dashboard", visible: true },
       { key: "new-workspace", visible: true },
       { key: notesKey, visible: false },
       { key: "history", visible: false },
@@ -180,9 +188,10 @@ describe("moveSidebarNavItem", () => {
     const next = moveSidebarNavItem({ items, key: "search", direction: "up", previous: [] });
 
     expect(next.map((preference) => preference.key)).toEqual([
-      "new-workspace",
-      "search",
+      "dashboard",
       "history",
+      "search",
+      "new-workspace",
       "schedules",
       kanbanKey,
     ]);
@@ -192,8 +201,9 @@ describe("moveSidebarNavItem", () => {
     const next = moveSidebarNavItem({ items, key: "schedules", direction: "down", previous: [] });
 
     expect(next.map((preference) => preference.key)).toEqual([
-      "new-workspace",
+      "dashboard",
       "history",
+      "new-workspace",
       "search",
       kanbanKey,
       "schedules",
@@ -203,7 +213,7 @@ describe("moveSidebarNavItem", () => {
   it("leaves the order alone at the boundaries", () => {
     const first = moveSidebarNavItem({
       items,
-      key: "new-workspace",
+      key: "dashboard",
       direction: "up",
       previous: [],
     });
@@ -239,5 +249,6 @@ describe("builtinSidebarNavShortcutAction", () => {
     expect(builtinSidebarNavShortcutAction("search")).toBe("toggle-command-center");
     expect(builtinSidebarNavShortcutAction("history")).toBeNull();
     expect(builtinSidebarNavShortcutAction("schedules")).toBeNull();
+    expect(builtinSidebarNavShortcutAction("dashboard")).toBeNull();
   });
 });

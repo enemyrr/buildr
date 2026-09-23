@@ -117,7 +117,7 @@ export const ar: TranslationResources = {
   composer: {
     loadout: en.composer.loadout,
     placeholders: {
-      desktop: "أرسل رسالة إلى الوكيل أو ضع علامة على @files أو استخدم /commands و /skills",
+      desktop: "اطلب إجراء تغييرات، أو أشِر إلى الملفات بـ @، أو شغّل /commands",
       mobile: "الرسالة، @files ، /commands",
       fallback: "رسالة...",
       terminal: "Prompt",
@@ -252,7 +252,31 @@ export const ar: TranslationResources = {
       unarchive: "إلغاء الأرشفة",
     },
   },
+  dashboard: {
+    title: "لوحة التحكم",
+    allProjects: "كل المشاريع",
+    more: "المزيد",
+    emptyColumn: "لا توجد مساحات عمل",
+    columns: {
+      backlog: "قائمة الانتظار",
+      inProgress: "قيد التنفيذ",
+      inReview: "قيد المراجعة",
+      done: "مكتمل",
+      canceled: "ملغى",
+    },
+    actions: {
+      archive: "أرشفة",
+      setStatus: "تعيين الحالة",
+      resetStatus: "استخدام حالة PR",
+    },
+  },
   sessions: {
+    filters: {
+      allProjects: "في كل المشاريع",
+      inProject: "في {{project}}",
+      hidingArchived: "إخفاء المؤرشفة",
+      showingArchived: "إظهار المؤرشفة",
+    },
     title: "السجل",
     empty: "لا توجد جلسات بعد",
     noMatches: "لا توجد جلسات مطابقة",
@@ -585,6 +609,17 @@ export const ar: TranslationResources = {
       unableToSubscribe: "غير قادر على الاشتراك في المحطة",
     },
     tabs: {
+      closedChats: {
+        title: "المحادثات المغلقة",
+        empty: "لا توجد محادثات مغلقة",
+        restoreFailed: "تعذّرت استعادة المحادثة",
+      },
+      newChat: {
+        title: "محادثة جديدة في {{path}}.",
+        addTranscripts: "إضافة نصوص المحادثات:",
+        more: "+{{count}} أخرى",
+        attachFailed: "تعذّر إرفاق نص المحادثة",
+      },
       loading: "تحميل...",
       modified: "تغييرات غير محفوظة",
       loadingAgentTitle: "جارٍ تحميل عنوان الوكيل",
@@ -605,6 +640,7 @@ export const ar: TranslationResources = {
       menu: {
         openFor: "فتح القائمة لـ{{label}}",
         copyResumeCommand: "نسخ أمر السيرة الذاتية",
+        copyTranscript: "نسخ نص المحادثة",
         copyAgentId: "نسخ معرف الوكيل",
         copyTerminalId: "نسخ معرف المحطة",
         copyFilePath: "Copy file path",
@@ -650,6 +686,8 @@ export const ar: TranslationResources = {
       toasts: {
         copyFailed: "فشل النسخ",
         agentIdCopiedLabel: "AgentID",
+        transcriptCopiedLabel: "نص المحادثة",
+        transcriptUnavailable: "نص المحادثة غير متاح",
         terminalIdCopiedLabel: "معرف المحطة",
         resumeCommandCopiedLabel: "أمر الاستئناف",
         filePathCopiedLabel: "File path",
@@ -846,7 +884,7 @@ export const ar: TranslationResources = {
           updateCurrent: "التحديث غير متاح لأن هذا الفرع محدث بالفعل باستخدام{{baseRef}}",
           mergePrNoGithub: "دمج PR غير متاح الآن لأن GitHub غير متصل",
           archiveNotWorktree:
-            "الأرشيف غير متاح هنا لأنه لم يتم إنشاء مساحة العمل هذه كشجرة عمل Paseo",
+            "الأرشيف غير متاح هنا لأنه لم يتم إنشاء مساحة العمل هذه كشجرة عمل Buildr",
           mergePrNoForge: "دمج {{noun}} غير متاح الآن لأن {{brand}} غير متصل",
           mergePrMissing: "دمج PR غير متاح لأنه لا يوجد طلب سحب حتى الآن",
           mergePrDraft: "دمج PR غير متاح لأن طلب السحب لا يزال مسودة",
@@ -942,6 +980,62 @@ export const ar: TranslationResources = {
         openIn: "افتح مساحة العمل في{{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
         failedOpen: "فشل في فتح مساحة العمل",
+      },
+      prFlow: {
+        createPr: "إنشاء PR",
+        createDraftPr: "إنشاء PR كمسودة",
+        createPrDirectly: "إنشاء PR مباشرة",
+        createPrManually: "إنشاء PR يدويًا",
+        options: "خيارات PR",
+        review: "مراجعة",
+        openPr: "فتح طلب السحب {{ref}}",
+        commitAndPush: "إيداع ودفع",
+        continue: "متابعة",
+        continueTooltip: "المتابعة على فرع جديد بنفس المحادثات",
+        archive: "أرشفة",
+        merge: "دمج",
+        resolve: "حل",
+        fix: "إصلاح",
+        autoMerge: "دمج تلقائي",
+        state: {
+          open: "مفتوح",
+          draft: "مسودة",
+          merged: "مدموج",
+          closed: "مغلق",
+          conflicts: "تعارضات الدمج",
+          checksFailed: "فشلت الفحوصات",
+          checksRunning: "الفحوصات قيد التشغيل",
+          autoMergeEnabled: "الدمج التلقائي مفعّل",
+          changesRequested: "طُلبت تغييرات",
+          reviewRequired: "المراجعة مطلوبة",
+        },
+        tabs: {
+          allFiles: "كل الملفات",
+          changes: "التغييرات",
+          checks: "الفحوصات",
+        },
+        changes: {
+          filesChanged_one: "تغيّر {{count}} ملف",
+          filesChanged_other: "تغيّرت {{count}} ملفات",
+          showAsTree: "عرض كشجرة",
+        },
+        checks: {
+          titlePlaceholder: "عنوان PR",
+          descriptionPlaceholder: "وصف PR",
+          gitStatus: "حالة Git",
+          noPr: "لا يوجد PR مفتوح",
+          prOpen: "PR {{ref}} مفتوح",
+          prDraft: "مسودة PR {{ref}} مفتوحة",
+          prMerged: "PR {{ref}} مدموج",
+          prClosed: "PR {{ref}} مغلق",
+          uncommitted_one: "{{count}} تغيير غير مُودَع",
+          uncommitted_other: "{{count}} تغييرات غير مُودَعة",
+          uncommittedUnknown: "تغييرات غير مُودَعة",
+          clean: "لا توجد تغييرات غير مُودَعة",
+          comments: "التعليقات",
+          addAllToChat: "إضافة الكل إلى المحادثة",
+          noComments: "لا توجد تعليقات بعد",
+        },
       },
       pr: {
         actions: {
@@ -1134,7 +1228,7 @@ export const ar: TranslationResources = {
       discord: "Discord",
       github: "إنشاء مشكلة على GitHub",
       whatsNew: "ما الجديد",
-      appName: "Paseo",
+      appName: "Buildr",
     },
     resources: {
       trigger: "الموارد والاستخدام",
@@ -1152,6 +1246,7 @@ export const ar: TranslationResources = {
       updateHost: "حدّث المضيف لرؤية استخدام المعالج والذاكرة.",
     },
     sections: {
+      dashboard: "لوحة التحكم",
       sessions: "السجل",
       search: "بحث",
       schedules: "الجداول",
@@ -1165,6 +1260,7 @@ export const ar: TranslationResources = {
     project: {
       actions: {
         menu: "إجراءات المشروع",
+        createFrom: "إنشاء من...",
         openSettings: "افتح إعدادات المشروع",
         openNewWindow: "Open in new window",
         openNewWindowFailed: "Couldn't open a new window",
@@ -1218,6 +1314,8 @@ export const ar: TranslationResources = {
         archive: "أرشيف",
         archiveWorkspace: "أرشفة مساحة العمل",
         hideFromSidebar: "إخفاء من الشريط الجانبي",
+        copyLink: "نسخ الرابط",
+        setStatus: "تعيين الحالة",
         archiving: "أرشفة...",
         hiding: "إخفاء...",
       },
@@ -1228,6 +1326,14 @@ export const ar: TranslationResources = {
         hideConfirm: "يخفي",
         cancel: "يلغي",
       },
+      boardStatus: {
+        backlog: "قائمة الانتظار",
+        inProgress: "قيد التنفيذ",
+        inReview: "قيد المراجعة",
+        done: "تم",
+        canceled: "ملغى",
+        automatic: "تلقائي",
+      },
       rename: {
         title: "إعادة تسمية مساحة العمل",
         submit: "إعادة تسمية",
@@ -1235,6 +1341,7 @@ export const ar: TranslationResources = {
       },
       toasts: {
         workspacePathUnavailable: "مسار Workspace غير متوفر",
+        linkCopied: "تم نسخ الرابط",
         pathCopied: "تم نسخ المسار",
         branchNameCopied: "تم نسخ اسم الفرع",
         hostDisconnected: "Host غير متصل",
@@ -1244,6 +1351,18 @@ export const ar: TranslationResources = {
     },
   },
   newWorkspace: {
+    promptPlaceholder: "على ماذا تريد أن تعمل؟",
+    moreOptions: "مزيد من الخيارات",
+    createFrom: {
+      title: "إنشاء من",
+      searchPlaceholder: "ابحث في طلبات السحب والفروع",
+      pullRequests: "طلبات السحب",
+      branches: "الفروع",
+      select: "تحديد",
+      noPullRequests: "لا توجد طلبات سحب مطابقة",
+      noBranches: "لا توجد فروع مطابقة",
+      targetBranch: "الفرع الهدف",
+    },
     title: "مساحة عمل جديدة",
     create: "يخلق",
     isolation: {
@@ -1296,7 +1415,7 @@ export const ar: TranslationResources = {
       close: "إغلاق النافذة",
     },
     quitting: {
-      title: "جارٍ إنهاء Paseo...",
+      title: "جارٍ إنهاء Buildr...",
       detail: "إيقاف البرنامج الخفي المحلي.",
     },
     daemon: {
@@ -1311,20 +1430,20 @@ export const ar: TranslationResources = {
       },
       management: {
         title: "إدارة البرنامج الخفي المدمج",
-        hint: "اسمح لـ Paseo ببدء تشغيل البرنامج الخفي المدمج وإيقافه",
+        hint: "اسمح لـ Buildr ببدء تشغيل البرنامج الخفي المدمج وإيقافه",
         pauseTitle: "وقفة المدمج في البرنامج الخفي",
         pauseMessage:
           "سيؤدي هذا إلى إيقاف البرنامج الخفي المدمج على الفور. سيتم إيقاف تشغيل الوكلاء والمحطات الطرفية المتصلة بالبرنامج الخفي المدمج.",
         pauseAndStop: "وقفة وتوقف",
         registrationFailed:
-          "Built-in daemon started, but Paseo could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
+          "Built-in daemon started, but Buildr could not save the localhost connection. Toggle daemon management off and on again, or add localhost manually.",
         pausedStopFailed:
-          "تم إيقاف إدارة البرنامج الخفي المضمنة مؤقتًا، لكن لم يتمكن Paseo من إيقاف البرنامج الخفي.",
+          "تم إيقاف إدارة البرنامج الخفي المضمنة مؤقتًا، لكن لم يتمكن Buildr من إيقاف البرنامج الخفي.",
         updateFailed: "غير قادر على تحديث إدارة البرنامج الخفي المضمنة.",
       },
       keepRunning: {
         title: "استمر في تشغيل البرنامج الخفي بعد الإقلاع عن التدخين",
-        hint: "يستمر تشغيل Daemon عند إنهاء Paseo",
+        hint: "يستمر تشغيل Daemon عند إنهاء Buildr",
       },
       logs: {
         title: "ملف السجل",
@@ -1390,7 +1509,7 @@ export const ar: TranslationResources = {
     },
     rosetta: {
       title: "قم بتنزيل نسخة Apple Silicon",
-      runningIntel: "أنت تقوم بتشغيل إصدار Intel من Paseo ضمن Rosetta على Apple Silicon.",
+      runningIntel: "أنت تقوم بتشغيل إصدار Intel من Buildr ضمن Rosetta على Apple Silicon.",
       highCpu:
         "يؤدي هذا إلى ارتفاع استخدام وحدة المعالجة المركزية. قم بتنزيل إصدار Apple Silicon لإصلاحه.",
       download: "تحميل",
@@ -1433,7 +1552,7 @@ export const ar: TranslationResources = {
         microphone: "لم يتم التحقق من حالة الميكروفون بعد.",
       },
       testNotification: {
-        title: "اختبار الإخطار Paseo",
+        title: "اختبار الإخطار Buildr",
         body: "إذا كان بإمكانك رؤية ذلك، فهذا يعني أن إشعارات سطح المكتب تعمل.",
         notDelivered: "لم يتم تسليم الإخطار. تحقق من إعدادات النظام > الإشعارات.",
         failed: "فشل في إرسال الإخطار.",
@@ -1442,12 +1561,12 @@ export const ar: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "غير قادر على التحقق من حالة تثبيت CLI.",
-        installFailed: "غير قادر على تثبيت PaseoCLI.",
+        installFailed: "غير قادر على تثبيت Buildr CLI.",
       },
     },
   },
   rootError: {
-    title: "واجه Paseo مشكلة.",
+    title: "واجه Buildr مشكلة.",
     body: "جرّب مرة أخرى لإعادة تحميل التطبيق. إذا استمر حدوث ذلك، فأرفق التفاصيل أدناه عند الإبلاغ عنه.",
     details: "التفاصيل",
   },
@@ -1541,7 +1660,7 @@ export const ar: TranslationResources = {
     },
   },
   onboarding: {
-    title: "مرحبا بكم في Paseo",
+    title: "مرحبا بكم في Buildr",
     subtitle: "قم بتوصيل جهاز الكمبيوتر الخاص بك للبدء",
     actions: {
       settings: "إعدادات",
@@ -1627,7 +1746,7 @@ export const ar: TranslationResources = {
     },
     direct: {
       title: "اتصال مباشر",
-      helper: "أدخل عنوان خادم Paseo.",
+      helper: "أدخل عنوان خادم Buildr.",
       fields: {
         host: "Host",
         port: "ميناء",
@@ -1670,7 +1789,7 @@ export const ar: TranslationResources = {
     },
     remoteSsh: {
       title: "SSH عن بُعد",
-      helper: "الاتصال بخادم Paseo يعمل على المضيف البعيد.",
+      helper: "الاتصال بخادم Buildr يعمل على المضيف البعيد.",
       fields: {
         target: "مضيف SSH",
       },
@@ -1725,15 +1844,15 @@ export const ar: TranslationResources = {
       enableDescription:
         "يتيح التتابع لهذا الجهاز الاتصال من أي مكان. حركة مرور الإقران مشفرة من طرف إلى طرف.",
       relayDocs: "كيفية عمل التتابع",
-      relayDocsAccessibility: "اقرأ كيفية عمل تتابع Paseo",
+      relayDocsAccessibility: "اقرأ كيفية عمل تتابع Buildr",
       enableRelay: "تمكين التتابع",
       enablingRelay: "جارٍ التمكين...",
       notNow: "ليس الآن",
       directConnectionHint:
         "بدون التتابع، اتصل مباشرة عبر TCP أو Tailscale أو شبكة VPN أخرى. لن يتم إنشاء رمز QR.",
-      updateRequired: "حدّث المضيف لتمكين التتابع من Paseo Desktop.",
+      updateRequired: "حدّث المضيف لتمكين التتابع من Buildr Desktop.",
       unavailable: "عرض الاقتران غير متاح.",
-      hint: "قم بمسح رمز QR هذا باستخدام Paseo على هاتفك، أو انسخ الرابط أدناه.",
+      hint: "قم بمسح رمز QR هذا باستخدام Buildr على هاتفك، أو انسخ الرابط أدناه.",
       securityWarning:
         "تعامل مع رابط الاقتران هذا ككلمة مرور. يمكن لأي شخص يملكه الوصول إلى هذا البرنامج الخفي.",
       qrUnavailable: "رمز QR غير متاح.",
@@ -1768,7 +1887,7 @@ export const ar: TranslationResources = {
   serviceUrl: {
     title: "افتح الخدمة URL",
     message: "افتح{{url}}؟",
-    inPaseo: "في Paseo",
+    inPaseo: "في Buildr",
     externalBrowser: "متصفح خارجي",
     dontAskAgain: "لا تسأل مرة أخرى",
   },
@@ -1867,31 +1986,14 @@ export const ar: TranslationResources = {
     output: "الإخراج",
   },
   toolCallGroup: {
-    editedFiles: {
-      one: "حرّر {{count}} ملفًا",
-      other: "حرّر {{count}} ملفات",
+    toolCalls: {
+      one: "{{count}} استدعاء أداة",
+      other: "{{count}} من استدعاءات الأدوات",
     },
-    commands: {
-      one: "شغّل {{count}} أمرًا",
-      other: "شغّل {{count}} أوامر",
+    messages: {
+      one: "{{count}} رسالة",
+      other: "{{count}} من الرسائل",
     },
-    readFiles: {
-      one: "قرأ {{count}} ملفًا",
-      other: "قرأ {{count}} ملفات",
-    },
-    searches: {
-      one: "بحث {{count}} مرة",
-      other: "بحث {{count}} مرات",
-    },
-    otherTools: {
-      one: "استخدم {{count}} أداة أخرى",
-      other: "استخدم {{count}} أدوات أخرى",
-    },
-    paseoCalls: {
-      one: "استدعى Paseo {{count}} مرة",
-      other: "استدعى Paseo {{count}} مرات",
-    },
-    and: "و",
   },
   renameModal: {
     rename: "إعادة تسمية",
@@ -1971,7 +2073,7 @@ export const ar: TranslationResources = {
       send: "إرسال",
       sending: "جارٍ الإرسال...",
       sentTitle: "تم إرسال إشعار الاختبار",
-      sentDescription: "سلّم Paseo الإشعار إلى نظام التشغيل.",
+      sentDescription: "سلّم Buildr الإشعار إلى نظام التشغيل.",
       sendFailedTitle: "تعذر إرسال إشعار الاختبار",
     },
     hostSections: {
@@ -1990,14 +2092,14 @@ export const ar: TranslationResources = {
     metadataGeneration: {
       title: "إنشاء البيانات الوصفية",
       description:
-        "اختر النموذج الذي يستخدمه Paseo لعناوين مساحات العمل وأسماء الفروع ورسائل الالتزام ومسودات طلبات السحب",
+        "اختر النموذج الذي يستخدمه Buildr لعناوين مساحات العمل وأسماء الفروع ورسائل الالتزام ومسودات طلبات السحب",
       selection: "اختيار النموذج",
       automatic: "تلقائي",
       preferred: "يدوي",
-      automaticHint: "يختار Paseo نموذجًا سريعًا متاحًا",
-      preferredHint: "اختر النموذج الذي يستخدمه Paseo",
+      automaticHint: "يختار Buildr نموذجًا سريعًا متاحًا",
+      preferredHint: "اختر النموذج الذي يستخدمه Buildr",
       model: "النموذج",
-      fallbackHint: "إذا لم يكن متاحًا، يستخدم Paseo نموذجًا آخر متاحًا",
+      fallbackHint: "إذا لم يكن متاحًا، يستخدم Buildr نموذجًا آخر متاحًا",
       docs: "الوثائق",
       saveError: "تعذر تحديث إنشاء البيانات الوصفية",
     },
@@ -2006,7 +2108,7 @@ export const ar: TranslationResources = {
       browserData: {
         title: "بيانات المتصفح",
         siteData: "ملفات تعريف الارتباط وبيانات المواقع",
-        description: "تتشارك علامات تبويب المتصفح تسجيلات الدخول وبيانات المواقع عبر Paseo.",
+        description: "تتشارك علامات تبويب المتصفح تسجيلات الدخول وبيانات المواقع عبر Buildr.",
         clear: "مسح بيانات المتصفح",
         clearing: "جارٍ المسح...",
         confirmTitle: "هل تريد مسح بيانات المتصفح؟",
@@ -2034,7 +2136,7 @@ export const ar: TranslationResources = {
         description: "مكان فتح عناوين URL من تشغيل البرامج النصية",
         options: {
           ask: "بسأل",
-          inApp: "في Paseo",
+          inApp: "في Buildr",
           external: "متصفح خارجي",
         },
       },
@@ -2119,7 +2221,7 @@ export const ar: TranslationResources = {
         label: "تحديثات التطبيق",
         readyToInstall: "جاهز للتثبيت:{{version}}",
         installTitle: "تثبيت تحديث سطح المكتب",
-        installMessage: "يؤدي هذا إلى تحديث Paseo على هذا الكمبيوتر",
+        installMessage: "يؤدي هذا إلى تحديث Buildr على هذا الكمبيوتر",
         installConfirm: "تثبيت التحديث",
         update: "تحديث",
         updateTo: "التحديث إلى{{version}}",
@@ -2142,6 +2244,7 @@ export const ar: TranslationResources = {
           claude: "كلود",
           ghostty: "شبحي",
           pureBlack: "أسود خالص",
+          paseo: "Buildr",
           auto: "نظام",
         },
       },
@@ -2349,10 +2452,10 @@ export const ar: TranslationResources = {
         title: "مهارات التنسيق",
         description: "قم بتعليم عملائك كيفية التنسيق من خلال CLI",
         updateAvailable: "التحديث متاح",
-        updateTitle: "تحديث مهارات Paseo ؟",
+        updateTitle: "تحديث مهارات Buildr ؟",
         updateFallback: "مزامنة المهارات المجمعة لجهازك.",
-        uninstallTitle: "إلغاء تثبيت مهارات Paseo ؟",
-        uninstallMessage: "يزيل جميع مهارات تنسيق Paseo من ~/.agents ، ~/.claude ، ~/.codex.",
+        uninstallTitle: "إلغاء تثبيت مهارات Buildr ؟",
+        uninstallMessage: "يزيل جميع مهارات تنسيق Buildr من ~/.agents ، ~/.claude ، ~/.codex.",
         choose: "اختيار المهارات",
         chooseAll: "كل المهارات",
         chooseAllHint: "أبقِ جميع المهارات المرفقة مثبتة، بما فيها ما يُضاف لاحقًا.",
@@ -2388,9 +2491,9 @@ export const ar: TranslationResources = {
         title: "التنسيق",
         unavailable: "اتصل بهذا المضيف لإدارة التنسيق",
         enableTools: {
-          title: "تمكين أدوات Paseo",
+          title: "تمكين أدوات Buildr",
           hint: "سيتمكن الوكلاء من إدارة أشجار العمل والوكلاء والجداول الزمنية",
-          accessibilityLabel: "حقن أدوات Paseo",
+          accessibilityLabel: "حقن أدوات Buildr",
         },
         systemPrompt: {
           title: "موجه النظام",
@@ -2492,15 +2595,15 @@ export const ar: TranslationResources = {
             "هذا المضيف غير متصل. انتظر حتى يصبح متصلاً بالإنترنت قبل إعادة التشغيل.",
           offlineTitle: "Host غير متصل",
           offlineMessage:
-            "هذا المضيف غير متصل.  يقوم Paseo بإعادة الاتصال تلقائيًا - انتظر حتى يتم الاتصال بالإنترنت مرة أخرى قبل إعادة التشغيل.",
+            "هذا المضيف غير متصل.  يقوم Buildr بإعادة الاتصال تلقائيًا - انتظر حتى يتم الاتصال بالإنترنت مرة أخرى قبل إعادة التشغيل.",
           requestFailedTitle: "خطأ",
           requestFailedMessage:
-            "فشل في إرسال طلب إعادة التشغيل.  يقوم Paseo بإعادة الاتصال تلقائيًا - حاول مرة أخرى بمجرد ظهور المضيف على أنه متصل بالإنترنت.",
+            "فشل في إرسال طلب إعادة التشغيل.  يقوم Buildr بإعادة الاتصال تلقائيًا - حاول مرة أخرى بمجرد ظهور المضيف على أنه متصل بالإنترنت.",
           dialogFailedMessage: "غير قادر على فتح مربع حوار تأكيد إعادة التشغيل.",
         },
         update: {
           desktopManagedHint:
-            "يدير Paseo Desktop هذا البرنامج الخفي. حدّث Paseo Desktop على المضيف.",
+            "يدير Buildr Desktop هذا البرنامج الخفي. حدّث Buildr Desktop على المضيف.",
           title: "Update daemon",
           hint: "Update the daemon to the latest version and restart it",
           confirm: "Update",
@@ -2674,7 +2777,7 @@ export const ar: TranslationResources = {
         newScript: "نص جديد",
         editScript: "تحرير{{name}}",
         runAsService: "تشغيل كخدمة",
-        serviceHint: "يشرف Paseo على العملية ويعين منفذًا عبر $PASEO_PORT",
+        serviceHint: "يشرف Buildr على العملية ويعين منفذًا عبر $PASEO_PORT",
         actions: {
           add: "إضافة البرنامج النصي",
           edit: "يحرر",
@@ -2683,7 +2786,7 @@ export const ar: TranslationResources = {
       },
       metadata: {
         title: "توليد البيانات الوصفية",
-        info: "تعليمات خاصة بالمشروع يتم إدخالها في الذكاء الاصطناعي الذي يستخدمه Paseo لإنشاء بيانات التعريف - استخدمها لفرض اصطلاحات فريقك مثل تسمية الفرع أو نمط الالتزام أو تنسيق PR",
+        info: "تعليمات خاصة بالمشروع يتم إدخالها في الذكاء الاصطناعي الذي يستخدمه Buildr لإنشاء بيانات التعريف - استخدمها لفرض اصطلاحات فريقك مثل تسمية الفرع أو نمط الالتزام أو تنسيق PR",
         branchName: "اسماء الفروع",
         branchNamePlaceholder: "بادئة الفروع بـ fet/ أو Fix/, mb/ للفروع الشخصية",
         commitMessage: "ارتكاب الرسائل",

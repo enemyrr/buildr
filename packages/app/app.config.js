@@ -67,7 +67,7 @@ function resolveSecretFile(params) {
 
 const variants = {
   production: {
-    name: "Paseo",
+    name: "Buildr",
     packageId: "sh.paseo",
     googleServicesFile: resolveSecretFile({
       envKey: "GOOGLE_SERVICES_FILE_PROD",
@@ -79,7 +79,7 @@ const variants = {
     }),
   },
   development: {
-    name: "Paseo Debug",
+    name: "Buildr Debug",
     packageId: "sh.paseo.debug",
     googleServicesFile: resolveSecretFile({
       envKey: "GOOGLE_SERVICES_FILE_DEBUG",
@@ -119,7 +119,7 @@ export default {
     },
     android: {
       adaptiveIcon: {
-        backgroundColor: "#000000",
+        backgroundColor: "#1c1a19",
         foregroundImage: "./assets/images/android-icon-foreground.png",
       },
       edgeToEdgeEnabled: true,

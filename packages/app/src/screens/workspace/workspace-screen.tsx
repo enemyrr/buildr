@@ -923,7 +923,7 @@ function WorkspaceHeaderBreadcrumbProject({ subtitle }: { subtitle: string }) {
       <Text testID="workspace-header-subtitle" style={styles.headerProjectTitle} numberOfLines={1}>
         {subtitle}
       </Text>
-      <ThemedChevronRight size={14} uniProps={extraMutedColorMapping} />
+      <ThemedChevronRight size={12} uniProps={extraMutedColorMapping} />
     </>
   );
 }
@@ -1008,7 +1008,9 @@ function WorkspaceHeaderTitleBar({
             style={styles.headerTitleButton}
             onPress={handleRename}
           >
-            <ScreenTitle testID="workspace-header-title">{title}</ScreenTitle>
+            <ScreenTitle testID="workspace-header-title" style={styles.headerTitleText}>
+              {title}
+            </ScreenTitle>
           </Pressable>
           {isMobile ? (
             <WorkspaceHeaderProjectRow subtitle={subtitle} serverId={normalizedServerId} />
@@ -4208,7 +4210,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "flex-start",
     gap: {
       xs: 0,
-      md: theme.spacing[2],
+      md: theme.spacing[1.5],
     },
   },
   // No width cap. A percentage cap resolves against the title group, whose own width comes from
@@ -4238,6 +4240,10 @@ const styles = StyleSheet.create((theme) => ({
   headerTitleButton: {
     flexShrink: 1,
     minWidth: 0,
+  },
+  // Breadcrumb leaf: primary color at regular weight, against the muted project name before it.
+  headerTitleText: {
+    fontWeight: theme.fontWeight.normal,
   },
   headerTitleSkeleton: {
     width: 220,

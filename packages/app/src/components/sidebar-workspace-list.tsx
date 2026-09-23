@@ -36,7 +36,14 @@ import { getSidebarRowBackdrop } from "@/components/sidebar/sidebar-row-backdrop
 import { type GestureType } from "react-native-gesture-handler";
 import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
-import { ExternalLink, Settings, MoreVertical, Plus, Trash2 } from "lucide-react-native";
+import {
+  ExternalLink,
+  GitPullRequest,
+  Settings,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from "lucide-react-native";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
 import type { DraggableListDragHandleProps } from "./draggable-list.types";
@@ -81,6 +88,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { ProjectLeadingVisual } from "@/components/sidebar/project-leading-visual";
 import { useToast } from "@/contexts/toast-context";
@@ -107,6 +115,7 @@ import {
   SidebarWorkspaceTrailingActionBase,
   SidebarWorkspaceTrailingActionOverlay,
   SidebarWorkspaceTrailingActionSlot,
+  sidebarWorkspaceRowStyles,
 } from "@/components/sidebar/sidebar-workspace-row-content";
 import { useOpenKebabMenuVisibility } from "@/components/sidebar/use-open-kebab-menu-visibility";
 import {
@@ -156,11 +165,11 @@ const workspaceKeyExtractor = (workspace: SidebarWorkspacePlacement) => workspac
 
 const projectViewKeyExtractor = (project: SidebarProjectEntry) => project.viewKey;
 
-const WORKSPACE_STATUS_DOT_WIDTH = 14;
 const ThemedExternalLink = withUnistyles(ExternalLink);
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedPlus = withUnistyles(Plus);
-const ThemedMoreVertical = withUnistyles(MoreVertical);
+const ThemedGitPullRequest = withUnistyles(GitPullRequest);
+const ThemedMoreHorizontal = withUnistyles(MoreHorizontal);
 const ThemedTrash2 = withUnistyles(Trash2);
 const ThemedSettings = withUnistyles(Settings);
 
@@ -169,6 +178,9 @@ const foregroundColorMapping = (theme: Theme) => ({
 });
 const foregroundMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundMuted,
+});
+const destructiveColorMapping = (theme: Theme) => ({
+  color: theme.colors.destructive,
 });
 
 function isWorkspaceSelected(input: {
@@ -289,7 +301,6 @@ interface WorkspaceRowInnerProps {
   archiveShortcutKeys?: ShortcutKey[][] | null;
   isPinned?: boolean;
   onTogglePin?: () => void;
-  reserveIdleStatusIndicatorSpace?: boolean;
 }
 
 export function PrBadge({ hint, style }: { hint: PrHint; style?: StyleProp<ViewStyle> }) {
@@ -365,14 +376,17 @@ function getProjectWorkspaceRowStyle({
   isPressed,
   selected,
   isHovered,
+  indented,
 }: {
   isDragging: boolean;
   isPressed: boolean;
   selected: boolean;
   isHovered: boolean;
+  indented: boolean;
 }) {
   return [
     styles.workspaceRow,
+    indented && sidebarWorkspaceRowStyles.rowIndented,
     isHovered && styles.workspaceRowHovered,
     selected && styles.sidebarRowSelected,
     isDragging && styles.workspaceRowDragging,
@@ -412,6 +426,7 @@ function ProjectRowTrailingActions({
   isMobileBreakpoint,
   isProjectActive,
   onBeginWorkspaceSetup,
+  onBeginCreateFrom,
   onRemoveProject,
   removeProjectStatus,
 }: {
@@ -424,6 +439,7 @@ function ProjectRowTrailingActions({
   isMobileBreakpoint: boolean;
   isProjectActive: boolean;
   onBeginWorkspaceSetup: () => void;
+  onBeginCreateFrom: () => void;
   onRemoveProject?: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
@@ -446,6 +462,8 @@ function ProjectRowTrailingActions({
         >
           <ProjectKebabMenu
             projectViewKey={projectViewKey}
+            onCreateWorkspace={worktreeTarget ? onBeginWorkspaceSetup : undefined}
+            onCreateFrom={onBeginCreateFrom}
             settingsTarget={settingsTarget}
             projectPath={projectPath}
             onRemoveProject={onRemoveProject}
@@ -457,7 +475,11 @@ function ProjectRowTrailingActions({
   );
 }
 
-const trash2LeadingIcon = <ThemedTrash2 size={14} uniProps={foregroundMutedColorMapping} />;
+const trash2LeadingIcon = <ThemedTrash2 size={14} uniProps={destructiveColorMapping} />;
+const plusLeadingIcon = <ThemedPlus size={14} uniProps={foregroundMutedColorMapping} />;
+const createFromLeadingIcon = (
+  <ThemedGitPullRequest size={14} uniProps={foregroundMutedColorMapping} />
+);
 const settingsLeadingIcon = <ThemedSettings size={14} uniProps={foregroundMutedColorMapping} />;
 const openInNewWindowLeadingIcon = (
   <ThemedExternalLink size={14} uniProps={foregroundMutedColorMapping} />
@@ -465,7 +487,7 @@ const openInNewWindowLeadingIcon = (
 
 function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
   return (
-    <ThemedMoreVertical
+    <ThemedMoreHorizontal
       size={14}
       uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
     />
@@ -474,12 +496,16 @@ function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
 
 function ProjectKebabMenu({
   projectViewKey,
+  onCreateWorkspace,
+  onCreateFrom,
   settingsTarget,
   projectPath,
   onRemoveProject,
   removeProjectStatus,
 }: {
   projectViewKey: string;
+  onCreateWorkspace?: () => void;
+  onCreateFrom?: () => void;
   settingsTarget: { serverId: string; projectId: string } | null;
   projectPath: string;
   onRemoveProject: () => void;
@@ -501,6 +527,8 @@ function ProjectKebabMenu({
         <ProjectMenuItems
           surface="dropdown"
           projectViewKey={projectViewKey}
+          onCreateWorkspace={onCreateWorkspace}
+          onCreateFrom={onCreateFrom}
           settingsTarget={settingsTarget}
           projectPath={projectPath}
           onRemoveProject={onRemoveProject}
@@ -529,6 +557,8 @@ function ProjectMenuItem({
 function ProjectMenuItems({
   surface,
   projectViewKey,
+  onCreateWorkspace,
+  onCreateFrom,
   settingsTarget,
   projectPath,
   onRemoveProject,
@@ -536,6 +566,8 @@ function ProjectMenuItems({
 }: {
   surface: ProjectMenuSurface;
   projectViewKey: string;
+  onCreateWorkspace?: () => void;
+  onCreateFrom?: () => void;
   settingsTarget: { serverId: string; projectId: string } | null;
   projectPath: string;
   onRemoveProject: () => void;
@@ -561,6 +593,27 @@ function ProjectMenuItems({
 
   return (
     <>
+      {onCreateWorkspace ? (
+        <ProjectMenuItem
+          surface={surface}
+          testID={`sidebar-project-menu-new-workspace-${projectViewKey}`}
+          leading={plusLeadingIcon}
+          onSelect={onCreateWorkspace}
+        >
+          {t("sidebar.workspace.actions.newWorkspace")}
+        </ProjectMenuItem>
+      ) : null}
+      {/* Both entries need a worktree target, which is what gates onCreateWorkspace. */}
+      {onCreateWorkspace && onCreateFrom ? (
+        <ProjectMenuItem
+          surface={surface}
+          testID={`sidebar-project-menu-create-from-${projectViewKey}`}
+          leading={createFromLeadingIcon}
+          onSelect={onCreateFrom}
+        >
+          {t("sidebar.project.actions.createFrom")}
+        </ProjectMenuItem>
+      ) : null}
       {settingsTarget ? (
         <ProjectMenuItem
           surface={surface}
@@ -586,10 +639,12 @@ function ProjectMenuItems({
         path={projectPath}
         testID={`sidebar-project-menu-open-folder-${projectViewKey}`}
       />
+      <DropdownMenuSeparator />
       <ProjectMenuItem
         surface={surface}
         testID={`sidebar-project-menu-remove-${projectViewKey}`}
         leading={trash2LeadingIcon}
+        destructive
         status={removeProjectStatus}
         pendingLabel={t("sidebar.project.actions.removing")}
         onSelect={onRemoveProject}
@@ -679,6 +734,7 @@ function WorkspaceRowRightGroup({
               <SidebarWorkspaceMenu
                 {...kebab.menuProps}
                 workspaceKey={workspace.workspaceKey}
+                prHint={workspace.prHint}
                 serverId={workspace.serverId}
                 workspaceId={workspace.workspaceId}
                 workspaceLabels={workspace.labels}
@@ -782,72 +838,6 @@ function NewWorktreeButton({
   );
 }
 
-function NewWorkspaceGhostRow({
-  project,
-  displayName,
-  worktreeTarget,
-  onWorkspacePress,
-}: {
-  project: SidebarProjectEntry;
-  displayName: string;
-  worktreeTarget: SidebarProjectHostTarget;
-  onWorkspacePress?: () => void;
-}) {
-  const { t } = useTranslation();
-  const handlePress = useCallback(() => {
-    onWorkspacePress?.();
-    router.navigate(
-      buildNewWorkspaceRoute({
-        serverId: worktreeTarget.serverId,
-        sourceDirectory: worktreeTarget.iconWorkingDir,
-        displayName,
-        projectId: worktreeTarget.projectId,
-      }) as Href,
-    );
-  }, [displayName, onWorkspacePress, worktreeTarget]);
-  const rowStyle = useCallback(
-    ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.newWorkspaceGhostRow,
-      hovered && !pressed && styles.newWorkspaceGhostRowHovered,
-      pressed && styles.newWorkspaceGhostRowPressed,
-    ],
-    [],
-  );
-
-  return (
-    <Pressable
-      accessibilityRole={platformIsWeb ? undefined : "button"}
-      accessibilityLabel={t("sidebar.workspace.actions.createWorkspaceFor", {
-        projectName: displayName,
-      })}
-      onPress={handlePress}
-      style={rowStyle}
-      testID={`sidebar-project-new-workspace-row-${project.viewKey}`}
-    >
-      {({ hovered, pressed }) => (
-        <>
-          <View style={styles.newWorkspaceGhostIconSlot}>
-            <ThemedPlus
-              size={14}
-              uniProps={hovered || pressed ? foregroundColorMapping : foregroundMutedColorMapping}
-            />
-          </View>
-          <Text
-            style={
-              hovered || pressed
-                ? styles.newWorkspaceGhostTextHovered
-                : styles.newWorkspaceGhostText
-            }
-            numberOfLines={1}
-          >
-            {t("sidebar.workspace.actions.newWorkspace")}
-          </Text>
-        </>
-      )}
-    </Pressable>
-  );
-}
-
 function ProjectWorkspaceCount({ count }: { count: number | null }) {
   if (count === null || count === 0) return null;
   return (
@@ -887,20 +877,29 @@ function ProjectHeaderRow({
   const localDaemonServerId = useLocalDaemonServerId();
   const projectPath = resolveSidebarProjectLocalPath(project, localDaemonServerId);
   const settingsTarget = project.hosts[0] ?? null;
-  const handleBeginWorkspaceSetup = useCallback(() => {
-    if (!worktreeTarget) {
-      return;
-    }
-    onWorkspacePress?.();
-    router.navigate(
-      buildNewWorkspaceRoute({
-        serverId: worktreeTarget.serverId,
-        sourceDirectory: worktreeTarget.iconWorkingDir,
-        displayName,
-        projectId: worktreeTarget.projectId,
-      }) as Href,
-    );
-  }, [displayName, onWorkspacePress, worktreeTarget]);
+  const beginWorkspaceSetup = useCallback(
+    (createFrom: boolean) => {
+      if (!worktreeTarget) {
+        return;
+      }
+      onWorkspacePress?.();
+      router.navigate(
+        buildNewWorkspaceRoute({
+          serverId: worktreeTarget.serverId,
+          sourceDirectory: worktreeTarget.iconWorkingDir,
+          displayName,
+          projectId: worktreeTarget.projectId,
+          createFrom,
+        }) as Href,
+      );
+    },
+    [displayName, onWorkspacePress, worktreeTarget],
+  );
+  const handleBeginWorkspaceSetup = useCallback(
+    () => beginWorkspaceSetup(false),
+    [beginWorkspaceSetup],
+  );
+  const handleBeginCreateFrom = useCallback(() => beginWorkspaceSetup(true), [beginWorkspaceSetup]);
   const interaction = useLongPressDragInteraction({
     drag,
     menuController,
@@ -982,6 +981,7 @@ function ProjectHeaderRow({
         isMobileBreakpoint={isMobileBreakpoint}
         isProjectActive={isProjectActive}
         onBeginWorkspaceSetup={handleBeginWorkspaceSetup}
+        onBeginCreateFrom={handleBeginCreateFrom}
         onRemoveProject={onRemoveProject}
         removeProjectStatus={removeProjectStatus}
       />
@@ -1049,6 +1049,8 @@ function ProjectHeaderRow({
         <ProjectMenuItems
           surface="context"
           projectViewKey={project.viewKey}
+          onCreateWorkspace={worktreeTarget ? handleBeginWorkspaceSetup : undefined}
+          onCreateFrom={handleBeginCreateFrom}
           settingsTarget={settingsTarget}
           projectPath={projectPath}
           onRemoveProject={onRemoveProject}
@@ -1086,7 +1088,6 @@ function WorkspaceRowInner({
   archiveShortcutKeys,
   isPinned,
   onTogglePin,
-  reserveIdleStatusIndicatorSpace = true,
 }: WorkspaceRowInnerProps) {
   const isCompact = useIsCompactFormFactor();
   const [isPressed, setIsPressed] = useState(false);
@@ -1133,6 +1134,8 @@ function WorkspaceRowInner({
           isPressed,
           selected,
           isHovered,
+          // Pinned rows carry their project icon and stand outside any project, so they stay flush.
+          indented: !leadingProjectName,
         });
         const backdrop = getSidebarRowBackdrop({ isDragging, isPressed, selected, isHovered });
         return (
@@ -1187,7 +1190,6 @@ function WorkspaceRowInner({
                 isCreating={isCreating}
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
-                reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
               >
                 <WorkspaceRowRightGroup
                   workspace={workspace}
@@ -1234,7 +1236,6 @@ function WorkspaceRowWithMenu({
   canCopyBranchName,
   canPin,
   onToggleWorkspacePin,
-  reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
 }: {
   workspace: SidebarWorkspaceEntry;
@@ -1251,7 +1252,6 @@ function WorkspaceRowWithMenu({
   canCopyBranchName: boolean;
   canPin: boolean;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
 }) {
   const { t } = useTranslation();
@@ -1364,7 +1364,6 @@ function WorkspaceRowWithMenu({
         archiveShortcutKeys={selected ? archiveShortcutKeys : null}
         isPinned={isPinned}
         onTogglePin={onTogglePin}
-        reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       />
       <WorkspaceRenameModal
         visible={isRenameOpen}
@@ -1387,7 +1386,6 @@ interface WorkspaceRowItemProps {
   canCopyBranchName: boolean;
   canPin: boolean;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
   selectionEnabled: boolean;
   activeWorkspaceSelection: ActiveWorkspaceSelection | null;
@@ -1408,7 +1406,6 @@ function WorkspaceRowItem({
   canCopyBranchName,
   canPin,
   onToggleWorkspacePin,
-  reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
   selectionEnabled,
   activeWorkspaceSelection,
@@ -1436,7 +1433,6 @@ function WorkspaceRowItem({
       canCopyBranchName={canCopyBranchName}
       canPin={canPin}
       onToggleWorkspacePin={onToggleWorkspacePin}
-      reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
       selected={isWorkspaceSelected({
         selection: activeWorkspaceSelection,
@@ -1479,7 +1475,6 @@ function areWorkspaceRowItemPropsEqual(
     previous.canCopyBranchName === next.canCopyBranchName &&
     previous.canPin === next.canPin &&
     previous.onToggleWorkspacePin === next.onToggleWorkspacePin &&
-    previous.reserveIdleStatusIndicatorSpace === next.reserveIdleStatusIndicatorSpace &&
     previous.isCreating === next.isCreating &&
     previous.onWorkspacePress === next.onWorkspacePress &&
     previous.drag === next.drag &&
@@ -1505,7 +1500,6 @@ function WorkspaceRow({
   canCopyBranchName,
   canPin,
   onToggleWorkspacePin,
-  reserveIdleStatusIndicatorSpace = true,
   isCreating = false,
   selected,
 }: {
@@ -1522,7 +1516,6 @@ function WorkspaceRow({
   canCopyBranchName: boolean;
   canPin: boolean;
   onToggleWorkspacePin: ToggleSidebarWorkspacePin;
-  reserveIdleStatusIndicatorSpace?: boolean;
   isCreating?: boolean;
   selected: boolean;
 }) {
@@ -1546,7 +1539,6 @@ function WorkspaceRow({
       canCopyBranchName={canCopyBranchName}
       canPin={canPin}
       onToggleWorkspacePin={onToggleWorkspacePin}
-      reserveIdleStatusIndicatorSpace={reserveIdleStatusIndicatorSpace}
       isCreating={isCreating}
     />
   );
@@ -1784,19 +1776,11 @@ function ProjectBlock({
             <SidebarGroupToggleRow
               expanded={workspacesExpanded}
               onPress={toggleWorkspacesExpanded}
+              indented
               testID={`sidebar-project-show-more-${project.viewKey}`}
             />
           ) : null}
         </>
-      );
-    } else if (rowModel.trailingAction.kind === "new_workspace") {
-      projectChildren = (
-        <NewWorkspaceGhostRow
-          project={project}
-          displayName={displayName}
-          worktreeTarget={rowModel.trailingAction.target}
-          onWorkspacePress={onWorkspacePress}
-        />
       );
     }
   }
@@ -2532,61 +2516,18 @@ const styles = StyleSheet.create((theme) => ({
   // the rows underneath the header, so a collapsed project gives it back and a column of collapsed
   // headers closes up to the pitch of a list instead of staying spaced for content that is gone.
   projectBlockExpanded: {
-    paddingBottom: theme.spacing[3],
+    paddingBottom: theme.spacing[2],
   },
   workspaceListContainer: {},
-  // Kept in step with `workspaceRow` above. It stands in a project's list where a workspace row
-  // would be, so it takes that row's geometry and both of its fills.
-  //
-  // The one departure is the extra left padding: it only ever renders under its project header, so
-  // the step in reads as belonging to that project. Padding rather than margin, so the hover and
-  // pressed fills stay the same box as every other row in the sidebar.
-  newWorkspaceGhostRow: {
-    minHeight: 30,
-    marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[1.5],
-    paddingLeft: theme.spacing[4],
-    paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    userSelect: "none",
-  },
-  newWorkspaceGhostRowHovered: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
-  },
-  newWorkspaceGhostRowPressed: {
-    backgroundColor: theme.colors.surface2,
-  },
-  // The width of a workspace row's status slot, so the label lands on the same rail as the
-  // titles above it.
-  newWorkspaceGhostIconSlot: {
-    width: theme.iconSize.md,
-    height: theme.iconSize.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  newWorkspaceGhostText: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
-    minWidth: 0,
-    flexShrink: 1,
-  },
-  newWorkspaceGhostTextHovered: {
-    fontSize: theme.fontSize.base,
-    minWidth: 0,
-    flexShrink: 1,
-    color: theme.colors.foreground,
-  },
+  // 28pt tall with the 24pt trailing controls filling the vertical padding exactly, so the + and
+  // ... reveal on hover without growing the row.
   projectRow: {
     position: "relative",
-    minHeight: 30,
-    paddingVertical: theme.spacing[1.5],
+    minHeight: 28,
+    paddingVertical: theme.spacing[0.5],
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
-    marginBottom: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing[0.5],
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2628,27 +2569,11 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
   },
   projectTitle: {
-    color: theme.colors.foregroundMuted,
+    color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
-    fontWeight: "400",
+    fontWeight: theme.fontWeight.medium,
     minWidth: 0,
     flexShrink: 1,
-  },
-  projectActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-    paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
-    flexShrink: 0,
-  },
-  projectActionButtonHovered: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
-  },
-  projectActionButtonText: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
   },
   projectIconActionButton: {
     width: 24,
@@ -2669,8 +2594,8 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: 2,
     flexShrink: 0,
-    // MoreVertical paints only around the center of its 14px SVG. Keep the 24px controls,
-    // but pull their painted edge through the unused view-box space onto the row rail.
+    // Keep the 24px controls, but pull the painted dots through the unused view-box space onto
+    // the row rail.
     marginRight: -6,
   },
   projectKebabButton: {
@@ -2710,37 +2635,17 @@ const styles = StyleSheet.create((theme) => ({
     right: theme.spacing[2],
   },
   workspaceRow: {
-    minHeight: 30,
+    minHeight: 28,
     marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[1.5],
+    paddingVertical: theme.spacing[1],
     paddingLeft: theme.spacing[2],
-    paddingRight: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
+    paddingRight: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
     flexDirection: "column",
     alignItems: "stretch",
     justifyContent: "center",
     gap: theme.spacing[1],
     userSelect: "none",
-  },
-  workspaceRowMain: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[2],
-    width: "100%",
-  },
-  workspaceRowLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    flex: 1,
-    minWidth: 0,
-  },
-  workspaceRowRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    flexShrink: 0,
   },
   workspaceRowHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,
@@ -2762,62 +2667,9 @@ const styles = StyleSheet.create((theme) => ({
   workspaceRowContainer: {
     position: "relative",
   },
-  workspaceStatusDot: {
-    position: "relative",
-    width: WORKSPACE_STATUS_DOT_WIDTH,
-    height: 16,
-    borderRadius: theme.borderRadius.full,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  workspaceArchivingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: `${theme.colors.surface0}cc`,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: theme.spacing[2],
-    zIndex: 1,
-  },
-  workspaceArchivingText: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-    fontWeight: "600",
-  },
-  workspaceBranchText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    fontWeight: "400",
-    lineHeight: 20,
-    opacity: 0.76,
-    flex: 1,
-    minWidth: 0,
-  },
-  workspaceBranchTextCreating: {
-    opacity: 0.92,
-  },
-  workspaceBranchTextHovered: {
-    opacity: 1,
-  },
-  workspacePrBadgeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    paddingLeft: WORKSPACE_STATUS_DOT_WIDTH + theme.spacing[2],
-  },
   workspaceCreatingText: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     flexShrink: 0,
-  },
-  kebabButton: {
-    padding: 2,
-    borderRadius: 4,
-    marginLeft: 2,
-  },
-  kebabButtonHovered: {
-    backgroundColor: theme.colors.surface2,
   },
 }));

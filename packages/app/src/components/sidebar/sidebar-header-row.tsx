@@ -137,11 +137,11 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.lg,
   },
-  // Compact header entries (New workspace / History) sit tighter than the
-  // workspace-row shape the base button mirrors.
+  // Compact header entries (the sidebar nav) are dense 28px rows.
   buttonCompact: {
-    minHeight: 32,
-    paddingVertical: theme.spacing[1.5],
+    minHeight: 28,
+    paddingVertical: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
     // Match the project rows' inner padding so the icons align on one vertical
     // edge with the workspace list below (base button uses a wider spacing[3]).
     paddingHorizontal: theme.spacing[2],

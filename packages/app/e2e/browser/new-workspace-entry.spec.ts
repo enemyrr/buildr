@@ -9,6 +9,7 @@ import {
   openMissingProjectNewWorkspaceComposer,
   openNewWorkspaceComposer,
   openNewWorkspaceProjectPickerWithShortcut,
+  workspaceIsolationControl,
 } from "../support/helpers/new-workspace";
 import { getE2EDaemonPort } from "../support/helpers/daemon-port";
 import { seedWorkspace, type SeededWorkspace } from "../support/helpers/seed-client";
@@ -276,7 +277,7 @@ test.describe("New workspace entry points", () => {
 
       // No git checkout means no worktree isolation choice: the Isolation row is
       // absent entirely.
-      await expect(page.getByTestId("workspace-create-isolation-trigger")).toHaveCount(0);
+      await expect(workspaceIsolationControl(page)).toHaveCount(0);
 
       // Switching to the git project on the same screen reveals the Isolation row.
       await trigger.click();
@@ -287,7 +288,7 @@ test.describe("New workspace entry points", () => {
       await gitOption.click();
       await expectNewWorkspaceProjectSelected(page, gitProject.projectDisplayName);
 
-      await expect(page.getByTestId("workspace-create-isolation-trigger")).toBeVisible({
+      await expect(workspaceIsolationControl(page)).toBeVisible({
         timeout: 30_000,
       });
     } finally {

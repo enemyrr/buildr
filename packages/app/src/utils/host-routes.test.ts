@@ -241,6 +241,12 @@ describe("global routes", () => {
       }),
     ).toBe("/new?serverId=local&dir=%2Frepo%2Fproject&draftId=draft-1");
   });
+
+  it("buildNewWorkspaceRoute asks for the Create from picker", () => {
+    expect(buildNewWorkspaceRoute({ serverId: "local", createFrom: true })).toBe(
+      "/new?serverId=local&createFrom=1",
+    );
+  });
 });
 
 describe("host settings section slugs", () => {

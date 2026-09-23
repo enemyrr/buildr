@@ -47,7 +47,7 @@ export function PinnedSectionHeader({
 
 const styles = StyleSheet.create((theme) => ({
   header: {
-    minHeight: 36,
+    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
@@ -57,8 +57,8 @@ const styles = StyleSheet.create((theme) => ({
     userSelect: "none",
   },
   title: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.normal,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 11,
+    fontWeight: theme.fontWeight.medium,
   },
 }));

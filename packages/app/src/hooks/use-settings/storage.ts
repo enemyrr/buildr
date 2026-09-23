@@ -139,7 +139,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   sidebarChecksDisplay: DEFAULT_SIDEBAR_CHECKS_DISPLAY,
   sidebarNavItems: [],
   autoExpandReasoning: false,
-  toolCallDetailLevel: "detailed",
+  toolCallDetailLevel: "overview",
   chatOutlineEnabled: true,
   vimKeybindings: false,
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
@@ -232,7 +232,7 @@ const StoredAppSettingsSchema = z
       .enum(["overview", "detailed"])
       .or(z.literal("concise").transform(() => "overview" as const))
       .optional()
-      .catch("detailed"),
+      .catch("overview"),
     // COMPAT(compactToolCalls): migrated in v0.1.105, remove after 2027-01-12.
     compactToolCalls: z.boolean().optional().catch(undefined),
     chatOutlineEnabled: z.boolean().catch(true),
@@ -282,7 +282,7 @@ const StoredAppSettingsSchema = z
         ? "none"
         : DEFAULT_SIDEBAR_CHECKS_DISPLAY);
     const toolCallDetailLevel =
-      stored.toolCallDetailLevel ?? (stored.compactToolCalls ? "overview" : "detailed");
+      stored.toolCallDetailLevel ?? (stored.compactToolCalls === false ? "detailed" : "overview");
     return {
       ...stored,
       openInSidePane,

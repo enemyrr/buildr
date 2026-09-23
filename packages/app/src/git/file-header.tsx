@@ -39,6 +39,8 @@ export interface FileHeaderProps {
   isSelected?: boolean;
   depth?: number;
   showDir?: boolean;
+  /** A flat path row: `dir/` then the name, with a status letter before the diff stat. */
+  flat?: boolean;
   interactive?: boolean;
   onActivate?: (path: string) => void;
   onSelect?: (path: string) => void;
@@ -134,6 +136,18 @@ function fileChange(file: ParsedDiffFile): "added" | "deleted" | "modified" {
   return diffFileChangeKind(file);
 }
 
+const STATUS_LETTERS = { added: "A", deleted: "D", modified: "M" } as const;
+
+function FileStatusLetter({ file }: { file: ParsedDiffFile }) {
+  const change = fileChange(file);
+  const renamed = change === "modified" && file.oldPath !== undefined && file.oldPath !== file.path;
+  return (
+    <Text style={[styles.statusLetter, styles[`statusLetter_${change}`]]}>
+      {renamed ? "R" : STATUS_LETTERS[change]}
+    </Text>
+  );
+}
+
 function FileHeaderMenu({
   file,
   onOpenFile,
@@ -182,6 +196,80 @@ function FileHeaderMenu({
   );
 }
 
+function FileHeaderContent({
+  file,
+  fileName,
+  flat,
+  showDir,
+  showsBodyState,
+  nameStyle,
+  dragSourceRef,
+  testID,
+}: {
+  file: ParsedDiffFile;
+  fileName: string;
+  flat: boolean;
+  showDir: boolean;
+  showsBodyState: boolean;
+  nameStyle: ReturnType<typeof fileHeaderNameStyle>;
+  dragSourceRef: ReturnType<typeof useWorkspaceFileDragSource>;
+  testID?: string;
+}) {
+  const contentTestID = testID ? `${testID}-header-content` : undefined;
+  const nameTestID = testID ? `${testID}-name` : undefined;
+  const stat = (
+    <DiffStat
+      additions={file.additions}
+      deletions={file.deletions}
+      testID={testID ? `${testID}-stat` : undefined}
+    />
+  );
+  if (flat) {
+    const slash = file.path.lastIndexOf("/");
+    return (
+      <View style={styles.content} testID={contentTestID}>
+        <View ref={dragSourceRef} style={styles.left}>
+          <Text style={nameStyle} numberOfLines={1} ellipsizeMode="head" testID={nameTestID}>
+            {slash >= 0 ? (
+              <Text style={styles.flatDirectory}>{file.path.slice(0, slash + 1)}</Text>
+            ) : null}
+            {fileName}
+          </Text>
+        </View>
+        <View style={styles.right}>
+          <FileStatusLetter file={file} />
+          {stat}
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.content, showsBodyState && styles.documentContent]} testID={contentTestID}>
+      <View ref={dragSourceRef} style={showDir ? styles.left : [styles.left, styles.leftTree]}>
+        {showDir ? null : (
+          <View style={styles.icon}>
+            <MaterialFileIcon fileName={fileName} size={WORKSPACE_TREE_ICON_SIZE} />
+          </View>
+        )}
+        <Text style={nameStyle} numberOfLines={1} testID={nameTestID}>
+          {fileName}
+        </Text>
+        {showDir ? (
+          <Text style={styles.directory} numberOfLines={1}>
+            {directorySuffix(file.path)}
+          </Text>
+        ) : (
+          <View style={styles.directorySpacer} />
+        )}
+      </View>
+      <View style={styles.right}>
+        {stat}
+        <FileChangeIcon change={fileChange(file)} />
+      </View>
+    </View>
+  );
+}
+
 export const FileHeader = memo(function FileHeader({
   file,
   workspaceFileDragScope,
@@ -190,6 +278,7 @@ export const FileHeader = memo(function FileHeader({
   isSelected = false,
   depth = 0,
   showDir = true,
+  flat = false,
   interactive = true,
   onActivate,
   onSelect,
@@ -249,38 +338,17 @@ export const FileHeader = memo(function FileHeader({
   );
   const fileName = fileNameForPath(file.path);
   const nameStyle = fileHeaderNameStyle(showsBodyState, hover.isHovered);
-  const changeIcon = <FileChangeIcon change={fileChange(file)} />;
   const content = (
-    <View
-      style={[styles.content, showsBodyState && styles.documentContent]}
-      testID={testID ? `${testID}-header-content` : undefined}
-    >
-      <View ref={dragSourceRef} style={showDir ? styles.left : [styles.left, styles.leftTree]}>
-        {showDir ? null : (
-          <View style={styles.icon}>
-            <MaterialFileIcon fileName={fileName} size={WORKSPACE_TREE_ICON_SIZE} />
-          </View>
-        )}
-        <Text style={nameStyle} numberOfLines={1} testID={testID ? `${testID}-name` : undefined}>
-          {fileName}
-        </Text>
-        {showDir ? (
-          <Text style={styles.directory} numberOfLines={1}>
-            {directorySuffix(file.path)}
-          </Text>
-        ) : (
-          <View style={styles.directorySpacer} />
-        )}
-      </View>
-      <View style={styles.right}>
-        <DiffStat
-          additions={file.additions}
-          deletions={file.deletions}
-          testID={testID ? `${testID}-stat` : undefined}
-        />
-        {changeIcon}
-      </View>
-    </View>
+    <FileHeaderContent
+      file={file}
+      fileName={fileName}
+      flat={flat}
+      showDir={showDir}
+      showsBodyState={showsBodyState}
+      nameStyle={nameStyle}
+      dragSourceRef={dragSourceRef}
+      testID={testID}
+    />
   );
   const renderedContent = canvasRendered ? (
     <View ref={dragSourceRef} style={styles.canvasInteractionContent} />
@@ -447,5 +515,17 @@ const styles = StyleSheet.create((theme) => ({
     userSelect: "none",
   },
   directorySpacer: { flex: 1, minWidth: 0 },
+  flatDirectory: { color: theme.colors.foregroundExtraMuted },
+  statusLetter: {
+    width: 10,
+    textAlign: "center",
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.mono,
+    userSelect: "none",
+  },
+  statusLetter_added: { color: theme.colors.statusSuccess },
+  statusLetter_deleted: { color: theme.colors.statusDanger },
+  statusLetter_modified: { color: theme.colors.statusWarning },
   tooltip: { color: theme.colors.popoverForeground, fontSize: theme.fontSize.base },
 }));

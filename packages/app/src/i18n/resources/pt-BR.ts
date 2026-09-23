@@ -118,7 +118,7 @@ export const ptBR: TranslationResources = {
   composer: {
     loadout: en.composer.loadout,
     placeholders: {
-      desktop: "Envie uma mensagem ao agente, marque @files ou use /commands e /skills",
+      desktop: "Peça alterações, mencione arquivos com @, execute /commands",
       mobile: "Mensagem, @files, /commands",
       fallback: "Mensagem...",
       terminal: "Prompt",
@@ -256,7 +256,31 @@ export const ptBR: TranslationResources = {
       unarchive: "Desarquivar",
     },
   },
+  dashboard: {
+    title: "Painel",
+    allProjects: "Todos os projetos",
+    more: "Mais",
+    emptyColumn: "Nenhum workspace",
+    columns: {
+      backlog: "Backlog",
+      inProgress: "Em andamento",
+      inReview: "Em revisão",
+      done: "Concluído",
+      canceled: "Cancelado",
+    },
+    actions: {
+      archive: "Arquivar",
+      setStatus: "Definir status",
+      resetStatus: "Usar status do PR",
+    },
+  },
   sessions: {
+    filters: {
+      allProjects: "Em todos os projetos",
+      inProject: "Em {{project}}",
+      hidingArchived: "Ocultando arquivados",
+      showingArchived: "Mostrando arquivados",
+    },
     title: "Histórico de agentes",
     empty: "Nenhuma sessão ainda",
     noMatches: "Nenhuma sessão corresponde",
@@ -590,6 +614,17 @@ export const ptBR: TranslationResources = {
       unableToSubscribe: "Não foi possível assinar o terminal",
     },
     tabs: {
+      closedChats: {
+        title: "Chats fechados",
+        empty: "Nenhum chat fechado",
+        restoreFailed: "Não foi possível restaurar o chat",
+      },
+      newChat: {
+        title: "Novo chat em {{path}}.",
+        addTranscripts: "Adicionar transcrições de chats:",
+        more: "+{{count}} mais",
+        attachFailed: "Não foi possível anexar a transcrição",
+      },
       loading: "Carregando...",
       modified: "Alterações não salvas",
       loadingAgentTitle: "Carregando título do agente",
@@ -610,6 +645,7 @@ export const ptBR: TranslationResources = {
       menu: {
         openFor: "Abrir menu de {{label}}",
         copyResumeCommand: "Copiar comando de retomada",
+        copyTranscript: "Copiar transcrição",
         copyAgentId: "Copiar ID do agente",
         copyTerminalId: "Copiar ID do terminal",
         copyFilePath: "Copiar caminho do arquivo",
@@ -655,6 +691,8 @@ export const ptBR: TranslationResources = {
       toasts: {
         copyFailed: "Falha ao copiar",
         agentIdCopiedLabel: "ID do agente",
+        transcriptCopiedLabel: "Transcrição",
+        transcriptUnavailable: "Transcrição indisponível",
         terminalIdCopiedLabel: "ID do terminal",
         resumeCommandCopiedLabel: "comando de retomada",
         filePathCopiedLabel: "Caminho do arquivo",
@@ -865,7 +903,7 @@ export const ptBR: TranslationResources = {
           mergePrNoGithub:
             "Merge da PR não está disponível agora porque o GitHub não está conectado",
           archiveNotWorktree:
-            "Arquivar não está disponível aqui porque este workspace não foi criado como um worktree do Paseo",
+            "Arquivar não está disponível aqui porque este workspace não foi criado como um worktree do Buildr",
           mergePrNoForge:
             "Merge da {{noun}} não está disponível agora porque o {{brand}} não está conectado",
           mergePrMissing: "Merge da PR não está disponível porque ainda não há uma pull request",
@@ -965,6 +1003,62 @@ export const ptBR: TranslationResources = {
         openIn: "Abrir workspace em {{target}}",
         openFileIn: "Abrir {{fileName}} em {{target}}",
         failedOpen: "Falha ao abrir workspace",
+      },
+      prFlow: {
+        createPr: "Criar PR",
+        createDraftPr: "Criar PR em rascunho",
+        createPrDirectly: "Criar PR diretamente",
+        createPrManually: "Criar PR manualmente",
+        options: "Opções de PR",
+        review: "Revisar",
+        openPr: "Abrir pull request {{ref}}",
+        commitAndPush: "Commit e push",
+        continue: "Continuar",
+        continueTooltip: "Continuar em um novo branch com os mesmos chats",
+        archive: "Arquivar",
+        merge: "Mesclar",
+        resolve: "Resolver",
+        fix: "Corrigir",
+        autoMerge: "Mesclagem automática",
+        state: {
+          open: "Aberto",
+          draft: "Rascunho",
+          merged: "Mesclado",
+          closed: "Fechado",
+          conflicts: "Conflitos de mesclagem",
+          checksFailed: "Verificações falharam",
+          checksRunning: "Verificações em execução",
+          autoMergeEnabled: "Mesclagem automática ativada",
+          changesRequested: "Alterações solicitadas",
+          reviewRequired: "Revisão necessária",
+        },
+        tabs: {
+          allFiles: "Todos os arquivos",
+          changes: "Alterações",
+          checks: "Verificações",
+        },
+        changes: {
+          filesChanged_one: "{{count}} arquivo alterado",
+          filesChanged_other: "{{count}} arquivos alterados",
+          showAsTree: "Mostrar como árvore",
+        },
+        checks: {
+          titlePlaceholder: "Título do PR",
+          descriptionPlaceholder: "Descrição do PR",
+          gitStatus: "Status do Git",
+          noPr: "Nenhum PR aberto",
+          prOpen: "PR {{ref}} aberto",
+          prDraft: "PR em rascunho {{ref}} aberto",
+          prMerged: "PR {{ref}} mesclado",
+          prClosed: "PR {{ref}} fechado",
+          uncommitted_one: "{{count}} alteração não commitada",
+          uncommitted_other: "{{count}} alterações não commitadas",
+          uncommittedUnknown: "Alterações não commitadas",
+          clean: "Nenhuma alteração não commitada",
+          comments: "Comentários",
+          addAllToChat: "Adicionar tudo ao chat",
+          noComments: "Nenhum comentário ainda",
+        },
       },
       pr: {
         actions: {
@@ -1160,7 +1254,7 @@ export const ptBR: TranslationResources = {
       discord: "Discord",
       github: "Criar issue no GitHub",
       whatsNew: "Novidades",
-      appName: "Paseo",
+      appName: "Buildr",
     },
     resources: {
       trigger: "Recursos e uso",
@@ -1178,6 +1272,7 @@ export const ptBR: TranslationResources = {
       updateHost: "Atualize o host para ver o uso de CPU e memória.",
     },
     sections: {
+      dashboard: "Painel",
       sessions: "Histórico",
       search: "Buscar",
       schedules: "Agendamentos",
@@ -1191,6 +1286,7 @@ export const ptBR: TranslationResources = {
     project: {
       actions: {
         menu: "Ações do projeto",
+        createFrom: "Criar a partir de...",
         openSettings: "Abrir configurações do projeto",
         openNewWindow: "Abrir em nova janela",
         openNewWindowFailed: "Não foi possível abrir uma nova janela",
@@ -1244,6 +1340,8 @@ export const ptBR: TranslationResources = {
         archive: "Arquivar",
         archiveWorkspace: "Arquivar workspace",
         hideFromSidebar: "Ocultar da barra lateral",
+        copyLink: "Copiar link",
+        setStatus: "Definir status",
         archiving: "Arquivando...",
         hiding: "Ocultando...",
       },
@@ -1254,6 +1352,14 @@ export const ptBR: TranslationResources = {
         hideConfirm: "Ocultar",
         cancel: "Cancelar",
       },
+      boardStatus: {
+        backlog: "Backlog",
+        inProgress: "Em andamento",
+        inReview: "Em revisão",
+        done: "Concluído",
+        canceled: "Cancelado",
+        automatic: "Automático",
+      },
       rename: {
         title: "Renomear workspace",
         submit: "Renomear",
@@ -1261,6 +1367,7 @@ export const ptBR: TranslationResources = {
       },
       toasts: {
         workspacePathUnavailable: "Caminho do workspace indisponível",
+        linkCopied: "Link copiado",
         pathCopied: "Caminho copiado",
         branchNameCopied: "Nome da branch copiado",
         hostDisconnected: "Host não está conectado",
@@ -1270,6 +1377,18 @@ export const ptBR: TranslationResources = {
     },
   },
   newWorkspace: {
+    promptPlaceholder: "No que você quer trabalhar?",
+    moreOptions: "Mais opções",
+    createFrom: {
+      title: "Criar a partir de",
+      searchPlaceholder: "Pesquisar pull requests e branches",
+      pullRequests: "PRs",
+      branches: "Branches",
+      select: "Selecionar",
+      noPullRequests: "Nenhum pull request correspondente",
+      noBranches: "Nenhum branch correspondente",
+      targetBranch: "Branch de destino",
+    },
     title: "Novo workspace",
     create: "Criar",
     isolation: {
@@ -1322,7 +1441,7 @@ export const ptBR: TranslationResources = {
       close: "Fechar janela",
     },
     quitting: {
-      title: "Saindo do Paseo...",
+      title: "Saindo do Buildr...",
       detail: "Parando o daemon local.",
     },
     daemon: {
@@ -1337,20 +1456,20 @@ export const ptBR: TranslationResources = {
       },
       management: {
         title: "Gerenciar daemon integrado",
-        hint: "Permitir que o Paseo inicie e pare o daemon integrado",
+        hint: "Permitir que o Buildr inicie e pare o daemon integrado",
         pauseTitle: "Pausar daemon integrado",
         pauseMessage:
           "Isso vai parar o daemon integrado imediatamente. Agentes e terminais em execução conectados ao daemon integrado serão interrompidos.",
         pauseAndStop: "Pausar e parar",
         registrationFailed:
-          "O daemon integrado foi iniciado, mas o Paseo não conseguiu salvar a conexão localhost. Desative e reative o gerenciamento do daemon ou adicione localhost manualmente.",
+          "O daemon integrado foi iniciado, mas o Buildr não conseguiu salvar a conexão localhost. Desative e reative o gerenciamento do daemon ou adicione localhost manualmente.",
         pausedStopFailed:
-          "O gerenciamento do daemon integrado foi pausado, mas o Paseo não conseguiu parar o daemon.",
+          "O gerenciamento do daemon integrado foi pausado, mas o Buildr não conseguiu parar o daemon.",
         updateFailed: "Não foi possível atualizar o gerenciamento do daemon integrado.",
       },
       keepRunning: {
         title: "Manter daemon em execução ao sair",
-        hint: "O daemon continua em execução quando você sai do Paseo",
+        hint: "O daemon continua em execução quando você sai do Buildr",
       },
       logs: {
         title: "Arquivo de log",
@@ -1420,7 +1539,7 @@ export const ptBR: TranslationResources = {
     },
     rosetta: {
       title: "Baixar a build para Apple Silicon",
-      runningIntel: "Você está executando a build Intel do Paseo pelo Rosetta no Apple Silicon.",
+      runningIntel: "Você está executando a build Intel do Buildr pelo Rosetta no Apple Silicon.",
       highCpu: "Isso causa alto uso de CPU. Baixe a build para Apple Silicon para corrigir.",
       download: "Baixar",
     },
@@ -1462,7 +1581,7 @@ export const ptBR: TranslationResources = {
         microphone: "O status do microfone ainda não foi verificado.",
       },
       testNotification: {
-        title: "Teste de notificação do Paseo",
+        title: "Teste de notificação do Buildr",
         body: "Se você consegue ver isto, as notificações desktop funcionam.",
         notDelivered:
           "A notificação não foi entregue. Verifique Ajustes do Sistema > Notificações.",
@@ -1472,12 +1591,12 @@ export const ptBR: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "Não foi possível verificar o status de instalação da CLI.",
-        installFailed: "Não foi possível instalar a CLI do Paseo.",
+        installFailed: "Não foi possível instalar a CLI do Buildr.",
       },
     },
   },
   rootError: {
-    title: "O Paseo encontrou um problema.",
+    title: "O Buildr encontrou um problema.",
     body: "Tente novamente para recarregar o app. Se isso continuar acontecendo, inclua os detalhes abaixo ao relatar o problema.",
     details: "Detalhes",
   },
@@ -1572,7 +1691,7 @@ export const ptBR: TranslationResources = {
     },
   },
   onboarding: {
-    title: "Bem-vindo ao Paseo",
+    title: "Bem-vindo ao Buildr",
     subtitle: "Conecte seu computador para começar",
     actions: {
       settings: "Configurações",
@@ -1658,7 +1777,7 @@ export const ptBR: TranslationResources = {
     },
     direct: {
       title: "Conexão direta",
-      helper: "Informe o endereço de um servidor Paseo.",
+      helper: "Informe o endereço de um servidor Buildr.",
       fields: {
         host: "Host",
         port: "Porta",
@@ -1701,7 +1820,7 @@ export const ptBR: TranslationResources = {
     },
     remoteSsh: {
       title: "SSH remoto",
-      helper: "Conecte-se a um daemon Paseo no host remoto.",
+      helper: "Conecte-se a um daemon Buildr no host remoto.",
       fields: {
         target: "Host SSH",
       },
@@ -1758,15 +1877,15 @@ export const ptBR: TranslationResources = {
       enableDescription:
         "O relay permite conectar este dispositivo de qualquer lugar. O tráfego de pareamento é criptografado de ponta a ponta.",
       relayDocs: "Como o relay funciona",
-      relayDocsAccessibility: "Leia como o relay do Paseo funciona",
+      relayDocsAccessibility: "Leia como o relay do Buildr funciona",
       enableRelay: "Ativar relay",
       enablingRelay: "Ativando...",
       notNow: "Agora não",
       directConnectionHint:
         "Sem relay, conecte diretamente por TCP, Tailscale ou outra VPN. Nenhum código QR é criado.",
-      updateRequired: "Atualize o host para ativar o relay pelo Paseo Desktop.",
+      updateRequired: "Atualize o host para ativar o relay pelo Buildr Desktop.",
       unavailable: "Oferta de pareamento indisponível.",
-      hint: "Escaneie este QR code com o Paseo no seu celular ou copie o link abaixo.",
+      hint: "Escaneie este QR code com o Buildr no seu celular ou copie o link abaixo.",
       securityWarning:
         "Trate este link de pareamento como uma senha. Qualquer pessoa com o link pode acessar este daemon.",
       qrUnavailable: "QR code indisponível.",
@@ -1801,7 +1920,7 @@ export const ptBR: TranslationResources = {
   serviceUrl: {
     title: "Abrir URL do serviço",
     message: "Abrir {{url}}?",
-    inPaseo: "No Paseo",
+    inPaseo: "No Buildr",
     externalBrowser: "Navegador externo",
     dontAskAgain: "Não perguntar novamente",
   },
@@ -1900,31 +2019,14 @@ export const ptBR: TranslationResources = {
     output: "Saída",
   },
   toolCallGroup: {
-    editedFiles: {
-      one: "editou {{count}} arquivo",
-      other: "editou {{count}} arquivos",
+    toolCalls: {
+      one: "{{count}} chamada de ferramenta",
+      other: "{{count}} chamadas de ferramentas",
     },
-    commands: {
-      one: "executou {{count}} comando",
-      other: "executou {{count}} comandos",
+    messages: {
+      one: "{{count}} mensagem",
+      other: "{{count}} mensagens",
     },
-    readFiles: {
-      one: "leu {{count}} arquivo",
-      other: "leu {{count}} arquivos",
-    },
-    searches: {
-      one: "pesquisou {{count}} vez",
-      other: "pesquisou {{count}} vezes",
-    },
-    otherTools: {
-      one: "usou {{count}} outra ferramenta",
-      other: "usou {{count}} outras ferramentas",
-    },
-    paseoCalls: {
-      one: "chamou o Paseo {{count}} vez",
-      other: "chamou o Paseo {{count}} vezes",
-    },
-    and: "e",
   },
   renameModal: {
     rename: "Renomear",
@@ -2004,7 +2106,7 @@ export const ptBR: TranslationResources = {
       send: "Enviar",
       sending: "Enviando...",
       sentTitle: "Notificação de teste enviada",
-      sentDescription: "O Paseo entregou a notificação ao sistema operacional.",
+      sentDescription: "O Buildr entregou a notificação ao sistema operacional.",
       sendFailedTitle: "Não foi possível enviar a notificação de teste",
     },
     hostSections: {
@@ -2023,14 +2125,14 @@ export const ptBR: TranslationResources = {
     metadataGeneration: {
       title: "Geração de metadados",
       description:
-        "Escolha o modelo usado pelo Paseo para títulos de espaços de trabalho, nomes de branches, mensagens de commit e rascunhos de pull request",
+        "Escolha o modelo usado pelo Buildr para títulos de espaços de trabalho, nomes de branches, mensagens de commit e rascunhos de pull request",
       selection: "Seleção de modelo",
       automatic: "Automática",
       preferred: "Manual",
-      automaticHint: "O Paseo escolhe um modelo rápido disponível",
-      preferredHint: "Escolha o modelo que o Paseo usa",
+      automaticHint: "O Buildr escolhe um modelo rápido disponível",
+      preferredHint: "Escolha o modelo que o Buildr usa",
       model: "Modelo",
-      fallbackHint: "Se ele não estiver disponível, o Paseo usa outro modelo disponível",
+      fallbackHint: "Se ele não estiver disponível, o Buildr usa outro modelo disponível",
       docs: "Documentação",
       saveError: "Não foi possível atualizar a geração de metadados",
     },
@@ -2039,7 +2141,7 @@ export const ptBR: TranslationResources = {
       browserData: {
         title: "Dados do navegador",
         siteData: "Cookies e dados de sites",
-        description: "As abas do navegador compartilham logins e dados de sites no Paseo.",
+        description: "As abas do navegador compartilham logins e dados de sites no Buildr.",
         clear: "Limpar dados do navegador",
         clearing: "Limpando...",
         confirmTitle: "Limpar dados do navegador?",
@@ -2068,7 +2170,7 @@ export const ptBR: TranslationResources = {
         description: "Onde abrir URLs de scripts em execução",
         options: {
           ask: "Perguntar",
-          inApp: "No Paseo",
+          inApp: "No Buildr",
           external: "Navegador externo",
         },
       },
@@ -2154,7 +2256,7 @@ export const ptBR: TranslationResources = {
         label: "Atualizações do app",
         readyToInstall: "Pronta para instalar: {{version}}",
         installTitle: "Instalar atualização desktop",
-        installMessage: "Isso atualiza o Paseo neste computador",
+        installMessage: "Isso atualiza o Buildr neste computador",
         installConfirm: "Instalar atualização",
         update: "Atualizar",
         updateTo: "Atualizar para {{version}}",
@@ -2177,6 +2279,7 @@ export const ptBR: TranslationResources = {
           claude: "Claude",
           ghostty: "Ghostty",
           pureBlack: "Preto puro",
+          paseo: "Buildr",
           auto: "Sistema",
         },
       },
@@ -2385,11 +2488,11 @@ export const ptBR: TranslationResources = {
         title: "Skills de orquestração",
         description: "Ensine seus agentes a orquestrar pela CLI",
         updateAvailable: "Atualização disponível",
-        updateTitle: "Atualizar Paseo skills?",
+        updateTitle: "Atualizar Buildr skills?",
         updateFallback: "Sincronize as skills incluídas com sua máquina.",
-        uninstallTitle: "Desinstalar Paseo skills?",
+        uninstallTitle: "Desinstalar Buildr skills?",
         uninstallMessage:
-          "Remove todas as skills de orquestração do Paseo de ~/.agents, ~/.claude e ~/.codex.",
+          "Remove todas as skills de orquestração do Buildr de ~/.agents, ~/.claude e ~/.codex.",
         choose: "Escolher skills",
         chooseAll: "Todas as skills",
         chooseAllHint:
@@ -2426,9 +2529,9 @@ export const ptBR: TranslationResources = {
         title: "Orquestração",
         unavailable: "Conecte-se a este host para gerenciar a orquestração",
         enableTools: {
-          title: "Ativar ferramentas do Paseo",
+          title: "Ativar ferramentas do Buildr",
           hint: "Agentes poderão gerenciar worktrees, agentes e agendamentos",
-          accessibilityLabel: "Injetar ferramentas do Paseo",
+          accessibilityLabel: "Injetar ferramentas do Buildr",
         },
         systemPrompt: {
           title: "Prompt do sistema",
@@ -2533,15 +2636,15 @@ export const ptBR: TranslationResources = {
             "Este host não está conectado. Aguarde até ele ficar online antes de reiniciar.",
           offlineTitle: "Host offline",
           offlineMessage:
-            "Este host está offline. O Paseo reconecta automaticamente. Aguarde ele voltar a ficar online antes de reiniciar.",
+            "Este host está offline. O Buildr reconecta automaticamente. Aguarde ele voltar a ficar online antes de reiniciar.",
           requestFailedTitle: "Erro",
           requestFailedMessage:
-            "Falha ao enviar a solicitação de reinício. O Paseo reconecta automaticamente. Tente novamente quando o host aparecer como online.",
+            "Falha ao enviar a solicitação de reinício. O Buildr reconecta automaticamente. Tente novamente quando o host aparecer como online.",
           dialogFailedMessage: "Não foi possível abrir o diálogo de confirmação de reinício.",
         },
         update: {
           desktopManagedHint:
-            "Este daemon é gerenciado pelo Paseo Desktop. Atualize o Paseo Desktop no host.",
+            "Este daemon é gerenciado pelo Buildr Desktop. Atualize o Buildr Desktop no host.",
           title: "Atualizar daemon",
           hint: "Atualiza o daemon para a versão mais recente e o reinicia",
           confirm: "Atualizar",
@@ -2717,7 +2820,7 @@ export const ptBR: TranslationResources = {
         newScript: "Novo script",
         editScript: "Editar {{name}}",
         runAsService: "Executar como serviço",
-        serviceHint: "O Paseo supervisiona o processo e atribui uma porta via $PASEO_PORT",
+        serviceHint: "O Buildr supervisiona o processo e atribui uma porta via $PASEO_PORT",
         actions: {
           add: "Adicionar script",
           edit: "Editar",
@@ -2726,7 +2829,7 @@ export const ptBR: TranslationResources = {
       },
       metadata: {
         title: "Geração de metadados",
-        info: "Instruções específicas do projeto injetadas nos prompts de IA que o Paseo usa para gerar metadados. Use-as para aplicar convenções da sua equipe, como nomes de branch, estilo de commit ou formato de PR",
+        info: "Instruções específicas do projeto injetadas nos prompts de IA que o Buildr usa para gerar metadados. Use-as para aplicar convenções da sua equipe, como nomes de branch, estilo de commit ou formato de PR",
         branchName: "Nomes de branch",
         branchNamePlaceholder: "Prefixe branches com feat/ ou fix/, mb/ para branches pessoais",
         commitMessage: "Mensagens de commit",

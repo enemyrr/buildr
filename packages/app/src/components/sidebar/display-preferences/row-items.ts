@@ -25,12 +25,15 @@ export type SidebarRowItem = (typeof SIDEBAR_ROW_ITEMS)[number];
 
 export type SidebarRowItems = Record<SidebarRowItem, boolean>;
 
-/** The persisted record is merged over these explicit product defaults. */
+/**
+ * The persisted record is merged over these explicit product defaults. The change request is off
+ * because the row's leading branch glyph already carries its state.
+ */
 export const DEFAULT_SIDEBAR_ROW_ITEMS: SidebarRowItems = {
   branch: false,
   project: false,
   host: true,
-  changeRequest: true,
+  changeRequest: false,
   services: true,
   labels: true,
 };

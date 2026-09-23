@@ -118,7 +118,7 @@ export const ja: TranslationResources = {
   composer: {
     loadout: en.composer.loadout,
     placeholders: {
-      desktop: "エージェントにメッセージ、@ファイル、/コマンドや/スキルを入力",
+      desktop: "変更を依頼、@でファイルを指定、/コマンドを実行",
       mobile: "メッセージ、@ファイル、/コマンド",
       fallback: "メッセージ...",
       terminal: "Prompt",
@@ -257,7 +257,31 @@ export const ja: TranslationResources = {
       unarchive: "アーカイブ解除",
     },
   },
+  dashboard: {
+    title: "ダッシュボード",
+    allProjects: "すべてのプロジェクト",
+    more: "その他",
+    emptyColumn: "ワークスペースはありません",
+    columns: {
+      backlog: "バックログ",
+      inProgress: "進行中",
+      inReview: "レビュー中",
+      done: "完了",
+      canceled: "キャンセル",
+    },
+    actions: {
+      archive: "アーカイブ",
+      setStatus: "ステータスを設定",
+      resetStatus: "PR のステータスを使用",
+    },
+  },
   sessions: {
+    filters: {
+      allProjects: "すべてのプロジェクト内",
+      inProject: "{{project}} 内",
+      hidingArchived: "アーカイブを非表示",
+      showingArchived: "アーカイブを表示",
+    },
     title: "履歴",
     empty: "セッションがまだありません",
     noMatches: "一致するセッションはありません",
@@ -591,6 +615,17 @@ export const ja: TranslationResources = {
       unableToSubscribe: "ターミナルに接続できません",
     },
     tabs: {
+      closedChats: {
+        title: "閉じたチャット",
+        empty: "閉じたチャットはありません",
+        restoreFailed: "チャットを復元できませんでした",
+      },
+      newChat: {
+        title: "{{path}} で新しいチャット。",
+        addTranscripts: "チャットのトランスクリプトを追加:",
+        more: "他 {{count}} 件",
+        attachFailed: "トランスクリプトを添付できませんでした",
+      },
       loading: "読み込み中...",
       modified: "未保存の変更",
       loadingAgentTitle: "エージェントタイトルを読み込み中",
@@ -611,6 +646,7 @@ export const ja: TranslationResources = {
       menu: {
         openFor: "{{label}}のメニューを開く",
         copyResumeCommand: "再開コマンドをコピー",
+        copyTranscript: "トランスクリプトをコピー",
         copyAgentId: "エージェントIDをコピー",
         copyTerminalId: "ターミナルIDをコピー",
         copyFilePath: "ファイルパスをコピー",
@@ -657,6 +693,8 @@ export const ja: TranslationResources = {
       toasts: {
         copyFailed: "コピーに失敗しました",
         agentIdCopiedLabel: "エージェントID",
+        transcriptCopiedLabel: "トランスクリプト",
+        transcriptUnavailable: "トランスクリプトを利用できません",
         terminalIdCopiedLabel: "ターミナルID",
         resumeCommandCopiedLabel: "再開コマンド",
         filePathCopiedLabel: "ファイルパス",
@@ -856,7 +894,7 @@ export const ja: TranslationResources = {
           updateCurrent: "このブランチはすでに{{baseRef}}と最新の状態のため、更新は利用できません",
           mergePrNoGithub: "GitHubが接続されていないため、PRのマージは現在利用できません",
           archiveNotWorktree:
-            "このワークスペースはPaseoワークツリーとして作成されていないため、アーカイブはここでは利用できません",
+            "このワークスペースはBuildrワークツリーとして作成されていないため、アーカイブはここでは利用できません",
           mergePrNoForge: "{{brand}}が接続されていないため、{{noun}}のマージは現在利用できません",
           mergePrMissing: "プルリクエストがまだないため、PRのマージは利用できません",
           mergePrDraft: "プルリクエストがまだドラフトのため、PRのマージは利用できません",
@@ -955,6 +993,62 @@ export const ja: TranslationResources = {
         openIn: "{{target}}でワークスペースを開く",
         openFileIn: "{{target}}で{{fileName}}を開く",
         failedOpen: "ワークスペースを開けませんでした",
+      },
+      prFlow: {
+        createPr: "PRを作成",
+        createDraftPr: "ドラフトPRを作成",
+        createPrDirectly: "PRを直接作成",
+        createPrManually: "PRを手動で作成",
+        options: "PRオプション",
+        review: "レビュー",
+        openPr: "プルリクエスト{{ref}}を開く",
+        commitAndPush: "コミットしてプッシュ",
+        continue: "続ける",
+        continueTooltip: "同じチャットのまま新しいブランチで続ける",
+        archive: "アーカイブ",
+        merge: "マージ",
+        resolve: "解決",
+        fix: "修正",
+        autoMerge: "自動マージ",
+        state: {
+          open: "オープン",
+          draft: "ドラフト",
+          merged: "マージ済み",
+          closed: "クローズ",
+          conflicts: "マージの競合",
+          checksFailed: "チェック失敗",
+          checksRunning: "チェック実行中",
+          autoMergeEnabled: "自動マージ有効",
+          changesRequested: "変更をリクエスト済み",
+          reviewRequired: "レビューが必要",
+        },
+        tabs: {
+          allFiles: "すべてのファイル",
+          changes: "変更",
+          checks: "チェック",
+        },
+        changes: {
+          filesChanged_one: "{{count}}個のファイルを変更",
+          filesChanged_other: "{{count}}個のファイルを変更",
+          showAsTree: "ツリーで表示",
+        },
+        checks: {
+          titlePlaceholder: "PRタイトル",
+          descriptionPlaceholder: "PRの説明",
+          gitStatus: "Gitステータス",
+          noPr: "オープンなPRなし",
+          prOpen: "PR {{ref}} オープン",
+          prDraft: "ドラフトPR {{ref}} オープン",
+          prMerged: "PR {{ref}} マージ済み",
+          prClosed: "PR {{ref}} クローズ",
+          uncommitted_one: "未コミットの変更 {{count}}件",
+          uncommitted_other: "未コミットの変更 {{count}}件",
+          uncommittedUnknown: "未コミットの変更",
+          clean: "未コミットの変更なし",
+          comments: "コメント",
+          addAllToChat: "すべてチャットに追加",
+          noComments: "コメントはまだありません",
+        },
       },
       pr: {
         actions: {
@@ -1148,7 +1242,7 @@ export const ja: TranslationResources = {
       discord: "Discord",
       github: "GitHub Issueを作成",
       whatsNew: "新着情報",
-      appName: "Paseo",
+      appName: "Buildr",
     },
     resources: {
       trigger: "リソースと使用量",
@@ -1166,6 +1260,7 @@ export const ja: TranslationResources = {
       updateHost: "CPU とメモリの使用量を見るにはホストを更新してください。",
     },
     sections: {
+      dashboard: "ダッシュボード",
       sessions: "履歴",
       search: "検索",
       schedules: "スケジュール",
@@ -1179,6 +1274,7 @@ export const ja: TranslationResources = {
     project: {
       actions: {
         menu: "プロジェクトアクション",
+        createFrom: "作成元を選択...",
         openSettings: "プロジェクト設定を開く",
         openNewWindow: "新しいウィンドウで開く",
         openNewWindowFailed: "新しいウィンドウを開けませんでした",
@@ -1232,6 +1328,8 @@ export const ja: TranslationResources = {
         archive: "アーカイブ",
         archiveWorkspace: "ワークスペースをアーカイブ",
         hideFromSidebar: "サイドバーから非表示",
+        copyLink: "リンクをコピー",
+        setStatus: "ステータスを設定",
         archiving: "アーカイブ中...",
         hiding: "非表示にしています...",
       },
@@ -1242,6 +1340,14 @@ export const ja: TranslationResources = {
         hideConfirm: "非表示",
         cancel: "キャンセル",
       },
+      boardStatus: {
+        backlog: "バックログ",
+        inProgress: "進行中",
+        inReview: "レビュー中",
+        done: "完了",
+        canceled: "キャンセル",
+        automatic: "自動",
+      },
       rename: {
         title: "ワークスペースの名前を変更",
         submit: "名前を変更",
@@ -1249,6 +1355,7 @@ export const ja: TranslationResources = {
       },
       toasts: {
         workspacePathUnavailable: "ワークスペースパスが利用できません",
+        linkCopied: "リンクをコピーしました",
         pathCopied: "パスをコピーしました",
         branchNameCopied: "ブランチ名をコピーしました",
         hostDisconnected: "ホストが接続されていません",
@@ -1258,6 +1365,18 @@ export const ja: TranslationResources = {
     },
   },
   newWorkspace: {
+    promptPlaceholder: "何に取り組みますか？",
+    moreOptions: "その他のオプション",
+    createFrom: {
+      title: "作成元",
+      searchPlaceholder: "プルリクエストとブランチを検索",
+      pullRequests: "PR",
+      branches: "ブランチ",
+      select: "選択",
+      noPullRequests: "一致するプルリクエストはありません",
+      noBranches: "一致するブランチはありません",
+      targetBranch: "ターゲットブランチ",
+    },
     title: "新しいワークスペース",
     create: "作成",
     isolation: {
@@ -1310,7 +1429,7 @@ export const ja: TranslationResources = {
       close: "ウィンドウを閉じる",
     },
     quitting: {
-      title: "Paseoを終了中...",
+      title: "Buildrを終了中...",
       detail: "ローカルデーモンを停止中。",
     },
     daemon: {
@@ -1325,20 +1444,20 @@ export const ja: TranslationResources = {
       },
       management: {
         title: "組み込みデーモンを管理",
-        hint: "Paseoが組み込みデーモンを起動・停止できるようにする",
+        hint: "Buildrが組み込みデーモンを起動・停止できるようにする",
         pauseTitle: "組み込みデーモンを一時停止",
         pauseMessage:
           "これにより組み込みデーモンが即座に停止します。組み込みデーモンに接続されている実行中のエージェントとターミナルが停止されます。",
         pauseAndStop: "一時停止して停止",
         registrationFailed:
-          "組み込みデーモンは起動しましたが、Paseoがlocalhostの接続を保存できませんでした。デーモン管理をオフにしてから再度オンにするか、localhostを手動で追加してください。",
+          "組み込みデーモンは起動しましたが、Buildrがlocalhostの接続を保存できませんでした。デーモン管理をオフにしてから再度オンにするか、localhostを手動で追加してください。",
         pausedStopFailed:
-          "組み込みデーモン管理は一時停止されましたが、Paseoがデーモンを停止できませんでした。",
+          "組み込みデーモン管理は一時停止されましたが、Buildrがデーモンを停止できませんでした。",
         updateFailed: "組み込みデーモン管理を更新できません。",
       },
       keepRunning: {
         title: "終了後もデーモンを実行し続ける",
-        hint: "Paseoを終了してもデーモンは実行し続けます",
+        hint: "Buildrを終了してもデーモンは実行し続けます",
       },
       logs: {
         title: "ログファイル",
@@ -1406,7 +1525,7 @@ export const ja: TranslationResources = {
     },
     rosetta: {
       title: "Apple Siliconビルドをダウンロード",
-      runningIntel: "Apple Silicon上のRosettaでPaseoのIntelビルドを実行しています。",
+      runningIntel: "Apple Silicon上のRosettaでBuildrのIntelビルドを実行しています。",
       highCpu:
         "これにより高いCPU使用率が発生します。修正するにはApple Siliconビルドをダウンロードしてください。",
       download: "ダウンロード",
@@ -1449,7 +1568,7 @@ export const ja: TranslationResources = {
         microphone: "マイクのステータスはまだ確認されていません。",
       },
       testNotification: {
-        title: "Paseo通知テスト",
+        title: "Buildr通知テスト",
         body: "これが見えれば、デスクトップ通知は機能しています。",
         notDelivered: "通知が届きませんでした。システム設定 > 通知を確認してください。",
         failed: "通知の送信に失敗しました。",
@@ -1458,12 +1577,12 @@ export const ja: TranslationResources = {
     integrations: {
       cli: {
         statusFailed: "CLIのインストール状態を確認できません。",
-        installFailed: "Paseo CLIをインストールできません。",
+        installFailed: "Buildr CLIをインストールできません。",
       },
     },
   },
   rootError: {
-    title: "Paseo で問題が発生しました。",
+    title: "Buildr で問題が発生しました。",
     body: "アプリを再読み込みするにはもう一度お試しください。繰り返し発生する場合は、以下の詳細を添えて報告してください。",
     details: "詳細",
   },
@@ -1558,7 +1677,7 @@ export const ja: TranslationResources = {
     },
   },
   onboarding: {
-    title: "Paseoへようこそ",
+    title: "Buildrへようこそ",
     subtitle: "始めるにはコンピューターに接続してください",
     actions: {
       settings: "設定",
@@ -1644,7 +1763,7 @@ export const ja: TranslationResources = {
     },
     direct: {
       title: "直接接続",
-      helper: "Paseoサーバーのアドレスを入力してください。",
+      helper: "Buildrサーバーのアドレスを入力してください。",
       fields: {
         host: "ホスト",
         port: "ポート",
@@ -1686,7 +1805,7 @@ export const ja: TranslationResources = {
     },
     remoteSsh: {
       title: "リモート SSH",
-      helper: "リモートホストで動作する Paseo デーモンに接続します。",
+      helper: "リモートホストで動作する Buildr デーモンに接続します。",
       fields: {
         target: "SSH ホスト",
       },
@@ -1744,15 +1863,15 @@ export const ja: TranslationResources = {
       enableDescription:
         "リレーを使うと、このデバイスからどこでも接続できます。ペアリング通信はエンドツーエンドで暗号化されます。",
       relayDocs: "リレーの仕組み",
-      relayDocsAccessibility: "Paseo リレーの仕組みを読む",
+      relayDocsAccessibility: "Buildr リレーの仕組みを読む",
       enableRelay: "リレーを有効にする",
       enablingRelay: "有効化中...",
       notNow: "今はしない",
       directConnectionHint:
         "リレーを使わない場合は、TCP、Tailscale、または別の VPN で直接接続してください。QR コードは作成されません。",
-      updateRequired: "Paseo Desktop からリレーを有効にするにはホストを更新してください。",
+      updateRequired: "Buildr Desktop からリレーを有効にするにはホストを更新してください。",
       unavailable: "ペアリングオファーが利用できません。",
-      hint: "スマートフォンのPaseoでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
+      hint: "スマートフォンのBuildrでこのQRコードをスキャンするか、以下のリンクをコピーしてください。",
       securityWarning:
         "このペアリングリンクはパスワードと同様に扱ってください。リンクを知っている人は誰でもこのデーモンにアクセスできます。",
       qrUnavailable: "QRコードが利用できません。",
@@ -1787,7 +1906,7 @@ export const ja: TranslationResources = {
   serviceUrl: {
     title: "サービスURLを開く",
     message: "{{url}}を開きますか？",
-    inPaseo: "Paseoで",
+    inPaseo: "Buildrで",
     externalBrowser: "外部ブラウザ",
     dontAskAgain: "次回から確認しない",
   },
@@ -1887,31 +2006,14 @@ export const ja: TranslationResources = {
     output: "出力",
   },
   toolCallGroup: {
-    editedFiles: {
-      one: "{{count}}個のファイルを編集",
-      other: "{{count}}個のファイルを編集",
+    toolCalls: {
+      one: "{{count}}件のツール呼び出し",
+      other: "{{count}}件のツール呼び出し",
     },
-    commands: {
-      one: "{{count}}個のコマンドを実行",
-      other: "{{count}}個のコマンドを実行",
+    messages: {
+      one: "{{count}}件のメッセージ",
+      other: "{{count}}件のメッセージ",
     },
-    readFiles: {
-      one: "{{count}}個のファイルを読み取り",
-      other: "{{count}}個のファイルを読み取り",
-    },
-    searches: {
-      one: "{{count}}回検索",
-      other: "{{count}}回検索",
-    },
-    otherTools: {
-      one: "その他のツールを{{count}}回使用",
-      other: "その他のツールを{{count}}回使用",
-    },
-    paseoCalls: {
-      one: "Paseoを{{count}}回呼び出し",
-      other: "Paseoを{{count}}回呼び出し",
-    },
-    and: "および",
   },
   renameModal: {
     rename: "名前を変更",
@@ -1991,7 +2093,7 @@ export const ja: TranslationResources = {
       send: "送信",
       sending: "送信中...",
       sentTitle: "テスト通知を送信しました",
-      sentDescription: "Paseo が通知をオペレーティングシステムに渡しました。",
+      sentDescription: "Buildr が通知をオペレーティングシステムに渡しました。",
       sendFailedTitle: "テスト通知を送信できません",
     },
     hostSections: {
@@ -2014,10 +2116,10 @@ export const ja: TranslationResources = {
       selection: "モデル選択",
       automatic: "自動",
       preferred: "手動",
-      automaticHint: "Paseo が利用可能な高速モデルを選択します",
-      preferredHint: "Paseo が使用するモデルを選択します",
+      automaticHint: "Buildr が利用可能な高速モデルを選択します",
+      preferredHint: "Buildr が使用するモデルを選択します",
       model: "モデル",
-      fallbackHint: "利用できない場合、Paseo は別の利用可能なモデルを使用します",
+      fallbackHint: "利用できない場合、Buildr は別の利用可能なモデルを使用します",
       docs: "ドキュメント",
       saveError: "メタデータ生成を更新できません",
     },
@@ -2053,7 +2155,7 @@ export const ja: TranslationResources = {
         description: "実行中のスクリプトからURLを開く場所",
         options: {
           ask: "確認する",
-          inApp: "Paseoで",
+          inApp: "Buildrで",
           external: "外部ブラウザ",
         },
       },
@@ -2138,7 +2240,7 @@ export const ja: TranslationResources = {
         label: "アプリの更新",
         readyToInstall: "インストール準備完了: {{version}}",
         installTitle: "デスクトップの更新をインストール",
-        installMessage: "このコンピューターのPaseoを更新します",
+        installMessage: "このコンピューターのBuildrを更新します",
         installConfirm: "更新をインストール",
         update: "更新",
         updateTo: "{{version}}に更新",
@@ -2161,6 +2263,7 @@ export const ja: TranslationResources = {
           claude: "Claude",
           ghostty: "Ghostty",
           pureBlack: "ピュアブラック",
+          paseo: "Buildr",
           auto: "システム",
         },
       },
@@ -2370,11 +2473,11 @@ export const ja: TranslationResources = {
         title: "オーケストレーションスキル",
         description: "エージェントがCLI経由でオーケストレーションできるようにします。",
         updateAvailable: "更新が利用可能",
-        updateTitle: "Paseoスキルを更新しますか？",
+        updateTitle: "Buildrスキルを更新しますか？",
         updateFallback: "バンドルされたスキルをマシンに同期します。",
-        uninstallTitle: "Paseoスキルをアンインストールしますか？",
+        uninstallTitle: "Buildrスキルをアンインストールしますか？",
         uninstallMessage:
-          "~/.agents、~/.claude、~/.codexからすべてのPaseoオーケストレーションスキルを削除します。",
+          "~/.agents、~/.claude、~/.codexからすべてのBuildrオーケストレーションスキルを削除します。",
         choose: "スキルを選択",
         chooseAll: "すべてのスキル",
         chooseAllHint:
@@ -2411,9 +2514,9 @@ export const ja: TranslationResources = {
         title: "オーケストレーション",
         unavailable: "オーケストレーションを管理するにはこのホストに接続してください",
         enableTools: {
-          title: "Paseoツールを有効にする",
+          title: "Buildrツールを有効にする",
           hint: "エージェントがワークツリー、エージェント、スケジュールを管理できるようになります",
-          accessibilityLabel: "Paseoツールを有効にする",
+          accessibilityLabel: "Buildrツールを有効にする",
         },
         systemPrompt: {
           title: "システムプロンプト",
@@ -2518,15 +2621,15 @@ export const ja: TranslationResources = {
             "このホストは接続されていません。再起動する前にオンラインになるまでお待ちください。",
           offlineTitle: "ホストオフライン",
           offlineMessage:
-            "このホストはオフラインです。Paseoが自動再接続します。再起動は、ホストがオンラインに戻ってから行ってください。",
+            "このホストはオフラインです。Buildrが自動再接続します。再起動は、ホストがオンラインに戻ってから行ってください。",
           requestFailedTitle: "エラー",
           requestFailedMessage:
-            "再起動リクエストの送信に失敗しました。Paseoは自動的に再接続します。ホストがオンラインになったら再試行してください。",
+            "再起動リクエストの送信に失敗しました。Buildrは自動的に再接続します。ホストがオンラインになったら再試行してください。",
           dialogFailedMessage: "再起動確認ダイアログを開けませんでした。",
         },
         update: {
           desktopManagedHint:
-            "このデーモンはPaseo Desktopによって管理されています。ホスト上のPaseo Desktopを更新してください。",
+            "このデーモンはBuildr Desktopによって管理されています。ホスト上のBuildr Desktopを更新してください。",
           title: "デーモンを更新",
           hint: "デーモンを最新バージョンに更新して再起動します",
           confirm: "更新",
@@ -2702,7 +2805,7 @@ export const ja: TranslationResources = {
         newScript: "新しいスクリプト",
         editScript: "{{name}}を編集",
         runAsService: "サービスとして実行",
-        serviceHint: "Paseoがプロセスを監督し、$PASEO_PORTを通じてポートを割り当てます",
+        serviceHint: "Buildrがプロセスを監督し、$PASEO_PORTを通じてポートを割り当てます",
         actions: {
           add: "スクリプトを追加",
           edit: "編集",
@@ -2711,7 +2814,7 @@ export const ja: TranslationResources = {
       },
       metadata: {
         title: "メタデータ生成",
-        info: "Paseoがメタデータ生成に使うAIプロンプトへ追加する、プロジェクト固有の指示です。ブランチ名、コミット形式、PR形式など、チームの規約を反映するために使います。",
+        info: "Buildrがメタデータ生成に使うAIプロンプトへ追加する、プロジェクト固有の指示です。ブランチ名、コミット形式、PR形式など、チームの規約を反映するために使います。",
         branchName: "ブランチ名",
         branchNamePlaceholder: "ブランチ名は feat/ または fix/ で始め、個人ブランチは mb/ にする",
         commitMessage: "コミットメッセージ",

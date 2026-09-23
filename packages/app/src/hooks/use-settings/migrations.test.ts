@@ -45,7 +45,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("steer");
     expect(storedSendBehavior(storage)).toBe("steer");
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "turn-groups-default"]);
   });
 
   it("leaves interrupt alone once the migration has run", async () => {
@@ -64,7 +64,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.sendBehavior).toBe("queue");
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "turn-groups-default"]);
   });
 
   it("marks itself applied on a fresh install without rewriting settings", async () => {
@@ -73,7 +73,7 @@ describe("migrateAppSettings", () => {
     await migrateAppSettings(settingsWith("steer"), storage);
 
     expect(storage.entries.has(APP_SETTINGS_KEY)).toBe(false);
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "turn-groups-default"]);
   });
 
   it("keeps unknown migration ids written by a newer client", async () => {
@@ -83,7 +83,22 @@ describe("migrateAppSettings", () => {
 
     await migrateAppSettings(settingsWith("interrupt"), storage);
 
-    expect(appliedIds(storage)).toEqual(["some-later-migration", "steer-default"]);
+    expect(appliedIds(storage)).toEqual([
+      "some-later-migration",
+      "steer-default",
+      "turn-groups-default",
+    ]);
+  });
+
+  it("moves a stored flat tool call list to turn groups once", async () => {
+    const storage = createInMemoryKeyValueStorage();
+    const settings: AppSettings = { ...settingsWith("steer"), toolCallDetailLevel: "detailed" };
+
+    const result = await migrateAppSettings(settings, storage);
+    const again = await migrateAppSettings(settings, storage);
+
+    expect(result.toolCallDetailLevel).toBe("overview");
+    expect(again.toolCallDetailLevel).toBe("detailed");
   });
 
   it("migrates every mobile 15px content preference to 16px", async () => {
@@ -94,7 +109,11 @@ describe("migrateAppSettings", () => {
 
     expect(result.contentFontSize).toBe(16);
     expect(storedContentFontSize(storage)).toBe(16);
-    expect(appliedIds(storage)).toEqual(["steer-default", "mobile-content-16"]);
+    expect(appliedIds(storage)).toEqual([
+      "steer-default",
+      "turn-groups-default",
+      "mobile-content-16",
+    ]);
   });
 
   it("leaves a 15px web content preference unchanged", async () => {
@@ -105,7 +124,7 @@ describe("migrateAppSettings", () => {
 
     expect(result.contentFontSize).toBe(15);
     expect(storedContentFontSize(storage)).toBeUndefined();
-    expect(appliedIds(storage)).toEqual(["steer-default"]);
+    expect(appliedIds(storage)).toEqual(["steer-default", "turn-groups-default"]);
   });
 
   it("lets a mobile user choose 15px after the default migration ran", async () => {
@@ -144,6 +163,6 @@ describe("migrateAppSettings", () => {
     const result = await migrateAppSettings(settingsWith("steer"), recovered);
 
     expect(result.sendBehavior).toBe("steer");
-    expect(appliedIds(recovered)).toEqual(["steer-default"]);
+    expect(appliedIds(recovered)).toEqual(["steer-default", "turn-groups-default"]);
   });
 });

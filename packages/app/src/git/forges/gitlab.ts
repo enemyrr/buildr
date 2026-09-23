@@ -165,6 +165,8 @@ export const gitlabForgeLogic = {
     blobInfix: "/-/blob/",
     lineAnchor: gitlabLineAnchor,
     changeRequestChecksSuffix: "/pipelines",
+    compareChangeRequest: (base: string, head: string) =>
+      `/-/merge_requests/new?merge_request[source_branch]=${head}&merge_request[target_branch]=${base}`,
     referencePaths: [
       { kind: "change_request", infix: "/-/merge_requests/" },
       { kind: "issue", infix: "/-/issues/" },

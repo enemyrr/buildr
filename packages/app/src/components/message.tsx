@@ -62,6 +62,7 @@ import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { buildToolCallPresentation } from "@/tool-calls/presentation";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
+import { hexColorWithAlpha } from "@/utils/color";
 import { getMarkdownListMarker, getMarkdownListSpacing } from "@/utils/markdown-list";
 import { markdownNodeContainsType } from "@/utils/markdown-ast";
 import { useStableEvent } from "@/hooks/use-stable-event";
@@ -167,9 +168,9 @@ const MARKDOWN_TOP_LEVEL_MAX_EXCEEDED_ITEM = <Text key="dotdotdot">...</Text>;
 
 const ThemedMicVocal = withUnistyles(MicVocal);
 const ThemedFileSymlinkIcon = withUnistyles(FileSymlink);
-const ThemedTriangleAlertIcon = withUnistyles(TriangleAlertIcon);
 const ThemedChevronRightIcon = withUnistyles(ChevronRight);
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
+const ThemedScissors = withUnistyles(Scissors);
 const ThemedNotificationInfo = withUnistyles(Info);
 const ThemedNotificationWarning = withUnistyles(TriangleAlertIcon);
 const ThemedNotificationError = withUnistyles(XCircle);
@@ -182,8 +183,8 @@ const mutedForegroundColorMapping = (theme: Theme) => ({
   color: theme.colors.mutedForeground,
 });
 const destructiveColorMapping = (theme: Theme) => ({ color: theme.colors.destructive });
-const infoColorMapping = (theme: Theme) => ({ color: theme.colors.palette.blue[300] });
-const warningColorMapping = (theme: Theme) => ({ color: theme.colors.palette.amber[500] });
+const infoColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const warningColorMapping = (theme: Theme) => ({ color: theme.colors.statusWarning });
 const WEB_TOOLCALL_SHIMMER_KEYFRAME_CSS = `
   @keyframes ${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} {
     0% {
@@ -335,7 +336,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
   content: {
     alignItems: "flex-end",
-    maxWidth: { xs: "90%", md: "80%" },
+    maxWidth: { xs: "85%", md: "60%" },
     cursor: "auto",
   },
   containerSpacing: {
@@ -348,10 +349,10 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing[4],
   },
   bubble: {
-    backgroundColor: theme.colors.surface3,
-    borderRadius: theme.borderRadius.lg,
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[3],
+    backgroundColor: theme.colors.surface2,
+    borderRadius: 8,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
     minWidth: 0,
     flexShrink: 1,
   },
@@ -606,128 +607,82 @@ interface AssistantTurnFooterProps {
   completedAt?: Date;
   durationMs?: number | null;
   onFork?: (target: AssistantForkTarget) => Promise<void> | void;
+  /** Rendered after the actions, e.g. the files the turn edited. */
+  trailing?: ReactNode;
 }
 
 const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: theme.spacing[2],
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
   },
   copyButton: {
     alignSelf: "center",
     padding: theme.spacing[1],
     paddingTop: theme.spacing[1],
     marginTop: 0,
-    marginLeft: -theme.spacing[1],
   },
-  labelWrapper: {
-    position: "relative",
-  },
-  labelSizer: {
-    color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
-    opacity: 0,
-  },
-  labelOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+  meta: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 11,
+    fontVariant: ["tabular-nums"],
   },
 }));
 
-const TIMESTAMP_REVEAL_MS = 3000;
-
 /**
- * Footer rendered next to the copy button at the end of an assistant turn.
- * Shows the turn duration and swaps to the end timestamp when both are known.
- * A turn without a visible start shows its end timestamp directly.
+ * Meta row at the end of an assistant turn: `14m 51s · 11:33 AM`, then the turn actions, then
+ * whatever the caller trails with. A turn without a visible start shows only its end time.
  */
 export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   getContent,
   completedAt,
   durationMs,
   onFork,
+  trailing,
 }: AssistantTurnFooterProps) {
-  const [hovered, setHovered] = useState(false);
-  const [pressedReveal, setPressedReveal] = useState(false);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (revealTimerRef.current) {
-        clearTimeout(revealTimerRef.current);
-        revealTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  const durationLabel = useMemo(
-    () =>
-      durationMs !== undefined && durationMs !== null
-        ? `Worked for ${formatDuration(durationMs)}`
-        : "",
-    [durationMs],
-  );
+  const durationLabel =
+    durationMs !== undefined && durationMs !== null ? formatDuration(durationMs) : "";
   const timestampLabel = useMemo(
     () => (completedAt ? formatMessageTimestamp(completedAt) : ""),
     [completedAt],
   );
-
-  const primaryLabel = durationLabel || timestampLabel;
-  const canSwap = Boolean(durationLabel && timestampLabel);
-  const showTimestamp = canSwap && (isWeb ? hovered : pressedReveal);
-
-  const handleHoverIn = useCallback(() => setHovered(true), []);
-  const handleHoverOut = useCallback(() => setHovered(false), []);
-  const handlePress = useCallback(() => {
-    if (isWeb || !canSwap) return;
-    if (revealTimerRef.current) {
-      clearTimeout(revealTimerRef.current);
-    }
-    setPressedReveal((prev) => !prev);
-    revealTimerRef.current = setTimeout(() => {
-      setPressedReveal(false);
-      revealTimerRef.current = null;
-    }, TIMESTAMP_REVEAL_MS);
-  }, [canSwap]);
+  const metaLabel = [durationLabel, timestampLabel].filter(Boolean).join(" · ");
+  const metaAccessibilityLabel = durationLabel
+    ? `Worked for ${durationLabel}${timestampLabel ? `, ended ${timestampLabel}` : ""}`
+    : metaLabel;
   const handleFork = useCallback(
     (target: AssistantForkTarget) => {
       return onFork?.(target);
     },
     [onFork],
   );
-  const canFork = Boolean(onFork);
 
   return (
     <View style={assistantTurnFooterStylesheet.container}>
-      <TurnCopyButton
-        getContent={getContent}
-        containerStyle={assistantTurnFooterStylesheet.copyButton}
-      />
-      {canFork ? <AssistantForkMenu onFork={handleFork} /> : null}
-      {primaryLabel ? (
-        <Pressable
-          onPress={handlePress}
-          onHoverIn={handleHoverIn}
-          onHoverOut={handleHoverOut}
-          accessibilityRole={canSwap ? "button" : undefined}
-          accessibilityLabel={canSwap ? `${durationLabel}, ended ${timestampLabel}` : primaryLabel}
+      {metaLabel ? (
+        <Text
+          style={assistantTurnFooterStylesheet.meta}
+          accessibilityLabel={metaAccessibilityLabel}
+          testID="assistant-turn-meta"
         >
-          <View style={assistantTurnFooterStylesheet.labelWrapper}>
-            {/* Sizer reserves space for whichever label is longer so the
-                container width is stable across hover transitions. */}
-            <Text style={assistantTurnFooterStylesheet.labelSizer} aria-hidden>
-              {primaryLabel.length >= timestampLabel.length ? primaryLabel : timestampLabel}
-            </Text>
-            <Text style={assistantTurnFooterStylesheet.labelOverlay}>
-              {showTimestamp ? timestampLabel : primaryLabel}
-            </Text>
-          </View>
-        </Pressable>
+          {metaLabel}
+        </Text>
       ) : null}
+      <View style={assistantTurnFooterStylesheet.actions}>
+        <TurnCopyButton
+          getContent={getContent}
+          containerStyle={assistantTurnFooterStylesheet.copyButton}
+        />
+        {onFork ? <AssistantForkMenu onFork={handleFork} /> : null}
+      </View>
+      {trailing}
     </View>
   );
 });
@@ -771,6 +726,9 @@ export const LiveElapsed = memo(function LiveElapsed({
   );
 });
 
+/** Prose stays at a readable measure even when the stream column is wider. */
+const ASSISTANT_TEXT_MAX_WIDTH = 720;
+
 interface AssistantMessageProps {
   renderFullContent?: boolean;
   occurrenceKey: string;
@@ -785,6 +743,7 @@ interface AssistantMessageProps {
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
   container: {
+    maxWidth: ASSISTANT_TEXT_MAX_WIDTH,
     paddingVertical: theme.spacing[3],
     ...(isWeb ? { userSelect: "text" as const } : {}),
   },
@@ -1188,6 +1147,17 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
   secondaryLabelActive: {
     color: theme.colors.foreground,
   },
+  // Thinking rows show the thought as a truncated gray pill.
+  secondaryLabelPillMetrics: {
+    fontSize: theme.fontSize.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  secondaryLabelPillSurface: {
+    backgroundColor: theme.colors.surface2,
+    overflow: "hidden",
+  },
   shimmerText: {
     color: "transparent",
     fontSize: theme.fontSize.base,
@@ -1322,6 +1292,7 @@ const NativeExpandableBadgeShimmer = memo(function NativeExpandableBadgeShimmer(
     [rowHeight, rowWidth],
   );
 
+  // Mask colors only contribute alpha, so they stay literal rather than themed.
   const nativeLabelMaskStyle = useMemo(
     () => [expandableBadgeStylesheet.label, { color: "#000000", opacity: 1 }],
     [],
@@ -2116,13 +2087,13 @@ const notificationStylesheet = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing[1],
   },
   infoBg: {
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
+    backgroundColor: theme.colors.surface2,
   },
   warningBg: {
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    backgroundColor: hexColorWithAlpha(theme.colors.statusWarning, 0.12),
   },
   errorBg: {
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: hexColorWithAlpha(theme.colors.statusDanger, 0.12),
   },
   content: {
     paddingHorizontal: theme.spacing[3],
@@ -2245,9 +2216,9 @@ export const CompactionMarker = memo(function CompactionMarker({
       <View style={compactionStylesheet.line} />
       <View style={compactionStylesheet.label}>
         {status === "loading" ? (
-          <LoadingSpinner size="small" color="#a1a1aa" />
+          <ThemedLoadingSpinner size="small" uniProps={foregroundMutedColorMapping} />
         ) : (
-          <Scissors size={12} color="#a1a1aa" />
+          <ThemedScissors size={12} uniProps={foregroundMutedColorMapping} />
         )}
         <Text style={compactionStylesheet.text}>{label}</Text>
       </View>
@@ -2342,6 +2313,7 @@ export const TodoListCard = memo(function TodoListCard({
 interface ExpandableBadgeProps {
   label: string;
   secondaryLabel?: string;
+  secondaryLabelVariant?: "text" | "pill";
   icon?: ComponentType<{ size?: number; color?: string }>;
   isExpanded: boolean;
   style?: StyleProp<ViewStyle>;
@@ -2564,7 +2536,7 @@ function renderExpandableBadgeIcon({
   if (isError) {
     return (
       <View style={LUCIDE_TOOL_ICON_NUDGE_LEFT}>
-        <ThemedTriangleAlertIcon size={12} opacity={0.8} uniProps={destructiveColorMapping} />
+        <ThemedNotificationError size={12} uniProps={destructiveColorMapping} />
       </View>
     );
   }
@@ -2706,6 +2678,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
   label,
   style,
   secondaryLabel,
+  secondaryLabelVariant = "text",
   icon,
   isExpanded,
   onToggle,
@@ -2916,12 +2889,15 @@ export const ExpandableBadge = memo(function ExpandableBadge({
     [isActive, isLoading],
   );
 
+  const isPillSecondary = secondaryLabelVariant === "pill";
   const secondaryLabelStyle = useMemo(
     () => [
       expandableBadgeStylesheet.secondaryLabel,
       isActive && expandableBadgeStylesheet.secondaryLabelActive,
+      isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillMetrics,
+      isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillSurface,
     ],
-    [isActive],
+    [isActive, isPillSecondary],
   );
 
   const shimmerLabelTextStyle = useMemo(
@@ -2937,10 +2913,11 @@ export const ExpandableBadge = memo(function ExpandableBadge({
   const shimmerSecondaryTextStyle = useMemo(
     () => [
       expandableBadgeStylesheet.secondaryLabel,
+      isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillMetrics,
       expandableBadgeStylesheet.shimmerText,
       shimmerSecondaryStyle,
     ],
-    [shimmerSecondaryStyle],
+    [isPillSecondary, shimmerSecondaryStyle],
   );
 
   const chevronStyle = useMemo(
@@ -3030,6 +3007,7 @@ export const ExpandableBadge = memo(function ExpandableBadge({
 function areExpandableBadgePropsEqual(previous: ExpandableBadgeProps, next: ExpandableBadgeProps) {
   if (previous.label !== next.label) return false;
   if (previous.secondaryLabel !== next.secondaryLabel) return false;
+  if (previous.secondaryLabelVariant !== next.secondaryLabelVariant) return false;
   if (previous.icon !== next.icon) return false;
   if (previous.isExpanded !== next.isExpanded) return false;
   if (previous.style !== next.style) return false;
@@ -3044,6 +3022,21 @@ function areExpandableBadgePropsEqual(previous: ExpandableBadgeProps, next: Expa
   if (previous.onDetailHoverChange !== next.onDetailHoverChange) return false;
   if (previous.renderDetails !== next.renderDetails) return false;
   return true;
+}
+
+const THOUGHT_PREVIEW_MAX_LENGTH = 140;
+
+/** One line of the thought for the collapsed row; the full text lives in the details. */
+function summarizeThought(text: string): string | undefined {
+  const line = text
+    .replace(/[*_`#>]+/g, "")
+    .split("\n")
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+  if (!line) return undefined;
+  return line.length > THOUGHT_PREVIEW_MAX_LENGTH
+    ? `${line.slice(0, THOUGHT_PREVIEW_MAX_LENGTH)}…`
+    : line;
 }
 
 interface ToolCallProps {
@@ -3209,11 +3202,15 @@ export const ToolCall = memo(function ToolCall({
     );
   }
 
+  const isThought = toolName === "thinking";
+  const thoughtPreview = isThought && typeof args === "string" ? summarizeThought(args) : undefined;
+
   return (
     <ExpandableBadge
       testID="tool-call-badge"
       label={presentation.displayName}
-      secondaryLabel={presentation.summary}
+      secondaryLabel={thoughtPreview ?? presentation.summary}
+      secondaryLabelVariant={thoughtPreview ? "pill" : "text"}
       icon={presentation.icon}
       isExpanded={shouldRenderInline && isExpanded}
       onToggle={presentation.canOpenDetails ? handleToggle : undefined}

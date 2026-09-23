@@ -123,6 +123,8 @@ export interface CurrentPullRequestStatus {
   projectPath?: string;
   url: string;
   title: string;
+  /** PR description as markdown; absent when empty. */
+  body?: string;
   state: string;
   baseRefName: string;
   headRefName: string;

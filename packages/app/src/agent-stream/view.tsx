@@ -41,7 +41,7 @@ import {
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
-import type { StreamItem } from "@/types/stream";
+import type { StreamItem, ToolCallItem } from "@/types/stream";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
 import type { PendingPermission } from "@/types/shared";
@@ -63,7 +63,11 @@ import { ToolCallDetailsContent } from "@/components/tool-call-details";
 import { QuestionFormCard } from "@/components/question-form-card";
 import { ToolCallSheetProvider } from "@/components/tool-call-sheet";
 import { createStreamPresentation, getStreamItemMessageId } from "./presentation";
-import { OverviewToolCallGroupView } from "@/tool-calls/detail-level/overview/view";
+import {
+  MergedToolCallsRow,
+  OverviewToolCallGroupView,
+  type TurnActivityEntryRenderer,
+} from "@/tool-calls/detail-level/overview/view";
 import { type AgentStreamRenderModel, buildAgentStreamRenderModel } from "./model";
 import { resolveStreamRenderStrategy } from "./strategy-resolver";
 import { type StreamSegmentRenderers, type StreamViewportHandle } from "./strategy";
@@ -76,6 +80,7 @@ import {
   TurnFooter,
   TURN_FOOTER_BOTTOM_SPACING,
   type AssistantTurnForkHandler,
+  type TurnFileChipActions,
   type InFlightTurnForkHandler,
   type TurnContentStrategy,
 } from "./turn-footer";
@@ -157,6 +162,7 @@ function renderStreamItemWithTurnFooter(input: {
   strategy: TurnContentStrategy;
   supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
+  fileChipActions: TurnFileChipActions;
 }): ReactNode {
   if (!input.content) {
     return null;
@@ -171,6 +177,7 @@ function renderStreamItemWithTurnFooter(input: {
       startIndex={footerHost.startIndex}
       supportsTimelineCursor={input.supportsTimelineCursor}
       onForkAssistantTurn={input.onForkAssistantTurn}
+      fileChipActions={input.fileChipActions}
     />
   ) : null;
   const content = (
@@ -712,8 +719,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       [context.capabilities, agentId, client, pendingClientMessageIds, resolvedServerId],
     );
 
-    const renderAssistantMessageItem = useCallback(
-      (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
+    const renderAssistantMessageBody = useCallback(
+      (
+        item: Extract<StreamItem, { kind: "assistant_message" }>,
+        spacing: StreamLayoutItem["assistantSpacing"],
+        phase: StreamLayoutItem["phase"],
+      ) => {
         return (
           <AssistantFileLinkResolverProvider
             client={client}
@@ -732,8 +743,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                   workspaceRoot={workspaceRoot}
                   serverId={resolvedServerId}
                   client={client}
-                  spacing={layoutItem.assistantSpacing}
-                  phase={layoutItem.phase}
+                  spacing={spacing}
+                  phase={phase}
                 />
               )}
             </ChatFindExpansion>
@@ -741,6 +752,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         );
       },
       [agentId, client, handleInlinePathPress, resolvedServerId, toast, workspaceRoot],
+    );
+
+    const renderAssistantMessageItem = useCallback(
+      (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) =>
+        renderAssistantMessageBody(item, layoutItem.assistantSpacing, layoutItem.phase),
+      [renderAssistantMessageBody],
     );
 
     const renderThoughtItem = useCallback(
@@ -821,37 +838,77 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const getToolCallGroup = useStableEvent((hostId: string) =>
       presentation.groupsByHostId.get(hostId),
     );
+    const renderGroupedToolCall = useCallback(
+      (call: ToolCallItem) =>
+        renderSingleToolCallItem(call, false, GROUPED_TOOL_CALL_DETAIL_MAX_HEIGHT),
+      [renderSingleToolCallItem],
+    );
+    const renderGroupEntry = useCallback<TurnActivityEntryRenderer>(
+      (entry) => {
+        switch (entry.kind) {
+          case "tools": {
+            const [onlyCall] = entry.calls;
+            if (entry.calls.length === 1 && onlyCall) {
+              return renderGroupedToolCall(onlyCall);
+            }
+            return (
+              <MergedToolCallsRow
+                calls={entry.calls}
+                cwd={context.cwd}
+                renderCall={renderGroupedToolCall}
+              />
+            );
+          }
+          case "thought":
+            return (
+              <ThoughtSlot
+                itemId={entry.item.id}
+                onInlineDetailsExpandedChangeByItemId={setInlineDetailsExpanded}
+                text={entry.item.text}
+                status={entry.item.status}
+                isLastInSequence={false}
+                defaultExpanded={false}
+              />
+            );
+          case "message":
+            return renderAssistantMessageBody(entry.item, "compactBoth", "complete");
+          case "todo":
+            return <TodoListCard items={entry.item.items} activity={entry.item.activity} />;
+          default:
+            return null;
+        }
+      },
+      [context.cwd, renderAssistantMessageBody, renderGroupedToolCall, setInlineDetailsExpanded],
+    );
+
+    const resolveGroupedToolCalls = useStableEvent(
+      (item: ToolCallItem): readonly ToolCallItem[] =>
+        getToolCallGroup(item.id)?.run.calls ?? [item],
+    );
+    const turnFileChipActions = useMemo(
+      () => ({ resolveToolCalls: resolveGroupedToolCalls, openFile: handleToolCallOpenFile }),
+      [handleToolCallOpenFile, resolveGroupedToolCalls],
+    );
     const renderToolCallItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "tool_call" }>) => {
         const group = getToolCallGroup(item.id);
         if (!group) {
           return renderSingleToolCallItem(item, layoutItem.isLastInToolSequence);
         }
-        const expanded = expandedToolCallGroupIds.has(group.run.id);
         return (
           <OverviewToolCallGroupView
             group={group}
-            expanded={expanded}
+            expanded={expandedToolCallGroupIds.has(group.run.id)}
             isLastInSequence={layoutItem.isLastInToolSequence}
             onExpandedChange={setToolCallGroupExpanded}
-          >
-            {expanded
-              ? group.run.calls.map((call, index) => (
-                  <React.Fragment key={call.id}>
-                    {renderSingleToolCallItem(
-                      call,
-                      index === group.run.calls.length - 1,
-                      GROUPED_TOOL_CALL_DETAIL_MAX_HEIGHT,
-                    )}
-                  </React.Fragment>
-                ))
-              : null}
-          </OverviewToolCallGroupView>
+            renderEntry={renderGroupEntry}
+          />
         );
       },
       [
         expandedToolCallGroupIds,
         getToolCallGroup,
+        renderGroupEntry,
         renderSingleToolCallItem,
         setToolCallGroupExpanded,
       ],
@@ -918,12 +975,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           strategy: streamRenderStrategy,
           supportsTimelineCursor: supportsAgentForkContextCursor,
           onForkAssistantTurn: readOnly ? undefined : handleForkAssistantTurn,
+          fileChipActions: turnFileChipActions,
         });
       },
       [
         handleForkAssistantTurn,
         readOnly,
         renderStreamItemContent,
+        turnFileChipActions,
         streamRenderStrategy,
         supportsAgentForkContextCursor,
       ],
@@ -953,9 +1012,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             supportsTimelineCursor={supportsAgentForkContextCursor}
             onForkAssistantTurn={readOnly ? undefined : handleForkAssistantTurn}
             onForkInFlightTurn={readOnly ? undefined : handleForkInFlightTurn}
+            fileChipActions={turnFileChipActions}
           />
         ) : null,
       [
+        turnFileChipActions,
         handleForkAssistantTurn,
         handleForkInFlightTurn,
         readOnly,

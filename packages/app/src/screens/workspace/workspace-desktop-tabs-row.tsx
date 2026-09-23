@@ -84,6 +84,10 @@ import {
   useHorizontalScrollBoundary,
 } from "@/components/ui/horizontal-scroll-boundary";
 import { useSessionStore } from "@/stores/session-store";
+import {
+  useCopyAgentTranscript,
+  WorkspaceClosedChatsButton,
+} from "@/screens/workspace/workspace-chat-history";
 
 const DROPDOWN_WIDTH = 220;
 const DEFAULT_INLINE_ADD_BUTTON_RESERVED_WIDTH = 36;
@@ -95,15 +99,18 @@ const PANE_SPLIT_ACTIONS_RESERVED_WIDTH =
   PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING * 2 +
   PANE_SPLIT_ACTIONS_OUTER_MARGIN;
 const PANE_MAXIMIZE_ACTION_RESERVED_WIDTH = smallIconButtonChromeFrameSize(false) + 1;
+// The closed-chats button is always present, so it also pays for the toolbar group's padding.
+const CLOSED_CHATS_ACTION_RESERVED_WIDTH = PANE_SPLIT_ACTIONS_RESERVED_WIDTH;
 // Chip geometry. `layoutMetrics` measures tabs from these same numbers, so a chip that changes
 // shape without changing them mis-measures and drops the row into the overflow-scroll fallback at
 // the wrong width. Keep them together.
-// Tabs and the adjacent New Tab trigger are one control family. Keep their outer box and corner
-// token identical; only their horizontal sizing differs (content-width chip versus square icon).
-const TAB_CHIP_HORIZONTAL_PADDING = 8;
-const TAB_CHIP_GAP = 4;
+// Tabs are text-only: no fill, the active one carries an underline across its bottom edge.
+const TAB_CHIP_HORIZONTAL_PADDING = 12;
+const TAB_CHIP_GAP = 0;
 const TAB_ROW_PADDING_HORIZONTAL = 4;
 const TAB_ICON_WIDTH = 14;
+const TAB_STATUS_GLYPH_SIZE = 12;
+const TAB_UNDERLINE_HEIGHT = 2;
 const TAB_CONTENT_GAP = 4;
 const TAB_DROP_INDICATOR_WIDTH = 4;
 const TAB_MODIFIED_DOT_SIZE = 8;
@@ -268,6 +275,7 @@ function WorkspacePaneToolbarActions({
   showMaximizeAction,
   paneMaximized,
   serverId,
+  workspaceId,
   paneId,
   newTabShortcutKeys,
   onSplitRight,
@@ -279,6 +287,7 @@ function WorkspacePaneToolbarActions({
   showMaximizeAction: boolean;
   paneMaximized: boolean;
   serverId: string;
+  workspaceId: string;
   paneId?: string;
   newTabShortcutKeys: ShortcutKey[][] | null;
   onSplitRight?: () => void;
@@ -306,10 +315,10 @@ function WorkspacePaneToolbarActions({
     [splitDownKeys],
   );
   const maximizeActionVisible = showMaximizeAction && Boolean(onTogglePaneMaximized);
-  if (!showNewTabButton && !splitActionsVisible && !maximizeActionVisible) return null;
 
   return (
     <ToolbarControls style={styles.paneSplitActions}>
+      <WorkspaceClosedChatsButton serverId={serverId} workspaceId={workspaceId} />
       {showNewTabButton ? (
         <WorkspaceNewTabButton
           placement="toolbar"
@@ -649,17 +658,8 @@ function useMiddleClickClose(onClose: () => void) {
   return ref;
 }
 
-/** The chip fill the trailing action scrim has to fade into. Mirrors `styles.tab*` exactly. */
-function resolveChipBackdrop({
-  isActiveFocused,
-  isFilled,
-}: {
-  isActiveFocused: boolean;
-  isFilled: boolean;
-}): SurfaceBackdrop {
-  if (isActiveFocused) return "surface2";
-  return isFilled ? "surface1" : "surface0";
-}
+/** Tabs have no fill, so the close scrim always fades into the row surface. */
+const TAB_CLOSE_SCRIM_BACKDROP: SurfaceBackdrop = "surface0";
 
 function TabHandleContent({
   presentation,
@@ -685,7 +685,11 @@ function TabHandleContent({
   return (
     <View style={styles.tabHandle} dataSet={tabHandleDataSet}>
       <View style={styles.tabIcon}>
-        <WorkspaceTabIcon presentation={presentation} active={isHighlighted} />
+        <WorkspaceTabIcon
+          presentation={presentation}
+          active={isHighlighted}
+          size={TAB_STATUS_GLYPH_SIZE}
+        />
       </View>
       {showLabel && presentation.titleState === "loading" ? (
         <View style={tabLabelSkeletonStyle} />
@@ -754,16 +758,13 @@ function TabChip({
   );
   const isCompact = useIsCompactFormFactor();
   const [hovered, setHovered] = useState(false);
-  // An active tab in a pane that does not have focus stays legible but quiet: it keeps the fill of
-  // a hovered chip and the muted label, so only one chip in the window reads as the live one.
+  // An active tab in a pane that does not have focus stays legible but quiet: a muted label and a
+  // neutral underline, so only one tab in the window reads as the live one.
   const isActiveFocused = isActive && isFocused;
   const isHovered = hovered || isCloseHovered;
   const isHighlighted = isActiveFocused || isHovered;
-  const chipBackdrop: SurfaceBackdrop = resolveChipBackdrop({
-    isActiveFocused,
-    isFilled: isActive || isHovered,
-  });
-  const showCloseControl = showCloseButton && (isHovered || isNative || isCompact || isClosingTab);
+  const showCloseControl =
+    showCloseButton && (isHovered || isActiveFocused || isNative || isCompact || isClosingTab);
   const closeButtonDragBlockers = isWeb
     ? ({
         onPointerDown: (event: { stopPropagation?: () => void }) => {
@@ -778,9 +779,6 @@ function TabChip({
   const tabChipStyle = useCallback(
     () => [
       styles.tab,
-      isActiveFocused && styles.tabActive,
-      isActive && !isFocused && styles.tabActiveUnfocused,
-      !isActive && isHovered && styles.tabHovered,
       isWeb && isDragging && ({ cursor: "grabbing" } as object),
       {
         minWidth: resolvedTabWidth,
@@ -788,7 +786,7 @@ function TabChip({
         maxWidth: resolvedTabWidth,
       },
     ],
-    [isActive, isActiveFocused, isDragging, isFocused, isHovered, resolvedTabWidth],
+    [isDragging, resolvedTabWidth],
   );
 
   const handleTabPointerEnter = useCallback(() => {
@@ -893,7 +891,7 @@ function TabChip({
               showCloseControl ? styles.tabTrailingOverlayShown : styles.tabTrailingOverlayHidden,
             ]}
           >
-            <TrailingActionScrim backdrop={chipBackdrop} />
+            <TrailingActionScrim backdrop={TAB_CLOSE_SCRIM_BACKDROP} />
             <Pressable
               {...(closeButtonDragBlockers as object | undefined)}
               testID={closeButtonTestId}
@@ -925,6 +923,16 @@ function TabChip({
               }}
             </Pressable>
           </View>
+        ) : null}
+
+        {isActive ? (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.tabUnderline,
+              isFocused ? styles.tabUnderlineFocused : styles.tabUnderlineUnfocused,
+            ]}
+          />
         ) : null}
 
         <ContextMenuContent align="start" width={DROPDOWN_WIDTH} testID={contextMenuTestId}>
@@ -1056,6 +1064,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       actionsReservedWidth: Math.max(
         0,
         DEFAULT_INLINE_ADD_BUTTON_RESERVED_WIDTH +
+          CLOSED_CHATS_ACTION_RESERVED_WIDTH +
           (focusModeEnabled ? exitFocusModeWidth : 0) +
           (showPaneSplitActions ? PANE_SPLIT_ACTIONS_RESERVED_WIDTH : 0) +
           (showPaneMaximizeAction ? PANE_MAXIMIZE_ACTION_RESERVED_WIDTH : 0),
@@ -1086,8 +1095,10 @@ function ResolvedWorkspaceDesktopTabsRow({
     }),
     [t],
   );
+  const onCopyTranscript = useCopyAgentTranscript(normalizedServerId);
   const tabMenuLabels = useMemo<WorkspaceTabMenuLabels>(
     () => ({
+      copyTranscript: t("workspace.tabs.menu.copyTranscript"),
       copyResumeCommand: t("workspace.tabs.menu.copyResumeCommand"),
       copyAgentId: t("workspace.tabs.menu.copyAgentId"),
       copyTerminalId: t("workspace.tabs.menu.copyTerminalId"),
@@ -1266,6 +1277,7 @@ function ResolvedWorkspaceDesktopTabsRow({
           isDragging={isActive}
           index={index}
           tabCount={displayedTabs.length}
+          onCopyTranscript={onCopyTranscript}
           onCopyResumeCommand={onCopyResumeCommand}
           onCopyAgentId={onCopyAgentId}
           onCopyTerminalId={onCopyTerminalId}
@@ -1302,6 +1314,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       onCopyTerminalId,
       onCopyFilePath,
       onCopyResumeCommand,
+      onCopyTranscript,
       onNavigateTab,
       onReloadAgent,
       onRenameTab,
@@ -1395,6 +1408,7 @@ function ResolvedWorkspaceDesktopTabsRow({
         showMaximizeAction={showPaneMaximizeAction}
         paneMaximized={paneMaximized}
         serverId={normalizedServerId}
+        workspaceId={normalizedWorkspaceId}
         paneId={paneId}
         newTabShortcutKeys={newTabKeys}
         onSplitRight={onSplitRight}
@@ -1413,6 +1427,7 @@ function ResolvedDesktopTabChip({
   isDragging,
   index,
   tabCount,
+  onCopyTranscript,
   onCopyResumeCommand,
   onCopyAgentId,
   onCopyTerminalId,
@@ -1439,6 +1454,7 @@ function ResolvedDesktopTabChip({
   isDragging: boolean;
   index: number;
   tabCount: number;
+  onCopyTranscript: ((agentId: string) => Promise<void>) | undefined;
   onCopyResumeCommand: (agentId: string) => Promise<void> | void;
   onCopyAgentId: (agentId: string) => Promise<void> | void;
   onCopyTerminalId: (terminalId: string) => Promise<void> | void;
@@ -1467,6 +1483,7 @@ function ResolvedDesktopTabChip({
         tab: item.tab,
         index,
         tabCount,
+        onCopyTranscript,
         onCopyResumeCommand,
         onCopyAgentId,
         onCopyTerminalId,
@@ -1490,6 +1507,7 @@ function ResolvedDesktopTabChip({
       onCopyTerminalId,
       onCopyFilePath,
       onCopyResumeCommand,
+      onCopyTranscript,
       labels,
       onReloadAgent,
       onRenameTab,
@@ -1591,23 +1609,28 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: PANE_SPLIT_ACTIONS_HORIZONTAL_PADDING,
     marginRight: PANE_SPLIT_ACTIONS_OUTER_MARGIN,
   },
+  // Fills the row above its bottom hairline so the underline sits on the row's bottom edge.
   tab: {
-    height: buttonControlHeight.xs,
+    height: WORKSPACE_SECONDARY_HEADER_HEIGHT - 1,
     paddingHorizontal: TAB_CHIP_HORIZONTAL_PADDING,
-    borderRadius: theme.borderRadius.md,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
     userSelect: "none",
   },
-  tabHovered: {
-    backgroundColor: theme.colors.surface1,
+  tabUnderline: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: TAB_UNDERLINE_HEIGHT,
+    zIndex: 3,
   },
-  tabActive: {
-    backgroundColor: theme.colors.surface2,
+  tabUnderlineFocused: {
+    backgroundColor: theme.colors.tabIndicator,
   },
-  tabActiveUnfocused: {
-    backgroundColor: theme.colors.surface1,
+  tabUnderlineUnfocused: {
+    backgroundColor: theme.colors.foregroundExtraMuted,
   },
   tabHoverFrame: {
     position: "relative",
@@ -1687,9 +1710,7 @@ const styles = StyleSheet.create((theme) => ({
     top: 0,
     right: 0,
     bottom: 0,
-    width: 48,
-    borderTopRightRadius: theme.borderRadius.md,
-    borderBottomRightRadius: theme.borderRadius.md,
+    width: 40,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 2,
@@ -1703,7 +1724,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabCloseButton: {
     position: "absolute",
-    right: 4,
+    right: 6,
     width: 18,
     height: 18,
     borderRadius: theme.borderRadius.sm,

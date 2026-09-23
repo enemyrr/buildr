@@ -8,7 +8,11 @@ import { app } from "electron";
 // electron-builder `extraMetadata`, so it runs beside the official app with its
 // own name, state, and daemon port, and never installs official updates.
 export interface DesktopVariant {
+  // Internal name. It keys userData and the app name Electron uses for the
+  // "<name> Safe Storage" keychain item, so changing it orphans saved data.
   name: string;
+  // Name shown in the menu bar, About panel, and window title.
+  displayName: string;
   home: string;
   // Preferred daemon address. The first free port from here upward is used.
   listen: string;
@@ -20,11 +24,16 @@ const OFFICIAL_DAEMON_PORT = 6767;
 
 function parseDesktopVariant(value: unknown): DesktopVariant | null {
   if (typeof value !== "object" || value === null) return null;
-  const { name, home, listen } = value as Record<string, unknown>;
+  const { name, displayName, home, listen } = value as Record<string, unknown>;
   if (typeof name !== "string" || typeof home !== "string" || typeof listen !== "string") {
     return null;
   }
-  return { name, home: home.replace(/^~(?=$|\/)/, homedir()), listen };
+  return {
+    name,
+    displayName: typeof displayName === "string" && displayName ? displayName : name,
+    home: home.replace(/^~(?=$|\/)/, homedir()),
+    listen,
+  };
 }
 
 let cachedVariant: DesktopVariant | null | undefined;
@@ -41,6 +50,11 @@ export function getDesktopVariant(): DesktopVariant | null {
     }
   }
   return cachedVariant;
+}
+
+// The user-facing app name. Differs from app.name only in a variant build.
+export function getAppDisplayName(): string {
+  return getDesktopVariant()?.displayName ?? app.name;
 }
 
 // The variant always overrides PASEO_HOME. A launch from a terminal inside the

@@ -23,7 +23,7 @@ const EXPECTED_GITHUB_FAST_POLL_MS = 20_000;
 const EXPECTED_GITHUB_SLOW_POLL_MS = 120_000;
 const EXPECTED_GITHUB_ERROR_BACKOFF_CAP_MS = 300_000;
 const CURRENT_PR_STATUS_BASE_FIELDS =
-  "number,url,title,state,isDraft,baseRefName,headRefName,headRefOid,mergedAt,reviewDecision,mergeable,headRepositoryOwner";
+  "number,url,title,body,state,isDraft,baseRefName,headRefName,headRefOid,mergedAt,reviewDecision,mergeable,headRepositoryOwner";
 const CURRENT_PR_STATUS_FIELDS = `${CURRENT_PR_STATUS_BASE_FIELDS},statusCheckRollup`;
 
 interface RunnerCall {
@@ -1060,6 +1060,7 @@ describe("ForgeService", () => {
             url: "https://github.com/acme/widgets/pull/41",
             headRefName: "feat-a",
             headRefOid: "oid-a",
+            body: "Adds widgets.",
           }),
         ]),
         t1: batchPollRepositoryJson([
@@ -1137,6 +1138,7 @@ describe("ForgeService", () => {
     expect(statusesA).toEqual([
       expect.objectContaining({
         number: 41,
+        body: "Adds widgets.",
         state: "merged",
         isMerged: true,
         checksStatus: "success",
@@ -1146,6 +1148,7 @@ describe("ForgeService", () => {
     expect(statusesB).toEqual([
       expect.objectContaining({ number: 52, state: "merged", checksStatus: "success" }),
     ]);
+    expect(statusesB[0]).not.toHaveProperty("body");
 
     // Merged PR checks are frozen: the second cycle reuses the cached rollup
     // and issues only the discovery request.
@@ -2706,12 +2709,13 @@ describe("ForgeService", () => {
     expect(runner.calls).toHaveLength(2);
   });
 
-  it("requests and surfaces current PR number, draft state, workflow names, and formatted check durations", async () => {
+  it("requests and surfaces current PR number, body, draft state, workflow names, and formatted check durations", async () => {
     const runner = createRunner([
       JSON.stringify({
         number: 42,
         url: "https://github.com/acme/repo/pull/42",
         title: "Wire real PR pane data",
+        body: "## Summary\n\n- Wires the PR pane",
         state: "OPEN",
         isDraft: true,
         baseRefName: "main",
@@ -2763,6 +2767,7 @@ describe("ForgeService", () => {
       repoName: "repo",
       url: "https://github.com/acme/repo/pull/42",
       title: "Wire real PR pane data",
+      body: "## Summary\n\n- Wires the PR pane",
       state: "open",
       baseRefName: "main",
       headRefName: "feature/pr-pane",

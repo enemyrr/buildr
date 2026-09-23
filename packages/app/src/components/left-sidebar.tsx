@@ -795,13 +795,13 @@ const styles = StyleSheet.create((theme) => ({
     // inside its 14px SVG, so 4px aligns the ink rather than the SVG box to the row rail.
     paddingLeft: theme.spacing[2],
     paddingRight: 4,
-    paddingTop: theme.spacing[1],
-    paddingBottom: theme.spacing[1],
+    paddingTop: theme.spacing[2],
+    paddingBottom: theme.spacing[0.5],
   },
   workspacesSectionTitle: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.normal,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 11,
+    fontWeight: theme.fontWeight.medium,
   },
   workspacesSectionActions: {
     flexDirection: "row",

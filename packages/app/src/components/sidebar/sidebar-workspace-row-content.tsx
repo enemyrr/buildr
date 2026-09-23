@@ -1,7 +1,7 @@
 import { memo, useMemo, useCallback, useState, type ReactNode } from "react";
 import { Text, View, type ViewStyle } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { CircleAlert, Folder, FolderGit2, Monitor } from "lucide-react-native";
+import { CircleAlert, Folder, GitBranch } from "lucide-react-native";
 import { ProjectStatusIndicator } from "@/components/sidebar/project-leading-visual";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import {
@@ -22,7 +22,6 @@ import { getStatusDotColor } from "@/utils/status-dot-color";
 import {
   STATUS_INDICATOR_ALERT_SIZE,
   STATUS_INDICATOR_DOT_SIZE,
-  STATUS_INDICATOR_FILLED_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
 import { PixelLoader } from "@/components/pixel-loader";
@@ -39,9 +38,14 @@ const needsInputColorMapping = (theme: Theme) => ({
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedPixelLoader = withUnistyles(PixelLoader);
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
-const ThemedMonitor = withUnistyles(Monitor);
+const foregroundExtraMutedColorMapping = (theme: Theme) => ({
+  color: theme.colors.foregroundExtraMuted,
+});
+const successColorMapping = (theme: Theme) => ({ color: theme.colors.statusSuccess });
+const mergedColorMapping = (theme: Theme) => ({ color: theme.colors.statusMerged });
+const dangerColorMapping = (theme: Theme) => ({ color: theme.colors.statusDanger });
 const ThemedFolder = withUnistyles(Folder);
-const ThemedFolderGit2 = withUnistyles(FolderGit2);
+const ThemedGitBranch = withUnistyles(GitBranch);
 
 export function SidebarWorkspaceRowFrame({
   workspace,
@@ -101,7 +105,6 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   isCreating = false,
   shortcutNumber = null,
   showShortcutBadge = false,
-  reserveIdleStatusIndicatorSpace = true,
   children,
 }: {
   workspace: SidebarWorkspaceEntry;
@@ -117,8 +120,6 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   isCreating?: boolean;
   shortcutNumber?: number | null;
   showShortcutBadge?: boolean;
-  /** Keep the empty leading slot when the workspace has no active status. */
-  reserveIdleStatusIndicatorSpace?: boolean;
   children?: ReactNode;
 }) {
   const {
@@ -152,13 +153,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
             testID={`sidebar-row-project-icon-${workspace.workspaceKey}`}
           />
         ) : (
-          <WorkspaceStatusIndicator
-            bucket={workspace.statusBucket}
-            workspaceKind={workspace.workspaceKind}
-            seed={workspace.workspaceKey}
-            loading={isLoading}
-            reserveIdleSpace={reserveIdleStatusIndicatorSpace}
-          />
+          <WorkspaceStatusIndicator workspace={workspace} loading={isLoading} />
         )}
         <View style={styles.workspaceContentColumn}>
           <View style={styles.workspaceTitleRow}>
@@ -186,19 +181,20 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   );
 });
 
+/**
+ * Leading glyph of a workspace row. The branch carries the change request's state in its color,
+ * so the row reads "where is this work" before the title does. Agent activity takes the slot
+ * over: busy swaps the branch for the loader, needs-input for the alert, and the passive
+ * statuses (attention, failed) badge the branch rather than replace it.
+ */
 function WorkspaceStatusIndicator({
-  bucket,
-  workspaceKind,
-  seed,
+  workspace,
   loading = false,
-  reserveIdleSpace = true,
 }: {
-  bucket: SidebarWorkspaceEntry["statusBucket"];
-  workspaceKind: SidebarWorkspaceEntry["workspaceKind"];
-  seed: string;
+  workspace: SidebarWorkspaceEntry;
   loading?: boolean;
-  reserveIdleSpace?: boolean;
 }) {
+  const bucket = workspace.statusBucket;
   // Busy is the only status that moves. A row starting up and a row working are both busy, so
   // they share the pixel loader and differ only in testID.
   if (loading || shouldRenderSyncedStatusLoader({ bucket })) {
@@ -207,7 +203,11 @@ function WorkspaceStatusIndicator({
         style={styles.workspaceStatusDot}
         testID={`workspace-status-indicator-${loading ? "loading" : "running"}`}
       >
-        <ThemedPixelLoader size={14} seed={seed} uniProps={foregroundColorMapping} />
+        <ThemedPixelLoader
+          size={14}
+          seed={workspace.workspaceKey}
+          uniProps={foregroundColorMapping}
+        />
       </View>
     );
   }
@@ -220,38 +220,21 @@ function WorkspaceStatusIndicator({
     );
   }
 
-  if (bucket === "attention") {
-    return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-attention">
-        <View style={styles.standaloneStatusDot} />
-      </View>
-    );
-  }
-
-  if (bucket === "done") {
-    // An idle row still gets a dot rather than an empty slot. Nested rows are marked as
-    // workspaces by indentation alone, and with nothing in the leading slot the rail has no
-    // edge to read against — a workspace carrying its own glyph starts looking like a project
-    // header. The dot is muted to half opacity so it holds the rail without reporting status.
-    return reserveIdleSpace ? (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-done">
-        <View style={styles.idleStatusDot} />
-      </View>
-    ) : null;
-  }
-
-  let KindIcon: typeof ThemedMonitor;
-  if (workspaceKind === "local_checkout") KindIcon = ThemedMonitor;
-  else if (workspaceKind === "worktree") KindIcon = ThemedFolderGit2;
-  else KindIcon = ThemedFolder;
-
+  const Icon = workspace.projectKind === "git" ? ThemedGitBranch : ThemedFolder;
   const dotColorStyle = getStatusDotColorStyle(bucket);
   return (
     <View style={styles.workspaceStatusDot} testID={`workspace-status-indicator-${bucket}`}>
-      <KindIcon size={14} uniProps={foregroundMutedColorMapping} />
+      <Icon size={14} uniProps={getBranchColorMapping(workspace.prHint)} />
       {dotColorStyle ? <StatusDotOverlay dotColorStyle={dotColorStyle} /> : null}
     </View>
   );
+}
+
+function getBranchColorMapping(prHint: SidebarWorkspaceEntry["prHint"]) {
+  if (!prHint) return foregroundExtraMutedColorMapping;
+  if (prHint.state === "merged") return mergedColorMapping;
+  if (prHint.state === "closed") return dangerColorMapping;
+  return prHint.isDraft ? foregroundMutedColorMapping : successColorMapping;
 }
 
 function StatusDotOverlay({ dotColorStyle }: { dotColorStyle: ViewStyle }) {
@@ -282,8 +265,10 @@ export const sidebarWorkspaceRowStyles = StyleSheet.create((theme) => ({
   // It is row padding rather than a margin on the list, because the row's hover and selected
   // backgrounds have to keep spanning the group's full width. Indenting the container instead
   // pulls the highlight in with the content and the row stops lining up with its header.
+  //
+  // The leading glyph lands on the header's title rail: row padding + header icon + gap.
   rowIndented: {
-    paddingLeft: theme.spacing[2] + theme.spacing[2],
+    paddingLeft: theme.spacing[2] + theme.iconSize.md + theme.spacing[2],
   },
   rowRight: {
     flexDirection: "row",
@@ -496,19 +481,6 @@ const styles = StyleSheet.create((theme) => ({
     height: STATUS_INDICATOR_DOT_SIZE,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
-  },
-  standaloneStatusDot: {
-    width: STATUS_INDICATOR_FILLED_DOT_SIZE,
-    height: STATUS_INDICATOR_FILLED_DOT_SIZE,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: getStatusDotColor({ theme, bucket: "attention" }) ?? undefined,
-  },
-  idleStatusDot: {
-    width: STATUS_INDICATOR_FILLED_DOT_SIZE,
-    height: STATUS_INDICATOR_FILLED_DOT_SIZE,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.foregroundExtraMuted,
-    opacity: 0.3,
   },
   // The title owns the first line outright now that the host, change request and CI moved
   // to the meta row, so it takes the full width the trailing slot leaves behind.

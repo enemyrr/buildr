@@ -1,25 +1,32 @@
 import React, { memo, useCallback, useMemo, type ReactNode } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { SPACING, type Theme } from "@/styles/theme";
 import type { TurnTiming } from "@/timeline/turn-time";
-import type { StreamItem } from "@/types/stream";
+import type { StreamItem, ToolCallItem } from "@/types/stream";
 import {
   collectAssistantResponseContentForStreamRenderStrategy,
   type StreamStrategy,
 } from "./strategy";
 import { resolveAssistantTurnForkBoundary, type AssistantTurnForkBoundary } from "./turn-boundary";
-import {
-  AssistantTurnFooter,
-  LiveElapsed,
-  STREAM_METADATA_FONT_SIZE,
-  type AssistantForkTarget,
-} from "@/components/message";
+import { AssistantTurnFooter, LiveElapsed, type AssistantForkTarget } from "@/components/message";
 import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
 import { PixelLoader } from "@/components/pixel-loader";
 import { useRetainedPanelActive } from "@/components/retained-panel";
+import { MaterialFileIcon } from "@/components/material-file-icon";
+import {
+  collectResponseToolCalls,
+  collectTurnFileChanges,
+  type TurnFileChange,
+} from "./turn-file-changes";
+
+export interface TurnFileChipActions {
+  /** The calls a stream row stands for; a turn-group host expands to its members. */
+  resolveToolCalls: (item: ToolCallItem) => readonly ToolCallItem[];
+  openFile: (filePath: string) => void;
+}
 
 const ThemedPixelLoader = withUnistyles(PixelLoader);
 const workingIndicatorColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
@@ -50,6 +57,7 @@ export const TurnFooter = memo(function TurnFooter({
   supportsTimelineCursor,
   onForkAssistantTurn,
   onForkInFlightTurn,
+  fileChipActions,
 }: {
   isRunning: boolean;
   inFlightTurnStartedAt: Date | null;
@@ -58,6 +66,7 @@ export const TurnFooter = memo(function TurnFooter({
   supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
   onForkInFlightTurn?: InFlightTurnForkHandler;
+  fileChipActions: TurnFileChipActions;
 }) {
   if (isRunning) {
     return (
@@ -80,6 +89,7 @@ export const TurnFooter = memo(function TurnFooter({
       startIndex={host.startIndex}
       supportsTimelineCursor={supportsTimelineCursor}
       onForkAssistantTurn={onForkAssistantTurn}
+      fileChipActions={fileChipActions}
     />
   );
 });
@@ -91,6 +101,7 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   startIndex,
   supportsTimelineCursor,
   onForkAssistantTurn,
+  fileChipActions,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
@@ -98,6 +109,7 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   startIndex: number;
   supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
+  fileChipActions: TurnFileChipActions;
 }) {
   return (
     <TurnFooterRow>
@@ -108,6 +120,7 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
         startIndex={startIndex}
         supportsTimelineCursor={supportsTimelineCursor}
         onForkAssistantTurn={onForkAssistantTurn}
+        fileChipActions={fileChipActions}
       />
     </TurnFooterRow>
   );
@@ -164,6 +177,7 @@ function CompletedTurnFooter({
   startIndex,
   supportsTimelineCursor,
   onForkAssistantTurn,
+  fileChipActions,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
@@ -171,6 +185,7 @@ function CompletedTurnFooter({
   startIndex: number;
   supportsTimelineCursor: boolean;
   onForkAssistantTurn?: AssistantTurnForkHandler;
+  fileChipActions: TurnFileChipActions;
 }) {
   const getContent = useCallback(
     () =>
@@ -195,6 +210,19 @@ function CompletedTurnFooter({
     },
     [boundary, onForkAssistantTurn],
   );
+  const fileChips = useMemo(() => {
+    const changes = collectTurnFileChanges(
+      collectResponseToolCalls({
+        strategy,
+        items,
+        startIndex,
+        expand: fileChipActions.resolveToolCalls,
+      }),
+    );
+    return changes.length > 0 ? (
+      <TurnFileChips changes={changes} onOpenFile={fileChipActions.openFile} />
+    ) : null;
+  }, [fileChipActions, items, startIndex, strategy]);
   return (
     <View style={stylesheet.turnFooterSlot}>
       <AssistantTurnFooter
@@ -202,8 +230,64 @@ function CompletedTurnFooter({
         completedAt={timing?.completedAt}
         durationMs={timing?.durationMs}
         onFork={boundary && onForkAssistantTurn ? handleFork : undefined}
+        trailing={fileChips}
       />
     </View>
+  );
+}
+
+const TurnFileChips = memo(function TurnFileChips({
+  changes,
+  onOpenFile,
+}: {
+  changes: readonly TurnFileChange[];
+  onOpenFile: (filePath: string) => void;
+}) {
+  return (
+    <View style={stylesheet.fileChips}>
+      {changes.map((change) => (
+        <TurnFileChip key={change.filePath} change={change} onOpenFile={onOpenFile} />
+      ))}
+    </View>
+  );
+});
+
+const fileChipStyle = ({
+  pressed,
+  hovered = false,
+}: PressableStateCallbackType & { hovered?: boolean }) => [
+  stylesheet.fileChip,
+  hovered ? stylesheet.fileChipHovered : null,
+  pressed ? stylesheet.fileChipPressed : null,
+];
+
+function TurnFileChip({
+  change,
+  onOpenFile,
+}: {
+  change: TurnFileChange;
+  onOpenFile: (filePath: string) => void;
+}) {
+  const handlePress = useCallback(() => onOpenFile(change.filePath), [change.filePath, onOpenFile]);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={change.filePath}
+      onPress={handlePress}
+      style={fileChipStyle}
+      testID="turn-file-chip"
+    >
+      <MaterialFileIcon fileName={change.fileName} size={12} />
+      <Text style={stylesheet.fileChipName} numberOfLines={1}>
+        {change.fileName}
+      </Text>
+      {change.additions > 0 ? (
+        <Text style={stylesheet.fileChipAdditions}>+{change.additions}</Text>
+      ) : null}
+      {change.deletions > 0 ? (
+        <Text style={stylesheet.fileChipDeletions}>-{change.deletions}</Text>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -237,11 +321,50 @@ const stylesheet = StyleSheet.create((theme) => ({
     gap: theme.spacing[3],
   },
   workingElapsed: {
-    color: theme.colors.foregroundMuted,
-    fontSize: STREAM_METADATA_FONT_SIZE,
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: 11,
     fontVariant: ["tabular-nums"],
   },
   workingLoader: {
     marginLeft: 2,
+  },
+  fileChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
+  fileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    maxWidth: 240,
+    height: 20,
+    paddingHorizontal: 6,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    borderRadius: 4,
+  },
+  fileChipHovered: {
+    backgroundColor: theme.colors.surface1,
+    borderColor: theme.colors.borderAccent,
+  },
+  fileChipPressed: {
+    opacity: 0.85,
+  },
+  fileChipName: {
+    flexShrink: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: 11,
+  },
+  fileChipAdditions: {
+    color: theme.colors.statusSuccess,
+    fontSize: 11,
+    fontVariant: ["tabular-nums"],
+  },
+  fileChipDeletions: {
+    color: theme.colors.statusDanger,
+    fontSize: 11,
+    fontVariant: ["tabular-nums"],
   },
 }));

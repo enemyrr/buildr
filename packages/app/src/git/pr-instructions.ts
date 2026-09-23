@@ -110,3 +110,11 @@ export function sendResolveConflictsRequest(
     text: `The PR for this workspace${input.prUrl ? ` (${input.prUrl})` : ""} has merge conflicts. Fetch the remote, merge the latest ${target} into this branch, resolve the conflicts preserving both sides' intent, run the relevant checks, then commit and push. Do not force-push.`,
   });
 }
+
+export function sendCommitAndPushRequest(
+  input: InstructionsRequestInput,
+): Promise<"queued" | "sent"> {
+  return sendInstructionsRequest(input, {
+    text: "Commit and push the changes in this workspace. Review git status and the full diff, and preserve unrelated user changes. Run the relevant checks, commit with a concise message that describes the change, then push the branch to its remote. Do not force-push. Report the commit and branch.",
+  });
+}

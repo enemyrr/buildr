@@ -5,7 +5,7 @@ import { darkTheme } from "./theme";
 describe("createMarkdownStyles", () => {
   it("uses the content size for conversation prose and list markers", () => {
     const styles = createMarkdownStyles(darkTheme);
-    const proseLineHeight = Math.round(darkTheme.fontSize.content * 1.4);
+    const proseLineHeight = Math.round(darkTheme.fontSize.content * 1.55);
 
     expect(styles.body).toMatchObject({
       fontSize: darkTheme.fontSize.content,

@@ -334,20 +334,38 @@ const ISOLATION_TRIGGER_LABEL: Record<"local" | "worktree", string> = {
   worktree: "New worktree",
 };
 
+// The desktop create card keeps isolation in its `...` menu; the full-screen layout keeps the
+// chip. Resolves to whichever opens the isolation options.
+export function workspaceIsolationControl(page: Page) {
+  return page
+    .getByTestId("workspace-create-isolation-trigger")
+    .or(page.getByTestId("new-workspace-options-trigger"));
+}
+
 export async function expectWorkspaceIsolationSelected(
   page: Page,
   isolation: "local" | "worktree",
 ): Promise<void> {
-  const trigger = page.getByRole("button", { name: "Workspace isolation" });
-  await expect(trigger).toBeVisible({ timeout: 30_000 });
-  await expect(trigger).toContainText(ISOLATION_TRIGGER_LABEL[isolation]);
+  const chip = page.getByRole("button", { name: "Workspace isolation" });
+  const menuTrigger = page.getByTestId("new-workspace-options-trigger");
+  await expect(chip.or(menuTrigger)).toBeVisible({ timeout: 30_000 });
+  if (await chip.isVisible()) {
+    await expect(chip).toContainText(ISOLATION_TRIGGER_LABEL[isolation]);
+    return;
+  }
+  await menuTrigger.click();
+  await expect(page.getByTestId(`workspace-create-isolation-${isolation}`)).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.keyboard.press("Escape");
 }
 
 export async function selectWorkspaceIsolation(
   page: Page,
   isolation: "local" | "worktree",
 ): Promise<void> {
-  const trigger = page.getByTestId("workspace-create-isolation-trigger");
+  const trigger = workspaceIsolationControl(page);
   await expect(trigger).toBeVisible({ timeout: 30_000 });
   await trigger.click();
 
@@ -372,14 +390,23 @@ export async function openStartingRefPicker(page: Page): Promise<void> {
   await trigger.click();
 }
 
+// The ref picker splits PRs and branches into tabs when the host can search the forge.
+async function showPickerTab(page: Page, tab: "prs" | "branches"): Promise<void> {
+  const tabButton = page.getByTestId(`new-workspace-create-from-tab-${tab}`);
+  if (await tabButton.isVisible()) {
+    await tabButton.click();
+  }
+}
+
 export async function selectBranchInPicker(page: Page, name: string): Promise<void> {
+  await showPickerTab(page, "branches");
   const branchRow = page.getByTestId(`new-workspace-ref-picker-branch-${name}`);
   await expect(branchRow).toBeVisible({ timeout: 30_000 });
   await branchRow.click();
 }
 
 export async function searchAndSelectBranchInPicker(page: Page, name: string): Promise<void> {
-  const searchInput = page.getByPlaceholder("Search branches and PRs");
+  const searchInput = page.getByPlaceholder("Search pull requests and branches");
   await expect(searchInput).toBeVisible({ timeout: 30_000 });
   await searchInput.fill(name);
   await selectBranchInPicker(page, name);
@@ -403,6 +430,7 @@ export async function captureStartingRefPicker(page: Page, screenshotPath: strin
 }
 
 export async function selectGitHubPrInPicker(page: Page, number: number): Promise<void> {
+  await showPickerTab(page, "prs");
   const prRow = page.getByTestId(`new-workspace-ref-picker-pr-${number}`);
   await expect(prRow).toBeVisible({ timeout: 30_000 });
   await prRow.click();
@@ -425,7 +453,7 @@ export async function openBranchPicker(page: Page): Promise<void> {
 }
 
 export async function selectPickerOptionByKeyboard(page: Page, label: string): Promise<void> {
-  const searchInput = page.getByPlaceholder("Search branches and PRs");
+  const searchInput = page.getByPlaceholder("Search pull requests and branches");
   await expect(searchInput).toBeVisible({ timeout: 30_000 });
   await page.keyboard.type(label);
   await expect(page.getByTestId(`new-workspace-ref-picker-branch-${label}`)).toBeVisible({

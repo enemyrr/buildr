@@ -332,6 +332,7 @@ const CurrentPullRequestStatusSchema = z.object({
   number: z.number().optional(),
   url: z.string().catch(""),
   title: z.string().catch(""),
+  body: z.string().nullable().optional().catch(null),
   state: z.string().catch(""),
   isDraft: z.boolean().optional().catch(false),
   baseRefName: z.string().catch(""),
@@ -505,7 +506,7 @@ query PullRequestCheckoutTarget($owner: String!, $name: String!, $number: Int!) 
 }`;
 
 const CURRENT_PR_STATUS_BASE_FIELDS =
-  "number,url,title,state,isDraft,baseRefName,headRefName,headRefOid,mergedAt,reviewDecision,mergeable,headRepositoryOwner";
+  "number,url,title,body,state,isDraft,baseRefName,headRefName,headRefOid,mergedAt,reviewDecision,mergeable,headRepositoryOwner";
 const CURRENT_PR_STATUS_FIELDS = `${CURRENT_PR_STATUS_BASE_FIELDS},statusCheckRollup`;
 
 const PULL_REQUEST_STATUS_FACTS_QUERY = `
@@ -616,6 +617,7 @@ const BatchPollPrNodeSchema = z.object({
   number: z.number(),
   url: z.string().catch(""),
   title: z.string().catch(""),
+  body: z.string().nullable().optional().catch(null),
   state: z.string().catch(""),
   isDraft: z.boolean().optional().catch(false),
   baseRefName: z.string().catch(""),
@@ -720,6 +722,7 @@ fragment PaseoPollPullRequest on PullRequest {
   number
   url
   title
+  body
   state
   isDraft
   baseRefName
@@ -3256,6 +3259,7 @@ function toBatchCurrentPullRequestItem(
     number: node.number,
     url: node.url,
     title: node.title,
+    body: node.body ?? null,
     state: node.state,
     isDraft: node.isDraft ?? false,
     baseRefName: node.baseRefName,
@@ -3889,6 +3893,7 @@ function toCurrentPullRequestStatus(
     ...(repoIdentity ? { repoOwner: repoIdentity.owner, repoName: repoIdentity.name } : {}),
     url: item.url,
     title: item.title,
+    ...(item.body ? { body: item.body } : {}),
     state,
     baseRefName: item.baseRefName,
     headRefName: item.headRefName || fallbackHeadRefName,

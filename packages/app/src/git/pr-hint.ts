@@ -5,6 +5,7 @@ export interface PrHint {
   url: string;
   number: number;
   state: "open" | "merged" | "closed";
+  isDraft?: boolean;
   /** Forge backing this change request, so badges render the right brand mark. */
   forge: Forge;
   checks?: PrHintCheck[];
@@ -21,6 +22,7 @@ interface PrStatusLike {
   url: string;
   state: string;
   isMerged: boolean;
+  isDraft?: boolean;
   checks?: PrHintCheck[];
   checksStatus?: string;
   reviewDecision?: string | null;
@@ -66,6 +68,7 @@ export function selectPrHintFromStatus(
     url: status.url,
     number,
     state,
+    ...(status.isDraft ? { isDraft: true } : {}),
     forge: normalizeForge(forge ?? status.forge),
     checks: status.checks,
     checksStatus: status.checksStatus as PrHint["checksStatus"],

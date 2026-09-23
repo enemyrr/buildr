@@ -5304,6 +5304,8 @@ export const CheckoutPrStatusSchema = z.object({
   number: z.number().optional(),
   url: z.string(),
   title: z.string(),
+  // PR description as markdown. Absent when empty and from daemons that predate it.
+  body: z.string().optional(),
   state: z.string(),
   baseRefName: z.string(),
   headRefName: z.string(),

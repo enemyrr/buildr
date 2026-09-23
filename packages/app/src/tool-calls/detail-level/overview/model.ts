@@ -1,73 +1,94 @@
-import { isPaseoToolName } from "@getpaseo/protocol/tool-name-normalization";
+import type { AssistantMessageItem, ThoughtItem, TodoListItem, ToolCallItem } from "@/types/stream";
+import { resolveToolCallIconName, type ToolCallIcon } from "@/utils/tool-call-icon-name";
 import { describeToolCall, type ToolCallRun } from "../grouping";
 
-const DIRECT_PASEO_TOOL_PREFIX = "paseo_";
-const DIRECT_SEARCH_TOOL_SUFFIX_PATTERN = /(?:^|[_.:/])(?:web_search|llm_context)$/;
-
-export interface OverviewSummary {
-  editedFileCount: number;
-  commandCount: number;
-  readFileCount: number;
-  searchCount: number;
-  otherToolCount: number;
-  paseoCallCount: number;
-}
+/** One row inside an expanded turn group. Consecutive calls to the same tool share a row. */
+export type TurnActivityEntry =
+  | { kind: "tools"; id: string; name: string; calls: readonly ToolCallItem[] }
+  | { kind: "thought"; id: string; item: ThoughtItem }
+  | { kind: "message"; id: string; item: AssistantMessageItem }
+  | { kind: "todo"; id: string; item: TodoListItem };
 
 export interface OverviewToolCallGroup {
   mode: "overview";
   run: ToolCallRun;
-  summary: OverviewSummary;
+  entries: readonly TurnActivityEntry[];
+  toolCallCount: number;
+  messageCount: number;
+  errorCount: number;
+  /** Distinct tool icons in first-use order. */
+  iconNames: readonly ToolCallIcon[];
   isLoading: boolean;
 }
 
-function isPaseoCall(name: string, normalizedName: string): boolean {
-  return isPaseoToolName(name) || normalizedName.startsWith(DIRECT_PASEO_TOOL_PREFIX);
+const MAX_HEADER_ICONS = 6;
+
+function normalizeToolName(name: string): string {
+  return name.trim().toLowerCase();
 }
 
-function isSearchCall(name: string): boolean {
-  return DIRECT_SEARCH_TOOL_SUFFIX_PATTERN.test(name);
+export function buildTurnActivityEntries(
+  items: ToolCallRun["items"],
+): readonly TurnActivityEntry[] {
+  const entries: TurnActivityEntry[] = [];
+  let openCalls: ToolCallItem[] | null = null;
+  let openName: string | null = null;
+  for (const item of items) {
+    if (item.kind === "tool_call") {
+      const name = normalizeToolName(describeToolCall(item).name);
+      if (openCalls && openName === name) {
+        openCalls.push(item);
+        continue;
+      }
+      openCalls = [item];
+      openName = name;
+      entries.push({ kind: "tools", id: item.id, name, calls: openCalls });
+      continue;
+    }
+    openCalls = null;
+    openName = null;
+    if (item.kind === "thought") {
+      entries.push({ kind: "thought", id: item.id, item });
+    } else if (item.kind === "assistant_message") {
+      entries.push({ kind: "message", id: item.id, item });
+    } else if (item.kind === "todo_list") {
+      entries.push({ kind: "todo", id: item.id, item });
+    }
+  }
+  return entries;
 }
 
 export function buildOverviewGroup(run: ToolCallRun): OverviewToolCallGroup {
-  const editedFiles = new Set<string>();
-  const readFiles = new Set<string>();
-  let isLoading = false;
-  let commandCount = 0;
-  let searchCount = 0;
-  let otherToolCount = 0;
-  let paseoCallCount = 0;
+  const iconNames: ToolCallIcon[] = [];
+  const messageIds = new Set<string>();
+  let isLoading = !run.isSealed;
+  let errorCount = 0;
 
   for (const call of run.calls) {
     const descriptor = describeToolCall(call);
-    const normalizedName = descriptor.name.trim().toLowerCase();
     isLoading ||= descriptor.status === "running" || descriptor.status === "executing";
-    if (isPaseoCall(descriptor.name, normalizedName)) {
-      paseoCallCount += 1;
-    } else if (descriptor.detail.type === "edit" || descriptor.detail.type === "write") {
-      editedFiles.add(descriptor.detail.filePath);
-    } else if (descriptor.detail.type === "shell") {
-      commandCount += 1;
-    } else if (descriptor.detail.type === "read") {
-      readFiles.add(descriptor.detail.filePath);
-    } else if (descriptor.detail.type === "search" || isSearchCall(normalizedName)) {
-      searchCount += 1;
-    } else {
-      otherToolCount += 1;
+    if (descriptor.status === "failed") {
+      errorCount += 1;
+    }
+    const icon = resolveToolCallIconName(descriptor.name, descriptor.detail);
+    if (iconNames.length < MAX_HEADER_ICONS && !iconNames.includes(icon)) {
+      iconNames.push(icon);
+    }
+  }
+  for (const item of run.items) {
+    if (item.kind === "assistant_message") {
+      messageIds.add(item.blockGroupId ?? item.id);
     }
   }
 
-  const summary = {
-    editedFileCount: editedFiles.size,
-    commandCount,
-    readFileCount: readFiles.size,
-    searchCount,
-    otherToolCount,
-    paseoCallCount,
-  };
   return {
     mode: "overview",
     run,
+    entries: buildTurnActivityEntries(run.items),
+    toolCallCount: run.calls.length,
+    messageCount: messageIds.size,
+    errorCount,
+    iconNames,
     isLoading,
-    summary,
   };
 }
