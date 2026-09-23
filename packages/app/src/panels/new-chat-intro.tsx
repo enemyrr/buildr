@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { Import as ImportIcon } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
@@ -39,10 +40,13 @@ export function NewChatIntro({
   serverId,
   workspaceId,
   draftId,
+  onImportSession,
 }: {
   serverId: string;
   workspaceId: string;
   draftId: string;
+  /** Opens the import sheet; shown as the last chip, like the transcripts. */
+  onImportSession?: () => void;
 }): ReactElement | null {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -66,24 +70,46 @@ export function NewChatIntro({
   const hiddenCount = chats.length - visibleChats.length;
   const handleExpand = useCallback(() => setExpanded(true), []);
 
-  if (!directory && chats.length === 0) return null;
+  const showTranscripts = canAttach && chats.length > 0;
+  if (!directory && !showTranscripts && !onImportSession) return null;
 
   return (
     <View style={styles.container} testID="new-chat-intro">
       {directory ? (
         <Text style={styles.title}>{t("workspace.tabs.newChat.title", { path: directory })}</Text>
       ) : null}
-      {canAttach && chats.length > 0 ? (
+      {showTranscripts || onImportSession ? (
         <View style={styles.chipRow}>
-          <Text style={styles.label}>{t("workspace.tabs.newChat.addTranscripts")}</Text>
-          {visibleChats.map((agent) => (
-            <TranscriptChip key={agent.id} agent={agent} serverId={serverId} draftId={draftId} />
-          ))}
-          {hiddenCount > 0 ? (
+          {showTranscripts ? (
+            <Text style={styles.label}>{t("workspace.tabs.newChat.addTranscripts")}</Text>
+          ) : null}
+          {showTranscripts
+            ? visibleChats.map((agent) => (
+                <TranscriptChip
+                  key={agent.id}
+                  agent={agent}
+                  serverId={serverId}
+                  draftId={draftId}
+                />
+              ))
+            : null}
+          {showTranscripts && hiddenCount > 0 ? (
             <Pressable accessibilityRole="button" onPress={handleExpand} style={chipStyle}>
               <Text style={styles.chipLabel}>
                 {t("workspace.tabs.newChat.more", { count: hiddenCount })}
               </Text>
+            </Pressable>
+          ) : null}
+          {onImportSession ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("importSession.title")}
+              onPress={onImportSession}
+              style={chipStyle}
+              testID="composer-import-agent-pill"
+            >
+              <ImportIcon size={12} color={styles.chipIcon.color} />
+              <Text style={styles.chipLabel}>{t("importSession.title")}</Text>
             </Pressable>
           ) : null}
         </View>
