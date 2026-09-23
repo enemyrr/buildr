@@ -30,7 +30,6 @@ export const DEFAULT_STRUCTURED_GENERATION_PROVIDERS: readonly StructuredGenerat
   ] as const;
 
 export interface ResolveStructuredGenerationProvidersOptions {
-  cwd: string;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "listProviders">;
   daemonConfig?: StructuredGenerationDaemonConfig | null;
   currentSelection?: {
@@ -44,10 +43,10 @@ export async function resolveStructuredGenerationProviders(
   options: ResolveStructuredGenerationProvidersOptions,
 ): Promise<StructuredGenerationProvider[]> {
   const configuredProviders = readConfiguredProviders(options.daemonConfig);
-  const providerEntries = await options.providerSnapshotManager.listProviders({
-    cwd: options.cwd,
-    wait: true,
-  });
+  // The global catalog is warm by the time anyone asks for a title or commit
+  // message. A workspace-scoped read would fetch every provider's catalog for
+  // a fresh worktree first, which costs seconds.
+  const providerEntries = await options.providerSnapshotManager.listProviders({ wait: true });
   const enabledEntries = providerEntries.filter((entry) => entry.enabled);
   const modelEntries = enabledEntries.filter((entry) => (entry.models?.length ?? 0) > 0);
   const entriesByProvider = new Map(enabledEntries.map((entry) => [entry.provider, entry]));

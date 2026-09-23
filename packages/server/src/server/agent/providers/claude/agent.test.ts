@@ -559,6 +559,46 @@ describe("ClaudeAgentClient binary resolution", () => {
     await session.close();
   });
 
+  test("runs internal agents without user settings, MCP servers, or tools", async () => {
+    const queryReturn = vi.fn();
+    queryReturn.mockResolvedValue(undefined);
+    const queryFactory = vi.fn(() => ({
+      close: vi.fn(),
+      return: queryReturn,
+    }));
+
+    const client = new ClaudeAgentClient({
+      logger,
+      queryFactory,
+      resolveBinary: async () => "/test/claude/bin",
+    });
+    const session = await client.createSession({
+      provider: "claude",
+      cwd: process.cwd(),
+      internal: true,
+      mcpServers: { paseo: { type: "http", url: "http://127.0.0.1:1/mcp" } },
+    });
+
+    await (
+      session as unknown as {
+        ensureQuery(): Promise<unknown>;
+      }
+    ).ensureQuery();
+
+    const options = queryFactory.mock.calls[0]?.[0].options;
+    expect(options).toMatchObject({
+      settingSources: [],
+      strictMcpConfig: true,
+      tools: [],
+      enableFileCheckpointing: false,
+      env: { ENABLE_CLAUDEAI_MCP_SERVERS: "false" },
+    });
+    expect(options.mcpServers).toBeUndefined();
+    expect(options.systemPrompt).toBeUndefined();
+
+    await session.close();
+  });
+
   test("uses the replace-command override binary when claude is not on PATH", async () => {
     const customClaudePath = "/path/to/custom-claude";
     vi.spyOn(executableUtils, "findExecutable").mockImplementation(async (name: string) => {

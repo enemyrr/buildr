@@ -31,7 +31,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       daemonConfig: {
         metadataGeneration: {
@@ -44,7 +43,7 @@ describe("resolveStructuredGenerationProviders", () => {
       { provider: "mock", model: "ten-second-stream" },
       { provider: "work-claude", model: "claude-haiku-2026" },
     ]);
-    expect(snapshots.calls).toEqual([{ cwd: "/tmp/repo", wait: true }]);
+    expect(snapshots.calls).toEqual([{ wait: true }]);
   });
 
   test("falls back to dynamic defaults and current selection when no provider is configured", async () => {
@@ -87,7 +86,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       currentSelection: {
         provider: "focused-provider",
@@ -103,7 +101,7 @@ describe("resolveStructuredGenerationProviders", () => {
       { provider: "router", model: "nemotron-3-super-free" },
       { provider: "focused-provider", model: "focused-model", thinkingOptionId: "high" },
     ]);
-    expect(snapshots.calls).toEqual([{ cwd: "/tmp/repo", wait: true }]);
+    expect(snapshots.calls).toEqual([{ wait: true }]);
   });
 
   test("falls back to the current selection when defaults do not match", async () => {
@@ -124,7 +122,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       currentSelection: {
         provider: "current-provider",
@@ -157,7 +154,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       currentSelection: { provider: "focused-provider" },
     });
@@ -189,7 +185,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       daemonConfig: {
         metadataGeneration: {
@@ -199,7 +194,7 @@ describe("resolveStructuredGenerationProviders", () => {
     });
 
     expect(providers).toEqual([{ provider: "opencode", model: "plexus/small-fast" }]);
-    expect(snapshots.calls).toEqual([{ cwd: "/tmp/repo", wait: true }]);
+    expect(snapshots.calls).toEqual([{ wait: true }]);
   });
 
   test("keeps explicit candidates when provider snapshots are in error state", async () => {
@@ -213,7 +208,6 @@ describe("resolveStructuredGenerationProviders", () => {
     ]);
 
     const providers = await resolveStructuredGenerationProviders({
-      cwd: "/tmp/repo",
       providerSnapshotManager: snapshots,
       daemonConfig: {
         metadataGeneration: {
@@ -231,6 +225,6 @@ describe("resolveStructuredGenerationProviders", () => {
       { provider: "current-provider", model: "configured-model" },
       { provider: "current-provider", model: "selected-model", thinkingOptionId: "medium" },
     ]);
-    expect(snapshots.calls).toEqual([{ cwd: "/tmp/repo", wait: true }]);
+    expect(snapshots.calls).toEqual([{ wait: true }]);
   });
 });

@@ -493,6 +493,33 @@ function assertClaudeThinkingOptionSupported(
   );
 }
 
+// Internal agents run one-shot structured generation (titles, branch names,
+// commit messages). The user's settings, plugins, hooks, MCP servers, memory,
+// tools, and the Claude Code preset prompt only add seconds of startup.
+function toInternalClaudeOptions(base: ClaudeOptions, systemPrompt: string): ClaudeOptions {
+  const {
+    mcpServers: _mcpServers,
+    hooks: _hooks,
+    agents: _agents,
+    systemPrompt: _systemPrompt,
+    ...rest
+  } = base;
+  return {
+    ...rest,
+    ...(systemPrompt ? { systemPrompt } : {}),
+    settingSources: [],
+    strictMcpConfig: true,
+    tools: [],
+    enableFileCheckpointing: false,
+    forwardSubagentText: false,
+    env: {
+      ...base.env,
+      ENABLE_CLAUDEAI_MCP_SERVERS: "false",
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+    },
+  };
+}
+
 interface ClaudeOptionsLogSummary {
   cwd: string | null;
   permissionMode: string | null;
@@ -3326,7 +3353,7 @@ class ClaudeAgentSession implements AgentSession {
         ...this.runtimeSettings.disallowedTools,
       ];
     }
-    return base;
+    return this.config.internal ? toInternalClaudeOptions(base, appendedSystemPrompt) : base;
   }
 
   private buildSettingsOptions(

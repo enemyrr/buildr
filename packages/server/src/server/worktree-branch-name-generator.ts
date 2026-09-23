@@ -104,7 +104,6 @@ export async function generateBranchNameFromFirstAgentContext(
   try {
     const providers = options.providerSnapshotManager
       ? await resolveStructuredGenerationProviders({
-          cwd: options.cwd,
           providerSnapshotManager: options.providerSnapshotManager,
           daemonConfig: options.daemonConfig,
           currentSelection: options.currentSelection,

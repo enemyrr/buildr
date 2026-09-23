@@ -184,7 +184,6 @@ export function createAgentStructuredTextGeneration(deps: {
   return {
     async generate({ cwd, prompt, schema, schemaName, agentTitle }) {
       const providers = await resolveStructuredGenerationProviders({
-        cwd,
         providerSnapshotManager: deps.providerSnapshotManager,
         daemonConfig: deps.readDaemonConfig(),
         currentSelection: deps.getFocusedSelection(cwd),
