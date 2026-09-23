@@ -1,4 +1,4 @@
-import { sendInstructionsRequest, type InstructionsRequestInput } from "@/git/pr-instructions";
+import type { InstructionsRequest } from "@/git/pr-instructions";
 
 export interface ReviewInstructionsContext {
   baseRef: string | null;
@@ -91,11 +91,9 @@ File: src/client/frontends/desktop/core/UserData.ts:10
 `;
 }
 
-export function sendReviewRequest(
-  input: ReviewInstructionsContext & InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
-  return sendInstructionsRequest(input, {
-    file: { name: "Review guidelines.md", instructions: buildReviewInstructions(input) },
-    text: "Review the changes in this workspace. Follow the attached Review guidelines.md.",
-  });
+export function buildReviewRequest(context: ReviewInstructionsContext): InstructionsRequest {
+  return {
+    text: "Review changes",
+    file: { name: "Review guidelines.md", instructions: buildReviewInstructions(context) },
+  };
 }

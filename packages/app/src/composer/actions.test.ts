@@ -1,4 +1,4 @@
-import { sendPrRequest } from "@/git/pr-instructions";
+import { buildPrRequest, sendInstructionsRequest } from "@/git/pr-instructions";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentAttachment, ForgeSearchItem } from "@getpaseo/protocol/messages";
 import type {
@@ -1142,16 +1142,10 @@ describe("PR requests", () => {
       return { requestId: "upload", file, error: null };
     };
     const queue = createFakeQueue();
-    const outcome = await sendPrRequest({
-      client,
-      agentId: "agent",
-      submission: createFakeStream(),
-      queue,
-      isActive: () => busy,
-      branch: "feature/theme",
-      baseRef: "origin/main",
-      draft: true,
-    });
+    const outcome = await sendInstructionsRequest(
+      { client, agentId: "agent", submission: createFakeStream(), queue, isActive: () => busy },
+      buildPrRequest({ branch: "feature/theme", baseRef: "origin/main", draft: true }),
+    );
     expect(instructions).toContain("feature/theme");
     expect(instructions).toContain("origin/main");
     expect(instructions).toContain("gh pr create --draft");
@@ -1163,6 +1157,8 @@ describe("PR requests", () => {
       ? queue.read("agent")[0]!.attachments
       : client.calls[0]!.options.attachments;
     expect(JSON.stringify(attachments)).toContain("/uploads/pr.md");
+    const text = busy ? queue.read("agent")[0]!.text : client.calls[0]!.text;
+    expect(text).toBe("Create a draft PR");
   });
 
   it("does not send or queue when the instructions upload fails", async () => {
@@ -1170,16 +1166,10 @@ describe("PR requests", () => {
     client.uploadFile = async () => ({ requestId: "upload", file: null, error: "Upload failed" });
     const queue = createFakeQueue();
     await expect(
-      sendPrRequest({
-        client,
-        agentId: "agent",
-        submission: createFakeStream(),
-        queue,
-        isActive: () => true,
-        branch: null,
-        baseRef: null,
-        draft: false,
-      }),
+      sendInstructionsRequest(
+        { client, agentId: "agent", submission: createFakeStream(), queue, isActive: () => true },
+        buildPrRequest({ branch: null, baseRef: null, draft: false }),
+      ),
     ).rejects.toThrow("Upload failed");
     expect(client.calls).toEqual([]);
     expect(queue.read("agent")).toEqual([]);

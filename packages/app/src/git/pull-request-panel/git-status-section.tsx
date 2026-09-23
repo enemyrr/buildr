@@ -31,7 +31,7 @@ export function GitStatusSection({
   const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const toggle = useCallback(() => setOpen((value) => !value), []);
-  const flow = usePrFlow({ serverId, cwd, agentId: null });
+  const flow = usePrFlow({ serverId, cwd, workspaceId });
   const uncommitted = useWorkingDiffSummary({ serverId, workspaceId, cwd, mode: "uncommitted" });
   const pr = flow.prStatus;
   const prRef = pr?.number ? `${getForgePresentation(flow.forge).numberPrefix}${pr.number}` : null;

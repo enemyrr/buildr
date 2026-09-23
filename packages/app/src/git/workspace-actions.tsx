@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GitActionsSplitButton } from "@/git/actions-split-button";
 import { PrStatusStrip } from "@/git/pr-status-strip";
-import { sendReviewRequest } from "@/git/review-instructions";
+import { buildReviewRequest } from "@/git/review-instructions";
 import { useGitActionRunner, type GitAction } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { usePrFlow, type PrFlow } from "@/git/use-pr-flow";
@@ -25,7 +25,6 @@ const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
 interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
-  agentId: string | null;
   /** The Explorer shows the PR strip; otherwise the header carries it inline. */
   prStripVisible: boolean;
 }
@@ -49,30 +48,17 @@ function GitMenuItem({ action }: { action: GitAction }) {
 }
 
 /** The header's git area: Create PR before a PR exists, the PR lifecycle strip after. */
-export function WorkspaceActions({
-  serverId,
-  cwd,
-  agentId,
-  prStripVisible,
-}: WorkspaceActionsProps) {
-  const flow = usePrFlow({ serverId, cwd, agentId });
+export function WorkspaceActions({ serverId, cwd, prStripVisible }: WorkspaceActionsProps) {
+  const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
 
   if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
   if (!prUrl) return <CreatePrSplitButton flow={flow} />;
   return (
     <View style={styles.group}>
-      {prStripVisible ? null : (
-        <PrStatusStrip serverId={serverId} cwd={cwd} agentId={agentId} variant="inline" />
-      )}
+      {prStripVisible ? null : <PrStatusStrip serverId={serverId} cwd={cwd} variant="inline" />}
       {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
-        <ReviewButton
-          serverId={serverId}
-          cwd={cwd}
-          agentId={agentId}
-          baseRef={flow.baseRef}
-          prUrl={prUrl}
-        />
+        <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
       )}
       <GitActionsSplitButton gitActions={flow.gitActions} menuOnly />
     </View>
@@ -82,20 +68,18 @@ export function WorkspaceActions({
 function ReviewButton({
   serverId,
   cwd,
-  agentId,
   baseRef,
   prUrl,
 }: {
   serverId: string;
   cwd: string;
-  agentId: string | null;
   baseRef: string | null;
   prUrl: string;
 }) {
   const { t } = useTranslation();
-  const { send, pending, busy } = useInstructionRequests({ serverId, cwd, agentId });
+  const { send, pending, busy } = useInstructionRequests({ serverId, cwd });
   const requestReview = useCallback(() => {
-    void send("Review request", (input) => sendReviewRequest({ ...input, baseRef, prUrl }));
+    void send(buildReviewRequest({ baseRef, prUrl }));
   }, [send, baseRef, prUrl]);
   return (
     <Button
@@ -144,7 +128,7 @@ function CreatePrSplitButton({ flow }: { flow: PrFlow }) {
               {t("workspace.git.prFlow.createDraftPr")}
             </DropdownMenuItem>
           ) : null}
-          {flow.createPrDirectly && flow.hasAgent ? (
+          {flow.createPrDirectly && flow.canSend ? (
             <DropdownMenuItem onSelect={flow.createPrDirectly}>
               {t("workspace.git.prFlow.createPrDirectly")}
             </DropdownMenuItem>

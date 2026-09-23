@@ -17,7 +17,8 @@ export interface PendingWorkspaceDraftSubmission {
   text: string;
   attachments: ComposerAttachment[];
   cwd: string;
-  provider: AgentProvider;
+  /** Omitted to submit with the draft's own composer selection. */
+  provider?: AgentProvider;
   clientMessageId: string;
   timestamp: number;
   modeId?: string;

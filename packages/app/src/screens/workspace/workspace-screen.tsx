@@ -3839,7 +3839,6 @@ function WorkspaceScreenContent({
             <WorkspaceActions
               serverId={normalizedServerId}
               cwd={workspaceDirectory}
-              agentId={focusedPaneAgentId}
               prStripVisible={isExplorerSidebarShowing}
             />
             <WorkspaceHeaderExplorerToggle
@@ -3866,7 +3865,6 @@ function WorkspaceScreenContent({
       </View>
     ),
     [
-      focusedPaneAgentId,
       isExplorerSidebarShowing,
       isMobile,
       workspaceDescriptor,
@@ -3912,13 +3910,9 @@ function WorkspaceScreenContent({
   const renderExplorerSidebarStatus = useCallback(
     () =>
       workspaceDirectory ? (
-        <PrStatusStrip
-          serverId={normalizedServerId}
-          cwd={workspaceDirectory}
-          agentId={focusedPaneAgentId}
-        />
+        <PrStatusStrip serverId={normalizedServerId} cwd={workspaceDirectory} />
       ) : null,
-    [focusedPaneAgentId, normalizedServerId, workspaceDirectory],
+    [normalizedServerId, workspaceDirectory],
   );
   const createTerminalDisabled = useMemo(
     () => createTerminalMutation.isPending || pendingTerminalCreateInput !== null,

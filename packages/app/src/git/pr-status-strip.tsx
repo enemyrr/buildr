@@ -12,9 +12,9 @@ import { useCheckoutGitActionsStore } from "@/git/actions-store";
 import { getForgePresentation } from "@/git/forge";
 import { deriveMergeCapability } from "@/git/merge-capability";
 import {
-  sendContinueRequest,
-  sendFixChecksRequest,
-  sendResolveConflictsRequest,
+  buildContinueRequest,
+  buildFixChecksRequest,
+  buildResolveConflictsRequest,
 } from "@/git/pr-instructions";
 import {
   derivePrStripState,
@@ -33,7 +33,6 @@ import { openExternalUrl } from "@/utils/open-external-url";
 interface PrStatusStripProps {
   serverId: string;
   cwd: string;
-  agentId: string | null;
   /** `bar` spans the Explorer above its tabs; `inline` sits among the header actions. */
   variant?: "bar" | "inline";
 }
@@ -42,12 +41,12 @@ interface PrStatusStripProps {
  * The change request's lifecycle: `#N ↗`, its state in the state's color, and the next step —
  * Merge while open, Continue or Archive once merged or closed.
  */
-export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrStatusStripProps) {
+export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripProps) {
   const { t } = useTranslation();
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
   const { gitActions } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
-  const requests = useInstructionRequests({ serverId, cwd, agentId });
+  const requests = useInstructionRequests({ serverId, cwd });
   const runGitAction = useGitActionRunner();
   const toast = useToast();
   const directContinue = useHostFeature(serverId, "checkoutContinueBranch");
@@ -79,15 +78,11 @@ export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrSta
       } else if (action.kind === "continue") {
         // COMPAT(checkoutContinueBranch): daemons before v0.9.2 lack checkout.branch.continue.*,
         // so the agent creates the branch. Remove after 2027-03-23.
-        void requests.send("Continue request", (input) =>
-          sendContinueRequest({ ...input, baseRef, prUrl }),
-        );
+        void requests.send(buildContinueRequest({ baseRef, prUrl }));
       } else if (action.kind === "fix-checks") {
-        void requests.send("Fix request", (input) => sendFixChecksRequest({ ...input, prUrl }));
+        void requests.send(buildFixChecksRequest({ prUrl }));
       } else {
-        void requests.send("Resolve request", (input) =>
-          sendResolveConflictsRequest({ ...input, baseRef, prUrl }),
-        );
+        void requests.send(buildResolveConflictsRequest({ baseRef, prUrl }));
       }
     },
     [runGitAction, requests, baseRef, prUrl, directContinue, continueBranch, serverId, cwd, toast],

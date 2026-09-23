@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { GIT_ACTION_ICONS } from "@/git/action-icons";
 import { buildForgeCompareUrl } from "@/git/forge-url";
-import { sendCommitAndPushRequest, sendPrRequest } from "@/git/pr-instructions";
+import { buildCommitAndPushRequest, buildPrRequest } from "@/git/pr-instructions";
 import { useGitActionRunner, useGitActions, type GitAction } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
@@ -9,22 +9,23 @@ import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { openExternalUrl } from "@/utils/open-external-url";
 
 /**
- * Create PR and Commit and push, Conductor style: ask the workspace's chat agent to do the work,
- * and fall back to the daemon's direct git actions when the workspace has no chat.
+ * Create PR and Commit and push, Conductor style: post the request into the workspace's chat.
+ * Without a workspace to post into, fall back to the daemon's direct git actions.
  */
 export function usePrFlow({
   serverId,
   cwd,
-  agentId,
+  workspaceId,
 }: {
   serverId: string;
   cwd: string;
-  agentId: string | null;
+  /** Defaults to the active workspace. */
+  workspaceId?: string | null;
 }) {
   const { gitActions, isGit } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd, enabled: isGit });
-  const requests = useInstructionRequests({ serverId, cwd, agentId });
+  const requests = useInstructionRequests({ serverId, cwd, workspaceId });
   const run = useGitActionRunner();
 
   const actions = useMemo(
@@ -43,19 +44,18 @@ export function usePrFlow({
     [baseRef, branch, forge, status?.remoteUrl],
   );
 
-  const { send, hasAgent } = requests;
+  const { send, canSend } = requests;
   const requestPr = useCallback(
-    (draft: boolean) =>
-      send("PR request", (input) => sendPrRequest({ ...input, branch, baseRef, draft })),
+    (draft: boolean) => send(buildPrRequest({ branch, baseRef, draft })),
     [send, branch, baseRef],
   );
   const createPr = useCallback(() => {
-    if (hasAgent) {
+    if (canSend) {
       void requestPr(false);
     } else if (direct) {
       run(direct);
     }
-  }, [direct, hasAgent, requestPr, run]);
+  }, [canSend, direct, requestPr, run]);
   const createDraftPr = useCallback(() => {
     void requestPr(true);
   }, [requestPr]);
@@ -66,12 +66,12 @@ export function usePrFlow({
     if (compareUrl) void openExternalUrl(compareUrl);
   }, [compareUrl]);
   const commitAndPush = useCallback(() => {
-    if (hasAgent) {
-      void send("Commit request", sendCommitAndPushRequest);
+    if (canSend) {
+      void send(buildCommitAndPushRequest());
     } else if (commit) {
       run(commit);
     }
-  }, [commit, hasAgent, run, send]);
+  }, [canSend, commit, run, send]);
 
   return {
     gitActions,
@@ -81,15 +81,15 @@ export function usePrFlow({
     forge,
     baseRef,
     isDirty: status?.isGit ? status.isDirty : false,
-    hasAgent,
+    canSend,
     pending: requests.pending || direct?.status === "pending",
     busy: requests.busy,
-    canCreatePr: hasAgent || direct !== null,
+    canCreatePr: canSend || direct !== null,
     createPr,
-    createDraftPr: hasAgent ? createDraftPr : null,
+    createDraftPr: canSend ? createDraftPr : null,
     createPrDirectly: direct ? createPrDirectly : null,
     openCompare: compareUrl ? openCompare : null,
-    canCommitAndPush: hasAgent || (commit !== null && !commit.disabled),
+    canCommitAndPush: canSend || (commit !== null && !commit.disabled),
     commitAndPush,
   };
 }

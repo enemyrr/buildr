@@ -1,3 +1,4 @@
+import type { ComposerAttachment } from "@/attachments/types";
 import {
   dispatchComposerAgentMessage,
   uploadFileAttachments,
@@ -31,6 +32,12 @@ Follow the repository instructions and any PR-related skills.
 `;
 }
 
+/** A git request: a short visible message, with the full instructions as a markdown attachment. */
+export interface InstructionsRequest {
+  text: string;
+  file?: { name: string; instructions: string };
+}
+
 export interface InstructionsRequestInput {
   client: ComposerSendClient;
   agentId: string;
@@ -39,32 +46,37 @@ export interface InstructionsRequestInput {
   isActive: () => boolean;
 }
 
-export function sendPrRequest(
-  input: PrInstructionsContext & InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
-  return sendInstructionsRequest(input, {
-    file: { name: "PR instructions.md", instructions: buildPrInstructions(input) },
-    text: `Create a ${input.draft ? "draft " : ""}PR for this workspace. Follow the attached PR instructions.md.`,
+export function buildPrRequest(context: PrInstructionsContext): InstructionsRequest {
+  return {
+    text: context.draft ? "Create a draft PR" : "Create a PR",
+    file: { name: "PR instructions.md", instructions: buildPrInstructions(context) },
+  };
+}
+
+export async function uploadInstructionsAttachments(
+  client: ComposerSendClient,
+  request: InstructionsRequest,
+): Promise<ComposerAttachment[]> {
+  const { file } = request;
+  if (!file) return [];
+  return uploadFileAttachments({
+    client,
+    files: [
+      {
+        fileName: file.name,
+        mimeType: "text/markdown",
+        readBytes: async () => new TextEncoder().encode(file.instructions),
+      },
+    ],
   });
 }
 
+/** Sends to a running agent, queueing behind its current turn. */
 export async function sendInstructionsRequest(
   input: InstructionsRequestInput,
-  request: { text: string; file?: { name: string; instructions: string } },
+  request: InstructionsRequest,
 ): Promise<"queued" | "sent"> {
-  const { file } = request;
-  const attachments = file
-    ? await uploadFileAttachments({
-        client: input.client,
-        files: [
-          {
-            fileName: file.name,
-            mimeType: "text/markdown",
-            readBytes: async () => new TextEncoder().encode(file.instructions),
-          },
-        ],
-      })
-    : [];
+  const attachments = await uploadInstructionsAttachments(input.client, request);
   if (input.isActive()) {
     queueComposerMessage({
       agentId: input.agentId,
@@ -85,36 +97,66 @@ export async function sendInstructionsRequest(
   return "sent";
 }
 
-export function sendContinueRequest(
-  input: { baseRef: string | null; prUrl: string | null } & InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
+function prReference(prUrl: string | null): string {
+  return prUrl ? ` (${prUrl})` : "";
+}
+
+export function buildContinueRequest(input: {
+  baseRef: string | null;
+  prUrl: string | null;
+}): InstructionsRequest {
   const target = input.baseRef ?? "the repository's default branch";
-  return sendInstructionsRequest(input, {
-    text: `The PR for this workspace${input.prUrl ? ` (${input.prUrl})` : ""} was merged. Continue in this workspace: fetch the remote, create a new branch from the latest ${target}, carry over any uncommitted changes, and switch to it. Do not force-push or delete branches. Report the new branch name.`,
-  });
+  return {
+    text: "Continue on a new branch",
+    file: {
+      name: "Continue instructions.md",
+      instructions: `# Continue instructions
+
+The PR for this workspace${prReference(input.prUrl)} was merged. Continue in this workspace: fetch the remote, create a new branch from the latest ${target}, carry over any uncommitted changes, and switch to it. Do not force-push or delete branches. Report the new branch name.
+`,
+    },
+  };
 }
 
-export function sendFixChecksRequest(
-  input: { prUrl: string | null } & InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
-  return sendInstructionsRequest(input, {
-    text: `CI checks are failing on the PR for this workspace${input.prUrl ? ` (${input.prUrl})` : ""}. Inspect the failing checks and their logs, fix the causes, run the relevant checks locally, then commit and push. Do not force-push.`,
-  });
+export function buildFixChecksRequest(input: { prUrl: string | null }): InstructionsRequest {
+  return {
+    text: "Fix failing checks",
+    file: {
+      name: "Fix checks instructions.md",
+      instructions: `# Fix checks instructions
+
+CI checks are failing on the PR for this workspace${prReference(input.prUrl)}. Inspect the failing checks and their logs, fix the causes, run the relevant checks locally, then commit and push. Do not force-push.
+`,
+    },
+  };
 }
 
-export function sendResolveConflictsRequest(
-  input: { baseRef: string | null; prUrl: string | null } & InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
+export function buildResolveConflictsRequest(input: {
+  baseRef: string | null;
+  prUrl: string | null;
+}): InstructionsRequest {
   const target = input.baseRef ?? "the PR's base branch";
-  return sendInstructionsRequest(input, {
-    text: `The PR for this workspace${input.prUrl ? ` (${input.prUrl})` : ""} has merge conflicts. Fetch the remote, merge the latest ${target} into this branch, resolve the conflicts preserving both sides' intent, run the relevant checks, then commit and push. Do not force-push.`,
-  });
+  return {
+    text: "Resolve merge conflicts",
+    file: {
+      name: "Conflict instructions.md",
+      instructions: `# Conflict instructions
+
+The PR for this workspace${prReference(input.prUrl)} has merge conflicts. Fetch the remote, merge the latest ${target} into this branch, resolve the conflicts preserving both sides' intent, run the relevant checks, then commit and push. Do not force-push.
+`,
+    },
+  };
 }
 
-export function sendCommitAndPushRequest(
-  input: InstructionsRequestInput,
-): Promise<"queued" | "sent"> {
-  return sendInstructionsRequest(input, {
-    text: "Commit and push the changes in this workspace. Review git status and the full diff, and preserve unrelated user changes. Run the relevant checks, commit with a concise message that describes the change, then push the branch to its remote. Do not force-push. Report the commit and branch.",
-  });
+export function buildCommitAndPushRequest(): InstructionsRequest {
+  return {
+    text: "Commit and push",
+    file: {
+      name: "Commit instructions.md",
+      instructions: `# Commit instructions
+
+Commit and push the changes in this workspace. Review git status and the full diff, and preserve unrelated user changes. Run the relevant checks, commit with a concise message that describes the change, then push the branch to its remote. Do not force-push. Report the commit and branch.
+`,
+    },
+  };
 }

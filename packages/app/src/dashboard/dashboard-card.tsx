@@ -15,7 +15,6 @@ import {
 import { BOARD_STATUS_LABEL_KEYS, BoardStatusGlyph } from "@/dashboard/board-status-glyph";
 import { WORKSPACE_BOARD_STATUSES, type WorkspaceBoardStatus } from "@/dashboard/board-status";
 import { usePrFlow } from "@/git/use-pr-flow";
-import { useWorkspaceChatAgentId } from "@/git/workspace-chat-agent";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { useCompactTimeAgo } from "@/hooks/use-compact-time-ago";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
@@ -104,7 +103,7 @@ function DashboardCardAction({ workspace }: { workspace: SidebarWorkspaceEntry }
   );
 }
 
-/** Same flow as the header button: the workspace's chat agent opens the PR. */
+/** Same flow as the header button, posted into the workspace's newest chat. */
 function DashboardCardCreatePr({
   serverId,
   workspaceId,
@@ -115,8 +114,7 @@ function DashboardCardCreatePr({
   cwd: string;
 }) {
   const { t } = useTranslation();
-  const agentId = useWorkspaceChatAgentId(serverId, workspaceId);
-  const flow = usePrFlow({ serverId, cwd, agentId });
+  const flow = usePrFlow({ serverId, cwd, workspaceId });
 
   return (
     <Button

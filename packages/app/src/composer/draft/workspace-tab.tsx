@@ -68,14 +68,14 @@ interface AutoSubmitConfig {
 
 function resolveAutoSubmitConfig(
   pending: {
-    provider: string;
+    provider?: string;
     modeId?: string | null;
     model?: string | null;
     thinkingOptionId?: string | null;
     featureValues?: Record<string, unknown>;
   } | null,
 ): AutoSubmitConfig | null {
-  if (!pending) return null;
+  if (!pending?.provider) return null;
   return {
     provider: pending.provider,
     modeId: pending.modeId ?? null,
