@@ -2781,6 +2781,8 @@ export const ar: TranslationResources = {
         info: "الفرع الذي تنشأ منه مساحات العمل الجديدة، وما يحدث لفروعها بعد الدمج والأرشفة",
         baseBranch: "إنشاء مساحات العمل الجديدة من",
         baseBranchHint: "اتركه فارغًا للإنشاء من الفرع الحالي",
+        baseBranchCheckedOut: "الفرع الحالي",
+        baseBranchSearch: "ابحث في الفروع...",
         deleteBranchOnArchive: "حذف الفرع عند الأرشفة",
         deleteBranchOnArchiveHint:
           "يحذف الفرع المحلي عند إزالة worktree. تُحتفظ بالفروع التي تحتوي على commits غير مدفوعة.",
@@ -2825,6 +2827,12 @@ export const ar: TranslationResources = {
         commitMessagePlaceholder: "استخدم الالتزامات التقليدية مع النطاق",
         pullRequest: "سحب الطلبات",
         pullRequestPlaceholder: "ابدأ بملخص من فقرة واحدة، مع تضمين قسم لخطة الاختبار",
+      },
+      unsaved: {
+        title: "تغييرات غير محفوظة",
+        message: "في هذه الصفحة تغييرات غير محفوظة. هل تريد المغادرة دون حفظ؟",
+        discard: "تجاهل التغييرات",
+        keepEditing: "متابعة التعديل",
       },
       writeFailures: {
         staleTitle: "تم تغيير التكوين على القرص",

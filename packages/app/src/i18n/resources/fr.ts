@@ -2852,6 +2852,8 @@ export const fr: TranslationResources = {
         info: "Comment les nouveaux espaces de travail créent leur branche, et ce qu'il advient de leurs branches après fusion et archivage",
         baseBranch: "Créer les espaces de travail depuis",
         baseBranchHint: "Laissez vide pour partir de la branche active",
+        baseBranchCheckedOut: "Branche active",
+        baseBranchSearch: "Rechercher des branches...",
         deleteBranchOnArchive: "Supprimer la branche à l'archivage",
         deleteBranchOnArchiveHint:
           "Supprime la branche locale lorsque le worktree est retiré. Les branches avec des commits non poussés sont conservées.",
@@ -2898,6 +2900,13 @@ export const fr: TranslationResources = {
         pullRequest: "Demandes de tirage",
         pullRequestPlaceholder:
           "Commencez avec un résumé d'un paragraphe, incluez une section sur le plan de test",
+      },
+      unsaved: {
+        title: "Modifications non enregistrées",
+        message:
+          "Cette page contient des modifications non enregistrées. Quitter sans enregistrer ?",
+        discard: "Ignorer les modifications",
+        keepEditing: "Continuer l'édition",
       },
       writeFailures: {
         staleTitle: "Configuration modifiée sur le disque",

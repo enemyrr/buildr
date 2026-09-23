@@ -352,12 +352,15 @@ function ScriptPrompt({
     void send(request);
   }, [send, request]);
   const handleAddManually = useCallback(() => {
-    if (projectId) openProjectSettings(serverId, projectId);
+    if (projectId) openProjectSettings(serverId, projectId, "scripts");
   }, [projectId, serverId]);
   return (
     <View style={styles.emptyWrap} testID={testID}>
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>{title}</Text>
+        <View style={styles.emptyCopy}>
+          <Text style={styles.emptyTitle}>{title}</Text>
+          <Text style={styles.emptyText}>{description}</Text>
+        </View>
         <View style={styles.emptyActions}>
           <Button
             variant="default"
@@ -371,7 +374,7 @@ function ScriptPrompt({
           </Button>
           {projectId ? (
             <Button
-              variant="secondary"
+              variant="ghost"
               size="xs"
               onPress={handleAddManually}
               testID={`${testID}-add-manually`}
@@ -380,7 +383,6 @@ function ScriptPrompt({
             </Button>
           ) : null}
         </View>
-        <Text style={styles.emptyText}>{description}</Text>
       </View>
     </View>
   );
@@ -483,33 +485,30 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: theme.spacing[6],
+    padding: theme.spacing[4],
   },
   empty: {
-    alignSelf: "stretch",
     alignItems: "center",
-    gap: theme.spacing[4],
-    paddingVertical: theme.spacing[8],
-    paddingHorizontal: theme.spacing[4],
-    borderWidth: theme.borderWidth[1],
-    borderStyle: "dashed",
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.lg,
+    gap: theme.spacing[3],
+    maxWidth: 260,
+  },
+  emptyCopy: {
+    alignItems: "center",
+    gap: theme.spacing[1],
   },
   emptyTitle: {
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
     color: theme.colors.foreground,
   },
-  emptyActions: {
-    flexDirection: "row",
-    gap: theme.spacing[2],
-  },
   emptyText: {
-    maxWidth: 240,
     textAlign: "center",
     fontSize: theme.fontSize.sm,
     lineHeight: 18,
     color: theme.colors.foregroundMuted,
+  },
+  emptyActions: {
+    flexDirection: "row",
+    gap: theme.spacing[1],
   },
 }));

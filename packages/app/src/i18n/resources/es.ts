@@ -2844,6 +2844,8 @@ export const es: TranslationResources = {
         info: "Cómo se ramifican los nuevos espacios de trabajo y qué ocurre con sus ramas tras fusionar y archivar",
         baseBranch: "Crear espacios de trabajo desde",
         baseBranchHint: "Déjalo vacío para partir de la rama activa",
+        baseBranchCheckedOut: "Rama activa",
+        baseBranchSearch: "Buscar ramas...",
         deleteBranchOnArchive: "Eliminar la rama al archivar",
         deleteBranchOnArchiveHint:
           "Elimina la rama local cuando se borra el worktree. Las ramas con commits sin enviar se conservan.",
@@ -2889,6 +2891,12 @@ export const es: TranslationResources = {
         pullRequest: "Solicitudes de extracción",
         pullRequestPlaceholder:
           "Liderar con un resumen de un párrafo, incluir una sección de plan de prueba",
+      },
+      unsaved: {
+        title: "Cambios sin guardar",
+        message: "Esta página tiene cambios sin guardar. ¿Salir sin guardar?",
+        discard: "Descartar cambios",
+        keepEditing: "Seguir editando",
       },
       writeFailures: {
         staleTitle: "Configuración cambiada en el disco",

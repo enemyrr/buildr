@@ -1,53 +1,28 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ChevronRight } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { useProjects, type ProjectHostError } from "@/hooks/use-projects";
-import { useProjectIcons } from "@/projects/icons";
-import { createProjectIconTarget } from "@/projects/icon-target";
+import type { ProjectHostError } from "@/hooks/use-projects";
 import { settingsStyles } from "@/styles/settings";
 import { openProjectSettings } from "@/navigation/settings-navigation";
 import type { ProjectHostEntry, ProjectSummary } from "@/utils/projects";
+import { useHostProjects } from "@/screens/settings/use-host-projects";
 
 interface ProjectsScreenProps {
   serverId: string;
 }
 
-interface HostProject {
-  project: ProjectSummary;
-  host: ProjectHostEntry;
-}
-
 export default function ProjectsScreen({ serverId }: ProjectsScreenProps) {
   const { t } = useTranslation();
-  const { projects, hostErrors, isLoading } = useProjects();
-  const hostProjects = useMemo<HostProject[]>(
-    () =>
-      projects.flatMap((project) =>
-        project.hosts
-          .filter((host) => host.serverId === serverId)
-          .map((host) => ({ project, host })),
-      ),
-    [projects, serverId],
-  );
-  const scopedErrors = hostErrors.filter((error) => error.serverId === serverId);
-  const iconTargets = useMemo(
-    () =>
-      hostProjects.flatMap(({ project, host }) => {
-        const target = createProjectIconTarget({
-          projectViewKey: project.viewKey,
-          placement: { ...host, iconWorkingDir: host.repoRoot },
-        });
-        return target ? [target] : [];
-      }),
-    [hostProjects],
-  );
-  const iconDataByProjectViewKey = useProjectIcons({
-    projects: iconTargets,
-  });
+  const {
+    hostProjects,
+    hostErrors: scopedErrors,
+    isLoading,
+    iconDataByProjectViewKey,
+  } = useHostProjects(serverId);
 
   if (isLoading && hostProjects.length === 0) {
     return (

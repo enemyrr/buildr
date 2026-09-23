@@ -203,6 +203,12 @@ describe("projects settings routes", () => {
     );
   });
 
+  it("buildProjectSettingsRoute appends a project section", () => {
+    expect(buildProjectSettingsRoute("host a", "project/1", "git")).toBe(
+      "/settings/hosts/host%20a/projects/project%2F1/git",
+    );
+  });
+
   it("keeps route ids opaque", () => {
     expect(normalizeProjectSettingsRouteId("project%2F1")).toBe("project%2F1");
   });

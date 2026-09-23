@@ -2749,6 +2749,8 @@ export const zhCN: TranslationResources = {
         info: "新工作区从哪个分支创建，以及合并和归档后如何处理其分支",
         baseBranch: "新工作区的来源分支",
         baseBranchHint: "留空则从当前检出的分支创建",
+        baseBranchCheckedOut: "当前检出的分支",
+        baseBranchSearch: "搜索分支...",
         deleteBranchOnArchive: "归档时删除分支",
         deleteBranchOnArchiveHint: "移除 worktree 时删除本地分支。包含未推送提交的分支会保留。",
         archiveOnMerge: "合并后归档",
@@ -2792,6 +2794,12 @@ export const zhCN: TranslationResources = {
         commitMessagePlaceholder: "使用带 scope 的 Conventional Commits",
         pullRequest: "Pull requests",
         pullRequestPlaceholder: "先写一段摘要，并包含 Test plan 部分",
+      },
+      unsaved: {
+        title: "未保存的更改",
+        message: "此页面有未保存的更改。不保存就离开吗？",
+        discard: "放弃更改",
+        keepEditing: "继续编辑",
       },
       writeFailures: {
         staleTitle: "磁盘上的配置已变更",

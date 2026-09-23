@@ -2796,6 +2796,8 @@ export const ko: TranslationResources = {
         info: "새 워크스페이스가 분기하는 브랜치와 병합 및 보관 후 브랜치 처리 방식",
         baseBranch: "새 워크스페이스 분기 기준",
         baseBranchHint: "비워 두면 체크아웃된 브랜치에서 분기합니다",
+        baseBranchCheckedOut: "체크아웃된 브랜치",
+        baseBranchSearch: "브랜치 검색...",
         deleteBranchOnArchive: "보관 시 브랜치 삭제",
         deleteBranchOnArchiveHint:
           "worktree가 제거될 때 로컬 브랜치를 삭제합니다. 푸시하지 않은 커밋이 있는 브랜치는 유지됩니다.",
@@ -2841,6 +2843,12 @@ export const ko: TranslationResources = {
         commitMessagePlaceholder: "스코프와 함께 Conventional Commits를 사용하세요",
         pullRequest: "풀 리퀘스트",
         pullRequestPlaceholder: "한 문단 요약으로 시작하고 테스트 계획 섹션을 포함하세요",
+      },
+      unsaved: {
+        title: "저장되지 않은 변경 사항",
+        message: "이 페이지에 저장되지 않은 변경 사항이 있습니다. 저장하지 않고 나가시겠습니까?",
+        discard: "변경 사항 버리기",
+        keepEditing: "계속 편집",
       },
       writeFailures: {
         staleTitle: "디스크에서 구성이 변경되었습니다",

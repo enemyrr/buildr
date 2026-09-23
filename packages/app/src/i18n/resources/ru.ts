@@ -2835,6 +2835,8 @@ export const ru: TranslationResources = {
         info: "От какой ветки создаются новые рабочие пространства и что происходит с их ветками после слияния и архивации",
         baseBranch: "Создавать рабочие пространства от",
         baseBranchHint: "Оставьте пустым, чтобы использовать текущую ветку",
+        baseBranchCheckedOut: "Текущая ветка",
+        baseBranchSearch: "Поиск веток...",
         deleteBranchOnArchive: "Удалять ветку при архивации",
         deleteBranchOnArchiveHint:
           "Удаляет локальную ветку при удалении worktree. Ветки с неотправленными коммитами сохраняются.",
@@ -2881,6 +2883,12 @@ export const ru: TranslationResources = {
         pullRequest: "PR",
         pullRequestPlaceholder:
           "Начинайте с краткого резюме в один абзац и добавляйте раздел «План тестирования».",
+      },
+      unsaved: {
+        title: "Несохранённые изменения",
+        message: "На этой странице есть несохранённые изменения. Уйти без сохранения?",
+        discard: "Отменить изменения",
+        keepEditing: "Продолжить редактирование",
       },
       writeFailures: {
         staleTitle: "Конфигурация изменена на диске",

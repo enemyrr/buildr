@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, usePreventRemove } from "@react-navigation/native";
 import { StyleSheet } from "react-native-unistyles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MoreVertical, Pencil, Plus } from "lucide-react-native";
+import { MoreVertical, Pencil, Plus } from "lucide-react-native";
 import { ProjectIconView } from "@/components/project-icon-view";
 import type {
   PaseoConfigRaw,
@@ -28,7 +28,8 @@ import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-moda
 import { ProjectEditSheet } from "@/components/project-edit-sheet";
 import { EditingTextInput as TextInput } from "@/components/ui/text-input";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
-import { SettingsCard, SettingsInput, SettingsSelect, SettingsSwitch } from "@/components/settings";
+import { SettingsCard, SettingsSelect, SettingsSwitch } from "@/components/settings";
+import { BaseBranchSelect } from "@/screens/settings/base-branch-select";
 import { SettingsGroup } from "@/components/settings/headings/settings-group";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { settingsStyles } from "@/styles/settings";
@@ -56,6 +57,7 @@ import {
   type ProjectHostEntry,
   type ProjectSummary,
 } from "@/utils/projects";
+import type { ProjectSettingsSectionSlug } from "@/utils/host-routes";
 
 const SCRIPT_SERVICE_TYPE = "service";
 
@@ -93,18 +95,18 @@ const WORKTREE_DOCS_URL = "https://paseo.sh/docs/worktrees";
 
 type ReadProjectConfigData = Awaited<ReturnType<DaemonClient["readProjectConfig"]>>;
 
+export type ProjectConfigSection = Exclude<ProjectSettingsSectionSlug, "general">;
+
 export interface ProjectSettingsScreenProps {
   serverId: string;
   projectId: string;
-  onBackToProjects: () => void;
-  showBackToProjects: boolean;
+  section: ProjectSettingsSectionSlug;
 }
 
 export default function ProjectSettingsScreen({
   serverId,
   projectId,
-  onBackToProjects,
-  showBackToProjects,
+  section,
 }: ProjectSettingsScreenProps) {
   const { projects } = useProjects();
   const project = useMemo(
@@ -125,86 +127,41 @@ export default function ProjectSettingsScreen({
     selectedHost.repoRoot.trim().length > 0;
 
   if (!project || !selectedHost || !client || !canEdit) {
-    return (
-      <NoEditableTarget
-        onBackToProjects={onBackToProjects}
-        showBackToProjects={showBackToProjects}
-      />
-    );
+    return <NoEditableTarget />;
+  }
+
+  if (section === "general") {
+    return <ProjectGeneralPage project={project} selectedHost={selectedHost} client={client} />;
   }
 
   return (
-    <ProjectSettingsBody
-      project={project}
+    <ProjectConfigPage
+      // A fresh form per section, so an unsaved draft never leaks across pages.
+      key={section}
+      section={section}
       selectedHost={selectedHost}
       client={client}
       isHostGone={isHostGone}
-      onBackToProjects={onBackToProjects}
-      showBackToProjects={showBackToProjects}
     />
   );
 }
 
-function NoEditableTarget({
-  onBackToProjects,
-  showBackToProjects,
-}: {
-  onBackToProjects: () => void;
-  showBackToProjects: boolean;
-}) {
+function NoEditableTarget() {
   const { t } = useTranslation();
   return (
     <View style={styles.noTargetContainer}>
-      {showBackToProjects ? <BackToProjectsButton onPress={onBackToProjects} /> : null}
       <Text style={styles.noTargetText}>{t("settings.project.noEditableTarget")}</Text>
-      {showBackToProjects ? (
-        <Button
-          testID="project-settings-back-button"
-          onPress={onBackToProjects}
-          variant="secondary"
-          size="md"
-        >
-          {t("settings.project.backToProjects")}
-        </Button>
-      ) : null}
     </View>
   );
 }
 
-function BackToProjectsButton({ onPress }: { onPress: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <Button
-      testID="project-settings-back-link"
-      accessibilityLabel={t("settings.project.backToProjects")}
-      onPress={onPress}
-      variant="ghost"
-      size="sm"
-      leftIcon={ArrowLeft}
-      style={styles.backButton}
-    >
-      {t("settings.project.backToProjects")}
-    </Button>
-  );
-}
-
-interface ProjectSettingsBodyProps {
+interface ProjectGeneralPageProps {
   project: ProjectSummary;
   selectedHost: ProjectHostEntry;
   client: DaemonClient;
-  isHostGone: boolean;
-  onBackToProjects: () => void;
-  showBackToProjects: boolean;
 }
 
-function ProjectSettingsBody({
-  project,
-  selectedHost,
-  client,
-  isHostGone,
-  onBackToProjects,
-  showBackToProjects,
-}: ProjectSettingsBodyProps) {
+function ProjectGeneralPage({ project, selectedHost, client }: ProjectGeneralPageProps) {
   const { t } = useTranslation();
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [editSessionId, setEditSessionId] = useState(0);
@@ -213,26 +170,7 @@ function ProjectSettingsBody({
     setIsEditSheetOpen(true);
   }, []);
   const closeEditSheet = useCallback(() => setIsEditSheetOpen(false), []);
-  const queryKey = useMemo(
-    () => ["project-config", selectedHost.serverId, selectedHost.repoRoot] as const,
-    [selectedHost.serverId, selectedHost.repoRoot],
-  );
-
-  const readQuery = useQuery({
-    queryKey,
-    queryFn: () => client.readProjectConfig(selectedHost.repoRoot),
-    retry: false,
-  });
-  const refetchProjectConfig = readQuery.refetch;
-  useFocusEffect(
-    useCallback(() => {
-      void refetchProjectConfig();
-    }, [refetchProjectConfig]),
-  );
-
-  const data = readQuery.data;
   const supportsCustomIcon = useHostFeature(selectedHost.serverId, "projectCustomIcon");
-  const supportsGitSettings = useHostFeature(selectedHost.serverId, "projectGitSettings");
   const customIconRevision = selectedHost.customIconRevision ?? null;
   const projectIconTargets = useMemo(() => {
     const target = createProjectIconTarget({
@@ -257,20 +195,9 @@ function ProjectSettingsBody({
       selectedHost.projectName,
     ],
   );
-  const loadedConfig: PaseoConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
-  const loadedRevision: PaseoConfigRevision | null = data?.ok ? data.revision : null;
-  const hasUncommittedWorktreeSetupChanges =
-    data?.ok === true && data.hasUncommittedWorktreeSetupChanges === true;
-  const readError: ProjectConfigRpcError | null = data && !data.ok ? data.error : null;
-
-  const handleReload = useCallback(() => {
-    void readQuery.refetch();
-  }, [readQuery]);
 
   return (
     <View role="main" style={styles.body}>
-      {showBackToProjects ? <BackToProjectsButton onPress={onBackToProjects} /> : null}
-
       <View style={styles.headerBlock}>
         <View style={styles.titleRow}>
           <ProjectTitleIcon
@@ -278,9 +205,14 @@ function ProjectSettingsBody({
             projectName={selectedHost.projectName}
             projectViewKey={project.viewKey}
           />
-          <Text style={styles.projectTitle} numberOfLines={1}>
-            {selectedHost.projectName}
-          </Text>
+          <View style={styles.titleText}>
+            <Text style={styles.projectTitle} numberOfLines={1}>
+              {selectedHost.projectName}
+            </Text>
+            <Text style={styles.projectPath} numberOfLines={1} selectable>
+              {selectedHost.repoRoot}
+            </Text>
+          </View>
           <Pressable
             testID="project-edit-button"
             accessibilityRole="button"
@@ -306,8 +238,51 @@ function ProjectSettingsBody({
         supportsCustomIcon={supportsCustomIcon}
         snapshot={editSnapshot}
       />
+    </View>
+  );
+}
 
+interface ProjectConfigPageProps {
+  section: ProjectConfigSection;
+  selectedHost: ProjectHostEntry;
+  client: DaemonClient;
+  isHostGone: boolean;
+}
+
+function ProjectConfigPage({ section, selectedHost, client, isHostGone }: ProjectConfigPageProps) {
+  const queryKey = useMemo(
+    () => ["project-config", selectedHost.serverId, selectedHost.repoRoot] as const,
+    [selectedHost.serverId, selectedHost.repoRoot],
+  );
+
+  const readQuery = useQuery({
+    queryKey,
+    queryFn: () => client.readProjectConfig(selectedHost.repoRoot),
+    retry: false,
+  });
+  const refetchProjectConfig = readQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      void refetchProjectConfig();
+    }, [refetchProjectConfig]),
+  );
+
+  const data = readQuery.data;
+  const supportsGitSettings = useHostFeature(selectedHost.serverId, "projectGitSettings");
+  const loadedConfig: PaseoConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
+  const loadedRevision: PaseoConfigRevision | null = data?.ok ? data.revision : null;
+  const hasUncommittedWorktreeSetupChanges =
+    data?.ok === true && data.hasUncommittedWorktreeSetupChanges === true;
+  const readError: ProjectConfigRpcError | null = data && !data.ok ? data.error : null;
+
+  const handleReload = useCallback(() => {
+    void readQuery.refetch();
+  }, [readQuery]);
+
+  return (
+    <View role="main" style={styles.body}>
       {renderContent({
+        section,
         readQuery,
         loadedConfig,
         loadedRevision,
@@ -319,14 +294,13 @@ function ProjectSettingsBody({
         client,
         onReload: handleReload,
         isHostGone,
-        onBackToProjects,
-        showBackToProjects,
       })}
     </View>
   );
 }
 
 interface RenderContentInput {
+  section: ProjectConfigSection;
   readQuery: ReturnType<typeof useQuery<ReadProjectConfigData>>;
   loadedConfig: PaseoConfigRaw | null;
   loadedRevision: PaseoConfigRevision | null;
@@ -338,11 +312,10 @@ interface RenderContentInput {
   client: DaemonClient;
   onReload: () => void;
   isHostGone: boolean;
-  onBackToProjects: () => void;
-  showBackToProjects: boolean;
 }
 
 function renderContent({
+  section,
   readQuery,
   loadedConfig,
   loadedRevision,
@@ -354,8 +327,6 @@ function renderContent({
   client,
   onReload,
   isHostGone,
-  onBackToProjects,
-  showBackToProjects,
 }: RenderContentInput) {
   if (readQuery.isLoading) {
     return (
@@ -374,12 +345,7 @@ function renderContent({
   }
 
   if (isHostGone) {
-    return (
-      <NoEditableTarget
-        onBackToProjects={onBackToProjects}
-        showBackToProjects={showBackToProjects}
-      />
-    );
+    return <NoEditableTarget />;
   }
 
   if (!loadedConfig) {
@@ -394,6 +360,7 @@ function renderContent({
   return (
     <ProjectConfigForm
       key={formKey}
+      section={section}
       baseConfig={loadedConfig}
       revision={loadedRevision}
       hasUncommittedWorktreeSetupChanges={hasUncommittedWorktreeSetupChanges}
@@ -476,6 +443,7 @@ function errorToDetail(error: unknown): string | null {
 }
 
 interface ProjectConfigFormProps {
+  section: ProjectConfigSection;
   baseConfig: PaseoConfigRaw;
   revision: PaseoConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
@@ -487,6 +455,7 @@ interface ProjectConfigFormProps {
 }
 
 function ProjectConfigForm({
+  section,
   baseConfig,
   revision,
   hasUncommittedWorktreeSetupChanges,
@@ -717,65 +686,76 @@ function ProjectConfigForm({
   const isStale = writeError?.code === "stale_project_config";
   const isWriteFailed = writeError?.code === "write_failed";
   const saveDisabled = saveMutation.isPending || isStale || hasInvalidScripts;
+  const savedConfigJson = useMemo(
+    () =>
+      JSON.stringify(applyDraftToConfig({ draft: configToDraft(baseConfig), base: baseConfig })),
+    [baseConfig],
+  );
+  const isDirty = useMemo(
+    () => JSON.stringify(applyDraftToConfig({ draft, base: baseConfig })) !== savedConfigJson,
+    [baseConfig, draft, savedConfigJson],
+  );
+  useUnsavedChangesGuard(isDirty && !saveMutation.isPending);
 
   return (
     <View>
-      <SettingsGroup
-        title={t("settings.project.worktree.title")}
-        info={t("settings.project.worktree.info")}
-        testID="worktree-group"
-      >
-        <SettingsSection
-          title={t("settings.project.worktree.setup")}
-          testID="worktree-setup-section"
-          trailing={setupDocsLink}
+      {section === "scripts" ? (
+        <SettingsGroup
+          title={t("settings.project.worktree.title")}
+          info={t("settings.project.worktree.info")}
+          testID="worktree-group"
         >
-          {hasUncommittedWorktreeSetupChanges ? (
-            <Alert
-              variant="warning"
-              title={t("settings.project.worktree.uncommittedTitle")}
-              description={t("settings.project.worktree.uncommittedDescription")}
+          <SettingsSection
+            title={t("settings.project.worktree.setup")}
+            testID="worktree-setup-section"
+            trailing={setupDocsLink}
+          >
+            {hasUncommittedWorktreeSetupChanges ? (
+              <Alert
+                variant="warning"
+                title={t("settings.project.worktree.uncommittedTitle")}
+                description={t("settings.project.worktree.uncommittedDescription")}
+              />
+            ) : null}
+            <SettingsTextAreaCard
+              testID="worktree-setup-input"
+              accessibilityLabel={t("settings.project.worktree.setupAccessibility")}
+              value={draft.setupText}
+              onChangeText={handleSetupChange}
+              placeholder="npm install"
             />
-          ) : null}
-          <SettingsTextAreaCard
-            testID="worktree-setup-input"
-            accessibilityLabel={t("settings.project.worktree.setupAccessibility")}
-            value={draft.setupText}
-            onChangeText={handleSetupChange}
-            placeholder="npm install"
-          />
-        </SettingsSection>
+          </SettingsSection>
 
-        <SettingsSection
-          title={t("settings.project.worktree.teardown")}
-          testID="worktree-teardown-section"
-          trailing={teardownDocsLink}
-          flush
-        >
-          <SettingsTextAreaCard
-            testID="worktree-teardown-input"
-            accessibilityLabel={t("settings.project.worktree.teardownAccessibility")}
-            value={draft.teardownText}
-            onChangeText={handleTeardownChange}
-            placeholder="docker compose down"
-          />
-        </SettingsSection>
-      </SettingsGroup>
+          <SettingsSection
+            title={t("settings.project.worktree.teardown")}
+            testID="worktree-teardown-section"
+            trailing={teardownDocsLink}
+            flush
+          >
+            <SettingsTextAreaCard
+              testID="worktree-teardown-input"
+              accessibilityLabel={t("settings.project.worktree.teardownAccessibility")}
+              value={draft.teardownText}
+              onChangeText={handleTeardownChange}
+              placeholder="docker compose down"
+            />
+          </SettingsSection>
+        </SettingsGroup>
+      ) : null}
 
-      {supportsGitSettings ? (
+      {section === "git" && supportsGitSettings ? (
         <SettingsGroup
           title={t("settings.project.git.title")}
           info={t("settings.project.git.info")}
           testID="git-group"
         >
           <SettingsCard>
-            <SettingsInput
+            <BaseBranchSelect
               testID="git-base-branch"
-              label={t("settings.project.git.baseBranch")}
-              hint={t("settings.project.git.baseBranchHint")}
-              initialValue={draft.baseBranchText}
-              onChangeText={handleBaseBranchChange}
-              placeholder="origin/main"
+              client={client}
+              repoRoot={repoRoot}
+              value={draft.baseBranchText}
+              onValueChange={handleBaseBranchChange}
             />
             <SettingsSwitch
               testID="git-delete-branch-on-archive"
@@ -796,46 +776,50 @@ function ProjectConfigForm({
         </SettingsGroup>
       ) : null}
 
-      <SettingsGroup
-        title={t("settings.project.scripts.title")}
-        info={t("settings.project.scripts.info")}
-        trailing={scriptsTrailing}
-        testID="scripts-group"
-      >
-        <View style={settingsStyles.card} testID="scripts-list">
-          {draft.scripts.length === 0 ? (
-            <View style={settingsStyles.row}>
-              <Text style={styles.emptyScripts}>{t("settings.project.scripts.empty")}</Text>
-            </View>
-          ) : (
-            draft.scripts.map((script, index) => (
-              <ScriptRow
-                key={script.id}
-                script={script}
-                isFirst={index === 0}
-                onEdit={handleEditScript}
-                onRemove={handleRemoveScript}
-              />
-            ))
-          )}
-        </View>
-      </SettingsGroup>
+      {section === "scripts" ? (
+        <SettingsGroup
+          title={t("settings.project.scripts.title")}
+          info={t("settings.project.scripts.info")}
+          trailing={scriptsTrailing}
+          testID="scripts-group"
+        >
+          <View style={settingsStyles.card} testID="scripts-list">
+            {draft.scripts.length === 0 ? (
+              <View style={settingsStyles.row}>
+                <Text style={styles.emptyScripts}>{t("settings.project.scripts.empty")}</Text>
+              </View>
+            ) : (
+              draft.scripts.map((script, index) => (
+                <ScriptRow
+                  key={script.id}
+                  script={script}
+                  isFirst={index === 0}
+                  onEdit={handleEditScript}
+                  onRemove={handleRemoveScript}
+                />
+              ))
+            )}
+          </View>
+        </SettingsGroup>
+      ) : null}
 
-      <SettingsGroup
-        title={t("settings.project.metadata.title")}
-        info={t("settings.project.metadata.info")}
-        testID="metadata-group"
-      >
-        {METADATA_PROMPT_KEYS.map((key, index) => (
-          <MetadataPromptSection
-            key={key}
-            promptKey={key}
-            value={draft.metadataPrompts[key]}
-            onChange={handleMetadataPromptChange}
-            flush={index === METADATA_PROMPT_KEYS.length - 1}
-          />
-        ))}
-      </SettingsGroup>
+      {section === "metadata" ? (
+        <SettingsGroup
+          title={t("settings.project.metadata.title")}
+          info={t("settings.project.metadata.info")}
+          testID="metadata-group"
+        >
+          {METADATA_PROMPT_KEYS.map((key, index) => (
+            <MetadataPromptSection
+              key={key}
+              promptKey={key}
+              value={draft.metadataPrompts[key]}
+              onChange={handleMetadataPromptChange}
+              flush={index === METADATA_PROMPT_KEYS.length - 1}
+            />
+          ))}
+        </SettingsGroup>
+      ) : null}
 
       {isStale ? (
         <View style={styles.calloutWrap}>
@@ -885,21 +869,28 @@ function ProjectConfigForm({
         </View>
       ) : null}
 
-      <View style={styles.footer}>
-        <Button
-          testID="save-button"
-          accessibilityLabel={t("settings.project.actions.save")}
-          variant="default"
-          size="md"
-          disabled={saveDisabled}
-          loading={saveMutation.isPending}
-          onPress={handleSave}
-        >
-          {saveMutation.isPending
-            ? t("settings.project.actions.saving")
-            : t("settings.project.actions.save")}
-        </Button>
-      </View>
+      {section === "git" && !supportsGitSettings ? null : (
+        <View style={styles.footer}>
+          {isDirty ? (
+            <Text style={styles.unsavedLabel} testID="unsaved-changes-label">
+              {t("settings.project.unsaved.title")}
+            </Text>
+          ) : null}
+          <Button
+            testID="save-button"
+            accessibilityLabel={t("settings.project.actions.save")}
+            variant="default"
+            size="md"
+            disabled={saveDisabled}
+            loading={saveMutation.isPending}
+            onPress={handleSave}
+          >
+            {saveMutation.isPending
+              ? t("settings.project.actions.saving")
+              : t("settings.project.actions.save")}
+          </Button>
+        </View>
+      )}
 
       {editingScript ? (
         <ScriptEditModal
@@ -911,6 +902,24 @@ function ProjectConfigForm({
       ) : null}
     </View>
   );
+}
+
+// Asks before leaving the page (sidebar, Back, swipe) while the draft differs from paseo.json.
+function useUnsavedChangesGuard(hasUnsavedChanges: boolean) {
+  const { t } = useTranslation();
+  const navigation = useNavigation();
+  usePreventRemove(hasUnsavedChanges, ({ data }) => {
+    void confirmDialog({
+      title: t("settings.project.unsaved.title"),
+      message: t("settings.project.unsaved.message"),
+      confirmLabel: t("settings.project.unsaved.discard"),
+      cancelLabel: t("settings.project.unsaved.keepEditing"),
+      destructive: true,
+    }).then((discard) => {
+      if (discard) navigation.dispatch(data.action);
+      return discard;
+    });
+  });
 }
 
 function ResolveSpinnerColor(): string {
@@ -1192,10 +1201,6 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[4],
     gap: theme.spacing[2],
   },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 0,
-  },
   headerBlock: {
     marginTop: theme.spacing[2],
     marginBottom: theme.spacing[4],
@@ -1206,11 +1211,20 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[3],
   },
+  titleText: {
+    flex: 1,
+    minWidth: 0,
+    gap: theme.spacing[1],
+  },
   projectTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
     flexShrink: 1,
+  },
+  projectPath: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   editButton: {
     padding: theme.spacing[1],
@@ -1266,6 +1280,12 @@ const styles = StyleSheet.create((theme) => ({
     marginTop: theme.spacing[4],
     flexDirection: "row",
     justifyContent: "flex-end",
+    alignItems: "center",
+    gap: theme.spacing[3],
+  },
+  unsavedLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   modalSection: {
     gap: theme.spacing[2],

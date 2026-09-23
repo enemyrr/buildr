@@ -392,7 +392,7 @@ export async function expectRetiredSidebarSectionsAbsent(page: Page): Promise<vo
 
   // Host group rows are now flat top-level sections (no drill-in).
   await expect(sidebar.getByTestId("settings-host-section-connections")).toBeVisible();
-  await expect(sidebar.getByTestId("settings-host-section-projects")).toBeVisible();
+  await expect(sidebar.getByTestId("settings-host-section-projects")).toHaveCount(0);
   await expect(sidebar.getByTestId("settings-host-section-agents")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-workspaces")).toBeVisible();
   await expect(sidebar.getByTestId("settings-host-section-providers")).toBeVisible();

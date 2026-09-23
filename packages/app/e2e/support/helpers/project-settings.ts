@@ -5,8 +5,6 @@ import { expect, type Page } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
 import { gotoAppShell, openSettings } from "./app";
 import { daemonWsRoutePattern } from "./daemon-port";
-import { getServerId } from "./server-id";
-import { buildProjectsSettingsRoute } from "@/utils/host-routes";
 
 type WebSocketMessage = string | Buffer;
 
@@ -33,37 +31,45 @@ function getSessionMessage(message: WebSocketMessage): Record<string, unknown> |
 
 // --- Navigation ---
 
+type ProjectSettingsSection = "Scripts" | "Git" | "Metadata" | "General";
+
+function projectsSidebar(page: Page) {
+  return page.locator('[data-testid="settings-sidebar-projects"]:visible');
+}
+
 export async function openProjects(page: Page): Promise<void> {
   await gotoAppShell(page);
   await openSettings(page);
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
-  await expect(page).toHaveURL(buildProjectsSettingsRoute(getServerId()));
+  await expect(projectsSidebar(page)).toBeVisible({ timeout: 30_000 });
+}
+
+export async function openProjectSection(
+  page: Page,
+  section: ProjectSettingsSection,
+): Promise<void> {
+  await projectsSidebar(page).getByRole("button", { name: section, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/${section.toLowerCase()}$`));
 }
 
 export async function openProjectSettings(page: Page, projectName: string): Promise<void> {
-  await page.getByRole("button", { name: `Edit ${projectName}`, exact: true }).click();
+  await navigateToProjectSettings(page, projectName);
   await expect(page.getByRole("textbox", { name: "Worktree setup commands" })).toBeVisible({
     timeout: 30_000,
   });
 }
 
+// Expands the project in the settings sidebar, then opens its Scripts page.
 export async function navigateToProjectSettings(page: Page, projectName: string): Promise<void> {
-  await page.getByRole("button", { name: `Edit ${projectName}`, exact: true }).click();
+  const scripts = projectsSidebar(page).getByRole("button", { name: "Scripts", exact: true });
+  if (!(await scripts.isVisible())) {
+    await projectsSidebar(page).getByRole("button", { name: projectName, exact: true }).click();
+  }
+  await openProjectSection(page, "Scripts");
 }
 
-export async function returnToProjectsList(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Back to projects", exact: true }).click();
-  await expect(page).toHaveURL(buildProjectsSettingsRoute(getServerId()));
-}
-
-export async function expectProjectSettingsHistoryRoundTrip(
-  page: Page,
-  projectName: string,
-): Promise<void> {
-  await page.goBack();
-  await expect(page).toHaveURL(buildProjectsSettingsRoute(getServerId()));
-  await page.goForward();
-  await expectProjectTitle(page, projectName);
+// Leaves the Scripts page so reopening it reads paseo.json again.
+export async function leaveProjectScripts(page: Page): Promise<void> {
+  await openProjectSection(page, "General");
 }
 
 // --- Form interactions ---
@@ -93,6 +99,7 @@ export async function clickReloadProjectSettings(page: Page): Promise<void> {
 // --- Project edit sheet (name + icon) ---
 
 export async function openProjectEditSheet(page: Page): Promise<void> {
+  await openProjectSection(page, "General");
   await page.getByRole("button", { name: "Edit project", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toBeVisible();
 }
@@ -204,7 +211,9 @@ export async function expectProjectSettingsFormHidden(page: Page): Promise<void>
 }
 
 export async function expectNoEditableTarget(page: Page): Promise<void> {
-  await expect(page.getByTestId("project-settings-back-button")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("This project isn't editable on this host.")).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 export async function expectProjectHostContextHidden(page: Page): Promise<void> {

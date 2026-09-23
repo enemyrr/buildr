@@ -63,7 +63,7 @@ export function buildWorktreeSetupCalloutPolicy(
     title: i18n.t("sidebar.worktreeSetup.title"),
     description: i18n.t("sidebar.worktreeSetup.description"),
     actionLabel: i18n.t("sidebar.worktreeSetup.openProjectSettings"),
-    projectSettingsRoute: buildProjectSettingsRoute(project.serverId, project.projectId),
+    projectSettingsRoute: buildProjectSettingsRoute(project.serverId, project.projectId, "scripts"),
     testID: `worktree-setup-callout-${project.projectId}`,
   };
 }

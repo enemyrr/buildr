@@ -2943,6 +2943,8 @@ export const en = {
         info: "How new workspaces branch, and what happens to their branches after merge and archive",
         baseBranch: "Branch new workspaces from",
         baseBranchHint: "Leave empty to branch from the checked-out branch",
+        baseBranchCheckedOut: "Checked-out branch",
+        baseBranchSearch: "Search branches...",
         deleteBranchOnArchive: "Delete branch on archive",
         deleteBranchOnArchiveHint:
           "Deletes the local branch when the worktree is removed. Branches with unpushed commits are kept.",
@@ -2987,6 +2989,12 @@ export const en = {
         commitMessagePlaceholder: "Use Conventional Commits with a scope",
         pullRequest: "Pull requests",
         pullRequestPlaceholder: "Lead with a one-paragraph summary, include a Test plan section",
+      },
+      unsaved: {
+        title: "Unsaved changes",
+        message: "You have unsaved changes on this page. Leave without saving?",
+        discard: "Discard changes",
+        keepEditing: "Keep editing",
       },
       writeFailures: {
         staleTitle: "Config changed on disk",

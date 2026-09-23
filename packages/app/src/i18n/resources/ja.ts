@@ -2811,6 +2811,8 @@ export const ja: TranslationResources = {
         info: "新しいワークスペースの作成元ブランチと、マージ・アーカイブ後のブランチの扱い",
         baseBranch: "新しいワークスペースの作成元",
         baseBranchHint: "空欄の場合はチェックアウト中のブランチから作成します",
+        baseBranchCheckedOut: "チェックアウト中のブランチ",
+        baseBranchSearch: "ブランチを検索...",
         deleteBranchOnArchive: "アーカイブ時にブランチを削除",
         deleteBranchOnArchiveHint:
           "worktree の削除時にローカルブランチを削除します。未プッシュのコミットがあるブランチは残します。",
@@ -2855,6 +2857,12 @@ export const ja: TranslationResources = {
         commitMessagePlaceholder: "スコープ付きのConventional Commitsを使用",
         pullRequest: "プルリクエスト",
         pullRequestPlaceholder: "1段落の要約で始め、テスト計画セクションを含める",
+      },
+      unsaved: {
+        title: "未保存の変更",
+        message: "このページには未保存の変更があります。保存せずに移動しますか？",
+        discard: "変更を破棄",
+        keepEditing: "編集を続ける",
       },
       writeFailures: {
         staleTitle: "設定がディスク上で変更されました",

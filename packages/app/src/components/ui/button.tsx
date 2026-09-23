@@ -45,7 +45,7 @@ function ButtonIcon({ loading, leftIcon, iconSize, iconColor }: ButtonIconProps)
   if (loading) {
     return (
       <View>
-        <LoadingSpinner size="small" color={iconColor} />
+        <LoadingSpinner size={iconSize} color={iconColor} />
       </View>
     );
   }

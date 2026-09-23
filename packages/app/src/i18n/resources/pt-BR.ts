@@ -2828,6 +2828,8 @@ export const ptBR: TranslationResources = {
         info: "Como novos workspaces criam branches e o que acontece com elas após merge e arquivamento",
         baseBranch: "Criar workspaces a partir de",
         baseBranchHint: "Deixe vazio para partir da branch atual",
+        baseBranchCheckedOut: "Branch atual",
+        baseBranchSearch: "Buscar branches...",
         deleteBranchOnArchive: "Excluir branch ao arquivar",
         deleteBranchOnArchiveHint:
           "Exclui a branch local quando o worktree é removido. Branches com commits não enviados são mantidas.",
@@ -2872,6 +2874,12 @@ export const ptBR: TranslationResources = {
         commitMessagePlaceholder: "Use Conventional Commits com escopo",
         pullRequest: "Pull requests",
         pullRequestPlaceholder: "Comece com um resumo de um parágrafo e inclua uma seção Test plan",
+      },
+      unsaved: {
+        title: "Alterações não salvas",
+        message: "Esta página tem alterações não salvas. Sair sem salvar?",
+        discard: "Descartar alterações",
+        keepEditing: "Continuar editando",
       },
       writeFailures: {
         staleTitle: "Configuração alterada no disco",

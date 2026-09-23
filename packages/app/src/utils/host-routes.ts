@@ -586,11 +586,27 @@ export function buildProjectsSettingsRoute(serverId: string) {
   return `/settings/hosts/${encodeSegment(normalized)}/projects` as const;
 }
 
-export function buildProjectSettingsRoute(serverId: string, projectId: string) {
+export const PROJECT_SETTINGS_SECTION_SLUGS = ["scripts", "git", "metadata", "general"] as const;
+
+export type ProjectSettingsSectionSlug = (typeof PROJECT_SETTINGS_SECTION_SLUGS)[number];
+
+export const DEFAULT_PROJECT_SETTINGS_SECTION: ProjectSettingsSectionSlug = "scripts";
+
+export function isProjectSettingsSectionSlug(value: string): value is ProjectSettingsSectionSlug {
+  return (PROJECT_SETTINGS_SECTION_SLUGS as readonly string[]).includes(value);
+}
+
+export function buildProjectSettingsRoute(
+  serverId: string,
+  projectId: string,
+  section?: ProjectSettingsSectionSlug,
+) {
   if (!serverId.trim() || !projectId.trim()) {
     throw new Error("buildProjectSettingsRoute requires a serverId and projectId");
   }
-  return `/settings/hosts/${encodeSegment(serverId)}/projects/${encodeSegment(projectId)}` as const;
+  const base =
+    `/settings/hosts/${encodeSegment(serverId)}/projects/${encodeSegment(projectId)}` as const;
+  return section ? (`${base}/${section}` as const) : base;
 }
 
 export function normalizeProjectSettingsRouteId(value: string | string[] | undefined): string {

@@ -25,7 +25,6 @@ import {
   expectProjectSettingsFormHidden,
   expectProjectSettingsFormVisible,
   expectProjectTitle,
-  expectProjectSettingsHistoryRoundTrip,
   expectSaveButtonDisabled,
   expectScriptRowCount,
   expectWriteFailedCalloutActions,
@@ -40,7 +39,7 @@ import {
   openProjects,
   removeProjectScript,
   restorePaseoConfig,
-  returnToProjectsList,
+  leaveProjectScripts,
   saveProjectEdits,
   unblockPaseoConfigWrites,
 } from "../support/helpers/project-settings";
@@ -52,12 +51,7 @@ import {
   openAddProjectFlow,
 } from "../support/helpers/add-project-flow";
 import { createTempGitRepo } from "../support/helpers/workspace";
-import {
-  buildOpenProjectRoute,
-  buildProjectsSettingsRoute,
-  buildSettingsRoute,
-} from "@/utils/host-routes";
-import { getServerId } from "../support/helpers/server-id";
+import { buildOpenProjectRoute, buildSettingsRoute } from "@/utils/host-routes";
 
 const updatedSetup = ["npm install", "npm run build"];
 
@@ -233,7 +227,7 @@ test.describe("Projects settings", () => {
     await expectUncommittedSetupWarning(page);
 
     commitPaseoConfig(editableProject.path);
-    await returnToProjectsList(page);
+    await leaveProjectScripts(page);
     await openProjectSettings(page, editableProject.name);
     await expectNoUncommittedSetupWarning(page);
   });
@@ -242,9 +236,9 @@ test.describe("Projects settings", () => {
     await openProjects(page);
     await openProjectSettings(page, editableProject.name);
     await expectProjectHostContextHidden(page);
-    await returnToProjectsList(page);
+    await leaveProjectScripts(page);
+    await expectProjectTitle(page, editableProject.name);
     await openProjectSettings(page, editableProject.name);
-    await expectProjectSettingsHistoryRoundTrip(page, editableProject.name);
   });
 
   test("user edits worktree setup on a non-GitHub remote project", async ({
@@ -331,23 +325,15 @@ test.describe("Projects settings", () => {
 test.describe("Projects settings — compact navigation", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("project Back returns through Projects and Settings without reopening the project", async ({
+  test("project Back returns to Settings without reopening the project", async ({
     page,
     editableProject,
   }) => {
     await gotoAppShell(page);
     await openCompactSettings(page, buildOpenProjectRoute());
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
-    await expect(page).toHaveURL(buildProjectsSettingsRoute(getServerId()));
 
     await openProjectSettings(page, editableProject.name);
     await expect(page.getByRole("button", { name: "Back", exact: true })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Back to projects", exact: true })).toHaveCount(
-      0,
-    );
-
-    await page.getByRole("button", { name: "Back", exact: true }).click();
-    await expect(page).toHaveURL(buildProjectsSettingsRoute(getServerId()));
 
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(page).toHaveURL(buildSettingsRoute());

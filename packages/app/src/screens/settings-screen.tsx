@@ -40,7 +40,11 @@ import {
   Blocks,
   PanelsTopLeft,
   ChevronRight,
+  ChevronDown,
   Cpu,
+  GitBranch,
+  ScrollText,
+  SlidersHorizontal,
 } from "lucide-react-native";
 import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
@@ -129,11 +133,16 @@ import {
   useEnableBuiltInDaemonOption,
 } from "@/desktop/hooks/use-enable-built-in-daemon-option";
 import {
+  buildProjectSettingsRoute,
   buildSettingsHostSectionRoute,
   buildSettingsSectionRoute,
   type HostSectionSlug,
+  type ProjectSettingsSectionSlug,
   type SettingsSectionSlug,
 } from "@/utils/host-routes";
+import { ProjectIconView } from "@/components/project-icon-view";
+import { useHostFeature } from "@/runtime/host-features";
+import { useHostProjects, type HostProject } from "@/screens/settings/use-host-projects";
 import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { returnFromSettings, type SettingsView } from "@/navigation/settings-navigation";
 import { isNative, isWeb } from "@/constants/platform";
@@ -187,11 +196,18 @@ interface HostSectionItem {
   id: HostSectionSlug;
   labelKey: string;
   icon: ComponentType<{ size: number; color: string }>;
+  // Reachable by route but not listed; projects are listed in their own sidebar group.
+  hiddenInSidebar?: boolean;
 }
 
 const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "host", labelKey: "settings.hostSections.host", icon: Server },
-  { id: "projects", labelKey: "settings.hostSections.projects", icon: FolderGit2 },
+  {
+    id: "projects",
+    labelKey: "settings.hostSections.projects",
+    icon: FolderGit2,
+    hiddenInSidebar: true,
+  },
   { id: "connections", labelKey: "settings.hostSections.connections", icon: Network },
   { id: "pair-device", labelKey: "openProject.tiles.pairDevice.title", icon: Smartphone },
   { id: "agents", labelKey: "settings.hostSections.agents", icon: Bot },
@@ -202,6 +218,19 @@ const HOST_SECTION_ITEMS: HostSectionItem[] = [
   { id: "usage", labelKey: "settings.hostSections.usage", icon: Gauge },
   { id: "terminals", labelKey: "settings.hostSections.terminals", icon: SquareTerminal },
   { id: "plugins", labelKey: "settings.hostSections.plugins", icon: Blocks },
+];
+
+interface ProjectSectionItem {
+  id: ProjectSettingsSectionSlug;
+  labelKey: string;
+  icon: ComponentType<{ size: number; color: string }>;
+}
+
+const PROJECT_SECTION_ITEMS: ProjectSectionItem[] = [
+  { id: "scripts", labelKey: "settings.project.scripts.title", icon: ScrollText },
+  { id: "git", labelKey: "settings.project.git.title", icon: GitBranch },
+  { id: "metadata", labelKey: "settings.hostSections.metadata", icon: Sparkles },
+  { id: "general", labelKey: "settings.sections.general", icon: SlidersHorizontal },
 ];
 
 function renderHostSettingsContent(
@@ -978,6 +1007,184 @@ function SidebarHostSectionButton({
   );
 }
 
+interface SidebarProjectsGroupProps {
+  serverId: string;
+  selectedProjectId: string | null;
+  selectedSection: ProjectSettingsSectionSlug | null;
+  // Desktop opens the first page when a project expands; mobile only expands.
+  navigateOnExpand: boolean;
+  onSelectProjectSection: (projectId: string, section: ProjectSettingsSectionSlug) => void;
+}
+
+function SidebarProjectsGroup({
+  serverId,
+  selectedProjectId,
+  selectedSection,
+  navigateOnExpand,
+  onSelectProjectSection,
+}: SidebarProjectsGroupProps) {
+  const { t } = useTranslation();
+  const { hostProjects, iconDataByProjectViewKey } = useHostProjects(serverId);
+  const supportsGitSettings = useHostFeature(serverId, "projectGitSettings");
+  // Explicit toggles win; otherwise only the selected project is expanded.
+  const [expandedOverrides, setExpandedOverrides] = useState<Record<string, boolean>>({});
+  const sectionItems = useMemo(
+    () => PROJECT_SECTION_ITEMS.filter((item) => item.id !== "git" || supportsGitSettings),
+    [supportsGitSettings],
+  );
+
+  const handleToggleProject = useCallback(
+    (projectId: string, isExpanded: boolean) => {
+      setExpandedOverrides((prev) => ({ ...prev, [projectId]: !isExpanded }));
+      if (!isExpanded && navigateOnExpand && projectId !== selectedProjectId) {
+        onSelectProjectSection(projectId, sectionItems[0].id);
+      }
+    },
+    [navigateOnExpand, onSelectProjectSection, sectionItems, selectedProjectId],
+  );
+
+  if (hostProjects.length === 0) return null;
+
+  return (
+    <>
+      <SidebarSeparator />
+      <View style={sidebarStyles.list} testID="settings-sidebar-projects">
+        <Text style={sidebarStyles.groupLabel}>{t("settings.projects")}</Text>
+        {hostProjects.map((entry) => {
+          const { projectId } = entry.host;
+          const isSelected = projectId === selectedProjectId;
+          return (
+            <SidebarProjectItem
+              key={projectId}
+              entry={entry}
+              iconDataUri={iconDataByProjectViewKey.get(entry.project.viewKey) ?? null}
+              isExpanded={expandedOverrides[projectId] ?? isSelected}
+              selectedSection={isSelected ? selectedSection : null}
+              sectionItems={sectionItems}
+              onToggle={handleToggleProject}
+              onSelectSection={onSelectProjectSection}
+            />
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
+interface SidebarProjectItemProps {
+  entry: HostProject;
+  iconDataUri: string | null;
+  isExpanded: boolean;
+  selectedSection: ProjectSettingsSectionSlug | null;
+  sectionItems: ProjectSectionItem[];
+  onToggle: (projectId: string, isExpanded: boolean) => void;
+  onSelectSection: (projectId: string, section: ProjectSettingsSectionSlug) => void;
+}
+
+function SidebarProjectItem({
+  entry,
+  iconDataUri,
+  isExpanded,
+  selectedSection,
+  sectionItems,
+  onToggle,
+  onSelectSection,
+}: SidebarProjectItemProps) {
+  const { theme } = useUnistyles();
+  const { projectId, projectName } = entry.host;
+  const handlePress = useCallback(
+    () => onToggle(projectId, isExpanded),
+    [isExpanded, onToggle, projectId],
+  );
+  const handleSelectSection = useCallback(
+    (section: ProjectSettingsSectionSlug) => onSelectSection(projectId, section),
+    [onSelectSection, projectId],
+  );
+  const accessibilityState = useMemo(() => ({ expanded: isExpanded }), [isExpanded]);
+  const initial = projectName.trim().charAt(0).toUpperCase() || "?";
+  const Chevron = isExpanded ? ChevronDown : ChevronRight;
+
+  return (
+    <View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={accessibilityState}
+        onPress={handlePress}
+        testID={`settings-sidebar-project-${projectId}`}
+        style={sidebarItemStyle}
+      >
+        <View style={sidebarStyles.projectIcon}>
+          <ProjectIconView
+            iconDataUri={iconDataUri}
+            initial={initial}
+            projectViewKey={entry.project.viewKey}
+            size={theme.iconSize.md}
+            textStyle={sidebarStyles.projectIconFallbackText}
+          />
+        </View>
+        <Text style={sidebarStyles.projectLabel} numberOfLines={1}>
+          {projectName}
+        </Text>
+        <Chevron size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+      </Pressable>
+      {isExpanded ? (
+        <View style={sidebarStyles.projectSections}>
+          {sectionItems.map((item) => (
+            <SidebarProjectSectionButton
+              key={item.id}
+              projectId={projectId}
+              item={item}
+              isSelected={selectedSection === item.id}
+              onSelect={handleSelectSection}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+interface SidebarProjectSectionButtonProps {
+  projectId: string;
+  item: ProjectSectionItem;
+  isSelected: boolean;
+  onSelect: (section: ProjectSettingsSectionSlug) => void;
+}
+
+function SidebarProjectSectionButton({
+  projectId,
+  item,
+  isSelected,
+  onSelect,
+}: SidebarProjectSectionButtonProps) {
+  const { theme } = useUnistyles();
+  const { t } = useTranslation();
+  const { id, icon: IconComponent } = item;
+  const handlePress = useCallback(() => onSelect(id), [id, onSelect]);
+  const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
+  const labelStyle = useMemo(
+    () => [sidebarStyles.label, isSelected && { color: theme.colors.foreground }],
+    [isSelected, theme.colors.foreground],
+  );
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      onPress={handlePress}
+      testID={`settings-sidebar-project-${projectId}-${id}`}
+      style={isSelected ? selectedSidebarItemStyle : sidebarItemStyle}
+    >
+      <IconComponent
+        size={theme.iconSize.md}
+        color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
+      />
+      <Text style={labelStyle} numberOfLines={1}>
+        {t(item.labelKey)}
+      </Text>
+    </Pressable>
+  );
+}
+
 interface HostPickerProps {
   activeServerId: string | null;
   sortedHosts: HostProfile[];
@@ -1064,6 +1271,7 @@ interface SettingsSidebarProps {
   view: SettingsView;
   onSelectSection: (section: SettingsSectionSlug) => void;
   onSelectHostSection: (section: HostSectionSlug) => void;
+  onSelectProjectSection: (projectId: string, section: ProjectSettingsSectionSlug) => void;
   onSelectHost: (serverId: string) => void;
   onAddHost: () => void;
   onBackToWorkspace: () => void;
@@ -1075,6 +1283,7 @@ function SettingsSidebar({
   view,
   onSelectSection,
   onSelectHostSection,
+  onSelectProjectSection,
   onSelectHost,
   onAddHost,
   onBackToWorkspace,
@@ -1105,7 +1314,6 @@ function SettingsSidebar({
   const selectedSectionId = view.kind === "section" ? view.section : null;
   let selectedHostSection: HostSectionSlug | null = null;
   if (view.kind === "host") selectedHostSection = view.section;
-  if (view.kind === "project") selectedHostSection = "projects";
   if (view.kind === "plugin") selectedHostSection = "plugins";
 
   const sidebarBody = (
@@ -1134,7 +1342,7 @@ function SettingsSidebar({
             onAddHost={onAddHost}
             enableBuiltInDaemonOption={enableBuiltInDaemonOption}
           />
-          {HOST_SECTION_ITEMS.map((item) => (
+          {HOST_SECTION_ITEMS.filter((item) => !item.hiddenInSidebar).map((item) => (
             <SidebarHostSectionButton
               key={item.id}
               itemId={item.id}
@@ -1145,7 +1353,17 @@ function SettingsSidebar({
             />
           ))}
         </View>
-      ) : (
+      ) : null}
+      {hasHosts && activeHostServerId ? (
+        <SidebarProjectsGroup
+          serverId={activeHostServerId}
+          selectedProjectId={view.kind === "project" ? view.projectId : null}
+          selectedSection={view.kind === "project" ? view.section : null}
+          navigateOnExpand={isDesktop}
+          onSelectProjectSection={onSelectProjectSection}
+        />
+      ) : null}
+      {hasHosts ? null : (
         <View style={sidebarStyles.list}>
           <Pressable
             accessibilityRole="button"
@@ -1407,7 +1625,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
     (serverId: string) => {
       setSelectedSettingsHostServerId(serverId);
       if (view.kind === "project") {
-        const target = buildSettingsHostSectionRoute(serverId, "projects");
+        const target = buildSettingsHostSectionRoute(serverId, "host");
         if (isCompactLayout) {
           router.push(target);
         } else {
@@ -1442,6 +1660,19 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
       }
     },
     [activeHostServerId, handleAddHost, isCompactLayout, router],
+  );
+
+  const handleSelectProjectSection = useCallback(
+    (projectId: string, section: ProjectSettingsSectionSlug) => {
+      if (!activeHostServerId) return;
+      const target = buildProjectSettingsRoute(activeHostServerId, projectId, section);
+      if (isCompactLayout) {
+        router.push(target);
+      } else {
+        router.replace(target);
+      }
+    },
+    [activeHostServerId, isCompactLayout, router],
   );
 
   const handleScanQr = useCallback(() => {
@@ -1495,7 +1726,9 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
       return { title: t(item.labelKey), Icon: item.icon };
     }
     if (view.kind === "project") {
-      return { title: t("settings.projects"), Icon: FolderGit2 };
+      const item = PROJECT_SECTION_ITEMS.find((s) => s.id === view.section);
+      if (!item) return null;
+      return { title: t(item.labelKey), Icon: item.icon };
     }
     return null;
   })();
@@ -1522,8 +1755,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
           <ProjectSettingsScreen
             serverId={view.serverId}
             projectId={view.projectId}
-            onBackToProjects={handleBackFromDetail}
-            showBackToProjects={!isCompactLayout}
+            section={view.section}
           />
         );
       }
@@ -1639,6 +1871,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
             view={view}
             onSelectSection={handleSelectSection}
             onSelectHostSection={handleSelectHostSection}
+            onSelectProjectSection={handleSelectProjectSection}
             onSelectHost={handleSelectHost}
             onAddHost={handleAddHost}
             onBackToWorkspace={handleBackToWorkspace}
@@ -1678,6 +1911,7 @@ export default function SettingsScreen({ view, openAddHostIntent = null }: Setti
             view={view}
             onSelectSection={handleSelectSection}
             onSelectHostSection={handleSelectHostSection}
+            onSelectProjectSection={handleSelectProjectSection}
             onSelectHost={handleSelectHost}
             onAddHost={handleAddHost}
             onBackToWorkspace={handleBackToWorkspace}
@@ -1872,6 +2106,31 @@ const sidebarStyles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.foreground,
     fontWeight: theme.fontWeight.normal,
+  },
+  projectIcon: {
+    width: theme.iconSize.md,
+    height: theme.iconSize.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  projectIconFallbackText: {
+    fontSize: theme.fontSize.sm,
+  },
+  projectLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: theme.fontSize.base,
+    color: theme.colors.foreground,
+    fontWeight: theme.fontWeight.normal,
+  },
+  // Indented rail under an expanded project, like a tree.
+  projectSections: {
+    marginLeft: theme.spacing[4],
+    paddingLeft: theme.spacing[2],
+    borderLeftWidth: 1,
+    borderLeftColor: theme.colors.border,
+    gap: theme.spacing[1],
+    marginTop: theme.spacing[1],
   },
   // Match the setting items' icon footprint so the host label aligns with them.
   pickerTriggerDot: {
