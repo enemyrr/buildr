@@ -100,15 +100,14 @@ export function ProjectLeadingVisual({
       projectViewKey={projectViewKey}
       statusBucket={statusBucket}
       backdrop={backdrop}
+      busyLoaderSeed={projectViewKey}
     />
   );
 }
 
-// The project icon (the lettered box) is what marks a row as a *project* rather than a
-// workspace, so it always stays and status annotates it instead of replacing it. Every
-// surfaced bucket lands in the identical corner badge — an amber alert glyph for needs_input,
-// a colored disc for the rest, nothing for done — so the badge reads as one fixed shell and
-// only its contents change.
+// Running swaps the icon for the pixel loader. Every other surfaced bucket lands in the
+// identical corner badge — an amber alert glyph for needs_input, a colored disc for the rest,
+// nothing for done — so the badge reads as one fixed shell and only its contents change.
 export function ProjectStatusIndicator({
   iconDataUri,
   displayName,
@@ -126,10 +125,7 @@ export function ProjectStatusIndicator({
   /** The row's current background, so the status badge can knock out of it. */
   backdrop: SidebarSurfaceBackdrop;
   loading?: boolean;
-  /**
-   * Set on workspace rows: a busy workspace swaps its icon for the pixel loader instead of
-   * badging it. Project headers leave it unset so the icon keeps identifying the project.
-   */
+  /** When set, a busy row swaps its icon for the pixel loader instead of badging it. */
   busyLoaderSeed?: string;
   testID?: string;
 }) {
