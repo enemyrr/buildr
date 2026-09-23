@@ -1,7 +1,8 @@
-import type { Href } from "expo-router";
 import type { ActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
-import type { WorkspaceDescriptor } from "@/stores/session-store";
-import { buildWorkspaceArchiveRedirectRoute } from "@/utils/workspace-archive-navigation";
+import {
+  resolveWorkspaceArchiveRedirectTarget,
+  type ArchiveNeighborCandidate,
+} from "@/utils/workspace-archive-navigation";
 
 export interface RedirectIfArchivingActiveWorkspaceInput {
   serverId: string;
@@ -10,8 +11,10 @@ export interface RedirectIfArchivingActiveWorkspaceInput {
 }
 
 export interface RedirectIfArchivingActiveWorkspaceDeps {
-  navigateToRoute: (route: Href) => void;
-  readWorkspaces: (serverId: string) => Iterable<WorkspaceDescriptor>;
+  /** Each project's workspaces, in sidebar order. */
+  readSidebarWorkspaces: () => ReadonlyArray<readonly ArchiveNeighborCandidate[]>;
+  navigateToWorkspace: (selection: ActiveWorkspaceSelection) => void;
+  navigateToHome: () => void;
 }
 
 export function redirectIfArchivingActiveWorkspace(
@@ -25,12 +28,14 @@ export function redirectIfArchivingActiveWorkspace(
     return false;
   }
 
-  deps.navigateToRoute(
-    buildWorkspaceArchiveRedirectRoute({
-      serverId: input.serverId,
-      archivedWorkspaceId: input.workspaceId,
-      workspaces: deps.readWorkspaces(input.serverId),
-    }),
-  );
+  const target = resolveWorkspaceArchiveRedirectTarget({
+    archived: { serverId: input.serverId, workspaceId: input.workspaceId },
+    projects: deps.readSidebarWorkspaces(),
+  });
+  if (target.kind === "workspace") {
+    deps.navigateToWorkspace({ serverId: target.serverId, workspaceId: target.workspaceId });
+  } else {
+    deps.navigateToHome();
+  }
   return true;
 }

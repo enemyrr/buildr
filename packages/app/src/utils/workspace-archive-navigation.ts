@@ -1,32 +1,100 @@
-import type { Href } from "expo-router";
-import type { WorkspaceDescriptor } from "@/stores/session-store";
-import { buildHostRootRoute, buildNewWorkspaceRoute } from "@/utils/host-routes";
-import { resolveWorkspaceRouteId } from "@/utils/workspace-identity";
+import type { WorkspaceStructureProject } from "@/projects/workspace-structure";
+import type { ActiveWorkspaceSelection } from "@/stores/last-workspace-selection";
+import type { Agent, WorkspaceDescriptor } from "@/stores/session-store";
+import { normalizeWorkspaceOpaqueId } from "@/utils/workspace-identity";
 
-export function buildWorkspaceArchiveRedirectRoute(input: {
+export interface ArchiveNeighborCandidate {
   serverId: string;
-  archivedWorkspaceId: string;
-  workspaces: Iterable<WorkspaceDescriptor>;
-}): Href {
-  const archivedWorkspaceId = resolveWorkspaceRouteId({
-    routeWorkspaceId: input.archivedWorkspaceId,
-  });
-  if (!archivedWorkspaceId) {
-    return buildHostRootRoute(input.serverId);
+  workspaceId: string;
+  /** Epoch ms of the workspace's latest activity, or null when unknown. */
+  lastActivityAt: number | null;
+  /** Already being archived; never a redirect target. */
+  archiving: boolean;
+}
+
+export type WorkspaceArchiveRedirectTarget =
+  | { kind: "workspace"; serverId: string; workspaceId: string }
+  | { kind: "home" };
+
+interface ArchiveNeighborSession {
+  workspaces: Map<string, WorkspaceDescriptor>;
+  agents: Map<string, Pick<Agent, "workspaceId" | "archivedAt" | "lastActivityAt">>;
+}
+
+/**
+ * Picks where to go after archiving the viewed workspace: the next workspace below it in its
+ * project, else the one above it, else the most recently active workspace anywhere, else home.
+ * `projects` lists each project's workspaces in sidebar order.
+ */
+export function resolveWorkspaceArchiveRedirectTarget(input: {
+  archived: ActiveWorkspaceSelection;
+  projects: ReadonlyArray<readonly ArchiveNeighborCandidate[]>;
+}): WorkspaceArchiveRedirectTarget {
+  const archivedWorkspaceId = normalizeWorkspaceOpaqueId(input.archived.workspaceId);
+  const isArchived = (candidate: ArchiveNeighborCandidate) =>
+    candidate.serverId === input.archived.serverId && candidate.workspaceId === archivedWorkspaceId;
+  const isTarget = (candidate: ArchiveNeighborCandidate) =>
+    !candidate.archiving && !isArchived(candidate);
+
+  for (const workspaces of input.projects) {
+    const index = workspaces.findIndex(isArchived);
+    if (index === -1) continue;
+    const neighbor =
+      workspaces.slice(index + 1).find(isTarget) ?? workspaces.slice(0, index).findLast(isTarget);
+    if (neighbor) return toWorkspaceTarget(neighbor);
+    break;
   }
 
-  const archivedWorkspace =
-    Array.from(input.workspaces).find((workspace) => workspace.id === archivedWorkspaceId) ?? null;
-  const sourceDirectory =
-    archivedWorkspace?.projectRootPath || archivedWorkspace?.workspaceDirectory;
-  if (!sourceDirectory) {
-    return buildHostRootRoute(input.serverId);
+  let mostRecent: ArchiveNeighborCandidate | null = null;
+  for (const workspaces of input.projects) {
+    for (const candidate of workspaces) {
+      if (!isTarget(candidate)) continue;
+      if (!mostRecent || (candidate.lastActivityAt ?? -1) > (mostRecent.lastActivityAt ?? -1)) {
+        mostRecent = candidate;
+      }
+    }
+  }
+  return mostRecent ? toWorkspaceTarget(mostRecent) : { kind: "home" };
+}
+
+/** Turns sidebar-ordered projects into neighbor candidates. */
+export function collectArchiveNeighborCandidates(input: {
+  projects: readonly WorkspaceStructureProject[];
+  sessions: Record<string, ArchiveNeighborSession | undefined>;
+}): ArchiveNeighborCandidate[][] {
+  const candidateByKey = new Map<string, ArchiveNeighborCandidate>();
+  for (const [serverId, session] of Object.entries(input.sessions)) {
+    if (!session) continue;
+    const lastActivityByWorkspaceId = new Map<string, number>();
+    for (const agent of session.agents.values()) {
+      const workspaceId = normalizeWorkspaceOpaqueId(agent.workspaceId);
+      if (!workspaceId || agent.archivedAt) continue;
+      const activityAt = agent.lastActivityAt.getTime();
+      if (activityAt > (lastActivityByWorkspaceId.get(workspaceId) ?? -1)) {
+        lastActivityByWorkspaceId.set(workspaceId, activityAt);
+      }
+    }
+    for (const workspace of session.workspaces.values()) {
+      candidateByKey.set(`${serverId}:${workspace.id}`, {
+        serverId,
+        workspaceId: workspace.id,
+        lastActivityAt:
+          lastActivityByWorkspaceId.get(workspace.id) ??
+          workspace.statusEnteredAt?.getTime() ??
+          null,
+        archiving: workspace.archivingAt !== null,
+      });
+    }
   }
 
-  return buildNewWorkspaceRoute({
-    serverId: input.serverId,
-    sourceDirectory,
-    displayName: archivedWorkspace.projectDisplayName,
-    projectId: archivedWorkspace.projectId,
-  });
+  return input.projects.map((project) =>
+    project.workspaceKeys.flatMap((key) => {
+      const candidate = candidateByKey.get(key);
+      return candidate ? [candidate] : [];
+    }),
+  );
+}
+
+function toWorkspaceTarget(candidate: ArchiveNeighborCandidate): WorkspaceArchiveRedirectTarget {
+  return { kind: "workspace", serverId: candidate.serverId, workspaceId: candidate.workspaceId };
 }
