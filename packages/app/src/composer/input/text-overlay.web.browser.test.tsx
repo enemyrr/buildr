@@ -3,13 +3,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditingTextInput } from "@/components/ui/text-input/text-input.web";
 import type { EditingTextInputHandle } from "@/components/ui/text-input";
-import { ComposerLinkOverlay } from "./link-overlay.web";
+import { createInlineToken, formatInlineLabel } from "@/composer/inline-attachments/tokens";
+import { ComposerTextOverlay } from "./text-overlay.web";
+import type { InlineChip } from "./text-overlay.types";
 
 const URL = "https://example.com/docs";
 const WRAPPER_STYLE = { position: "relative", width: 240, font: "14px sans-serif" } as const;
 const roots: Root[] = [];
 
-function Harness() {
+function Harness({ chips }: { chips?: readonly InlineChip[] }) {
   const inputRef = useRef<EditingTextInputHandle | null>(null);
   const getTextArea = useCallback(() => {
     const element = inputRef.current?.getNativeRef();
@@ -18,17 +20,17 @@ function Harness() {
   return (
     <div style={WRAPPER_STYLE}>
       <EditingTextInput ref={inputRef} initialValue="" multiline={true} />
-      <ComposerLinkOverlay getTextArea={getTextArea} value="" />
+      <ComposerTextOverlay getTextArea={getTextArea} value="" chips={chips} />
     </div>
   );
 }
 
-function mount() {
+function mount(chips?: readonly InlineChip[]) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
   roots.push(root);
-  act(() => root.render(<Harness />));
+  act(() => root.render(<Harness chips={chips} />));
   const textarea = container.querySelector("textarea");
   if (!textarea) throw new Error("No textarea rendered");
   return { container, textarea };
@@ -50,7 +52,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("ComposerLinkOverlay", () => {
+describe("ComposerTextOverlay", () => {
   it("paints links and hides the textarea text only while the draft has a link", () => {
     const { container, textarea } = mount();
     type(textarea, "plain text");
@@ -97,5 +99,36 @@ describe("ComposerLinkOverlay", () => {
 
     textarea.dispatchEvent(new MouseEvent("mousedown", { ...point, metaKey: true }));
     expect(open).toHaveBeenCalledWith(URL, "_blank", "noopener,noreferrer");
+  });
+
+  it("paints a token as a chip and opens its attachment on click", () => {
+    const onOpen = vi.fn();
+    const label = formatInlineLabel("image.png");
+    const { container, textarea } = mount([{ label, kind: "image", onOpen }]);
+    type(textarea, `look ${createInlineToken(label)} here`);
+    const chip = container.querySelector("[data-composer-chip]");
+    if (!chip) throw new Error("No chip painted");
+    expect(textarea.style.color).toBe("transparent");
+    expect(chip.textContent).toContain("image.png");
+
+    const rect = chip.getBoundingClientRect();
+    const point = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    textarea.dispatchEvent(new MouseEvent("mousedown", { ...point, bubbles: true }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a chip from its hover button", () => {
+    const onOpen = vi.fn();
+    const onRemove = vi.fn();
+    const label = formatInlineLabel("notes.md");
+    const { container, textarea } = mount([{ label, kind: "file", onOpen, onRemove }]);
+    type(textarea, `see ${createInlineToken(label)} now`);
+    const remove = container.querySelector("[data-composer-chip-remove]");
+    if (!remove) throw new Error("No remove button painted");
+    const rect = remove.getBoundingClientRect();
+    const point = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    textarea.dispatchEvent(new MouseEvent("mousedown", { ...point, bubbles: true }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });
