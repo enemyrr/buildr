@@ -39,6 +39,11 @@ interface ScheduleContext {
   currentSelection?: CurrentSelection;
 }
 
+// A new workspace and its first agent ask for a name from the same prompt
+// seconds apart. Sharing the result keeps one generator run and makes the
+// workspace and tab titles match.
+const GENERATION_REUSE_MS = 60_000;
+
 export class WorkspaceAutoName {
   private readonly agentManager: AgentManager;
   private readonly workspaceRegistry: Pick<WorkspaceRegistry, "update">;
@@ -50,6 +55,7 @@ export class WorkspaceAutoName {
   private readonly emitWorkspaceUpdateForWorkspaceId: (workspaceId: string) => Promise<void>;
   private readonly logger: pino.Logger;
   private readonly generateWorkspaceName: WorkspaceNameGenerator;
+  private readonly recentGenerations = new Map<string, Promise<GeneratedWorkspaceName | null>>();
 
   constructor(options: WorkspaceAutoNameOptions) {
     this.agentManager = options.agentManager;
@@ -100,6 +106,29 @@ export class WorkspaceAutoName {
           currentSelection: context.currentSelection ?? null,
         }),
       { cwd: input.cwd, message: "Failed to auto-name directory workspace title" },
+    );
+  }
+
+  scheduleForAgent(
+    input: {
+      cwd: string;
+      firstAgentContext: FirstAgentContext;
+      applyTitle: (title: string) => Promise<void>;
+    },
+    context: ScheduleContext = {},
+  ): void {
+    this.schedule(
+      async () => {
+        const generated = await this.generateFromContext({
+          cwd: input.cwd,
+          firstAgentContext: input.firstAgentContext,
+          currentSelection: context.currentSelection ?? null,
+        });
+        if (generated?.title) {
+          await input.applyTitle(generated.title);
+        }
+      },
+      { cwd: input.cwd, message: "Failed to auto-name agent title" },
     );
   }
 
@@ -199,7 +228,16 @@ export class WorkspaceAutoName {
     firstAgentContext: FirstAgentContext;
     currentSelection: CurrentSelection;
   }): Promise<GeneratedWorkspaceName | null> {
-    return this.generateWorkspaceName({
+    const key = JSON.stringify([
+      input.cwd,
+      input.firstAgentContext.prompt?.trim() ?? "",
+      input.firstAgentContext.attachments ?? [],
+    ]);
+    const recent = this.recentGenerations.get(key);
+    if (recent) {
+      return recent;
+    }
+    const generation = this.generateWorkspaceName({
       agentManager: this.agentManager,
       cwd: input.cwd,
       workspaceGitService: this.workspaceGitService,
@@ -209,6 +247,9 @@ export class WorkspaceAutoName {
       firstAgentContext: input.firstAgentContext,
       logger: this.logger,
     });
+    this.recentGenerations.set(key, generation);
+    setTimeout(() => this.recentGenerations.delete(key), GENERATION_REUSE_MS).unref();
+    return generation;
   }
 
   private schedule(run: () => Promise<void>, context: { cwd: string; message: string }): void {

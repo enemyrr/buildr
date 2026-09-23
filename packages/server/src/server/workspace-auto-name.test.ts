@@ -64,3 +64,59 @@ test("auto-name preserves workspace archival that lands during its metadata writ
     archivedAt,
   });
 });
+
+test("a new workspace and its first agent share one generated title", async () => {
+  let workspace = createPersistedWorkspaceRecord({
+    workspaceId: "workspace-shared-title",
+    projectId: "project-shared-title",
+    cwd: "/workspace",
+    kind: "directory",
+    displayName: "workspace",
+    createdAt: "2026-08-08T00:00:00.000Z",
+    updatedAt: "2026-08-08T00:00:00.000Z",
+  });
+  let generations = 0;
+  const agentTitled = deferred();
+  const workspaceTitled = deferred();
+  let agentTitle: string | null = null;
+  const autoName = new WorkspaceAutoName({
+    agentManager: {} as AgentManager,
+    workspaceRegistry: {
+      update: async (_workspaceId, updater) => {
+        workspace = updater(workspace);
+        return workspace;
+      },
+    },
+    workspaceGitService: {} as WorkspaceGitService,
+    providerSnapshotManager: {} as ProviderSnapshotManager,
+    readDaemonConfig: () => ({}),
+    gitMutation: { notifyGitMutation: async () => {} },
+    emitWorkspaceUpdateForCwd: async () => {},
+    emitWorkspaceUpdateForWorkspaceId: async () => workspaceTitled.resolve(),
+    logger: pino({ level: "silent" }),
+    generateWorkspaceName: async () => {
+      generations += 1;
+      return { title: "Fix tab titles", branch: null };
+    },
+  });
+  const firstAgentContext = { prompt: "the tab title never updates, fix it" };
+
+  autoName.scheduleForDirectory({
+    workspaceId: workspace.workspaceId,
+    cwd: workspace.cwd,
+    firstAgentContext,
+  });
+  autoName.scheduleForAgent({
+    cwd: workspace.cwd,
+    firstAgentContext,
+    applyTitle: async (title) => {
+      agentTitle = title;
+      agentTitled.resolve();
+    },
+  });
+  await Promise.all([workspaceTitled.promise, agentTitled.promise]);
+
+  expect(generations).toBe(1);
+  expect(workspace.title).toBe("Fix tab titles");
+  expect(agentTitle).toBe("Fix tab titles");
+});

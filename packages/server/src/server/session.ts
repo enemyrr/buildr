@@ -4299,6 +4299,14 @@ export class Session {
           { currentSelection: this.getFocusedAgentSelectionForCwd(resolvedIntent.config.cwd) },
         );
       }
+      if (trimmedPrompt && provisionalTitle && !config.title?.trim()) {
+        this.scheduleAgentAutoTitle({
+          agentId: snapshot.id,
+          cwd: resolvedIntent.config.cwd,
+          firstAgentContext,
+          provisionalTitle,
+        });
+      }
       this.createAgentLifecycleDispatch.registerAutoArchiveIfRequested({
         autoArchive,
         agentId: snapshot.id,
@@ -8037,8 +8045,43 @@ export class Session {
     const stored = await this.agentStorage.get(agentId);
     if (stored && !stored.title && !stored.lastUserMessageAt) {
       const { provisionalTitle } = resolveCreateAgentTitles({ initialPrompt: text });
-      if (provisionalTitle) await this.agentManager.setTitle(agentId, provisionalTitle);
+      if (provisionalTitle) {
+        await this.agentManager.setTitle(agentId, provisionalTitle);
+        this.scheduleAgentAutoTitle({
+          agentId,
+          cwd: stored.cwd,
+          firstAgentContext: { prompt: text.trim() },
+          provisionalTitle,
+        });
+      }
     }
+  }
+
+  // Replaces the prompt-derived tab title with a generated one, unless the
+  // user renamed the agent before generation finished.
+  private scheduleAgentAutoTitle(input: {
+    agentId: string;
+    cwd: string;
+    firstAgentContext: FirstAgentContext;
+    provisionalTitle: string;
+  }): void {
+    this.workspaceAutoName.scheduleForAgent(
+      {
+        cwd: input.cwd,
+        firstAgentContext: input.firstAgentContext,
+        applyTitle: async (title) => {
+          const stored = await this.agentStorage.get(input.agentId);
+          if (
+            stored?.title !== input.provisionalTitle ||
+            !this.agentManager.getAgent(input.agentId)
+          ) {
+            return;
+          }
+          await this.agentManager.setTitle(input.agentId, title);
+        },
+      },
+      { currentSelection: this.getFocusedAgentSelectionForCwd(input.cwd) },
+    );
   }
 
   private async handleSendAgentMessageRequest(
