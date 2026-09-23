@@ -766,7 +766,12 @@ export const ru: TranslationResources = {
       terminal: "Терминал",
       runEmpty:
         "Запускайте тесты или сервер разработки, чтобы проверить изменения в этом рабочем пространстве",
-      addRunScript: "Добавить скрипт запуска",
+      runEmptyTitle: "Добавить скрипт запуска",
+      setupEmptyTitle: "Добавить скрипт настройки",
+      setupEmptyDescription:
+        "Выполняйте команды при создании рабочего пространства, чтобы установить зависимости или подготовить окружение",
+      askAgent: "Спросить агента",
+      addManually: "Добавить вручную",
       collapse: "Свернуть панель",
       expand: "Развернуть панель",
     },
@@ -1052,6 +1057,7 @@ export const ru: TranslationResources = {
         tabs: {
           allFiles: "Все файлы",
           changes: "Изменения",
+          commits: "Коммиты",
           checks: "Проверки",
         },
         changes: {

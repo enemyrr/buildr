@@ -757,7 +757,12 @@ export const ko: TranslationResources = {
       run: "실행",
       terminal: "터미널",
       runEmpty: "테스트나 개발 서버를 실행해 이 워크스페이스의 변경 사항을 확인하세요",
-      addRunScript: "실행 스크립트 추가",
+      runEmptyTitle: "실행 스크립트 추가",
+      setupEmptyTitle: "설정 스크립트 추가",
+      setupEmptyDescription:
+        "워크스페이스를 만들 때 명령을 실행해 의존성을 설치하거나 환경을 준비합니다",
+      askAgent: "에이전트에게 요청",
+      addManually: "직접 추가",
       collapse: "패널 접기",
       expand: "패널 펼치기",
     },
@@ -1040,6 +1045,7 @@ export const ko: TranslationResources = {
         tabs: {
           allFiles: "모든 파일",
           changes: "변경 사항",
+          commits: "커밋",
           checks: "검사",
         },
         changes: {

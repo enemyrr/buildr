@@ -21,19 +21,6 @@ interface WorkspaceExplorerToggleProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export type WorkspaceExplorerToggleOwner = "mobile" | "header" | "window";
-
-export function resolveWorkspaceExplorerToggleOwner({
-  isMobile,
-  hasMacTrafficLights,
-}: {
-  isMobile: boolean;
-  hasMacTrafficLights: boolean;
-}): WorkspaceExplorerToggleOwner {
-  if (isMobile) return "mobile";
-  return hasMacTrafficLights ? "window" : "header";
-}
-
 export function WorkspaceExplorerToggle({
   onPress,
   label,
@@ -63,33 +50,4 @@ export function WorkspaceExplorerToggle({
       />
     </HeaderToggleButton>
   );
-}
-
-interface DesktopWorkspaceExplorerToggleProps extends Omit<WorkspaceExplorerToggleProps, "mobile"> {
-  owner: WorkspaceExplorerToggleOwner;
-}
-
-export function WorkspaceHeaderExplorerToggle({
-  owner,
-  accessibilityState,
-  style,
-  ...toggleProps
-}: DesktopWorkspaceExplorerToggleProps) {
-  if (owner === "mobile" || (owner === "window" && accessibilityState.expanded)) return null;
-  return (
-    <WorkspaceExplorerToggle
-      {...toggleProps}
-      accessibilityState={accessibilityState}
-      mobile={false}
-      style={style}
-    />
-  );
-}
-
-export function WorkspaceExplorerSidebarToggle({
-  owner,
-  ...toggleProps
-}: DesktopWorkspaceExplorerToggleProps) {
-  if (owner !== "window") return null;
-  return <WorkspaceExplorerToggle {...toggleProps} mobile={false} />;
 }

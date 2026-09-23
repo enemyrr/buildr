@@ -4,9 +4,14 @@ import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { useFetchQuery } from "@/data/query";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
+import { buildRunScriptRequest, buildSetupScriptRequest } from "@/git/project-config-instructions";
+import type { InstructionsRequest } from "@/git/pr-instructions";
+import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { openProjectSettings } from "@/navigation/settings-navigation";
+import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { WorkspacePanelHost } from "@/screens/workspace/workspace-panel-host";
 import type { WorkspacePaneContentModel } from "@/screens/workspace/workspace-pane-content";
 import {
@@ -32,7 +37,11 @@ interface ExplorerUtilityPanelProps {
   serverId: string;
   workspaceId: string;
   workspaceKey: string;
+  /** The workspace's checkout; agent requests run here. */
+  cwd: string;
   projectId: string | null;
+  /** The project's root, where `paseo.json` lives. */
+  projectRootPath: string;
   scripts: WorkspaceDescriptor["scripts"];
   liveTerminalIds: readonly string[];
   isWorkspaceFocused: boolean;
@@ -57,7 +66,9 @@ export function ExplorerUtilityPanel({
   serverId,
   workspaceId,
   workspaceKey,
+  cwd,
   projectId,
+  projectRootPath,
   scripts,
   liveTerminalIds,
   isWorkspaceFocused,
@@ -76,6 +87,8 @@ export function ExplorerUtilityPanel({
   const runScriptName = useExplorerUtilityStore(
     (state) => state.runScriptByWorkspace[workspaceKey] ?? null,
   );
+  const hasSetupScript = useProjectHasSetupScript(serverId, projectRootPath);
+  const showsSetupPrompt = tab === "setup" && hasSetupScript === false;
   const liveTerminalIdSet = useMemo(() => new Set(liveTerminalIds), [liveTerminalIds]);
   const liveTerminalId = terminalId && liveTerminalIdSet.has(terminalId) ? terminalId : null;
 
@@ -104,7 +117,9 @@ export function ExplorerUtilityPanel({
     return tabs;
   }, [liveTerminalId, runTerminalId, workspaceId]);
   const activePanelTabId =
-    tab === "setup" || (tab === "run" && runTerminalId) || (tab === "terminal" && liveTerminalId)
+    (tab === "setup" && !showsSetupPrompt) ||
+    (tab === "run" && runTerminalId) ||
+    (tab === "terminal" && liveTerminalId)
       ? `${UTILITY_PANE_ID}:${tab}`
       : null;
 
@@ -137,11 +152,24 @@ export function ExplorerUtilityPanel({
       </View>
       {collapsed ? null : (
         <View style={styles.body}>
+          {showsSetupPrompt ? (
+            <ScriptPrompt
+              serverId={serverId}
+              workspaceId={workspaceId}
+              cwd={cwd}
+              projectId={projectId}
+              title={t("workspace.utilityPanel.setupEmptyTitle")}
+              description={t("workspace.utilityPanel.setupEmptyDescription")}
+              request={SETUP_SCRIPT_REQUEST}
+              testID="workspace-explorer-utility-setup-prompt"
+            />
+          ) : null}
           {tab === "run" ? (
             <RunScripts
               serverId={serverId}
               workspaceId={workspaceId}
               workspaceKey={workspaceKey}
+              cwd={cwd}
               projectId={projectId}
               scripts={scripts}
               liveTerminalIds={liveTerminalIds}
@@ -190,6 +218,7 @@ type RunScriptsProps = Pick<
   | "serverId"
   | "workspaceId"
   | "workspaceKey"
+  | "cwd"
   | "projectId"
   | "scripts"
   | "liveTerminalIds"
@@ -202,6 +231,7 @@ function RunScripts({
   serverId,
   workspaceId,
   workspaceKey,
+  cwd,
   projectId,
   scripts,
   liveTerminalIds,
@@ -240,27 +270,18 @@ function RunScripts({
     },
     [scripts, setRunScript, workspaceKey],
   );
-  const handleAddRunScript = useCallback(() => {
-    if (projectId) openProjectSettings(serverId, projectId);
-  }, [projectId, serverId]);
-
   if (scripts.length === 0) {
     return (
-      <View style={styles.emptyWrap}>
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>{t("workspace.utilityPanel.runEmpty")}</Text>
-          {projectId ? (
-            <Button
-              variant="secondary"
-              size="xs"
-              onPress={handleAddRunScript}
-              testID="workspace-explorer-utility-add-script"
-            >
-              {t("workspace.utilityPanel.addRunScript")}
-            </Button>
-          ) : null}
-        </View>
-      </View>
+      <ScriptPrompt
+        serverId={serverId}
+        workspaceId={workspaceId}
+        cwd={cwd}
+        projectId={projectId}
+        title={t("workspace.utilityPanel.runEmptyTitle")}
+        description={t("workspace.utilityPanel.runEmpty")}
+        request={RUN_SCRIPT_REQUEST}
+        testID="workspace-explorer-utility-run-prompt"
+      />
     );
   }
   return (
@@ -276,6 +297,92 @@ function RunScripts({
         />
       ))}
     </ScrollView>
+  );
+}
+
+const SETUP_SCRIPT_REQUEST = buildSetupScriptRequest();
+const RUN_SCRIPT_REQUEST = buildRunScriptRequest();
+
+/** Whether `paseo.json` defines `worktree.setup`; null until the host answers. */
+function useProjectHasSetupScript(serverId: string, repoRoot: string): boolean | null {
+  const { t } = useTranslation();
+  const client = useHostRuntimeClient(serverId);
+  const query = useFetchQuery({
+    // Shares the project settings screen's cache entry.
+    queryKey: ["project-config", serverId, repoRoot],
+    dataShape: "value",
+    staleTimeMs: 0,
+    queryFn: () => {
+      if (!client) throw new Error(t("common.errors.daemonClientUnavailable"));
+      return client.readProjectConfig(repoRoot);
+    },
+    enabled: Boolean(client),
+    retry: false,
+  });
+  const data = query.data;
+  if (!data?.ok) return null;
+  const setup = data.config?.worktree?.setup;
+  return Array.isArray(setup) ? setup.length > 0 : Boolean(setup?.trim());
+}
+
+/** Conductor-style prompt: ask the agent to write the script, or open project settings. */
+function ScriptPrompt({
+  serverId,
+  workspaceId,
+  cwd,
+  projectId,
+  title,
+  description,
+  request,
+  testID,
+}: {
+  serverId: string;
+  workspaceId: string;
+  cwd: string;
+  projectId: string | null;
+  title: string;
+  description: string;
+  request: InstructionsRequest;
+  testID: string;
+}) {
+  const { t } = useTranslation();
+  const requests = useInstructionRequests({ serverId, cwd, workspaceId });
+  const { send } = requests;
+  const handleAskAgent = useCallback(() => {
+    void send(request);
+  }, [send, request]);
+  const handleAddManually = useCallback(() => {
+    if (projectId) openProjectSettings(serverId, projectId);
+  }, [projectId, serverId]);
+  return (
+    <View style={styles.emptyWrap} testID={testID}>
+      <View style={styles.empty}>
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <View style={styles.emptyActions}>
+          <Button
+            variant="default"
+            size="xs"
+            onPress={handleAskAgent}
+            disabled={requests.busy || !requests.canSend}
+            loading={requests.pending}
+            testID={`${testID}-ask-agent`}
+          >
+            {t("workspace.utilityPanel.askAgent")}
+          </Button>
+          {projectId ? (
+            <Button
+              variant="secondary"
+              size="xs"
+              onPress={handleAddManually}
+              testID={`${testID}-add-manually`}
+            >
+              {t("workspace.utilityPanel.addManually")}
+            </Button>
+          ) : null}
+        </View>
+        <Text style={styles.emptyText}>{description}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -388,6 +495,15 @@ const styles = StyleSheet.create((theme) => ({
     borderStyle: "dashed",
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.lg,
+  },
+  emptyTitle: {
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    color: theme.colors.foreground,
+  },
+  emptyActions: {
+    flexDirection: "row",
+    gap: theme.spacing[2],
   },
   emptyText: {
     maxWidth: 240,

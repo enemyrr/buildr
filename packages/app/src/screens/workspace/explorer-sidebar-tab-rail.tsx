@@ -69,6 +69,7 @@ interface ExplorerSidebarTabRailProps {
 const SEGMENT_LABEL_KEYS: Partial<Record<WorkspaceTabTarget["kind"], string>> = {
   files: "workspace.git.prFlow.tabs.allFiles",
   changes_tree: "workspace.git.prFlow.tabs.changes",
+  commits: "workspace.git.prFlow.tabs.commits",
   pull_request: "workspace.git.prFlow.tabs.checks",
 };
 

@@ -766,7 +766,12 @@ export const es: TranslationResources = {
       terminal: "Terminal",
       runEmpty:
         "Ejecuta pruebas o un servidor de desarrollo para probar los cambios en este espacio de trabajo",
-      addRunScript: "Añadir script de ejecución",
+      runEmptyTitle: "Añadir script de ejecución",
+      setupEmptyTitle: "Añadir script de configuración",
+      setupEmptyDescription:
+        "Ejecuta comandos al crear un espacio de trabajo para instalar dependencias o preparar el entorno",
+      askAgent: "Preguntar al agente",
+      addManually: "Añadir manualmente",
       collapse: "Contraer panel",
       expand: "Expandir panel",
     },
@@ -1068,6 +1073,7 @@ export const es: TranslationResources = {
         tabs: {
           allFiles: "Todos los archivos",
           changes: "Cambios",
+          commits: "Commits",
           checks: "Comprobaciones",
         },
         changes: {

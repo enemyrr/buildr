@@ -1397,8 +1397,10 @@ function ChangesListSummary({ files }: { files: ParsedDiffFile[] }) {
   );
 }
 
+// Desktop Explorers list commits in their own tab; compact Changes keeps them inline.
 function ChangesCommits({
   presentation,
+  compact,
   serverId,
   cwd,
   collapsed,
@@ -1406,13 +1408,14 @@ function ChangesCommits({
   onCollapsedChange,
 }: {
   presentation: ChangesPresentation;
+  compact: boolean;
   serverId: string;
   cwd: string;
   collapsed: boolean;
   onCommitPress: (sha: string) => void;
   onCollapsedChange: (collapsed: boolean) => void;
 }) {
-  if (presentation === "diff") return null;
+  if (presentation === "diff" || !compact) return null;
   return (
     <CommitsSection
       serverId={serverId}
@@ -1993,6 +1996,7 @@ export function ChangesSurface({
 
       <ChangesCommits
         presentation={presentation}
+        compact={isMobile}
         serverId={serverId}
         cwd={cwd}
         onCommitPress={handleCommitPress}

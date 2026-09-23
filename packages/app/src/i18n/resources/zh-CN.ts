@@ -753,7 +753,11 @@ export const zhCN: TranslationResources = {
       run: "运行",
       terminal: "终端",
       runEmpty: "运行测试或开发服务器以测试此工作区中的更改",
-      addRunScript: "添加运行脚本",
+      runEmptyTitle: "添加运行脚本",
+      setupEmptyTitle: "添加设置脚本",
+      setupEmptyDescription: "在创建工作区时运行命令，以安装依赖或准备环境",
+      askAgent: "让智能体添加",
+      addManually: "手动添加",
       collapse: "折叠面板",
       expand: "展开面板",
     },
@@ -1025,6 +1029,7 @@ export const zhCN: TranslationResources = {
         tabs: {
           allFiles: "所有文件",
           changes: "更改",
+          commits: "提交",
           checks: "检查",
         },
         changes: {

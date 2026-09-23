@@ -85,6 +85,33 @@ function CommitsSectionContent({
   );
 }
 
+/** The workspace's commits as a full-height list, for the Explorer's Commits tab. */
+export function CommitsList({
+  serverId,
+  cwd,
+  onCommitPress,
+}: Pick<CommitsSectionProps, "serverId" | "cwd" | "onCommitPress">) {
+  const isPanelActive = useRetainedPanelActive();
+  const [now, setNow] = useState(() => new Date());
+  const query = useCheckoutCommitsQuery({ serverId, cwd, enabled: true });
+
+  useEffect(() => {
+    if (!isPanelActive) return;
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 10_000);
+    return () => clearInterval(interval);
+  }, [isPanelActive]);
+
+  if (query.status === "unsupported") {
+    return null;
+  }
+  return (
+    <View style={styles.fullList} testID="commits-list">
+      <CommitsSectionContent query={query} now={now} onCommitPress={onCommitPress} />
+    </View>
+  );
+}
+
 export function CommitsSection({
   serverId,
   cwd,
@@ -207,6 +234,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   list: {
     paddingBottom: theme.spacing[1],
+  },
+  fullList: {
+    paddingTop: theme.spacing[1],
   },
   noWorkspaceCommitsRow: {
     flexDirection: "row",

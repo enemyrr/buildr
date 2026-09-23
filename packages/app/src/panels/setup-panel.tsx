@@ -221,6 +221,8 @@ function useWorkspaceSetupSnapshot(serverId: string, workspaceId: string) {
   const snapshot = useWorkspaceSetupStore((state) => (key ? (state.snapshots[key] ?? null) : null));
   const upsertProgress = useWorkspaceSetupStore((state) => state.upsertProgress);
   const requestedRef = useRef(false);
+  // True once the host answered without a snapshot: setup never ran for this workspace here.
+  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     if (snapshot || requestedRef.current || !client) return;
@@ -228,12 +230,14 @@ function useWorkspaceSetupSnapshot(serverId: string, workspaceId: string) {
     client
       .fetchWorkspaceSetupStatus(workspaceId)
       .then((response) => {
-        if (response.snapshot) {
-          upsertProgress({
-            serverId,
-            payload: { workspaceId: response.workspaceId, ...response.snapshot },
-          });
+        if (!response.snapshot) {
+          setMissing(true);
+          return;
         }
+        upsertProgress({
+          serverId,
+          payload: { workspaceId: response.workspaceId, ...response.snapshot },
+        });
         return;
       })
       .catch(() => {
@@ -241,7 +245,7 @@ function useWorkspaceSetupSnapshot(serverId: string, workspaceId: string) {
       });
   }, [client, snapshot, serverId, upsertProgress, workspaceId]);
 
-  return snapshot;
+  return { snapshot, missing: missing && !snapshot };
 }
 
 function useExpandedSetupCommands() {
@@ -272,13 +276,15 @@ function SetupPanel() {
   const { serverId, target } = usePaneContext();
   invariant(target.kind === "setup", "SetupPanel requires setup target");
 
-  const snapshot = useWorkspaceSetupSnapshot(serverId, target.workspaceId);
+  const { snapshot, missing } = useWorkspaceSetupSnapshot(serverId, target.workspaceId);
 
   const commands = snapshot?.detail.commands ?? EMPTY_COMMANDS;
   const log = snapshot?.detail.log ?? "";
   const hasNoSetupCommands =
-    snapshot?.status === "completed" && commands.length === 0 && log.trim().length === 0;
-  const isWaiting = !snapshot || (snapshot.status === "running" && commands.length === 0);
+    missing ||
+    (snapshot?.status === "completed" && commands.length === 0 && log.trim().length === 0);
+  const isWaiting =
+    (!snapshot && !missing) || (snapshot?.status === "running" && commands.length === 0);
 
   const { expandedIndices, manuallyCollapsed, toggleExpanded } = useExpandedSetupCommands();
 

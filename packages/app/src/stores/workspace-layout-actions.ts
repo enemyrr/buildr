@@ -1251,13 +1251,44 @@ const DEFAULT_EXPLORER_SIDEBAR_FOCUSED_TAB_ID = buildDeterministicWorkspaceTabId
   kind: "changes_tree",
 });
 
-/** All files | Changes | Checks. Tabs whose ids are in `excludeTabIds` already live elsewhere. */
+/** All files | Changes | Commits | Checks. Tabs in `excludeTabIds` already live elsewhere. */
 function createDefaultExplorerSidebarTabs(excludeTabIds?: ReadonlySet<string>): WorkspaceTab[] {
   const createdAt = Date.now();
-  const targets = [{ kind: "files" }, { kind: "changes_tree" }, { kind: "pull_request" }] as const;
+  const targets = [
+    { kind: "files" },
+    { kind: "changes_tree" },
+    { kind: "commits" },
+    { kind: "pull_request" },
+  ] as const;
   return targets
     .map((target) => ({ tabId: buildDeterministicWorkspaceTabId(target), target, createdAt }))
     .filter((tab) => !excludeTabIds?.has(tab.tabId));
+}
+
+/** Adds Commits after Changes to an Explorer seeded before Commits had its own tab. */
+export function addExplorerCommitsTab(
+  layout: WorkspaceLayout,
+  explorerPaneId: string | null | undefined,
+): WorkspaceLayout {
+  if (!explorerPaneId) return layout;
+  const internal = asInternalLayout(layout);
+  const commitsTab: WorkspaceTab = {
+    tabId: buildDeterministicWorkspaceTabId({ kind: "commits" }),
+    target: { kind: "commits" },
+    createdAt: Date.now(),
+  };
+  const root = updatePaneInTree(internal.root, {
+    paneId: explorerPaneId,
+    updater: (pane) => {
+      // Legacy persisted panes carry only tab ids; restore rebuilds their tabs later.
+      if (!pane.tabs || pane.tabs.some((tab) => tab.target.kind === "commits")) return pane;
+      const changesIndex = pane.tabs.findIndex((tab) => tab.target.kind === "changes_tree");
+      const tabs = [...pane.tabs];
+      tabs.splice(changesIndex === -1 ? tabs.length : changesIndex + 1, 0, commitsTab);
+      return { ...pane, tabs, tabIds: tabs.map((tab) => tab.tabId) };
+    },
+  });
+  return { ...layout, root };
 }
 
 /** The desktop companion pane exists before it is first shown. */

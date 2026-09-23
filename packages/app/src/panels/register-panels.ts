@@ -8,6 +8,7 @@ import {
 import { draftPanelRegistration } from "@/panels/draft-panel";
 import { filePanelRegistration } from "@/panels/file-panel";
 import { imagePanelRegistration } from "@/panels/image-panel";
+import { commitsPanelRegistration } from "@/panels/commits-panel";
 import { filesPanelRegistration } from "@/panels/files-panel";
 import { registerPanel } from "@/panels/panel-registry";
 import { setupPanelRegistration } from "@/panels/setup-panel";
@@ -37,6 +38,7 @@ export function ensurePanelsRegistered(): void {
   registerPanel(commitDiffPanelRegistration);
   registerPanel(workingDiffPanelRegistration);
   registerPanel(changesTreePanelRegistration);
+  registerPanel(commitsPanelRegistration);
   registerPanel(pluginPanelRegistration);
   panelsRegistered = true;
 }

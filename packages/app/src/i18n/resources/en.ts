@@ -770,7 +770,12 @@ export const en = {
       run: "Run",
       terminal: "Terminal",
       runEmpty: "Run tests or a development server to test changes in this workspace",
-      addRunScript: "Add run script",
+      runEmptyTitle: "Add run script",
+      setupEmptyTitle: "Add setup script",
+      setupEmptyDescription:
+        "Run commands when a workspace is created to install dependencies or set up the environment",
+      askAgent: "Ask agent",
+      addManually: "Add manually",
       collapse: "Collapse panel",
       expand: "Expand panel",
     },
@@ -1060,6 +1065,7 @@ export const en = {
         tabs: {
           allFiles: "All files",
           changes: "Changes",
+          commits: "Commits",
           checks: "Checks",
         },
         changes: {

@@ -224,6 +224,7 @@ function contentTabs(tabs: WorkspaceTab[]): WorkspaceTab[] {
       tab.target.kind !== "new_tab" &&
       tab.target.kind !== "files" &&
       tab.target.kind !== "changes_tree" &&
+      tab.target.kind !== "commits" &&
       tab.target.kind !== "pull_request",
   );
 }
@@ -234,7 +235,7 @@ function expectGroup(node: SplitNode): Extract<SplitNode, { kind: "group" }> {
 }
 
 describe("workspace-layout-store helpers", () => {
-  it("seeds Files, Changes, and Checks in the default Explorer sidebar", () => {
+  it("seeds Files, Changes, Commits, and Checks in the default Explorer sidebar", () => {
     const layout = createWorkspaceLayoutWithExplorerSidebar();
     const tabs = collectAllTabs(layout.root);
 
@@ -242,11 +243,45 @@ describe("workspace-layout-store helpers", () => {
       { kind: "new_tab" },
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
     expect(findPaneById(layout.root, "explorer")?.focusedTabId).toBe(
       tabs.find((tab) => tab.target.kind === "changes_tree")?.tabId,
     );
+  });
+
+  it("adds Commits after Changes when a version 2 Explorer reloads", async () => {
+    const workspaceKey = createWorkspaceKey();
+    const explorer = createPane({
+      id: "explorer",
+      hidden: true,
+      tabIds: ["files", "changes_tree", "pull_request"],
+      targetsByTabId: {
+        files: { kind: "files" },
+        changes_tree: { kind: "changes_tree" },
+        pull_request: { kind: "pull_request" },
+      },
+    });
+    await AsyncStorage.setItem(
+      "workspace-layout-state",
+      JSON.stringify({
+        version: 2,
+        state: {
+          layoutByWorkspace: { [workspaceKey]: { root: explorer, focusedPaneId: null } },
+          explorerPaneIdByWorkspace: { [workspaceKey]: "explorer" },
+        },
+      }),
+    );
+    const restored = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
+    await restored.persist.rehydrate();
+    const layout = restored.getState().layoutByWorkspace[workspaceKey];
+    expect(findPaneById(layout.root, "explorer")?.tabIds).toEqual([
+      "files",
+      "changes_tree",
+      "commits",
+      "pull_request",
+    ]);
   });
 
   it("discards persisted New tabs and restores each empty pane with a fresh identity", async () => {
@@ -271,6 +306,7 @@ describe("workspace-layout-store helpers", () => {
       { kind: "new_tab" },
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
     const restoredNewTab = restoredTabs.find((tab) => tab.target.kind === "new_tab");
@@ -498,6 +534,7 @@ describe("workspace-layout-store version 2 migration", () => {
     expect(explorerPane?.tabIds.map((tabId) => tabsById.get(tabId)?.target)).toEqual([
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
 
@@ -525,7 +562,7 @@ describe("workspace-layout-store version 2 migration", () => {
         const persisted = JSON.parse(
           (await AsyncStorage.getItem("workspace-layout-state")) ?? "{}",
         );
-        expect(persisted.version).toBe(2);
+        expect(persisted.version).toBe(3);
       });
     },
   );
@@ -550,7 +587,7 @@ describe("workspace-layout-store version 2 migration", () => {
 
     await vi.waitFor(async () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
-      expect(persisted.version).toBe(2);
+      expect(persisted.version).toBe(3);
       expect(Object.keys(persisted.state).sort()).toEqual([
         "explorerPaneIdByWorkspace",
         "explorerSidebarWidthByWorkspace",
@@ -585,7 +622,7 @@ describe("workspace-layout-store version 2 migration", () => {
 
     await vi.waitFor(async () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
-      expect(persisted.version).toBe(2);
+      expect(persisted.version).toBe(3);
     });
     const reloaded = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
     await reloaded.persist.rehydrate();
@@ -1226,7 +1263,7 @@ describe("workspace-layout-store actions", () => {
       await AsyncStorage.setItem(
         "workspace-layout-state",
         JSON.stringify({
-          version: 2,
+          version: 3,
           state: {
             layoutByWorkspace: { [workspaceKey]: { root: saved, focusedPaneId: null } },
             explorerPaneIdByWorkspace: { [workspaceKey]: explorerId },
@@ -1315,6 +1352,7 @@ describe("workspace-layout-store actions", () => {
     expect(explorerPane?.tabIds.map((tabId) => tabsById.get(tabId)?.target)).toEqual([
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
     expect(restored.getState().splitSizesByWorkspace).toEqual({});
@@ -1389,6 +1427,7 @@ describe("workspace-layout-store actions", () => {
       "agent",
       "files",
       "changes_tree",
+      "commits",
       "pull_request",
     ]);
     expect(state.explorerSidebarPaneIdByWorkspace[workspaceKey]).toBe(explorerSidebarPaneId);
@@ -1425,7 +1464,14 @@ describe("workspace-layout-store actions", () => {
       const persisted = await AsyncStorage.getItem("workspace-layout-state");
       expect(persisted).not.toBeNull();
       const root = JSON.parse(persisted ?? "{}").state.layoutByWorkspace[workspaceKey].root;
-      expect(collectTabIds(root)).toEqual([first, second, "files", "changes_tree", "pull_request"]);
+      expect(collectTabIds(root)).toEqual([
+        first,
+        second,
+        "files",
+        "changes_tree",
+        "commits",
+        "pull_request",
+      ]);
     });
 
     const restored = createWorkspaceLayoutStore(createDeterministicWorkspaceLayoutIds());
@@ -2375,7 +2421,7 @@ describe("workspace-layout-store actions", () => {
     let layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     expect(findPaneById(layout.root, paneId)).toMatchObject({
       hidden: true,
-      tabIds: ["files", "changes_tree", "pull_request"],
+      tabIds: ["files", "changes_tree", "commits", "pull_request"],
     });
     expect(expectGroup(layout.root).group.sizes).toEqual(sizes);
     expect(layout.focusedPaneId).toBe("main");
@@ -2383,7 +2429,7 @@ describe("workspace-layout-store actions", () => {
     store.showExplorerSidebar(workspaceKey);
     layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     expect(findPaneById(layout.root, paneId)).toMatchObject({
-      tabIds: ["files", "changes_tree", "pull_request"],
+      tabIds: ["files", "changes_tree", "commits", "pull_request"],
     });
     expect(findPaneById(layout.root, paneId)?.hidden).toBeUndefined();
     expect(expectGroup(layout.root).group.sizes).toEqual(sizes);
@@ -2467,7 +2513,7 @@ describe("workspace-layout-store actions", () => {
     expect(layout.focusedPaneId).toBe("main");
     expect(findPaneById(layout.root, paneId)).toMatchObject({
       focusedTabId: targetTabId,
-      tabIds: ["files", "changes_tree", "pull_request", targetTabId],
+      tabIds: ["files", "changes_tree", "commits", "pull_request", targetTabId],
     });
     expect(findPaneById(layout.root, paneId)?.hidden).toBeUndefined();
     expect(expectGroup(layout.root).group.sizes).toEqual(group.sizes);
@@ -3019,6 +3065,7 @@ describe("workspace-layout-store actions", () => {
     expect(findPaneById(layout.root, explorerSidebarPaneId)?.tabIds).toEqual([
       "files",
       "changes_tree",
+      "commits",
       "pull_request",
     ]);
   });
@@ -3163,6 +3210,7 @@ describe("workspace-layout-store actions", () => {
       },
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
   });
@@ -3609,6 +3657,7 @@ describe("workspace-layout-store actions", () => {
       { kind: "new_tab" },
       { kind: "files" },
       { kind: "changes_tree" },
+      { kind: "commits" },
       { kind: "pull_request" },
     ]);
     expect(layout.focusedPaneId).toBe("main");
@@ -4206,7 +4255,7 @@ describe("workspace-layout-store actions", () => {
     let layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     const hiddenPane = findPaneById(layout.root, paneId);
     expect(hiddenPane?.hidden).toBeUndefined();
-    expect(hiddenPane?.tabIds).toHaveLength(2);
+    expect(hiddenPane?.tabIds).toHaveLength(3);
     expect(
       collectAllTabs(layout.root).find((tab) => tab.tabId === hiddenPane?.focusedTabId)?.target,
     ).toEqual({ kind: "changes_tree" });
@@ -4246,6 +4295,7 @@ describe("workspace-layout-store actions", () => {
     expect(findPaneById(layout.root, paneId)?.hidden).toBeUndefined();
     expect(findPaneById(layout.root, paneId)?.tabIds).toEqual([
       "changes_tree",
+      "commits",
       "pull_request",
       "working_diff",
     ]);
@@ -4274,7 +4324,7 @@ describe("workspace-layout-store actions", () => {
     expect(collectAllPanes(layout.root).map((pane) => pane.id)).toEqual(["main", paneId]);
     expect(findPaneById(layout.root, "main")?.tabIds).toHaveLength(1);
     const finalPane = findPaneById(layout.root, paneId);
-    expect(finalPane?.tabIds).toHaveLength(2);
+    expect(finalPane?.tabIds).toHaveLength(3);
     expect(
       collectAllTabs(layout.root).find((tab) => tab.tabId === finalPane?.focusedTabId)?.target,
     ).toEqual({ kind: "changes_tree" });
@@ -4367,7 +4417,7 @@ describe("workspace-layout-store actions", () => {
     const layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     expect(findPaneContainingTab(layout.root, changesTabId)?.id).toBe("main");
     const sidePane = findPaneById(layout.root, paneId);
-    expect(sidePane?.tabIds).toEqual(["files", "changes_tree", "pull_request"]);
+    expect(sidePane?.tabIds).toEqual(["files", "changes_tree", "commits", "pull_request"]);
     expect(findPaneById(layout.root, paneId)?.hidden).toBeUndefined();
   });
   it("keeps the final ordinary pane when Explorer is visible", () => {

@@ -761,7 +761,12 @@ export const ja: TranslationResources = {
       run: "実行",
       terminal: "ターミナル",
       runEmpty: "テストや開発サーバーを実行して、このワークスペースの変更を確認します",
-      addRunScript: "実行スクリプトを追加",
+      runEmptyTitle: "実行スクリプトを追加",
+      setupEmptyTitle: "セットアップスクリプトを追加",
+      setupEmptyDescription:
+        "ワークスペース作成時にコマンドを実行して、依存関係のインストールや環境の準備を行います",
+      askAgent: "エージェントに依頼",
+      addManually: "手動で追加",
       collapse: "パネルを折りたたむ",
       expand: "パネルを展開",
     },
@@ -1047,6 +1052,7 @@ export const ja: TranslationResources = {
         tabs: {
           allFiles: "すべてのファイル",
           changes: "変更",
+          commits: "コミット",
           checks: "チェック",
         },
         changes: {

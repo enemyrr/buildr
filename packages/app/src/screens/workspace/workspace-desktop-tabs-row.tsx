@@ -607,6 +607,7 @@ function getFallbackTabLabel(
     changes: string;
     files: string;
     pullRequest: string;
+    commits: string;
   },
 ): string {
   if (tab.target.kind === "new_tab") {
@@ -632,6 +633,9 @@ function getFallbackTabLabel(
   }
   if (tab.target.kind === "pull_request") {
     return labels.pullRequest;
+  }
+  if (tab.target.kind === "commits") {
+    return labels.commits;
   }
   return labels.agent;
 }
@@ -1092,6 +1096,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       changes: t("panels.diff.changesLabel"),
       files: t("panels.files.label"),
       pullRequest: t("panels.pullRequest.label"),
+      commits: t("workspace.git.prFlow.tabs.commits"),
     }),
     [t],
   );

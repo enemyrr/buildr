@@ -156,6 +156,7 @@ describe("autoOpenWorkspacePullRequest", () => {
     expect(explorer.tabIds).toEqual([
       "files",
       "changes_tree",
+      "commits",
       "pull_request",
       "terminal_terminal-1",
     ]);
@@ -268,7 +269,7 @@ describe("automatic PR placement", () => {
     expect(useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY]).toEqual(before);
   });
 
-  it("appends in Explorer when Changes was closed", () => {
+  it("appends in Explorer when Changes and Commits were closed", () => {
     const store = useWorkspaceLayoutStore.getState();
     store.openTab({
       workspaceKey: WORKSPACE_KEY,
@@ -276,6 +277,7 @@ describe("automatic PR placement", () => {
       intent: "reveal",
     });
     store.closeTab(WORKSPACE_KEY, "changes_tree");
+    store.closeTab(WORKSPACE_KEY, "commits");
     autoOpenWorkspacePullRequest({ workspaceKey: WORKSPACE_KEY, destination: "explorer" });
     expect(
       findPaneById(

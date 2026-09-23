@@ -38,6 +38,7 @@ import {
   replaceTabTargetInLayout,
   revealTargetInLayout,
   restoreWorkspaceLayout,
+  addExplorerCommitsTab,
   reconcileWorkspaceTabs,
   removePaneFromTree,
   removeTabFromTree,
@@ -185,7 +186,7 @@ interface WorkspaceFocusRestorationState {
 const MAX_TREE_DEPTH = 5;
 
 const LEGACY_EXPLORER_SIDEBAR_REFERENCE_WIDTH = 1440;
-const WORKSPACE_LAYOUT_PERSIST_VERSION = 2;
+const WORKSPACE_LAYOUT_PERSIST_VERSION = 3;
 
 function convertLegacyExplorerSidebarRatios(
   ratiosByWorkspace: Record<string, number>,
@@ -306,6 +307,7 @@ function migrateVersionOneWorkspaceLayout(input: {
       legacyExplorerPane.tabIds.includes(tab.tabId) &&
       tab.target.kind !== "files" &&
       tab.target.kind !== "changes_tree" &&
+      tab.target.kind !== "commits" &&
       tab.target.kind !== "pull_request",
   );
   const preservedSide = preserveVersionOneSideTabs({
@@ -348,15 +350,37 @@ function migrateWorkspaceLayoutPersistedState(
   if (!result.success || version >= WORKSPACE_LAYOUT_PERSIST_VERSION) {
     return result.success ? result.data : { layoutByWorkspace: {} };
   }
+  const versionTwo = version < 2 ? migrateVersionOneState(result.data, ids) : result.data;
+  return addCommitsTabToExplorers(versionTwo);
+}
 
+/** Version 3 gave Commits its own Explorer tab; earlier Explorers get it after Changes. */
+function addCommitsTabToExplorers(
+  state: z.infer<typeof WorkspaceLayoutPersistedStateSchema>,
+): z.infer<typeof WorkspaceLayoutPersistedStateSchema> {
+  const explorerPaneIds = state.explorerSidebarPaneIdByWorkspace ?? state.explorerPaneIdByWorkspace;
+  const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
+  for (const [workspaceKey, layout] of Object.entries(state.layoutByWorkspace)) {
+    layoutByWorkspace[workspaceKey] = addExplorerCommitsTab(
+      layout,
+      explorerPaneIds?.[workspaceKey],
+    );
+  }
+  return { ...state, layoutByWorkspace };
+}
+
+function migrateVersionOneState(
+  data: z.infer<typeof WorkspaceLayoutPersistedStateSchema>,
+  ids: WorkspaceLayoutIdSource,
+): z.infer<typeof WorkspaceLayoutPersistedStateSchema> {
   const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
   const explorerPaneIdByWorkspace: Record<string, string | null> = {};
-  const sidePaneIdByWorkspace = { ...result.data.sidePaneIdByWorkspace };
-  for (const [workspaceKey, layout] of Object.entries(result.data.layoutByWorkspace)) {
+  const sidePaneIdByWorkspace = { ...data.sidePaneIdByWorkspace };
+  for (const [workspaceKey, layout] of Object.entries(data.layoutByWorkspace)) {
     const migrated = migrateVersionOneWorkspaceLayout({
       layout,
-      legacyExplorerPaneId: result.data.explorerPaneIdByWorkspace?.[workspaceKey],
-      rememberedSidePaneId: result.data.sidePaneIdByWorkspace?.[workspaceKey],
+      legacyExplorerPaneId: data.explorerPaneIdByWorkspace?.[workspaceKey],
+      rememberedSidePaneId: data.sidePaneIdByWorkspace?.[workspaceKey],
       ids,
     });
     layoutByWorkspace[workspaceKey] = migrated.layout;
@@ -365,7 +389,7 @@ function migrateWorkspaceLayoutPersistedState(
   }
 
   return {
-    ...result.data,
+    ...data,
     layoutByWorkspace,
     explorerPaneIdByWorkspace,
     sidePaneIdByWorkspace,

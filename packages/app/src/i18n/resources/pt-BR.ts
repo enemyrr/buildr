@@ -762,7 +762,12 @@ export const ptBR: TranslationResources = {
       terminal: "Terminal",
       runEmpty:
         "Execute testes ou um servidor de desenvolvimento para testar as mudanças neste workspace",
-      addRunScript: "Adicionar script de execução",
+      runEmptyTitle: "Adicionar script de execução",
+      setupEmptyTitle: "Adicionar script de configuração",
+      setupEmptyDescription:
+        "Execute comandos ao criar um workspace para instalar dependências ou preparar o ambiente",
+      askAgent: "Pedir ao agente",
+      addManually: "Adicionar manualmente",
       collapse: "Recolher painel",
       expand: "Expandir painel",
     },
@@ -1059,6 +1064,7 @@ export const ptBR: TranslationResources = {
         tabs: {
           allFiles: "Todos os arquivos",
           changes: "Alterações",
+          commits: "Commits",
           checks: "Verificações",
         },
         changes: {

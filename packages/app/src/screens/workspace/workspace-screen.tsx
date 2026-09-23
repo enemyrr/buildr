@@ -143,13 +143,7 @@ import {
 } from "@/screens/workspace/workspace-tab-menu";
 import { useDesktopBrowserNewTabRequests } from "@/desktop/browser/new-tab-requests";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
-import {
-  resolveWorkspaceExplorerToggleOwner,
-  WorkspaceExplorerToggle,
-  WorkspaceExplorerSidebarToggle,
-  WorkspaceHeaderExplorerToggle,
-} from "@/screens/workspace/workspace-explorer-toggle";
-import { useHasWindowChromeObstruction } from "@/utils/desktop-window";
+import { WorkspaceExplorerToggle } from "@/screens/workspace/workspace-explorer-toggle";
 import {
   resolveWorkspaceHeaderRenderState,
   type WorkspaceHeaderCheckoutState,
@@ -321,6 +315,7 @@ function getFallbackTabOptionLabel(
     changes: string;
     files: string;
     pullRequest: string;
+    commits: string;
   },
 ): string {
   if (tab.target.kind === "new_tab") {
@@ -350,6 +345,9 @@ function getFallbackTabOptionLabel(
   if (tab.target.kind === "pull_request") {
     return labels.pullRequest;
   }
+  if (tab.target.kind === "commits") {
+    return labels.commits;
+  }
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
   }
@@ -371,6 +369,7 @@ function getFallbackTabOptionDescription(
     changes: string;
     files: string;
     pullRequest: string;
+    commits: string;
   },
 ): string {
   if (tab.target.kind === "new_tab") {
@@ -408,6 +407,9 @@ function getFallbackTabOptionDescription(
   }
   if (tab.target.kind === "pull_request") {
     return labels.pullRequest;
+  }
+  if (tab.target.kind === "commits") {
+    return labels.commits;
   }
   if (tab.target.kind === "plugin") {
     return tab.target.panelId;
@@ -606,6 +608,7 @@ function MobileWorkspaceTabOption({
       changes: t("panels.diff.changesLabel"),
       files: t("panels.files.label"),
       pullRequest: t("panels.pullRequest.label"),
+      commits: t("workspace.git.prFlow.tabs.commits"),
     }),
     [t],
   );
@@ -1605,11 +1608,6 @@ function WorkspaceScreenContent({
   const _insets = useSafeAreaInsets();
   const toast = useToast();
   const isMobile = useIsCompactFormFactor();
-  const hasMacTrafficLights = useHasWindowChromeObstruction("top-left");
-  const explorerToggleOwner = resolveWorkspaceExplorerToggleOwner({
-    isMobile,
-    hasMacTrafficLights,
-  });
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
   const toggleFocusMode = usePanelStore((state) => state.toggleFocusMode);
 
@@ -2451,6 +2449,7 @@ function WorkspaceScreenContent({
       changes: t("panels.diff.changesLabel"),
       files: t("panels.files.label"),
       pullRequest: t("panels.pullRequest.label"),
+      commits: t("workspace.git.prFlow.tabs.commits"),
     }),
     [t],
   );
@@ -3901,8 +3900,8 @@ function WorkspaceScreenContent({
                 onOpenPullRequest={handleOpenPullRequest}
               />
             )}
-            <WorkspaceHeaderExplorerToggle
-              owner={explorerToggleOwner}
+            <WorkspaceExplorerToggle
+              mobile={false}
               onPress={handleToggleExplorerSidebar}
               label={explorerSidebarToggleLabel}
               tooltipLabel={t("workspace.tabs.explorerSidebar.toggle")}
@@ -3940,7 +3939,6 @@ function WorkspaceScreenContent({
       handleToggleExplorerSidebar,
       explorerSidebarToggleLabel,
       explorerSidebarToggleAccessibilityState,
-      explorerToggleOwner,
       t,
     ],
   );
@@ -3950,30 +3948,11 @@ function WorkspaceScreenContent({
     [isFocusModeEnabled, isMobile],
   );
   const renderExplorerSidebarHeaderAction = useCallback(
-    () => (
-      <>
-        {workspaceDirectory ? (
-          <ExplorerGitToolbar serverId={normalizedServerId} cwd={workspaceDirectory} />
-        ) : null}
-        <WorkspaceExplorerSidebarToggle
-          owner={explorerToggleOwner}
-          onPress={handleToggleExplorerSidebar}
-          label={explorerSidebarToggleLabel}
-          tooltipLabel={t("workspace.tabs.explorerSidebar.toggle")}
-          tooltipKeys={EXPLORER_TOGGLE_KEYS}
-          accessibilityState={explorerSidebarToggleAccessibilityState}
-        />
-      </>
-    ),
-    [
-      explorerSidebarToggleAccessibilityState,
-      explorerSidebarToggleLabel,
-      explorerToggleOwner,
-      handleToggleExplorerSidebar,
-      normalizedServerId,
-      workspaceDirectory,
-      t,
-    ],
+    () =>
+      workspaceDirectory ? (
+        <ExplorerGitToolbar serverId={normalizedServerId} cwd={workspaceDirectory} />
+      ) : null,
+    [normalizedServerId, workspaceDirectory],
   );
   const handleCreateUtilityTerminal = useStableEvent(() => {
     createTerminal({ destination: { kind: "utility" } });
@@ -3985,7 +3964,9 @@ function WorkspaceScreenContent({
           serverId={normalizedServerId}
           workspaceId={normalizedWorkspaceId}
           workspaceKey={persistenceKey}
+          cwd={workspaceDirectory}
           projectId={workspaceDescriptor.projectId || null}
+          projectRootPath={workspaceDescriptor.projectRootPath}
           scripts={workspaceDescriptor.scripts}
           liveTerminalIds={liveTerminalIds}
           isWorkspaceFocused={isRouteFocused}

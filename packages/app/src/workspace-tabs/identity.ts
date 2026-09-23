@@ -56,6 +56,7 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       return browserId ? { kind: "browser", browserId } : null;
     }
     case "changes_tree":
+    case "commits":
     case "files":
     case "pull_request":
       return { kind: value.kind };
@@ -135,6 +136,7 @@ export function workspaceTabTargetsEqual(
 const SINGLETON_TAB_KINDS: ReadonlySet<WorkspaceTabTarget["kind"]> = new Set([
   "files",
   "changes_tree",
+  "commits",
   "pull_request",
 ]);
 
@@ -230,7 +232,12 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "working_diff") {
     return "working_diff";
   }
-  if (target.kind === "changes_tree" || target.kind === "files" || target.kind === "pull_request") {
+  if (
+    target.kind === "changes_tree" ||
+    target.kind === "commits" ||
+    target.kind === "files" ||
+    target.kind === "pull_request"
+  ) {
     return target.kind;
   }
   if (target.kind === "plugin") {

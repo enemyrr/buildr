@@ -48,6 +48,11 @@ const manifests = {
     supportedHosts: ["explorer"],
     resourceKey: () => "changes_tree",
   },
+  commits: {
+    kind: "commits",
+    supportedHosts: ["explorer"],
+    resourceKey: () => "commits",
+  },
   files: {
     kind: "files",
     supportedHosts: ["explorer"],

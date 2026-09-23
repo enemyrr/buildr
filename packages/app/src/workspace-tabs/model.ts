@@ -41,6 +41,7 @@ export type WorkspaceTabTarget =
   | { kind: "terminal"; terminalId: string }
   | { kind: "browser"; browserId: string }
   | { kind: "changes_tree" }
+  | { kind: "commits" }
   | { kind: "files" }
   | { kind: "pull_request" }
   | WorkspaceFileTabTarget

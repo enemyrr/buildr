@@ -757,7 +757,11 @@ export const ar: TranslationResources = {
       run: "تشغيل",
       terminal: "الطرفية",
       runEmpty: "شغّل الاختبارات أو خادم التطوير لاختبار التغييرات في مساحة العمل هذه",
-      addRunScript: "إضافة سكربت تشغيل",
+      runEmptyTitle: "إضافة سكربت تشغيل",
+      setupEmptyTitle: "إضافة سكربت إعداد",
+      setupEmptyDescription: "شغّل أوامر عند إنشاء مساحة عمل لتثبيت الاعتماديات أو تجهيز البيئة",
+      askAgent: "اسأل الوكيل",
+      addManually: "إضافة يدويًا",
       collapse: "طي اللوحة",
       expand: "توسيع اللوحة",
     },
@@ -1033,6 +1037,7 @@ export const ar: TranslationResources = {
         tabs: {
           allFiles: "كل الملفات",
           changes: "التغييرات",
+          commits: "الإيداعات",
           checks: "الفحوصات",
         },
         changes: {

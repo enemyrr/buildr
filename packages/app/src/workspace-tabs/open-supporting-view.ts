@@ -114,17 +114,19 @@ export function autoOpenWorkspacePullRequest(input: {
         panes.find((pane) => pane.id !== explorerPaneId && !pane.hidden);
       paneId = mainPane?.id ?? null;
     }
-    const changes =
+    // Checks follows Commits, or Changes when Commits was closed.
+    const paneTabs =
       input.destination === "explorer"
-        ? collectAllTabs(layout.root).find(
-            (tab) =>
-              tab.target.kind === "changes_tree" &&
-              findPaneContainingTab(layout.root, tab.tabId)?.id === paneId,
+        ? collectAllTabs(layout.root).filter(
+            (tab) => findPaneContainingTab(layout.root, tab.tabId)?.id === paneId,
           )
-        : undefined;
+        : [];
+    const anchor =
+      paneTabs.find((tab) => tab.target.kind === "commits") ??
+      paneTabs.find((tab) => tab.target.kind === "changes_tree");
     return {
       placement: paneId ? { mode: "prefer", paneId } : undefined,
-      insertionPosition: changes ? { afterTabId: changes.tabId } : undefined,
+      insertionPosition: anchor ? { afterTabId: anchor.tabId } : undefined,
     };
   });
 }

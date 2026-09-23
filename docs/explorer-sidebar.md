@@ -30,7 +30,9 @@ never read or modify that width.
 `packages/app/src/workspace-tabs/open-supporting-view.ts` owns semantic Changes and pull-request
 opens. Compact and wide native layouts select the matching Explorer tab. Desktop Changes opens
 follow the shared diff preference. New layouts seed Explorer with Files, Changes, and Checks (the
-pull request view), so Explorer always has a Checks tab. Desktop pull requests use their Main panel,
+pull request view), so Explorer always has a Checks tab. Desktop seeds Commits after Changes too,
+and layout version 3 adds it to older saved Explorers. Compact layouts have no Commits tab, so
+their Changes view keeps the inline commits section. Desktop pull requests use their Main panel,
 On the side, or Explorer sidebar setting; Main and side opens reuse a pull request tab outside
 Explorer or create their own instance. Automatic PR discovery follows that preference once per
 workspace without interrupting the user's work, and treats any existing pull request tab as found. Closing the tab opts that workspace out of future automatic opens,
@@ -80,7 +82,10 @@ Under the views, `packages/app/src/screens/workspace/explorer-utility-panel.tsx`
 synthetic pane id `explorer-utility`, so they never enter the workspace layout. The Terminal shell
 has no workspace tab, so the workspace screen removes its id from the standalone terminals it
 passes to tab sync. Otherwise tab sync opens it as a tab. Scripts started from **Run** register
-through `trackScriptTerminal` for the same reason.
+through `trackScriptTerminal` for the same reason. When the project has no setup script, or no
+scripts, **Setup** and **Run** offer **Ask agent**, which sends
+`packages/app/src/git/project-config-instructions.ts` into the workspace chat, and **Add
+manually**, which opens project settings.
 
 Cmd+J (Ctrl+J elsewhere) shows the Explorer's Terminal panel, opening the Explorer first when it
 is hidden, and collapses the panel when Terminal is already showing.
