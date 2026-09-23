@@ -52,13 +52,24 @@ describe("derivePrStripState", () => {
     });
   });
 
-  it("shows an open PR with Merge when a direct merge is available", () => {
+  it("reads Ready to merge with Merge when a direct merge is available", () => {
     const merge = action("merge-pr-squash");
     expect(summarize(open, actions(merge))).toEqual({
-      label: "open",
+      label: "readyToMerge",
       tone: "success",
       actions: ["merge"],
     });
+  });
+
+  it("offers the other available merge methods beside Merge", () => {
+    const squash = action("merge-pr-squash");
+    const rebase = action("merge-pr-rebase");
+    const blocked = action("merge-pr-merge", { unavailableMessage: "Disabled" });
+    const [merge] = derivePrStripState(open, actions(squash, [blocked, rebase])).actions;
+    expect(merge?.kind === "git" ? merge.options?.map((option) => option.id) : null).toEqual([
+      "merge-pr-squash",
+      "merge-pr-rebase",
+    ]);
   });
 
   it("ignores a merge action the policy marks unavailable", () => {
@@ -69,7 +80,7 @@ describe("derivePrStripState", () => {
   it("puts conflicts ahead of failing checks", () => {
     expect(summarize({ ...open, mergeable: "CONFLICTING", checksStatus: "failure" })).toEqual({
       label: "conflicts",
-      tone: "danger",
+      tone: "warning",
       actions: ["resolve"],
     });
   });

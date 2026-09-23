@@ -117,6 +117,12 @@ describe("Status subtle colors", () => {
     expect(darkTheme.colors.statusNeutralSubtle).toBe("rgba(232, 230, 227, 0.06)");
   });
 
+  it("steps up to a tint and a border from the same status color", () => {
+    expect(darkTheme.colors.statusSuccessTint).toBe("rgba(108, 177, 123, 0.22)");
+    expect(darkTheme.colors.statusMergedBorder).toBe("rgba(168, 144, 213, 0.4)");
+    expect(lightTheme.colors.statusDangerTint).toBe("rgba(157, 67, 59, 0.16)");
+  });
+
   it("exists on every registered theme", () => {
     for (const theme of Object.values(REGISTERED_THEMES)) {
       expect(theme.colors.statusSuccessSubtle).toMatch(/^rgba\(/);

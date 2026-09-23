@@ -1,10 +1,29 @@
-import { useCallback, useMemo } from "react";
-import { Text, View } from "react-native";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { Archive, ArrowUpRight, FastForward, GitMerge, Wrench } from "lucide-react-native";
+import {
+  Archive,
+  ArrowUpRight,
+  ChevronDown,
+  CircleDashed,
+  CircleX,
+  FastForward,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+  TriangleAlert,
+  Wrench,
+} from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
+import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/contexts/toast-context";
 import { GIT_ACTION_ICONS } from "@/git/action-icons";
@@ -19,9 +38,10 @@ import {
 import {
   derivePrStripState,
   type PrStripAction,
+  type PrStripLabel,
   type PrStripTone,
 } from "@/git/pr-status-strip-state";
-import { useGitActionRunner, useGitActions } from "@/git/use-actions";
+import { useGitActionRunner, useGitActions, type GitAction } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
@@ -38,8 +58,8 @@ interface PrStatusStripProps {
 }
 
 /**
- * The change request's lifecycle: `#N ↗`, its state in the state's color, and the next step —
- * Merge while open, Continue or Archive once merged or closed.
+ * The change request's lifecycle on a wash of its state's color: `#N` `↗` chips, the state, and
+ * the next step — Merge while open, Continue or Archive once merged or closed.
  */
 export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripProps) {
   const { t } = useTranslation();
@@ -95,30 +115,37 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
   const numberLabel = prStatus.number
     ? `${getForgePresentation(forge).numberPrefix}${prStatus.number}`
     : "PR";
+  const tone = TONE_SHEETS[state.tone];
   return (
     <View
-      style={[variant === "bar" ? styles.bar : styles.inline, TONE_SHEETS[state.tone].tint]}
+      style={[variant === "bar" ? styles.bar : styles.inline, tone.tint]}
       testID={variant === "bar" ? "workspace-pr-status-strip" : "workspace-pr-status-inline"}
     >
-      <Button
-        variant="ghost"
-        size="xs"
+      <PrChip
+        tone={state.tone}
         onPress={openPr}
-        accessibilityRole="link"
         accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
-        textStyle={styles.chipText}
-        trailing={CHIP_ARROW}
         testID="workspace-pr-status-number"
       >
-        {numberLabel}
-      </Button>
-      <Text
-        style={[styles.label, variant === "bar" && styles.labelFill, TONE_SHEETS[state.tone].text]}
-        numberOfLines={1}
-        testID="workspace-pr-status-label"
+        <Text style={[styles.chipText, tone.text]}>{numberLabel}</Text>
+      </PrChip>
+      <PrChip
+        tone={state.tone}
+        onPress={openPr}
+        accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
       >
-        {t(`workspace.git.prFlow.state.${state.label}`)}
-      </Text>
+        <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
+      </PrChip>
+      <View style={styles.status}>
+        <ToneIcon icon={STATE_ICONS[state.label]} tone={state.tone} size={14} />
+        <Text
+          style={[styles.label, tone.text]}
+          numberOfLines={1}
+          testID="workspace-pr-status-label"
+        >
+          {t(`workspace.git.prFlow.state.${state.label}`)}
+        </Text>
+      </View>
       <View style={styles.actions}>
         {state.actions.map((action) => (
           <StripButton
@@ -130,10 +157,60 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
               direct: directContinue ? { pending: continuePending } : null,
             })}
             onPress={runAction}
+            onRunOption={runGitAction}
           />
         ))}
       </View>
     </View>
+  );
+}
+
+const STATE_ICONS: Record<PrStripLabel, LucideIcon> = {
+  open: GitPullRequest,
+  readyToMerge: GitPullRequest,
+  draft: GitPullRequestDraft,
+  merged: GitMerge,
+  closed: GitPullRequestClosed,
+  conflicts: TriangleAlert,
+  checksFailed: CircleX,
+  checksRunning: CircleDashed,
+  autoMergeEnabled: GitMerge,
+  changesRequested: CircleX,
+  reviewRequired: GitPullRequest,
+};
+
+/** A small bordered square on the strip's wash; both chips open the change request. */
+function PrChip({
+  tone,
+  onPress,
+  accessibilityLabel,
+  testID,
+  children,
+}: {
+  tone: PrStripTone;
+  onPress: () => void;
+  accessibilityLabel: string;
+  testID?: string;
+  children: ReactNode;
+}) {
+  const style = useCallback(
+    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.chip,
+      TONE_SHEETS[tone].border,
+      hovered && TONE_SHEETS[tone].tint,
+    ],
+    [tone],
+  );
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="link"
+      accessibilityLabel={accessibilityLabel}
+      style={style}
+      testID={testID}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -165,49 +242,68 @@ function StripButton({
   pending,
   disabled,
   onPress,
+  onRunOption,
 }: {
   action: PrStripAction;
   tone: PrStripTone;
   pending: boolean;
   disabled: boolean;
   onPress: (action: PrStripAction) => void;
+  onRunOption: (action: GitAction) => void;
 }) {
   const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(action), [onPress, action]);
   const icon = actionIcon(action);
-  const onToneIcon = useMemo(() => <ToneIcon icon={icon} tone="onTone" size={13} />, [icon]);
+  const filled = action.emphasis === "filled";
+  const leftIcon = useMemo(
+    () => <ToneIcon icon={icon} tone={filled ? "onTone" : tone} size={13} />,
+    [filled, icon, tone],
+  );
   const label = t(`workspace.git.prFlow.${action.label}`);
   const testID = `workspace-pr-status-${action.label}`;
-  if (action.emphasis === "filled") {
-    return (
-      <Button
-        variant="default"
-        size="xs"
-        leftIcon={onToneIcon}
-        onPress={handlePress}
-        disabled={disabled}
-        loading={pending}
-        style={TONE_SHEETS[tone].fill}
-        textStyle={styles.onToneText}
-        testID={testID}
-      >
-        {label}
-      </Button>
-    );
-  }
+  const options = action.kind === "git" ? (action.options ?? []) : [];
+  const sheet = TONE_SHEETS[tone];
   const button = (
     <Button
-      variant="ghost"
+      variant={filled ? "default" : "outline"}
       size="xs"
-      leftIcon={icon}
+      leftIcon={leftIcon}
       onPress={handlePress}
       disabled={disabled}
       loading={pending}
+      style={[
+        styles.stripButton,
+        filled ? sheet.fill : sheet.border,
+        options.length > 0 && styles.splitStart,
+      ]}
+      textStyle={filled ? styles.onToneText : sheet.text}
       testID={testID}
     >
       {label}
     </Button>
   );
+  if (options.length > 0) {
+    return (
+      <View style={styles.split}>
+        {button}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            style={[styles.splitEnd, sheet.fill]}
+            disabled={disabled || pending}
+            accessibilityLabel={t("workspace.git.prFlow.mergeOptions")}
+            testID={`${testID}-options`}
+          >
+            <ToneIcon icon={ChevronDown} tone="onTone" size={13} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" width={220}>
+            {options.map((option) => (
+              <MergeOptionItem key={option.id} option={option} onRun={onRunOption} />
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </View>
+    );
+  }
   if (action.kind !== "continue") return button;
   return (
     <Tooltip delayDuration={300} enabledOnDesktop enabledOnMobile={false}>
@@ -216,6 +312,28 @@ function StripButton({
         <Text style={styles.tooltipText}>{t("workspace.git.prFlow.continueTooltip")}</Text>
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function MergeOptionItem({
+  option,
+  onRun,
+}: {
+  option: GitAction;
+  onRun: (action: GitAction) => void;
+}) {
+  const handleSelect = useCallback(() => onRun(option), [onRun, option]);
+  return (
+    <DropdownMenuItem
+      leading={option.icon}
+      onSelect={handleSelect}
+      disabled={option.disabled}
+      status={option.status}
+      pendingLabel={option.pendingLabel}
+      successLabel={option.successLabel}
+    >
+      {option.label}
+    </DropdownMenuItem>
   );
 }
 
@@ -261,31 +379,31 @@ function ToneIcon({ icon, tone, size }: { icon: LucideIcon; tone: IconTone; size
   return <Themed icon={icon} size={size} />;
 }
 
-const CHIP_ARROW = <ToneIcon icon={ArrowUpRight} tone="muted" size={12} />;
-
-function toneTint(theme: Theme, tone: PrStripTone): string {
+function toneWash(theme: Theme, tone: PrStripTone): { tint: string; border: string } {
   switch (tone) {
     case "success":
-      return theme.colors.statusSuccessSubtle;
+      return { tint: theme.colors.statusSuccessTint, border: theme.colors.statusSuccessBorder };
     case "danger":
-      return theme.colors.statusDangerSubtle;
+      return { tint: theme.colors.statusDangerTint, border: theme.colors.statusDangerBorder };
     case "warning":
-      return theme.colors.statusWarningSubtle;
+      return { tint: theme.colors.statusWarningTint, border: theme.colors.statusWarningBorder };
     case "merged":
-      return theme.colors.statusMergedSubtle;
+      return { tint: theme.colors.statusMergedTint, border: theme.colors.statusMergedBorder };
     case "muted":
-      return theme.colors.statusNeutralSubtle;
+      return { tint: theme.colors.statusNeutralTint, border: theme.colors.statusNeutralBorder };
   }
 }
 
 function createToneSheet(tone: PrStripTone) {
   return StyleSheet.create((theme) => {
     const color = toneColor(theme, tone);
+    const wash = toneWash(theme, tone);
     return {
       text: { color },
       fill: { backgroundColor: color, borderColor: color },
+      border: { borderColor: wash.border },
       // The whole strip takes the state's wash, so the state reads before the label does.
-      tint: { backgroundColor: toneTint(theme, tone) },
+      tint: { backgroundColor: wash.tint },
     };
   });
 }
@@ -298,40 +416,82 @@ const TONE_SHEETS = {
   muted: createToneSheet("muted"),
 };
 
+const CHIP_SIZE = 20;
+const STRIP_BUTTON_HEIGHT = 24;
+
 const styles = StyleSheet.create((theme) => ({
   bar: {
     height: HEADER_INNER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
-    paddingHorizontal: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: theme.colors.border,
   },
   inline: {
+    height: HEADER_INNER_HEIGHT - theme.spacing[1] * 2,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
-    paddingHorizontal: theme.spacing[1],
-    paddingVertical: theme.spacing[0.5],
+    paddingHorizontal: theme.spacing[1.5],
     borderRadius: theme.borderRadius.md,
   },
-  chipText: {
-    color: theme.colors.foreground,
-    fontVariant: ["tabular-nums"],
+  chip: {
+    height: CHIP_SIZE,
+    minWidth: CHIP_SIZE,
+    paddingHorizontal: theme.spacing[1],
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: theme.borderWidth[1],
+    borderRadius: theme.borderRadius.base,
   },
-  label: {
-    minWidth: 0,
+  chipText: {
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
+    fontVariant: ["tabular-nums"],
   },
-  labelFill: {
+  status: {
     flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingLeft: theme.spacing[1],
+  },
+  label: {
+    flexShrink: 1,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
   },
   actions: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
+  },
+  stripButton: {
+    minHeight: STRIP_BUTTON_HEIGHT,
+    height: STRIP_BUTTON_HEIGHT,
+    paddingHorizontal: theme.spacing[2],
+    gap: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
+  },
+  split: {
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
+  splitStart: {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  splitEnd: {
+    height: STRIP_BUTTON_HEIGHT,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing[1],
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.surface0,
+    borderTopRightRadius: theme.borderRadius.md,
+    borderBottomRightRadius: theme.borderRadius.md,
   },
   onToneText: {
     color: theme.colors.surface0,

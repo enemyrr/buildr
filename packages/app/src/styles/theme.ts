@@ -204,28 +204,44 @@ const darkStatusDotColors = {
   statusDotRunning: "#5caaf6",
 };
 
-// Status *subtle* colors — a wash behind a whole strip or card that is in one state, such as the
-// PR strip once a change request is merged. Derived, not picked: each is its status color at one
+// Status *subtle* colors — a wash behind a whole card or row that is in one state, such as a
+// dashboard card whose change request is merged. Derived, not picked: each is its status color at one
 // alpha, so the tint keeps the status family's hue and stays on whatever surface the theme has.
 // Neutral is the foreground at a lower alpha, for states with no hue of their own (draft).
 // Dark needs more alpha than light for the same visible step off the surface.
-const LIGHT_STATUS_SUBTLE_ALPHA = 0.1;
-const DARK_STATUS_SUBTLE_ALPHA = 0.14;
-const LIGHT_NEUTRAL_SUBTLE_ALPHA = 0.05;
-const DARK_NEUTRAL_SUBTLE_ALPHA = 0.06;
+//
+// Tint is the stronger wash for a strip whose state is the headline (the PR strip), and Border
+// outlines controls sitting on that wash. Same derivation, higher alphas.
+const LIGHT_STATUS_ALPHAS = { subtle: 0.1, tint: 0.16, border: 0.35 };
+const DARK_STATUS_ALPHAS = { subtle: 0.14, tint: 0.22, border: 0.4 };
+const LIGHT_NEUTRAL_ALPHAS = { subtle: 0.05, tint: 0.08, border: 0.2 };
+const DARK_NEUTRAL_ALPHAS = { subtle: 0.06, tint: 0.1, border: 0.22 };
 
-function buildStatusSubtleColors(input: {
+type StatusAlphas = typeof LIGHT_STATUS_ALPHAS;
+
+function buildStatusWashColors(input: {
   status: typeof lightStatusColors;
   foreground: string;
-  alpha: number;
-  neutralAlpha: number;
+  alpha: StatusAlphas;
+  neutralAlpha: StatusAlphas;
 }) {
+  const { status, foreground, alpha, neutralAlpha } = input;
   return {
-    statusSuccessSubtle: hexColorWithAlpha(input.status.statusSuccess, input.alpha),
-    statusDangerSubtle: hexColorWithAlpha(input.status.statusDanger, input.alpha),
-    statusWarningSubtle: hexColorWithAlpha(input.status.statusWarning, input.alpha),
-    statusMergedSubtle: hexColorWithAlpha(input.status.statusMerged, input.alpha),
-    statusNeutralSubtle: hexColorWithAlpha(input.foreground, input.neutralAlpha),
+    statusSuccessSubtle: hexColorWithAlpha(status.statusSuccess, alpha.subtle),
+    statusDangerSubtle: hexColorWithAlpha(status.statusDanger, alpha.subtle),
+    statusWarningSubtle: hexColorWithAlpha(status.statusWarning, alpha.subtle),
+    statusMergedSubtle: hexColorWithAlpha(status.statusMerged, alpha.subtle),
+    statusNeutralSubtle: hexColorWithAlpha(foreground, neutralAlpha.subtle),
+    statusSuccessTint: hexColorWithAlpha(status.statusSuccess, alpha.tint),
+    statusDangerTint: hexColorWithAlpha(status.statusDanger, alpha.tint),
+    statusWarningTint: hexColorWithAlpha(status.statusWarning, alpha.tint),
+    statusMergedTint: hexColorWithAlpha(status.statusMerged, alpha.tint),
+    statusNeutralTint: hexColorWithAlpha(foreground, neutralAlpha.tint),
+    statusSuccessBorder: hexColorWithAlpha(status.statusSuccess, alpha.border),
+    statusDangerBorder: hexColorWithAlpha(status.statusDanger, alpha.border),
+    statusWarningBorder: hexColorWithAlpha(status.statusWarning, alpha.border),
+    statusMergedBorder: hexColorWithAlpha(status.statusMerged, alpha.border),
+    statusNeutralBorder: hexColorWithAlpha(foreground, neutralAlpha.border),
   };
 }
 
@@ -318,11 +334,11 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
 
     ...lightDiffColors,
     ...lightStatusColors,
-    ...buildStatusSubtleColors({
+    ...buildStatusWashColors({
       status: lightStatusColors,
       foreground: tint.foreground,
-      alpha: LIGHT_STATUS_SUBTLE_ALPHA,
-      neutralAlpha: LIGHT_NEUTRAL_SUBTLE_ALPHA,
+      alpha: LIGHT_STATUS_ALPHAS,
+      neutralAlpha: LIGHT_NEUTRAL_ALPHAS,
     }),
     ...lightStatusDotColors,
 
@@ -457,11 +473,11 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 
     ...darkDiffColors,
     ...darkStatusColors,
-    ...buildStatusSubtleColors({
+    ...buildStatusWashColors({
       status: darkStatusColors,
       foreground,
-      alpha: DARK_STATUS_SUBTLE_ALPHA,
-      neutralAlpha: DARK_NEUTRAL_SUBTLE_ALPHA,
+      alpha: DARK_STATUS_ALPHAS,
+      neutralAlpha: DARK_NEUTRAL_ALPHAS,
     }),
     ...darkStatusDotColors,
 

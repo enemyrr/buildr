@@ -5,6 +5,7 @@ export type PrStripTone = "success" | "danger" | "warning" | "merged" | "muted";
 /** Translation keys under `workspace.git.prFlow.state`. */
 export type PrStripLabel =
   | "open"
+  | "readyToMerge"
   | "draft"
   | "merged"
   | "closed"
@@ -19,7 +20,14 @@ export type PrStripLabel =
 export type PrStripActionLabel = "continue" | "archive" | "merge" | "resolve" | "fix" | "autoMerge";
 
 export type PrStripAction =
-  | { kind: "git"; action: GitAction; label: PrStripActionLabel; emphasis: "filled" | "outline" }
+  | {
+      kind: "git";
+      action: GitAction;
+      label: PrStripActionLabel;
+      emphasis: "filled" | "outline";
+      /** Sibling actions offered in a chooser beside the button, such as the merge methods. */
+      options?: GitAction[];
+    }
   | {
       kind: "continue" | "fix-checks" | "resolve-conflicts";
       label: PrStripActionLabel;
@@ -42,11 +50,15 @@ export interface PrStripStatusInput {
   autoMergeEnabled: boolean;
 }
 
-function findAction(gitActions: GitActions, prefix: string): GitAction | null {
+function matchingActions(gitActions: GitActions, prefix: string): GitAction[] {
   const all = [gitActions.primary, ...gitActions.secondary, ...gitActions.menu];
-  const matches = all.filter(
+  return all.filter(
     (action): action is GitAction => action !== null && action.id.startsWith(prefix),
   );
+}
+
+function findAction(gitActions: GitActions, prefix: string): GitAction | null {
+  const matches = matchingActions(gitActions, prefix);
   if (gitActions.primary && matches.includes(gitActions.primary)) return gitActions.primary;
   return matches.find((action) => !action.unavailableMessage) ?? null;
 }
@@ -86,7 +98,7 @@ export function derivePrStripState(
   if (status.mergeable === "CONFLICTING") {
     return {
       label: "conflicts",
-      tone: "danger",
+      tone: "warning",
       actions: [{ kind: "resolve-conflicts", label: "resolve", emphasis: "filled" }],
     };
   }
@@ -117,10 +129,21 @@ export function derivePrStripState(
     return { label: "changesRequested", tone: "danger", actions: [] };
   }
   if (merge && !merge.unavailableMessage) {
+    const options = matchingActions(gitActions, "merge-pr-").filter(
+      (action) => !action.unavailableMessage,
+    );
     return {
-      label: "open",
+      label: "readyToMerge",
       tone: "success",
-      actions: [{ kind: "git", action: merge, label: "merge", emphasis: "filled" }],
+      actions: [
+        {
+          kind: "git",
+          action: merge,
+          label: "merge",
+          emphasis: "filled",
+          ...(options.length > 1 ? { options } : {}),
+        },
+      ],
     };
   }
   if (review === "review_required") {
