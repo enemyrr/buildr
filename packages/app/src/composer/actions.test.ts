@@ -1,5 +1,6 @@
 import { buildPrRequest, sendInstructionsRequest } from "@/git/pr-instructions";
 import { describe, expect, it, vi } from "vitest";
+import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import type { AgentAttachment, ForgeSearchItem } from "@getpaseo/protocol/messages";
 import type {
   AttachmentMetadata,
@@ -891,6 +892,9 @@ describe("openComposerAttachment", () => {
         lightboxCalls.push(metadata);
       },
       openWorkspaceAttachment: () => false,
+      openFile: () => {
+        throw new Error("unexpected file open call");
+      },
       openExternalUrl: (url) => {
         externalUrlCalls.push(url);
       },
@@ -911,11 +915,64 @@ describe("openComposerAttachment", () => {
         workspaceCalls.push(attachment);
         return true;
       },
+      openFile: () => {
+        throw new Error("unexpected file open call");
+      },
       openExternalUrl: () => {
         throw new Error("unexpected external url call");
       },
     });
     expect(workspaceCalls).toEqual([review]);
+  });
+
+  it("opens uploaded files in a file tab", () => {
+    const fileCalls: WorkspaceFileLocation[] = [];
+    openComposerAttachment({
+      attachment: {
+        kind: "file",
+        attachment: {
+          type: "uploaded_file",
+          id: "upload_1",
+          fileName: "PR instructions.md",
+          mimeType: "text/markdown",
+          size: 12,
+          path: "/home/me/.paseo/uploads/upload_1/PR instructions.md",
+        },
+      },
+      setLightboxMetadata: () => {
+        throw new Error("unexpected lightbox call");
+      },
+      openWorkspaceAttachment: () => false,
+      openFile: (location) => {
+        fileCalls.push(location);
+      },
+      openExternalUrl: () => {
+        throw new Error("unexpected external url call");
+      },
+    });
+    expect(fileCalls).toEqual([{ path: "/home/me/.paseo/uploads/upload_1/PR instructions.md" }]);
+  });
+
+  it("opens workspace files at their selected lines", () => {
+    const fileCalls: WorkspaceFileLocation[] = [];
+    openComposerAttachment({
+      attachment: {
+        kind: "workspace_file",
+        path: "src/index.ts",
+        selection: { kind: "line_range", startLine: 3, endLine: 7 },
+      },
+      setLightboxMetadata: () => {
+        throw new Error("unexpected lightbox call");
+      },
+      openWorkspaceAttachment: () => false,
+      openFile: (location) => {
+        fileCalls.push(location);
+      },
+      openExternalUrl: () => {
+        throw new Error("unexpected external url call");
+      },
+    });
+    expect(fileCalls).toEqual([{ path: "src/index.ts", lineStart: 3, lineEnd: 7 }]);
   });
 
   it("opens GitHub item URLs through the external url opener", () => {
@@ -926,6 +983,9 @@ describe("openComposerAttachment", () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,
+      openFile: () => {
+        throw new Error("unexpected file open call");
+      },
       openExternalUrl: (url) => {
         externalUrlCalls.push(url);
       },
@@ -955,6 +1015,9 @@ describe("openComposerAttachment", () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,
+      openFile: () => {
+        throw new Error("unexpected file open call");
+      },
       openExternalUrl: (url) => {
         externalUrlCalls.push(url);
       },

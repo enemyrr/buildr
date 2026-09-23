@@ -100,6 +100,7 @@ import {
   createWorkspaceFileTabTarget,
   normalizeWorkspaceFileLocation,
   type OpenFileDisposition,
+  type WorkspaceFileLocation,
   type WorkspaceFileOpenRequest,
 } from "@/workspace/file-open";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
@@ -443,6 +444,34 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       setExpandedToolCallGroupIds(new Set());
     }, [agentId]);
 
+    const openFileLocation = useStableEvent(
+      (location: WorkspaceFileLocation | null, disposition: OpenFileDisposition) => {
+        if (!location) {
+          return;
+        }
+
+        if (onOpenWorkspaceFile) {
+          onOpenWorkspaceFile({
+            location,
+            disposition,
+          });
+          return;
+        }
+
+        if (context.workspaceId) {
+          navigateToWorkspace({
+            serverId: resolvedServerId,
+            workspaceId: context.workspaceId,
+            target: createWorkspaceFileTabTarget(location),
+          });
+        }
+      },
+    );
+
+    const handleOpenUserMessageFile = useStableEvent((path: string) => {
+      openFileLocation(normalizeWorkspaceFileLocation({ path }), "preferred");
+    });
+
     const handleInlinePathPress = useStableEvent(
       (target: InlinePathTarget, disposition: OpenFileDisposition) => {
         if (!target.path) {
@@ -455,30 +484,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }
 
         if (normalized.file) {
-          const location = normalizeWorkspaceFileLocation({
-            path: normalized.file,
-            lineStart: target.lineStart,
-            lineEnd: target.lineEnd,
-          });
-          if (!location) {
-            return;
-          }
-
-          if (onOpenWorkspaceFile) {
-            onOpenWorkspaceFile({
-              location,
-              disposition,
-            });
-            return;
-          }
-
-          if (context.workspaceId) {
-            navigateToWorkspace({
-              serverId: resolvedServerId,
-              workspaceId: context.workspaceId,
-              target: createWorkspaceFileTabTarget(location),
-            });
-          }
+          openFileLocation(
+            normalizeWorkspaceFileLocation({
+              path: normalized.file,
+              lineStart: target.lineStart,
+              lineEnd: target.lineEnd,
+            }),
+            disposition,
+          );
           return;
         }
 
@@ -713,10 +726,18 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               item.clientMessageId !== undefined &&
               pendingClientMessageIds.has(item.clientMessageId)
             }
+            onOpenFile={handleOpenUserMessageFile}
           />
         );
       },
-      [context.capabilities, agentId, client, pendingClientMessageIds, resolvedServerId],
+      [
+        context.capabilities,
+        agentId,
+        client,
+        handleOpenUserMessageFile,
+        pendingClientMessageIds,
+        resolvedServerId,
+      ],
     );
 
     const renderAssistantMessageBody = useCallback(
