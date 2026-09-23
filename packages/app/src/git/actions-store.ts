@@ -25,7 +25,8 @@ export type CheckoutGitAsyncActionId =
   | "disable-pr-auto-merge"
   | "merge-branch"
   | "merge-from-base"
-  | "discard-changes";
+  | "discard-changes"
+  | "continue-branch";
 
 type CheckoutKey = string;
 type StatusMap = Partial<Record<CheckoutGitAsyncActionId, CheckoutGitActionStatus>>;
@@ -122,6 +123,8 @@ interface CheckoutGitActionsStoreState {
   mergeBranch: (params: { serverId: string; cwd: string; baseRef: string }) => Promise<void>;
   mergeFromBase: (params: { serverId: string; cwd: string; baseRef: string }) => Promise<void>;
   discardChanges: (params: { serverId: string; cwd: string; paths: string[] }) => Promise<void>;
+  /** Resolves to the new branch's name. */
+  continueBranch: (params: { serverId: string; cwd: string }) => Promise<string>;
 }
 
 async function runCheckoutAction({
@@ -195,6 +198,24 @@ export const useCheckoutGitActionsStore = create<CheckoutGitActionsStoreState>()
         }
       },
     });
+  },
+
+  continueBranch: async ({ serverId, cwd }) => {
+    let branch = "";
+    await runCheckoutAction({
+      serverId,
+      cwd,
+      actionId: "continue-branch",
+      run: async () => {
+        const client = resolveClient(serverId);
+        const payload = await client.continueBranch(cwd);
+        if (payload.error || !payload.branch) {
+          throw new Error(payload.error?.message ?? "Could not continue on a new branch.");
+        }
+        branch = payload.branch;
+      },
+    });
+    return branch;
   },
 
   pull: async ({ serverId, cwd }) => {

@@ -245,7 +245,8 @@ export async function expectNewWorkspaceProjectSelected(
   await expect(projectPicker).toContainText(projectDisplayName);
 }
 
-export async function expectNewWorkspaceTriggerLabelsAligned(
+// The create card's header lays the project and host chips out on one row, project first.
+export async function expectNewWorkspaceHeaderChipsOnOneRow(
   page: Page,
   input: { projectLabel: string; hostLabel: string },
 ): Promise<void> {
@@ -264,12 +265,13 @@ export async function expectNewWorkspaceTriggerLabelsAligned(
     hostLabel.boundingBox(),
   ]);
   if (!projectTriggerBox || !projectLabelBox || !hostTriggerBox || !hostLabelBox) {
-    throw new Error("New Workspace trigger geometry could not be measured");
+    throw new Error("New Workspace header chip geometry could not be measured");
   }
 
-  const projectLabelInset = projectLabelBox.x - projectTriggerBox.x;
-  const hostLabelInset = hostLabelBox.x - hostTriggerBox.x;
-  expect(hostLabelInset).toBeCloseTo(projectLabelInset, 0);
+  const centerY = (box: { y: number; height: number }) => box.y + box.height / 2;
+  expect(centerY(hostTriggerBox)).toBeCloseTo(centerY(projectTriggerBox), 0);
+  expect(centerY(hostLabelBox)).toBeCloseTo(centerY(projectLabelBox), 0);
+  expect(hostTriggerBox.x).toBeGreaterThanOrEqual(projectTriggerBox.x + projectTriggerBox.width);
 }
 
 export async function fillNewWorkspaceDraft(page: Page, draft: string): Promise<void> {

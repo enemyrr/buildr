@@ -2364,6 +2364,12 @@ export const CheckoutRenameBranchRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const CheckoutContinueBranchRequestSchema = z.object({
+  type: z.literal("checkout.branch.continue.request"),
+  cwd: z.string(),
+  requestId: z.string(),
+});
+
 export const StashSaveRequestSchema = z.object({
   type: z.literal("stash_save_request"),
   cwd: z.string(),
@@ -3283,6 +3289,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PullRequestTimelineRequestSchema,
   CheckoutSwitchBranchRequestSchema,
   CheckoutRenameBranchRequestSchema,
+  CheckoutContinueBranchRequestSchema,
   StashSaveRequestSchema,
   StashPopRequestSchema,
   StashListRequestSchema,
@@ -3690,6 +3697,8 @@ export const ServerInfoStatusPayloadSchema = z
         projectCustomIcon: z.boolean().optional(),
         // COMPAT(projectGitSettings): added in v0.9.2, remove gate after 2027-03-22.
         projectGitSettings: z.boolean().optional(),
+        // COMPAT(checkoutContinueBranch): added in v0.9.2, remove gate after 2027-03-23.
+        checkoutContinueBranch: z.boolean().optional(),
         // COMPAT(fsEntryOps): added in v0.3.0, remove gate after 2027-02-08.
         fsEntryOps: z.boolean().optional(),
         // COMPAT(fsEntryDuplicate): added in v0.3.0, remove gate after 2027-02-09.
@@ -5800,6 +5809,18 @@ export const CheckoutRenameBranchResponseSchema = z.object({
   }),
 });
 
+export const CheckoutContinueBranchResponseSchema = z.object({
+  type: z.literal("checkout.branch.continue.response"),
+  payload: z.object({
+    requestId: z.string(),
+    success: z.boolean(),
+    cwd: z.string(),
+    previousBranch: z.string().nullable(),
+    branch: z.string().nullable(),
+    error: CheckoutErrorSchema.nullable(),
+  }),
+});
+
 const StashEntrySchema = z.object({
   index: z.number().int().min(0),
   message: z.string(),
@@ -6911,6 +6932,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PullRequestTimelineResponseSchema,
   CheckoutSwitchBranchResponseSchema,
   CheckoutRenameBranchResponseSchema,
+  CheckoutContinueBranchResponseSchema,
   StashSaveResponseSchema,
   StashPopResponseSchema,
   StashListResponseSchema,
@@ -7311,6 +7333,8 @@ export type CheckoutSwitchBranchRequest = z.infer<typeof CheckoutSwitchBranchReq
 export type CheckoutSwitchBranchResponse = z.infer<typeof CheckoutSwitchBranchResponseSchema>;
 export type CheckoutRenameBranchRequest = z.infer<typeof CheckoutRenameBranchRequestSchema>;
 export type CheckoutRenameBranchResponse = z.infer<typeof CheckoutRenameBranchResponseSchema>;
+export type CheckoutContinueBranchRequest = z.infer<typeof CheckoutContinueBranchRequestSchema>;
+export type CheckoutContinueBranchResponse = z.infer<typeof CheckoutContinueBranchResponseSchema>;
 export type StashSaveRequest = z.infer<typeof StashSaveRequestSchema>;
 export type StashSaveResponse = z.infer<typeof StashSaveResponseSchema>;
 export type StashPopRequest = z.infer<typeof StashPopRequestSchema>;

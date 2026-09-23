@@ -6,7 +6,9 @@ import { Archive, ArrowUpRight, FastForward, GitMerge, Wrench } from "lucide-rea
 import type { LucideIcon } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/contexts/toast-context";
 import { GIT_ACTION_ICONS } from "@/git/action-icons";
+import { useCheckoutGitActionsStore } from "@/git/actions-store";
 import { getForgePresentation } from "@/git/forge";
 import { deriveMergeCapability } from "@/git/merge-capability";
 import {
@@ -24,6 +26,7 @@ import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
+import { useHostFeature } from "@/runtime/host-features";
 import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 
@@ -46,6 +49,12 @@ export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrSta
   const { gitActions } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
   const requests = useInstructionRequests({ serverId, cwd, agentId });
   const runGitAction = useGitActionRunner();
+  const toast = useToast();
+  const directContinue = useHostFeature(serverId, "checkoutContinueBranch");
+  const continueBranch = useCheckoutGitActionsStore((s) => s.continueBranch);
+  const continuePending = useCheckoutGitActionsStore(
+    (s) => s.getStatus({ serverId, cwd, actionId: "continue-branch" }) === "pending",
+  );
 
   const state = useMemo(() => {
     if (!prStatus?.url) return null;
@@ -61,7 +70,15 @@ export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrSta
   const runAction = useCallback(
     (action: PrStripAction) => {
       if (action.kind === "git") return runGitAction(action.action);
-      if (action.kind === "continue") {
+      if (action.kind === "continue" && directContinue) {
+        void continueBranch({ serverId, cwd }).then(
+          (branch) => toast.show(`Continued on ${branch}.`),
+          (error: unknown) =>
+            toast.error(error instanceof Error ? error.message : "Could not continue."),
+        );
+      } else if (action.kind === "continue") {
+        // COMPAT(checkoutContinueBranch): daemons before v0.9.2 lack checkout.branch.continue.*,
+        // so the agent creates the branch. Remove after 2027-03-23.
         void requests.send("Continue request", (input) =>
           sendContinueRequest({ ...input, baseRef, prUrl }),
         );
@@ -73,7 +90,7 @@ export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrSta
         );
       }
     },
-    [runGitAction, requests, baseRef, prUrl],
+    [runGitAction, requests, baseRef, prUrl, directContinue, continueBranch, serverId, cwd, toast],
   );
   const openPr = useCallback(() => {
     if (prUrl) void openExternalUrl(prUrl);
@@ -113,14 +130,33 @@ export function PrStatusStrip({ serverId, cwd, agentId, variant = "bar" }: PrSta
             key={action.label}
             action={action}
             tone={state.tone}
-            pending={action.kind === "git" ? action.action.status === "pending" : requests.pending}
-            disabled={action.kind === "git" ? action.action.disabled : requests.busy}
+            {...stripActionState(action, {
+              requests,
+              direct: directContinue ? { pending: continuePending } : null,
+            })}
             onPress={runAction}
           />
         ))}
       </View>
     </View>
   );
+}
+
+/** Git actions carry their own state; Continue runs directly when the host supports it. */
+function stripActionState(
+  action: PrStripAction,
+  sources: {
+    requests: { pending: boolean; busy: boolean };
+    direct: { pending: boolean } | null;
+  },
+): { pending: boolean; disabled: boolean } {
+  if (action.kind === "git") {
+    return { pending: action.action.status === "pending", disabled: action.action.disabled };
+  }
+  if (action.kind === "continue" && sources.direct) {
+    return { pending: sources.direct.pending, disabled: sources.direct.pending };
+  }
+  return { pending: sources.requests.pending, disabled: sources.requests.busy };
 }
 
 function actionIcon(action: PrStripAction): LucideIcon {

@@ -2819,6 +2819,8 @@ export class Session {
         return this.checkoutSession.handleCheckoutSwitchBranchRequest(msg);
       case "checkout.rename_branch.request":
         return this.checkoutSession.handleCheckoutRenameBranchRequest(msg);
+      case "checkout.branch.continue.request":
+        return this.checkoutSession.handleCheckoutContinueBranchRequest(msg);
       case "checkout_commit_request":
         return this.checkoutSession.handleCheckoutCommitRequest(msg);
       case "checkout_merge_request":

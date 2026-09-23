@@ -61,6 +61,7 @@ export type GitMutationRefreshReason =
   | "create-pr"
   | "switch-branch"
   | "rename-branch"
+  | "continue-branch"
   | "create-branch"
   | "stash-push"
   | "stash-pop"
@@ -3824,6 +3825,95 @@ async function detectAndThrowMergeFromBaseConflict(
     }
     // ignore detection failures
   }
+}
+
+export interface ContinueOnNewBranchResult {
+  previousBranch: string;
+  branch: string;
+  /** The ref the new branch starts from, such as `refs/remotes/origin/main`. */
+  startPoint: string;
+}
+
+/** `feat/x` → `feat/x-2`, `feat/x-2` → `feat/x-3`. */
+export function nextContinuationBranchName(branch: string): string {
+  const match = /^(.*)-(\d{1,3})$/.exec(branch);
+  if (match?.[1]) {
+    return `${match[1]}-${Number.parseInt(match[2] ?? "1", 10) + 1}`;
+  }
+  return `${branch}-2`;
+}
+
+function splitBaseRefRemote(baseRef: string): { remote: string; name: string } {
+  if (baseRef.startsWith("refs/remotes/")) {
+    const remainder = baseRef.slice("refs/remotes/".length);
+    const separator = remainder.indexOf("/");
+    if (separator > 0) {
+      return { remote: remainder.slice(0, separator), name: remainder.slice(separator + 1) };
+    }
+  }
+  return { remote: "origin", name: branchNameFromRef(baseRef) };
+}
+
+async function listRemotes(cwd: string): Promise<string[]> {
+  const { stdout } = await runGitCommand(["remote"], { cwd, envOverlay: READ_ONLY_GIT_ENV });
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Starts the next branch of work in the same checkout: fetches the base branch, then checks out a
+ * fresh branch from the updated remote base. The working tree must be clean, since the switch
+ * would otherwise carry uncommitted changes onto the new branch.
+ */
+export async function continueOnNewBranch(
+  cwd: string,
+  context?: CheckoutContext,
+): Promise<ContinueOnNewBranchResult> {
+  await requireGitRepo(cwd, context);
+  const previousBranch = await getCurrentBranch(cwd, context);
+  if (!previousBranch || previousBranch === "HEAD") {
+    throw new Error("Cannot continue from a detached HEAD");
+  }
+  if (await isWorkingTreeDirty(cwd, context)) {
+    throw new Error(
+      "Working directory has uncommitted changes. Commit or stash them before continuing on a new branch.",
+    );
+  }
+
+  const { storedBaseRef, resolvedBaseRef } = await resolveBaseRefForCwd(cwd, context);
+  const baseRef = storedBaseRef ?? resolvedBaseRef;
+  if (!baseRef) {
+    throw new Error("Unable to determine the base branch");
+  }
+
+  const { remote, name } = splitBaseRefRemote(baseRef);
+  let startPoint = `refs/heads/${name}`;
+  if ((await listRemotes(cwd)).includes(remote)) {
+    await runGitCommand(["fetch", remote, `refs/heads/${name}:refs/remotes/${remote}/${name}`], {
+      cwd,
+      timeout: 120_000,
+    });
+    startPoint = `refs/remotes/${remote}/${name}`;
+  } else if (!(await doesGitRefExist(cwd, startPoint, context))) {
+    throw new Error(`Base branch not found: ${name}`);
+  }
+
+  let branch = nextContinuationBranchName(previousBranch);
+  while (
+    (await localBranchExists(cwd, branch)) ||
+    (await doesGitRefExist(cwd, `refs/remotes/${remote}/${branch}`, context))
+  ) {
+    branch = nextContinuationBranchName(branch);
+  }
+
+  // --no-track: the new branch must not push to or compare against the base as its upstream.
+  await runGitCommand(["checkout", "--no-track", "-b", branch, startPoint], {
+    cwd,
+    timeout: 120_000,
+  });
+  return { previousBranch, branch, startPoint };
 }
 
 export async function pullCurrentBranch(cwd: string, forgeService?: ForgeService): Promise<void> {

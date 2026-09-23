@@ -6,6 +6,7 @@ const APP_SETTINGS_KEY = "@paseo:app-settings";
 
 /** Persisted nav key -> the testID the app shell renders that item with. */
 const SHELL_ROW_TEST_IDS = {
+  dashboard: "sidebar-dashboard",
   "new-workspace": "sidebar-global-new-workspace",
   history: "sidebar-sessions",
   search: "sidebar-search",
@@ -31,6 +32,7 @@ function settingsRow(page: Page, key: SidebarNavKey): Locator {
 
 function itemLabel(key: SidebarNavKey): string {
   return {
+    dashboard: "Dashboard",
     "new-workspace": "New workspace",
     history: "History",
     search: "Search",

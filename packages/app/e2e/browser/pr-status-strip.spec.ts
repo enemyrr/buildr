@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 import { test } from "../support/fixtures";
 import { waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
@@ -43,6 +45,7 @@ test.describe("PR status strip", () => {
   let seedClient: WorkspaceSetupDaemonClient;
   let repoFixture: GhRepoFixture;
   const workspaceByTitle = new Map<string, string>();
+  const localPathByTitle = new Map<string, string>();
 
   test.beforeAll(async () => {
     if (!GITHUB_AUTH) return;
@@ -73,6 +76,7 @@ test.describe("PR status strip", () => {
     for (const pr of repoFixture.prs) {
       const workspace = await openProjectViaDaemon(seedClient, pr.localPath);
       workspaceByTitle.set(pr.title, workspace.id);
+      localPathByTitle.set(pr.title, pr.localPath);
     }
   });
 
@@ -103,7 +107,7 @@ test.describe("PR status strip", () => {
 
   test("shows closed and draft PRs", async ({ page }) => {
     await open(page, "Closed branch");
-    await expectStrip(page, { label: "Closed", actions: [] });
+    await expectStrip(page, { label: "Closed", actions: ["Continue"] });
     await open(page, "Draft branch");
     await expectStrip(page, { label: "Draft", actions: [] });
   });
@@ -120,8 +124,26 @@ test.describe("PR status strip", () => {
 
   test("merges a ready PR from the strip", async ({ page }) => {
     await open(page, "Ready branch");
-    await expectStrip(page, { label: "Ready to merge", actions: ["Merge"] });
+    await expectStrip(page, { label: "Open", actions: ["Merge"] });
     await page.getByTestId("workspace-pr-status-merge").click();
     await expectStrip(page, { label: "Merged", actions: ["Continue"] });
+  });
+
+  test("Continue refuses uncommitted changes and keeps the strip", async ({ page }) => {
+    writeFileSync(path.join(localPathByTitle.get("Closed branch")!, "uncommitted.txt"), "wip\n");
+    await open(page, "Closed branch");
+    await page.getByTestId("workspace-pr-status-continue").click();
+    await expect(page.getByTestId("app-toast-message")).toContainText("uncommitted changes");
+    await expectStrip(page, { label: "Closed", actions: ["Continue"] });
+  });
+
+  test("Continue moves a merged PR's workspace onto a fresh branch", async ({ page }) => {
+    await open(page, "Merged branch");
+    await page.getByTestId("workspace-pr-status-continue").click();
+    await expect(page.getByTestId("app-toast-message")).toContainText("Continued on ");
+    await expect(page.getByTestId("workspace-pr-status-strip")).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId("workspace-create-pr")).toBeVisible();
   });
 });

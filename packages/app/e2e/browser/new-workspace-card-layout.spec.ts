@@ -17,16 +17,24 @@ const LONG_HOST_NAME =
 const LONG_BRANCH_NAME =
   "feat/app/add-amoled-theme-with-a-very-long-pull-request-and-branch-description";
 
-function measureControlRightEdges(controls: HTMLElement[]) {
-  const measurements: Array<{ label: string | null; right: number }> = [];
-  for (const control of controls) {
-    const rect = control.getBoundingClientRect();
-    measurements.push({ label: control.getAttribute("aria-label"), right: rect.right });
-  }
-  return measurements;
+interface ControlBox {
+  label: string | null;
+  right: number;
+  centerY: number;
 }
 
-test.describe("New workspace metadata row layout", () => {
+function measureControls(controls: HTMLElement[]): ControlBox[] {
+  return controls.map((control) => {
+    const rect = control.getBoundingClientRect();
+    return {
+      label: control.getAttribute("aria-label"),
+      right: rect.right,
+      centerY: rect.top + rect.height / 2,
+    };
+  });
+}
+
+test.describe("New workspace card layout", () => {
   let workspace: SeededWorkspace;
 
   test.beforeEach(async () => {
@@ -40,7 +48,9 @@ test.describe("New workspace metadata row layout", () => {
     await workspace?.cleanup();
   });
 
-  test("long host and branch names stay inside the composer's right rail", async ({ page }) => {
+  test("long host and branch names keep the create card's header chips on one row", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 2048, height: 878 });
     await seedSavedSettingsHosts(page, [
       {
@@ -65,23 +75,38 @@ test.describe("New workspace metadata row layout", () => {
     await openStartingRefPicker(page);
     await selectBranchInPicker(page, LONG_BRANCH_NAME);
 
+    const card = page.getByTestId("new-workspace-dialog").getByRole("dialog");
+    const headerRow = page.getByTestId("new-workspace-ref-picker-row");
     const composer = page.locator('[data-testid="message-input-root"]:visible');
-    const metadataRow = page.getByTestId("new-workspace-ref-picker-row");
-    await expect(composer).toBeVisible();
-    await expect(metadataRow).toBeVisible();
+    const createButton = composer.getByTestId("workspace-create-submit");
+    await expect(card).toBeVisible();
+    await expect(headerRow).toBeVisible();
+    await expect(createButton).toBeVisible();
 
-    const [composerBox, controlBoxes] = await Promise.all([
-      composer.boundingBox(),
-      metadataRow.getByRole("button").evaluateAll(measureControlRightEdges),
+    const [cardBox, headerBox, createBox, controls] = await Promise.all([
+      card.boundingBox(),
+      headerRow.boundingBox(),
+      createButton.boundingBox(),
+      headerRow.getByRole("button").evaluateAll(measureControls),
     ]);
-    expect(composerBox).not.toBeNull();
-    const composerRightRail = composerBox!.x + composerBox!.width;
-
-    for (const control of controlBoxes) {
-      expect(
-        control.right,
-        `${control.label ?? "Metadata control"} crossed the composer rail`,
-      ).toBeLessThanOrEqual(composerRightRail + 1);
+    const [firstControl] = controls;
+    if (!cardBox || !headerBox || !createBox || !firstControl) {
+      throw new Error("New workspace card geometry could not be measured");
     }
+    expect(controls.length).toBeGreaterThanOrEqual(3);
+
+    const cardRight = cardBox.x + cardBox.width;
+    const rowCenterY = firstControl.centerY;
+    for (const control of controls) {
+      const name = control.label ?? "Header chip";
+      expect(control.right, `${name} crossed the card's right edge`).toBeLessThanOrEqual(
+        cardRight + 1,
+      );
+      expect(control.centerY, `${name} wrapped off the header row`).toBeCloseTo(rowCenterY, 0);
+    }
+
+    // Create lives in the composer's footer, below the header chips.
+    expect(createBox.y).toBeGreaterThan(headerBox.y + headerBox.height);
+    expect(createBox.x + createBox.width).toBeLessThanOrEqual(cardRight + 1);
   });
 });

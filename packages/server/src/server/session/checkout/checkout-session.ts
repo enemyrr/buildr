@@ -8,6 +8,7 @@ import type {
   BranchSuggestionsRequest,
   CheckoutCommitsListRequest,
   CheckoutCommitFileDiffRequest,
+  CheckoutContinueBranchRequest,
   CheckoutRefreshRequest,
   CheckoutRenameBranchRequest,
   CheckoutStatusRequest,
@@ -42,6 +43,7 @@ import type {
 } from "../../../services/forge-service.js";
 import {
   commitChanges,
+  continueOnNewBranch,
   createPullRequest,
   discardChanges,
   forgeAuthStateFromError,
@@ -639,6 +641,40 @@ export class CheckoutSession {
           cwd,
           success: false,
           currentBranch: null,
+          error: toCheckoutError(error),
+          requestId,
+        },
+      });
+    }
+  }
+
+  async handleCheckoutContinueBranchRequest(msg: CheckoutContinueBranchRequest): Promise<void> {
+    const { cwd, requestId } = msg;
+    try {
+      const result = await continueOnNewBranch(cwd);
+      await this.gitMutation.notifyGitMutation(cwd, "continue-branch", { invalidateForge: true });
+      this.scheduleDiffRefresh(cwd);
+      this.host.handleWorkspaceGitBranchSnapshot(cwd, result.branch);
+      await this.host.emitWorkspaceUpdateForCwd(cwd);
+      this.host.emit({
+        type: "checkout.branch.continue.response",
+        payload: {
+          cwd,
+          success: true,
+          previousBranch: result.previousBranch,
+          branch: result.branch,
+          error: null,
+          requestId,
+        },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "checkout.branch.continue.response",
+        payload: {
+          cwd,
+          success: false,
+          previousBranch: null,
+          branch: null,
           error: toCheckoutError(error),
           requestId,
         },

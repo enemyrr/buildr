@@ -806,6 +806,108 @@ describe("CheckoutSession", () => {
     });
   });
 
+  describe("continue branch", () => {
+    function setupClonedRepo(root: string): string {
+      const remoteDir = join(root, "remote.git");
+      const cwd = join(root, "repo");
+      execFileSync("git", ["init", "-q", "--bare", "-b", "main", remoteDir]);
+      execFileSync("git", ["clone", "-q", remoteDir, cwd], { stdio: "pipe" });
+      execFileSync("git", ["config", "user.email", "test@example.com"], { cwd });
+      execFileSync("git", ["config", "user.name", "Test User"], { cwd });
+      execFileSync("git", ["checkout", "-q", "-b", "main"], { cwd });
+      writeFileSync(join(cwd, "file.txt"), "original\n");
+      execFileSync("git", ["add", "file.txt"], { cwd });
+      execFileSync("git", ["commit", "-qm", "initial"], { cwd });
+      execFileSync("git", ["push", "-q", "origin", "main"], { cwd, stdio: "pipe" });
+      execFileSync("git", ["checkout", "-q", "-b", "feature"], { cwd });
+      return cwd;
+    }
+
+    it("checks out the next branch, refreshes git state, and confirms both branch names", async () => {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "checkout-session-continue-")));
+      try {
+        const cwd = setupClonedRepo(root);
+        const { subscriber, refreshedCwds } = createFakeDiffSubscriber({
+          cwd: "",
+          files: [],
+          error: null,
+        });
+        const { checkout, emitted, hostCalls, gitMutationCalls } = makeCheckoutSession({
+          diff: subscriber,
+        });
+
+        await checkout.handleCheckoutContinueBranchRequest({
+          type: "checkout.branch.continue.request",
+          cwd,
+          requestId: "cont-1",
+        });
+
+        expect(
+          execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd, encoding: "utf8" }),
+        ).toBe("feature-2\n");
+        expect(gitMutationCalls.notifyGitMutation).toEqual([
+          { cwd, reason: "continue-branch", options: { invalidateForge: true } },
+        ]);
+        expect(refreshedCwds).toEqual([cwd]);
+        expect(hostCalls.handleWorkspaceGitBranchSnapshot).toEqual([
+          { cwd, branchName: "feature-2" },
+        ]);
+        expect(hostCalls.emitWorkspaceUpdateForCwd).toEqual([cwd]);
+        expect(emitted).toEqual([
+          {
+            type: "checkout.branch.continue.response",
+            payload: {
+              cwd,
+              success: true,
+              previousBranch: "feature",
+              branch: "feature-2",
+              error: null,
+              requestId: "cont-1",
+            },
+          },
+        ]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("refuses uncommitted changes without touching git state", async () => {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "checkout-session-continue-dirty-")));
+      try {
+        const cwd = setupClonedRepo(root);
+        writeFileSync(join(cwd, "file.txt"), "changed\n");
+        const { checkout, emitted, gitMutationCalls } = makeCheckoutSession();
+
+        await checkout.handleCheckoutContinueBranchRequest({
+          type: "checkout.branch.continue.request",
+          cwd,
+          requestId: "cont-2",
+        });
+
+        expect(gitMutationCalls.notifyGitMutation).toEqual([]);
+        expect(emitted).toEqual([
+          {
+            type: "checkout.branch.continue.response",
+            payload: {
+              cwd,
+              success: false,
+              previousBranch: null,
+              branch: null,
+              error: {
+                code: "UNKNOWN",
+                message:
+                  "Working directory has uncommitted changes. Commit or stash them before continuing on a new branch.",
+              },
+              requestId: "cont-2",
+            },
+          },
+        ]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("commit", () => {
     it("fails when no message is supplied and none can be generated", async () => {
       const { checkout, emitted, generatorCalls } = makeCheckoutSession();

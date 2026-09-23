@@ -62,6 +62,7 @@ import type {
   CheckoutPrStatusResponse,
   PullRequestTimelineResponse,
   CheckoutSwitchBranchResponse,
+  CheckoutContinueBranchResponse,
   StashSaveResponse,
   StashPopResponse,
   StashListResponse,
@@ -447,6 +448,7 @@ type CheckoutGithubGetCheckDetailsPayload = CheckoutGithubGetCheckDetailsRespons
 type CheckoutPrStatusPayload = CheckoutPrStatusResponse["payload"];
 type PullRequestTimelinePayload = PullRequestTimelineResponse["payload"];
 type CheckoutSwitchBranchPayload = CheckoutSwitchBranchResponse["payload"];
+export type ContinueBranchResult = CheckoutContinueBranchResponse["payload"];
 export type RenameBranchResult = z.infer<typeof CheckoutRenameBranchResponseSchema>["payload"];
 type StashSavePayload = StashSaveResponse["payload"];
 type StashPopPayload = StashPopResponse["payload"];
@@ -4340,6 +4342,15 @@ export class DaemonClient {
         branch: input.branch,
       },
       responseType: "checkout.rename_branch.response",
+    });
+  }
+
+  /** Fetches the base branch and checks out a fresh branch from it in the same checkout. */
+  async continueBranch(cwd: string, requestId?: string): Promise<ContinueBranchResult> {
+    return this.sendNamespacedCorrelatedSessionRequest<"checkout.branch.continue.response">({
+      requestId,
+      message: { type: "checkout.branch.continue.request", cwd },
+      timeout: 120000,
     });
   }
 

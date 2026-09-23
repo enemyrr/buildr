@@ -1687,6 +1687,8 @@ export class VoiceAssistantWebSocketServer {
         workspaceSetupRun: true,
         // COMPAT(projectGitSettings): added in v0.9.2, remove gate after 2027-03-22.
         projectGitSettings: true,
+        // COMPAT(checkoutContinueBranch): added in v0.9.2, remove gate after 2027-03-23.
+        checkoutContinueBranch: true,
         // COMPAT(providersSnapshot): keep optional until all clients rely on snapshot flow.
         providersSnapshot: true,
         // COMPAT(providersSnapshotCwd): added in v0.3.2, remove gate after 2027-02-10.
