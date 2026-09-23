@@ -28,6 +28,7 @@ import { PixelLoader } from "@/components/pixel-loader";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
 import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
+import { WorkspaceTitleEditor } from "@/components/workspace-title-editor";
 
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const needsInputColorMapping = (theme: Theme) => ({
@@ -105,6 +106,8 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   isCreating = false,
   shortcutNumber = null,
   showShortcutBadge = false,
+  isRenaming = false,
+  onRenameDone,
   children,
 }: {
   workspace: SidebarWorkspaceEntry;
@@ -120,6 +123,9 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   isCreating?: boolean;
   shortcutNumber?: number | null;
   showShortcutBadge?: boolean;
+  /** Swaps the title for an inline input; `onRenameDone` fires when it commits or cancels. */
+  isRenaming?: boolean;
+  onRenameDone?: () => void;
   children?: ReactNode;
 }) {
   const {
@@ -157,9 +163,18 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
         )}
         <View style={styles.workspaceContentColumn}>
           <View style={styles.workspaceTitleRow}>
-            <Text style={workspaceBranchTextStyle} numberOfLines={1}>
-              {workspaceLabel}
-            </Text>
+            {isRenaming && onRenameDone ? (
+              <WorkspaceTitleEditor
+                workspace={workspace}
+                variant="sidebar"
+                onDone={onRenameDone}
+                testID={`sidebar-workspace-rename-input-${workspace.workspaceKey}`}
+              />
+            ) : (
+              <Text style={workspaceBranchTextStyle} numberOfLines={1}>
+                {workspaceLabel}
+              </Text>
+            )}
             <View style={sidebarWorkspaceRowStyles.rowRight}>{children}</View>
           </View>
           <WorkspaceMetaRow

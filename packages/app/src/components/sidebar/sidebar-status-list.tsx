@@ -40,7 +40,6 @@ import {
   CircleX,
 } from "lucide-react-native";
 import { useToast } from "@/contexts/toast-context";
-import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { useWorkspaceArchive } from "@/workspace/use-workspace-archive";
@@ -591,7 +590,7 @@ function StatusWorkspaceRowWithMenu({
   const { t } = useTranslation();
   const toast = useToast();
   const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
-  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
   const isArchiving = workspace.archivingAt !== null || isHidingWorkspace;
 
   const redirectAfterArchive = useCallback(() => {
@@ -628,8 +627,8 @@ function StatusWorkspaceRowWithMenu({
     clipboard.copyBranchName(workspace);
   }, [clipboard, workspace]);
 
-  const handleOpenRename = useCallback(() => setIsRenameOpen(true), []);
-  const handleCloseRename = useCallback(() => setIsRenameOpen(false), []);
+  const handleStartRename = useCallback(() => setIsRenaming(true), []);
+  const handleEndRename = useCallback(() => setIsRenaming(false), []);
   const isPinned = workspace.pinnedAt != null;
   const handleTogglePin = useCallback(() => {
     onToggleWorkspacePin(workspace);
@@ -665,41 +664,35 @@ function StatusWorkspaceRowWithMenu({
   });
 
   return (
-    <>
-      <StatusWorkspaceRowInner
-        workspace={workspace}
-        hostBadge={hostBadge}
-        projectName={projectName}
-        projectIconDataUri={projectIconDataUri}
-        selected={selected}
-        shortcutNumber={shortcutNumber}
-        showShortcutBadge={showShortcutBadge}
-        onPress={onPress}
-        isArchiving={isArchiving}
-        archiveLabel={t("sidebar.workspace.actions.archive")}
-        archiveStatus={isArchiving ? "pending" : "idle"}
-        archivePendingLabel={t("sidebar.workspace.actions.archiving")}
-        onArchive={handleArchive}
-        onCopyBranchName={workspace.projectKind === "git" ? handleCopyBranchName : undefined}
-        onCopyPath={handleCopyPath}
-        onRename={handleOpenRename}
-        onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
-        onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
-        isPinned={isPinned}
-        onTogglePin={onTogglePin}
-        inStatusGroup={inStatusGroup}
-        drag={drag}
-        isDragging={isDragging}
-        dragHandleProps={dragHandleProps}
-      />
-      <WorkspaceRenameModal
-        visible={isRenameOpen}
-        workspace={workspace}
-        onClose={handleCloseRename}
-        testID={`sidebar-workspace-rename-modal-${workspace.workspaceKey}`}
-      />
-    </>
+    <StatusWorkspaceRowInner
+      workspace={workspace}
+      hostBadge={hostBadge}
+      projectName={projectName}
+      projectIconDataUri={projectIconDataUri}
+      selected={selected}
+      shortcutNumber={shortcutNumber}
+      showShortcutBadge={showShortcutBadge}
+      onPress={onPress}
+      isArchiving={isArchiving}
+      archiveLabel={t("sidebar.workspace.actions.archive")}
+      archiveStatus={isArchiving ? "pending" : "idle"}
+      archivePendingLabel={t("sidebar.workspace.actions.archiving")}
+      onArchive={handleArchive}
+      onCopyBranchName={workspace.projectKind === "git" ? handleCopyBranchName : undefined}
+      onCopyPath={handleCopyPath}
+      onRename={handleStartRename}
+      onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
+      onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
+      archiveShortcutKeys={selected ? archiveShortcutKeys : null}
+      isPinned={isPinned}
+      onTogglePin={onTogglePin}
+      inStatusGroup={inStatusGroup}
+      drag={drag}
+      isDragging={isDragging}
+      dragHandleProps={dragHandleProps}
+      isRenaming={isRenaming}
+      onRenameDone={handleEndRename}
+    />
   );
 }
 
@@ -730,6 +723,9 @@ interface StatusWorkspaceRowInnerProps {
   drag?: () => void;
   isDragging?: boolean;
   dragHandleProps?: DraggableListDragHandleProps;
+  /** While renaming, the row neither navigates nor drags. */
+  isRenaming?: boolean;
+  onRenameDone?: () => void;
 }
 
 function StatusWorkspaceRowInner(props: StatusWorkspaceRowInnerProps) {
@@ -775,6 +771,8 @@ function StatusWorkspaceRowInnerContent({
   isDragging = false,
   dragHandleProps,
   dragInteraction,
+  isRenaming = false,
+  onRenameDone,
 }: StatusWorkspaceRowInnerProps & {
   dragInteraction?: ReturnType<typeof useLongPressDragInteraction>;
 }) {
@@ -845,7 +843,7 @@ function StatusWorkspaceRowInnerContent({
         return (
           <View
             {...dragAttributes}
-            {...dragHandleProps?.listeners}
+            {...(isRenaming ? undefined : dragHandleProps?.listeners)}
             ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
             style={styles.workspaceRowContainer}
             {...hoverHandlers}
@@ -871,7 +869,7 @@ function StatusWorkspaceRowInnerContent({
               isPinned={isPinned}
               onTogglePin={onTogglePin}
               openInFileManagerPath={workspace.workspaceDirectory}
-              disabled={isArchiving}
+              disabled={isArchiving || isRenaming}
               accessibilityRole="button"
               accessibilityState={accessibilityState}
               style={workspaceRowStyle}
@@ -893,6 +891,8 @@ function StatusWorkspaceRowInnerContent({
                 isLoading={isArchiving}
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
+                isRenaming={isRenaming}
+                onRenameDone={onRenameDone}
               >
                 {renderSlot ? (
                   <StatusWorkspaceActionSlot

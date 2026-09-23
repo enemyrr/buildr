@@ -1362,7 +1362,6 @@ export const ptBR: TranslationResources = {
       },
       rename: {
         title: "Renomear workspace",
-        submit: "Renomear",
         invalidBranchName: "Nome de branch inválido",
       },
       toasts: {

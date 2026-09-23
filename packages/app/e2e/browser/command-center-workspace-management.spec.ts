@@ -118,16 +118,19 @@ test.describe("Command center workspace management", () => {
 
       await runCommand(page, "rename", "Rename workspace");
 
-      // Focused, not merely visible. A modal that mounts behind the closing palette, or loses the
-      // focus race with its focus-restore, still renders — you just cannot type into it.
-      const input = page.getByTestId("workspace-rename-modal-global-input");
+      // The header title turns into the input. Focused, not merely visible: an input that loses
+      // the focus race with the closing palette's focus-restore blurs, which commits and closes it.
+      const input = page.getByTestId("workspace-header-title-input");
       await expect(input).toBeFocused({ timeout: 15_000 });
       await expect(input).toHaveValue(workspace.workspaceName);
 
       const customTitle = "Renamed From Palette";
       await input.fill(customTitle);
-      await page.getByTestId("workspace-rename-modal-global-submit").click();
+      await input.press("Enter");
       await expect(input).toHaveCount(0, { timeout: 15_000 });
+      await expect(page.getByTestId("workspace-header-title")).toHaveText(customTitle, {
+        timeout: 15_000,
+      });
 
       // Re-expand the section to read the row back.
       const header = page

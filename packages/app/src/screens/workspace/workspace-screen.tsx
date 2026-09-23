@@ -46,6 +46,11 @@ import { useNavigateToImportedAgent } from "@/hooks/use-import-session";
 import { useToast } from "@/contexts/toast-context";
 import { getOrCreateClientId } from "@/utils/client-id";
 import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
+import {
+  buildWorkspaceHeaderRenameKey,
+  useWorkspaceHeaderRenameStore,
+} from "@/stores/workspace-header-rename-store";
+import { type RenamableWorkspace, WorkspaceTitleEditor } from "@/components/workspace-title-editor";
 import { toggleDesktopSidebarsWithCheckoutIntent } from "@/utils/desktop-sidebar-toggle";
 import {
   isExplorerSidebarOpen,
@@ -189,7 +194,6 @@ import {
 } from "@/panels/panel-instance-attributes";
 import { findAdjacentPane } from "@/utils/split-navigation";
 import { supportsDesktopPaneSplits, useIsCompactFormFactor } from "@/constants/layout";
-import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
 import { getIsElectron, isNative, isWeb } from "@/constants/platform";
 import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
@@ -931,6 +935,7 @@ function WorkspaceHeaderBreadcrumbProject({ subtitle }: { subtitle: string }) {
 interface WorkspaceHeaderTitleBarProps {
   isLoading: boolean;
   title: string;
+  renameTarget: RenamableWorkspace | null;
   subtitle: string;
   isSubtitleDistinct: boolean;
   currentBranchName: string | null;
@@ -957,9 +962,30 @@ interface WorkspaceHeaderTitleBarProps {
   onOpenUrlInBrowserTab: (url: string) => void;
 }
 
+/**
+ * The header's rename target. setWorkspaceTitle takes the descriptor id, which the opaque route id
+ * is not guaranteed to be. Keyed on the three fields so descriptor churn doesn't re-render the header.
+ */
+function useWorkspaceRenameTarget(
+  serverId: string,
+  descriptor: WorkspaceDescriptor | null | undefined,
+): RenamableWorkspace | null {
+  const id = descriptor?.id ?? null;
+  const name = descriptor?.name ?? "";
+  const title = descriptor?.title ?? null;
+  return useMemo(
+    () => (id ? { serverId, workspaceId: id, name, title } : null),
+    [serverId, id, name, title],
+  );
+}
+
+// Web starts the rename on a double-click, so a stray click on the title does nothing.
+const TITLE_DOUBLE_CLICK_MS = 400;
+
 function WorkspaceHeaderTitleBar({
   isLoading,
   title,
+  renameTarget,
   subtitle,
   isSubtitleDistinct,
   currentBranchName,
@@ -986,10 +1012,26 @@ function WorkspaceHeaderTitleBar({
   onOpenUrlInBrowserTab,
 }: WorkspaceHeaderTitleBarProps) {
   const { t } = useTranslation();
-  const keyboardActionDispatcher = useKeyboardActionDispatcher();
+  const renameKey = buildWorkspaceHeaderRenameKey(normalizedServerId, normalizedWorkspaceId);
+  const isRenaming = useWorkspaceHeaderRenameStore((state) => state.workspaceKey === renameKey);
   const handleRename = useCallback(() => {
-    keyboardActionDispatcher.dispatch({ id: "workspace.rename", scope: "workspace" });
-  }, [keyboardActionDispatcher]);
+    useWorkspaceHeaderRenameStore.getState().start(renameKey);
+  }, [renameKey]);
+  const handleRenameDone = useCallback(() => {
+    useWorkspaceHeaderRenameStore.getState().stop(renameKey);
+  }, [renameKey]);
+  // Touch has no double-click, so a tap renames there.
+  const renamesOnSingleTap = isNative || isMobile;
+  const lastTitlePressRef = useRef(0);
+  const handleTitlePress = useCallback(() => {
+    const now = Date.now();
+    if (renamesOnSingleTap || now - lastTitlePressRef.current < TITLE_DOUBLE_CLICK_MS) {
+      lastTitlePressRef.current = 0;
+      handleRename();
+      return;
+    }
+    lastTitlePressRef.current = now;
+  }, [handleRename, renamesOnSingleTap]);
   return (
     <View style={styles.headerTitleContainer}>
       {isLoading ? (
@@ -1001,17 +1043,26 @@ function WorkspaceHeaderTitleBar({
           {!isMobile && isSubtitleDistinct ? (
             <WorkspaceHeaderBreadcrumbProject subtitle={subtitle} />
           ) : null}
-          <Pressable
-            testID="workspace-header-title-button"
-            accessibilityRole="button"
-            accessibilityLabel={t("sidebar.workspace.actions.rename")}
-            style={styles.headerTitleButton}
-            onPress={handleRename}
-          >
-            <ScreenTitle testID="workspace-header-title" style={styles.headerTitleText}>
-              {title}
-            </ScreenTitle>
-          </Pressable>
+          {isRenaming && renameTarget ? (
+            <WorkspaceTitleEditor
+              workspace={renameTarget}
+              variant="header"
+              onDone={handleRenameDone}
+              testID="workspace-header-title-input"
+            />
+          ) : (
+            <Pressable
+              testID="workspace-header-title-button"
+              accessibilityRole="button"
+              accessibilityLabel={t("sidebar.workspace.actions.rename")}
+              style={styles.headerTitleButton}
+              onPress={handleTitlePress}
+            >
+              <ScreenTitle testID="workspace-header-title" style={styles.headerTitleText}>
+                {title}
+              </ScreenTitle>
+            </Pressable>
+          )}
           {isMobile ? (
             <WorkspaceHeaderProjectRow subtitle={subtitle} serverId={normalizedServerId} />
           ) : null}
@@ -1558,6 +1609,7 @@ function WorkspaceScreenContent({
     [workspaceId],
   );
   const workspaceDescriptor = useWorkspace(normalizedServerId, normalizedWorkspaceId);
+  const workspaceRenameTarget = useWorkspaceRenameTarget(normalizedServerId, workspaceDescriptor);
   useEffect(() => {
     if (!normalizedServerId || !normalizedWorkspaceId || workspaceDescriptor) return;
     void getHostRuntimeStore()
@@ -3909,6 +3961,7 @@ function WorkspaceScreenContent({
               <WorkspaceHeaderTitleBar
                 isLoading={isWorkspaceHeaderLoading}
                 title={workspaceHeaderTitle}
+                renameTarget={workspaceRenameTarget}
                 subtitle={workspaceHeaderSubtitle}
                 isSubtitleDistinct={isWorkspaceHeaderSubtitleDistinct}
                 currentBranchName={currentBranchName}
@@ -3967,6 +4020,7 @@ function WorkspaceScreenContent({
       workspaceHeaderSubtitle,
       workspaceHeaderTitle,
       isWorkspaceHeaderSubtitleDistinct,
+      workspaceRenameTarget,
       workspaceScripts,
     ],
   );

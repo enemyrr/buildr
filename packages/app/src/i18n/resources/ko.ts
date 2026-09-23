@@ -1343,7 +1343,6 @@ export const ko: TranslationResources = {
       },
       rename: {
         title: "워크스페이스 이름 변경",
-        submit: "이름 변경",
         invalidBranchName: "잘못된 브랜치 이름",
       },
       toasts: {

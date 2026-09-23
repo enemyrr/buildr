@@ -1354,7 +1354,6 @@ export const ru: TranslationResources = {
       },
       rename: {
         title: "Переименовать рабочее пространство",
-        submit: "Переименовать",
         invalidBranchName: "Недопустимое имя ветки",
       },
       toasts: {

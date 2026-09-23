@@ -1350,7 +1350,6 @@ export const ja: TranslationResources = {
       },
       rename: {
         title: "ワークスペースの名前を変更",
-        submit: "名前を変更",
         invalidBranchName: "無効なブランチ名",
       },
       toasts: {

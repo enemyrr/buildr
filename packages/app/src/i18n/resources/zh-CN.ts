@@ -1325,7 +1325,6 @@ export const zhCN: TranslationResources = {
       },
       rename: {
         title: "重命名 workspace",
-        submit: "重命名",
         invalidBranchName: "无效的分支名称",
       },
       toasts: {

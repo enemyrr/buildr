@@ -34,7 +34,6 @@ import type { Theme } from "@/styles/theme";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import { getSidebarRowBackdrop } from "@/components/sidebar/sidebar-row-backdrop";
 import { type GestureType } from "react-native-gesture-handler";
-import { WorkspaceRenameModal } from "@/components/workspace-rename-modal";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
 import {
   ExternalLink,
@@ -301,6 +300,9 @@ interface WorkspaceRowInnerProps {
   archiveShortcutKeys?: ShortcutKey[][] | null;
   isPinned?: boolean;
   onTogglePin?: () => void;
+  /** While renaming, the row neither navigates nor drags. */
+  isRenaming?: boolean;
+  onRenameDone?: () => void;
 }
 
 export function PrBadge({ hint, style }: { hint: PrHint; style?: StyleProp<ViewStyle> }) {
@@ -1088,6 +1090,8 @@ function WorkspaceRowInner({
   archiveShortcutKeys,
   isPinned,
   onTogglePin,
+  isRenaming = false,
+  onRenameDone,
 }: WorkspaceRowInnerProps) {
   const isCompact = useIsCompactFormFactor();
   const [isPressed, setIsPressed] = useState(false);
@@ -1141,7 +1145,7 @@ function WorkspaceRowInner({
         return (
           <View
             {...dragAttributes}
-            {...dragHandleProps?.listeners}
+            {...(isRenaming ? undefined : dragHandleProps?.listeners)}
             ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
             style={styles.workspaceRowContainer}
             {...hoverHandlers}
@@ -1166,7 +1170,7 @@ function WorkspaceRowInner({
               isPinned={isPinned}
               onTogglePin={onTogglePin}
               openInFileManagerPath={workspace.workspaceDirectory}
-              disabled={isArchiving}
+              disabled={isArchiving || isRenaming}
               aria-selected={selected}
               accessibilityRole="button"
               accessibilityState={accessibilityState}
@@ -1190,6 +1194,8 @@ function WorkspaceRowInner({
                 isCreating={isCreating}
                 shortcutNumber={shortcutNumber}
                 showShortcutBadge={showShortcutBadge}
+                isRenaming={isRenaming}
+                onRenameDone={onRenameDone}
               >
                 <WorkspaceRowRightGroup
                   workspace={workspace}
@@ -1257,7 +1263,7 @@ function WorkspaceRowWithMenu({
   const { t } = useTranslation();
   const toast = useToast();
   const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
-  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
   const isArchiving = workspace.archivingAt !== null || isHidingWorkspace;
   const redirectAfterArchive = useCallback(() => {
     redirectIfArchivingActiveWorkspace({
@@ -1293,12 +1299,12 @@ function WorkspaceRowWithMenu({
     clipboard.copyBranchName(workspace);
   }, [clipboard, workspace]);
 
-  const handleOpenRename = useCallback(() => {
-    setIsRenameOpen(true);
+  const handleStartRename = useCallback(() => {
+    setIsRenaming(true);
   }, []);
 
-  const handleCloseRename = useCallback(() => {
-    setIsRenameOpen(false);
+  const handleEndRename = useCallback(() => {
+    setIsRenaming(false);
   }, []);
 
   const isPinned = workspace.pinnedAt != null;
@@ -1336,42 +1342,36 @@ function WorkspaceRowWithMenu({
   });
 
   return (
-    <>
-      <WorkspaceRowInner
-        workspace={workspace}
-        hostBadge={hostBadge}
-        leadingProjectName={leadingProjectName}
-        leadingProjectIconDataUri={leadingProjectIconDataUri}
-        selected={selected}
-        shortcutNumber={shortcutNumber}
-        showShortcutBadge={showShortcutBadge}
-        onPress={onPress}
-        drag={drag}
-        isDragging={isDragging}
-        isArchiving={isArchiving}
-        isCreating={isCreating}
-        dragHandleProps={dragHandleProps}
-        menuController={null}
-        archiveLabel={t("sidebar.workspace.actions.archive")}
-        archiveStatus={isArchiving ? "pending" : "idle"}
-        archivePendingLabel={t("sidebar.workspace.actions.archiving")}
-        onArchive={handleArchive}
-        onCopyBranchName={canCopyBranchName ? handleCopyBranchName : undefined}
-        onCopyPath={handleCopyPath}
-        onRename={handleOpenRename}
-        onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
-        onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
-        archiveShortcutKeys={selected ? archiveShortcutKeys : null}
-        isPinned={isPinned}
-        onTogglePin={onTogglePin}
-      />
-      <WorkspaceRenameModal
-        visible={isRenameOpen}
-        workspace={workspace}
-        onClose={handleCloseRename}
-        testID={`sidebar-workspace-rename-modal-${workspace.workspaceKey}`}
-      />
-    </>
+    <WorkspaceRowInner
+      workspace={workspace}
+      hostBadge={hostBadge}
+      leadingProjectName={leadingProjectName}
+      leadingProjectIconDataUri={leadingProjectIconDataUri}
+      selected={selected}
+      shortcutNumber={shortcutNumber}
+      showShortcutBadge={showShortcutBadge}
+      onPress={onPress}
+      drag={drag}
+      isDragging={isDragging}
+      isArchiving={isArchiving}
+      isCreating={isCreating}
+      dragHandleProps={dragHandleProps}
+      menuController={null}
+      archiveLabel={t("sidebar.workspace.actions.archive")}
+      archiveStatus={isArchiving ? "pending" : "idle"}
+      archivePendingLabel={t("sidebar.workspace.actions.archiving")}
+      onArchive={handleArchive}
+      onCopyBranchName={canCopyBranchName ? handleCopyBranchName : undefined}
+      onCopyPath={handleCopyPath}
+      onRename={handleStartRename}
+      onMarkAsRead={hasClearableAttention ? handleMarkAsRead : undefined}
+      onMarkAsUnread={canMarkUnread ? handleMarkAsUnread : undefined}
+      archiveShortcutKeys={selected ? archiveShortcutKeys : null}
+      isPinned={isPinned}
+      onTogglePin={onTogglePin}
+      isRenaming={isRenaming}
+      onRenameDone={handleEndRename}
+    />
   );
 }
 

@@ -7,11 +7,11 @@ function workspaceRowTestId(workspaceId: string): string {
   return `sidebar-workspace-row-${getServerId()}:${workspaceId}`;
 }
 
-function workspaceRenameModalTestId(workspaceId: string, suffix: string): string {
-  return `sidebar-workspace-rename-modal-${getServerId()}:${workspaceId}-${suffix}`;
+function workspaceRenameInputTestId(workspaceId: string): string {
+  return `sidebar-workspace-rename-input-${getServerId()}:${workspaceId}`;
 }
 
-async function openRenameModal(page: Page, workspaceId: string) {
+async function startInlineRename(page: Page, workspaceId: string) {
   const serverId = getServerId();
   const row = page.getByTestId(`sidebar-workspace-row-${serverId}:${workspaceId}`);
   await expect(row).toBeVisible({ timeout: 30_000 });
@@ -21,8 +21,9 @@ async function openRenameModal(page: Page, workspaceId: string) {
   await expect(renameItem).toBeVisible({ timeout: 10_000 });
   await renameItem.click();
 
-  const input = page.getByTestId(workspaceRenameModalTestId(workspaceId, "input"));
-  await expect(input).toBeVisible({ timeout: 10_000 });
+  // The row's title turns into the input in place, focused.
+  const input = page.getByTestId(workspaceRenameInputTestId(workspaceId));
+  await expect(input).toBeFocused({ timeout: 10_000 });
   return input;
 }
 
@@ -41,12 +42,12 @@ test.describe("Sidebar workspace rename", () => {
         timeout: 30_000,
       });
 
-      const input = await openRenameModal(page, workspace.workspaceId);
+      const input = await startInlineRename(page, workspace.workspaceId);
       await expect(input).toHaveValue("main");
 
       const customTitle = "Payments Refactor";
       await input.fill(customTitle);
-      await page.getByTestId(workspaceRenameModalTestId(workspace.workspaceId, "submit")).click();
+      await input.press("Enter");
 
       await expect(input).toHaveCount(0, { timeout: 15_000 });
       // The title is shown exactly as typed — not slugified into a branch name.
@@ -64,6 +65,24 @@ test.describe("Sidebar workspace rename", () => {
         customTitle,
         { timeout: 30_000 },
       );
+    } finally {
+      await workspace.cleanup();
+    }
+  });
+
+  test("Escape leaves the title unchanged", async ({ page }) => {
+    const workspace = await seedWorkspace({ repoPrefix: "sidebar-rename-cancel-" });
+
+    try {
+      await gotoAppShell(page);
+      const input = await startInlineRename(page, workspace.workspaceId);
+      await input.fill("Discarded Title");
+      await input.press("Escape");
+
+      await expect(input).toHaveCount(0, { timeout: 15_000 });
+      const row = page.getByTestId(workspaceRowTestId(workspace.workspaceId));
+      await expect(row).toContainText("main");
+      await expect(row).not.toContainText("Discarded Title");
     } finally {
       await workspace.cleanup();
     }

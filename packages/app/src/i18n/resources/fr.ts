@@ -1372,7 +1372,6 @@ export const fr: TranslationResources = {
       },
       rename: {
         title: "Renommer l'espace de travail",
-        submit: "Rebaptiser",
         invalidBranchName: "Nom de succursale invalide",
       },
       toasts: {

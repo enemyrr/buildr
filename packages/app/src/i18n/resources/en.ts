@@ -1362,7 +1362,6 @@ export const en = {
       },
       rename: {
         title: "Rename workspace",
-        submit: "Rename",
         invalidBranchName: "Invalid branch name",
       },
       toasts: {

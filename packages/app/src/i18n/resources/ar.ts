@@ -1336,7 +1336,6 @@ export const ar: TranslationResources = {
       },
       rename: {
         title: "إعادة تسمية مساحة العمل",
-        submit: "إعادة تسمية",
         invalidBranchName: "اسم الفرع غير صالح",
       },
       toasts: {

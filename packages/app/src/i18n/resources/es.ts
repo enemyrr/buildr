@@ -1372,7 +1372,6 @@ export const es: TranslationResources = {
       },
       rename: {
         title: "Cambiar nombre del espacio de trabajo",
-        submit: "Rebautizar",
         invalidBranchName: "Nombre de sucursal no válido",
       },
       toasts: {
