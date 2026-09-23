@@ -101,6 +101,11 @@ import { registerBrowserAutomationIpc } from "./features/browser-automation/ipc.
 import { BrowserKeyboard } from "./features/browser-keyboard/index.js";
 import { installAppUpdateOnQuit } from "./features/auto-updater.js";
 import {
+  applyDesktopVariantHome,
+  applyDesktopVariantListen,
+  getDesktopVariant,
+} from "./desktop-variant.js";
+import {
   buildAgentDeepLinkRoute,
   parseAgentDeepLink,
   type AgentDeepLinkTarget,
@@ -111,7 +116,11 @@ const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
 const APP_SCHEME = "paseo";
 const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
 const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
-const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || "Paseo";
+const desktopVariant = getDesktopVariant();
+if (desktopVariant) {
+  applyDesktopVariantHome(desktopVariant);
+}
+const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || desktopVariant?.name || "Paseo";
 const DESKTOP_WINDOW_CHROME_MODE = resolveDesktopWindowChromeMode({
   platform: process.platform,
   override: process.env.PASEO_DESKTOP_WINDOW_CONTROLS,
@@ -300,6 +309,9 @@ const forcedUserDataDir = process.env.PASEO_ELECTRON_USER_DATA_DIR?.trim();
 if (forcedUserDataDir) {
   app.setPath("userData", forcedUserDataDir);
   log.info("[dev-user-data] forced userData dir:", forcedUserDataDir);
+} else if (desktopVariant) {
+  // A separate userData dir gives the variant its own single-instance lock.
+  app.setPath("userData", path.join(app.getPath("appData"), desktopVariant.name));
 } else if (!app.isPackaged) {
   try {
     const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -921,6 +933,11 @@ async function runCliPassthroughIfRequested(): Promise<boolean> {
 async function bootstrap(): Promise<void> {
   if (!setupSingleInstanceLock()) {
     return;
+  }
+
+  if (desktopVariant) {
+    const listen = await applyDesktopVariantListen(desktopVariant);
+    log.info("[desktop] variant daemon listen", { listen });
   }
 
   await app.whenReady();

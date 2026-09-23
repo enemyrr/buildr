@@ -5,6 +5,7 @@ import { app } from "electron";
 import { UUID } from "builder-util-runtime";
 import log from "electron-log/main";
 import { autoUpdater } from "electron-updater";
+import { getDesktopVariant } from "../desktop-variant.js";
 import {
   createAppUpdateService,
   type AppUpdateCheckResult,
@@ -251,6 +252,18 @@ export async function checkForAppUpdate({
   releaseChannel: AppReleaseChannel;
   intent: AppUpdateCheckIntent;
 }): Promise<AppUpdateCheckResult> {
+  if (getDesktopVariant()) {
+    // Official releases would replace a variant build, so it never updates itself.
+    return {
+      hasUpdate: false,
+      readyToInstall: false,
+      currentVersion,
+      latestVersion: currentVersion,
+      body: null,
+      date: null,
+      errorMessage: null,
+    };
+  }
   updateLifecycleLog.checkStarted({ currentVersion, releaseChannel, intent });
   const result = await appUpdateService.checkForAppUpdate({
     currentVersion,
@@ -295,6 +308,7 @@ export async function installAppUpdateOnQuit({
   signal: AbortSignal;
 }): Promise<boolean> {
   if (
+    getDesktopVariant() ||
     !shouldInstallAppUpdateOnQuit({
       platform: process.platform,
       isAppImage: Boolean(process.env.APPIMAGE),
