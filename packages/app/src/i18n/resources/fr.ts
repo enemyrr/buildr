@@ -1989,6 +1989,11 @@ export const fr: TranslationResources = {
       untitled: "Sans titre",
       creatingAgent: "Agent créateur",
     },
+    image: {
+      subtitle: "Image jointe",
+      download: "Télécharger",
+      dragHint: "Faites glisser pour copier l'image",
+    },
     file: {
       directoryMissing: "Répertoire Workspace introuvable.",
       loading: "Chargement du fichier...",

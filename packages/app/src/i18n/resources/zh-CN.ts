@@ -1914,6 +1914,11 @@ export const zhCN: TranslationResources = {
       untitled: "未命名",
       creatingAgent: "正在创建 Agent",
     },
+    image: {
+      subtitle: "图片附件",
+      download: "下载",
+      dragHint: "拖动以复制图片",
+    },
     file: {
       directoryMissing: "未找到 workspace 目录。",
       loading: "正在加载文件...",

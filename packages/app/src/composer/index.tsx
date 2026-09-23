@@ -142,6 +142,7 @@ import {
   AttachmentThumbnail,
 } from "@/components/attachment-pill";
 import { AttachmentLightbox, type ImageLightboxSource } from "@/components/attachment-lightbox";
+import { useOpenImageTab } from "@/panels/use-open-image-tab";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useIsDictationReady } from "@/hooks/use-is-dictation-ready";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
@@ -1395,6 +1396,7 @@ function ComposerContentImpl({
   const [isGithubPickerOpen, setIsGithubPickerOpen] = useState(false);
   const [githubSearchQuery, setGithubSearchQuery] = useState("");
   const [lightboxMetadata, setLightboxMetadata] = useState<AttachmentMetadata | null>(null);
+  const openImageTab = useOpenImageTab();
   const attachButtonRef = useRef<View | null>(null);
   const messageInputRef = useRef<MessageInputRef>(null);
   const pluginAttachments = usePluginAttachmentPicker({
@@ -1908,7 +1910,7 @@ function ComposerContentImpl({
     (attachment: ComposerAttachment) => {
       openComposerAttachment({
         attachment,
-        setLightboxMetadata,
+        openImage: openImageTab ?? setLightboxMetadata,
         openWorkspaceAttachment: openAttachment,
         openFile: (location) => onOpenWorkspaceFile?.({ location, disposition: "preferred" }),
         openExternalUrl: (url) => {
@@ -1916,7 +1918,7 @@ function ComposerContentImpl({
         },
       });
     },
-    [onOpenWorkspaceFile, openAttachment],
+    [onOpenWorkspaceFile, openAttachment, openImageTab],
   );
 
   const handleCancelAgent = useCallback(() => {

@@ -1984,6 +1984,11 @@ export const es: TranslationResources = {
       untitled: "Sin título",
       creatingAgent: "Agente creador",
     },
+    image: {
+      subtitle: "Imagen adjunta",
+      download: "Descargar",
+      dragHint: "Arrastra para copiar la imagen",
+    },
     file: {
       directoryMissing: "No se encontró el directorio de Workspace.",
       loading: "Cargando archivo...",

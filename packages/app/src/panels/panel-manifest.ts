@@ -87,6 +87,11 @@ const manifests = {
     supportedHosts: ["main", "explorer"],
     resourceKey: (target) => target.sha,
   },
+  image: {
+    kind: "image",
+    supportedHosts: ["main", "explorer"],
+    resourceKey: (target) => target.attachment.id,
+  },
 } satisfies PanelManifestByKind;
 
 export function getPanelManifest<K extends WorkspaceTabTarget["kind"]>(kind: K): PanelManifest<K> {

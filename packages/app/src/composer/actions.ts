@@ -338,7 +338,7 @@ export async function sendQueuedComposerMessageNow(
 
 export interface OpenComposerAttachmentInput {
   attachment: ComposerAttachment;
-  setLightboxMetadata: (metadata: AttachmentMetadata) => void;
+  openImage: (metadata: AttachmentMetadata) => void;
   openWorkspaceAttachment: (input: { attachment: ComposerAttachment }) => boolean;
   openFile: (location: WorkspaceFileLocation) => void;
   openExternalUrl: (url: string) => void;
@@ -346,7 +346,7 @@ export interface OpenComposerAttachmentInput {
 
 export function openComposerAttachment(input: OpenComposerAttachmentInput): void {
   if (input.attachment.kind === "image") {
-    input.setLightboxMetadata(input.attachment.metadata);
+    input.openImage(input.attachment.metadata);
     return;
   }
   if (input.attachment.kind === "file") {

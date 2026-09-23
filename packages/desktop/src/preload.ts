@@ -107,6 +107,11 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
   webUtils: {
     getPathForFile: (file: File) => webUtils.getPathForFile(file),
   },
+  attachments: {
+    startDrag: (path: string) => ipcRenderer.send("paseo:attachments:start-drag", path),
+    saveAs: (input: { path: string; fileName: string }) =>
+      ipcRenderer.invoke("paseo:attachments:save-as", input),
+  },
   menu: {
     showContextMenu: (input?: Record<string, unknown>) =>
       ipcRenderer.invoke("paseo:menu:showContextMenu", input),

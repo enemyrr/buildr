@@ -88,6 +88,11 @@ export interface DesktopWebUtilsBridge {
   getPathForFile?: (file: File) => string;
 }
 
+export interface DesktopAttachmentsBridge {
+  startDrag?: (path: string) => void;
+  saveAs?: (input: { path: string; fileName: string }) => Promise<boolean>;
+}
+
 export interface DesktopMenuBridge {
   showContextMenu?: (input?: { kind?: "terminal"; hasSelection?: boolean }) => Promise<void>;
   setCapturingShortcut?: (capturing: boolean) => Promise<void>;
@@ -185,6 +190,7 @@ export interface DesktopHostBridge {
   opener?: DesktopOpenerBridge;
   editor?: DesktopEditorBridge;
   webUtils?: DesktopWebUtilsBridge;
+  attachments?: DesktopAttachmentsBridge;
   menu?: DesktopMenuBridge;
   browser?: DesktopBrowserBridge;
 }

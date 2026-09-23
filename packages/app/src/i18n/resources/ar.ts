@@ -1935,6 +1935,11 @@ export const ar: TranslationResources = {
       untitled: "بلا عنوان",
       creatingAgent: "وكيل الخلق",
     },
+    image: {
+      subtitle: "مرفق صورة",
+      download: "تنزيل",
+      dragHint: "اسحب لنسخ الصورة",
+    },
     file: {
       directoryMissing: "لم يتم العثور على دليل Workspace.",
       loading: "جارٍ تحميل الملف...",

@@ -1945,6 +1945,11 @@ export const ko: TranslationResources = {
       untitled: "제목 없음",
       creatingAgent: "에이전트 생성 중",
     },
+    image: {
+      subtitle: "이미지 첨부",
+      download: "다운로드",
+      dragHint: "드래그하여 이미지 복사",
+    },
     file: {
       directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",
       loading: "파일 불러오는 중...",

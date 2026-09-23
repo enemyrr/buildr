@@ -57,7 +57,7 @@ async function buildManagedAttachmentPath(input: {
   return path.join(dirPath, `${attachmentId}${extension}`);
 }
 
-function resolveManagedAttachmentPath(inputPath: unknown): string {
+export function resolveManagedAttachmentPath(inputPath: unknown): string {
   if (typeof inputPath !== "string" || inputPath.trim().length === 0) {
     throw new Error("Attachment path is required.");
   }

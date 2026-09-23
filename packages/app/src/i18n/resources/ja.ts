@@ -1955,6 +1955,11 @@ export const ja: TranslationResources = {
       untitled: "無題",
       creatingAgent: "エージェントを作成中",
     },
+    image: {
+      subtitle: "添付画像",
+      download: "ダウンロード",
+      dragHint: "ドラッグして画像をコピー",
+    },
     file: {
       directoryMissing: "ワークスペースディレクトリが見つかりません。",
       loading: "ファイルを読み込み中...",

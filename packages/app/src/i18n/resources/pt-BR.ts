@@ -1970,6 +1970,11 @@ export const ptBR: TranslationResources = {
       untitled: "Sem título",
       creatingAgent: "Criando agente",
     },
+    image: {
+      subtitle: "Imagem anexada",
+      download: "Baixar",
+      dragHint: "Arraste para copiar a imagem",
+    },
     file: {
       directoryMissing: "Diretório do workspace não encontrado.",
       loading: "Carregando arquivo...",
