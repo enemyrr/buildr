@@ -888,7 +888,7 @@ describe("openComposerAttachment", () => {
     const externalUrlCalls: string[] = [];
     openComposerAttachment({
       attachment: { kind: "image", metadata: image },
-      setLightboxMetadata: (metadata) => {
+      openImage: (metadata) => {
         lightboxCalls.push(metadata);
       },
       openWorkspaceAttachment: () => false,
@@ -908,7 +908,7 @@ describe("openComposerAttachment", () => {
     const workspaceCalls: ComposerAttachment[] = [];
     openComposerAttachment({
       attachment: review,
-      setLightboxMetadata: () => {
+      openImage: () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: ({ attachment }) => {
@@ -939,7 +939,7 @@ describe("openComposerAttachment", () => {
           path: "/home/me/.paseo/uploads/upload_1/PR instructions.md",
         },
       },
-      setLightboxMetadata: () => {
+      openImage: () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,
@@ -961,7 +961,7 @@ describe("openComposerAttachment", () => {
         path: "src/index.ts",
         selection: { kind: "line_range", startLine: 3, endLine: 7 },
       },
-      setLightboxMetadata: () => {
+      openImage: () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,
@@ -979,7 +979,7 @@ describe("openComposerAttachment", () => {
     const externalUrlCalls: string[] = [];
     openComposerAttachment({
       attachment: { kind: "github_issue", item: issueItem },
-      setLightboxMetadata: () => {
+      openImage: () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,
@@ -1011,7 +1011,7 @@ describe("openComposerAttachment", () => {
           resourceType: "issue",
         },
       },
-      setLightboxMetadata: () => {
+      openImage: () => {
         throw new Error("unexpected lightbox call");
       },
       openWorkspaceAttachment: () => false,

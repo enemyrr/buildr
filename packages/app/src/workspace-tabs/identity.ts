@@ -67,6 +67,10 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       const sha = trimNonEmpty(value.sha);
       return sha ? { kind: "commit_diff", sha } : null;
     }
+    case "image":
+      return trimNonEmpty(value.attachment?.id)
+        ? { kind: "image", attachment: value.attachment }
+        : null;
     default:
       return null;
   }
@@ -127,6 +131,13 @@ export function workspaceTabTargetsEqual(
   return secondaryWorkspaceTabTargetsEqual(left, right);
 }
 
+// Callers have already checked that both kinds match.
+const SINGLETON_TAB_KINDS: ReadonlySet<WorkspaceTabTarget["kind"]> = new Set([
+  "files",
+  "changes_tree",
+  "pull_request",
+]);
+
 function secondaryWorkspaceTabTargetsEqual(
   left: WorkspaceTabTarget,
   right: WorkspaceTabTarget,
@@ -140,13 +151,7 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "working_diff" && right.kind === "working_diff") {
     return left.focusPath === right.focusPath && left.focusRequestId === right.focusRequestId;
   }
-  if (left.kind === "files" && right.kind === "files") {
-    return true;
-  }
-  if (left.kind === "changes_tree" && right.kind === "changes_tree") {
-    return true;
-  }
-  if (left.kind === "pull_request" && right.kind === "pull_request") {
+  if (SINGLETON_TAB_KINDS.has(left.kind)) {
     return true;
   }
   if (left.kind === "setup" && right.kind === "setup") {
@@ -154,6 +159,9 @@ function secondaryWorkspaceTabTargetsEqual(
   }
   if (left.kind === "commit_diff" && right.kind === "commit_diff") {
     return left.sha === right.sha;
+  }
+  if (left.kind === "image" && right.kind === "image") {
+    return left.attachment.id === right.attachment.id;
   }
   return false;
 }
@@ -215,6 +223,9 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   }
   if (target.kind === "commit_diff") {
     return `commit_diff_${target.sha}`;
+  }
+  if (target.kind === "image") {
+    return `image_${target.attachment.id}`;
   }
   if (target.kind === "working_diff") {
     return "working_diff";

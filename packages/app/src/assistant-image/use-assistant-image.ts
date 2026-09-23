@@ -73,6 +73,8 @@ export type AssistantImageResult =
       status: "loaded";
       binding: AssistantImageRenderBinding;
       aspectRatio: number;
+      /** The locally stored copy, absent for images rendered from a remote URL. */
+      attachment: AttachmentMetadata | null;
     }
   | { status: "failed"; message: string };
 
@@ -326,6 +328,15 @@ function usePreviewUrl(attachment: AttachmentMetadata | null | undefined): Previ
   return entry.key === previewKey ? entry.state : { status: "waiting" };
 }
 
+function resolveLocalAttachment(input: {
+  directUri: string | null;
+  acquisition: AttachmentAcquisitionState;
+}): AttachmentMetadata | null {
+  return input.directUri === null && input.acquisition.status === "loaded"
+    ? input.acquisition.attachment
+    : null;
+}
+
 function lifecycleReducer(
   state: AssistantImageLifecycle,
   event: AssistantImageLifecycleEvent,
@@ -512,6 +523,10 @@ export function useAssistantImage({
     return acquisitionFailure;
   }
   const hasCurrentLifecycleUri = lifecycle.status !== "failed" && lifecycle.uri === uri;
+  const attachment = resolveLocalAttachment({
+    directUri,
+    acquisition: dataImage ? dataImageAttachment : fileAttachment,
+  });
   let binding: AssistantImageRenderBinding | null = null;
   if (hasCurrentLifecycleUri && lifecycle.uri) {
     binding = {
@@ -531,6 +546,7 @@ export function useAssistantImage({
         onError: handleImageError,
       },
       aspectRatio: lifecycle.aspectRatio,
+      attachment,
     };
   }
   if (lifecycle.status === "failed") {

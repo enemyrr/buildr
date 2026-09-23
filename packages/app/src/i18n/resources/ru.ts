@@ -1968,6 +1968,11 @@ export const ru: TranslationResources = {
       untitled: "Без названия",
       creatingAgent: "Создание агента",
     },
+    image: {
+      subtitle: "Вложенное изображение",
+      download: "Скачать",
+      dragHint: "Перетащите, чтобы скопировать изображение",
+    },
     file: {
       directoryMissing: "Каталог рабочего пространства не найден.",
       loading: "Загрузка файла...",

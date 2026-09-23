@@ -1979,6 +1979,11 @@ export const en = {
       untitled: "Untitled",
       creatingAgent: "Creating agent",
     },
+    image: {
+      subtitle: "Image attachment",
+      download: "Download",
+      dragHint: "Drag to copy the image",
+    },
     file: {
       directoryMissing: "Workspace directory not found.",
       loading: "Loading file...",

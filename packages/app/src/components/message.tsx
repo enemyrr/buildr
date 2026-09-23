@@ -101,6 +101,7 @@ import {
   AttachmentThumbnail,
 } from "@/components/attachment-pill";
 import { AttachmentLightbox, type ImageLightboxSource } from "@/components/attachment-lightbox";
+import { useOpenImageTab } from "@/panels/use-open-image-tab";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
@@ -498,6 +499,8 @@ export const UserMessage = memo(function UserMessage({
   const [isHovered, setIsHovered] = useState(false);
   const [lightboxMetadata, setLightboxMetadata] = useState<UserMessageImageAttachment | null>(null);
   const handleLightboxClose = useCallback(() => setLightboxMetadata(null), []);
+  const openImageTab = useOpenImageTab();
+  const handleOpenImage = openImageTab ?? setLightboxMetadata;
   const lightboxSource = useMemo<ImageLightboxSource | null>(
     () => (lightboxMetadata ? { type: "attachment", metadata: lightboxMetadata } : null),
     [lightboxMetadata],
@@ -559,7 +562,7 @@ export const UserMessage = memo(function UserMessage({
             <UserMessageImagePill
               key={image.id}
               image={image}
-              onOpen={setLightboxMetadata}
+              onOpen={handleOpenImage}
               accessibilityLabel={t("composer.attachments.openImage")}
             />
           ))}
@@ -817,8 +820,8 @@ function AssistantMarkdownImage({
 }) {
   const { t } = useTranslation();
   const [viewerOpen, setViewerOpen] = useState(false);
-  const openViewer = useCallback(() => setViewerOpen(true), []);
   const closeViewer = useCallback(() => setViewerOpen(false), []);
+  const openImageTab = useOpenImageTab();
   const containerStyle = useMemo<StyleProp<ViewStyle>>(
     () => ({
       marginTop: hasLeadingContent ? 16 : 0,
@@ -834,6 +837,14 @@ function AssistantMarkdownImage({
     serverId,
   });
   const binding = image.status === "failed" ? null : image.binding;
+  const imageAttachment = image.status === "loaded" ? image.attachment : null;
+  const openViewer = useCallback(() => {
+    if (openImageTab && imageAttachment) {
+      openImageTab(imageAttachment);
+      return;
+    }
+    setViewerOpen(true);
+  }, [imageAttachment, openImageTab]);
   const aspectRatio = image.status === "failed" ? null : image.aspectRatio;
   const imageUri = binding?.uri ?? "";
   const imageSource = useMemo(() => ({ uri: imageUri }), [imageUri]);
