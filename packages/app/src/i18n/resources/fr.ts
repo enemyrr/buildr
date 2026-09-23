@@ -925,6 +925,10 @@ export const fr: TranslationResources = {
             "MergePRn'est pas disponible ici car ce référentiel utilise une file d'attente de fusion",
           mergePrNotReady:
             "La fusion {{noun}} n'est pas disponible jusqu'à ce que {{brand}} signale que {{noun}} est prête à fusionner",
+          mergePrDirty:
+            "Fusionner la PR n'est pas disponible tant que vous avez des modifications locales ; faites un commit et un push d'abord",
+          mergePrUnpushed:
+            "Fusionner la PR n'est pas disponible tant que vos commits locaux ne sont pas poussés",
           autoMergeCannotDisable:
             "La fusion automatique est activée, mais ce compte ne peut pas la désactiver",
         },
@@ -1023,6 +1027,13 @@ export const fr: TranslationResources = {
         review: "Relire",
         openPr: "Ouvrir la pull request {{ref}}",
         commitAndPush: "Commit et push",
+        copyLink: "Copier le lien",
+        blocked: {
+          checksFailed: "Corrigez les vérifications en échec avant de fusionner",
+          checksRunning: "Les vérifications sont en cours",
+          changesRequested: "Un relecteur a demandé des modifications",
+          reviewRequired: "Une relecture est requise avant de fusionner",
+        },
         continue: "Continuer",
         continueTooltip: "Continuer sur une nouvelle branche avec les mêmes chats",
         archive: "Archiver",
@@ -1066,6 +1077,7 @@ export const fr: TranslationResources = {
           uncommitted_one: "{{count}} modification non commitée",
           uncommitted_other: "{{count}} modifications non commitées",
           uncommittedUnknown: "Modifications non commitées",
+          unpushed: "Commits non poussés",
           clean: "Aucune modification non commitée",
           comments: "Commentaires",
           addAllToChat: "Tout ajouter au chat",

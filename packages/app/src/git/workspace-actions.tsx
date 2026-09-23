@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GIT_ACTION_ICONS } from "@/git/action-icons";
 import { GitActionsSplitButton } from "@/git/actions-split-button";
 import { PrStatusStrip } from "@/git/pr-status-strip";
 import { buildReviewRequest } from "@/git/review-instructions";
@@ -49,8 +50,25 @@ function GitMenuItem({ action }: { action: GitAction }) {
 
 /** The header's git area: Create PR before a PR exists, the PR lifecycle strip after. */
 export function WorkspaceActions({ serverId, cwd, prStripVisible }: WorkspaceActionsProps) {
+  const { t } = useTranslation();
   const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
+  const hasLocalWork = flow.isDirty || flow.hasUnpushedCommits;
+  const { canCommitAndPush, commitAndPush, busy } = flow;
+  const commitAndPushItem = useMemo(
+    () =>
+      hasLocalWork && canCommitAndPush ? (
+        <DropdownMenuItem
+          leading={GIT_ACTION_ICONS.commit}
+          onSelect={commitAndPush}
+          disabled={busy}
+          testID="workspace-commit-and-push"
+        >
+          {t("workspace.git.prFlow.commitAndPush")}
+        </DropdownMenuItem>
+      ) : null,
+    [hasLocalWork, canCommitAndPush, commitAndPush, busy, t],
+  );
 
   if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
   if (!prUrl) return <CreatePrSplitButton flow={flow} />;
@@ -60,7 +78,11 @@ export function WorkspaceActions({ serverId, cwd, prStripVisible }: WorkspaceAct
       {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
         <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
       )}
-      <GitActionsSplitButton gitActions={flow.gitActions} menuOnly />
+      <GitActionsSplitButton
+        gitActions={flow.gitActions}
+        menuOnly
+        menuLeading={commitAndPushItem}
+      />
     </View>
   );
 }

@@ -72,16 +72,83 @@ describe("derivePrStripState", () => {
     ]);
   });
 
-  it("ignores a merge action the policy marks unavailable", () => {
-    const merge = action("merge-pr-squash", { unavailableMessage: "No" });
-    expect(summarize(open, actions(null, [merge])).label).toBe("open");
+  it("keeps Merge, outlined and blocked, when the policy marks it unavailable", () => {
+    const merge = action("merge-pr-squash", { unavailableMessage: "No", disabled: true });
+    const state = derivePrStripState(open, actions(null, [merge]));
+    expect(state.label).toBe("open");
+    expect(state.actions).toEqual([
+      {
+        kind: "git",
+        action: merge,
+        label: "merge",
+        emphasis: "outline",
+        blocked: { reason: null },
+      },
+    ]);
   });
 
-  it("puts conflicts ahead of failing checks", () => {
-    expect(summarize({ ...open, mergeable: "CONFLICTING", checksStatus: "failure" })).toEqual({
+  it("offers Commit and push beside a blocked Merge while changes are uncommitted", () => {
+    const merge = action("merge-pr-squash", { unavailableMessage: "Commit first", disabled: true });
+    const state = derivePrStripState(
+      { ...open, hasUncommittedChanges: true, checksStatus: "failure" },
+      actions(action("commit"), [merge]),
+    );
+    expect({ label: state.label, tone: state.tone }).toEqual({
+      label: "uncommitted",
+      tone: "warning",
+    });
+    expect(state.actions.map((a) => [a.label, a.kind === "git" ? a.blocked : undefined])).toEqual([
+      ["commitAndPush", undefined],
+      ["merge", { reason: null }],
+    ]);
+  });
+
+  it("offers Commit and push while commits are unpushed", () => {
+    expect(summarize({ ...open, hasUnpushedCommits: true })).toEqual({
+      label: "unpushed",
+      tone: "warning",
+      actions: ["commitAndPush"],
+    });
+  });
+
+  it("offers Commit and push on a draft with local work", () => {
+    expect(summarize({ ...open, isDraft: true, hasUncommittedChanges: true })).toEqual({
+      label: "draft",
+      tone: "muted",
+      actions: ["commitAndPush"],
+    });
+  });
+
+  it("names running checks as the reason Merge is blocked", () => {
+    const merge = action("merge-pr-squash", { unavailableMessage: "Not ready", disabled: true });
+    const [, blocked] = derivePrStripState(
+      { ...open, checksStatus: "pending" },
+      actions(action("enable-pr-auto-merge-squash"), [merge]),
+    ).actions;
+    expect(blocked).toMatchObject({ label: "merge", blocked: { reason: "checksRunning" } });
+  });
+
+  it("names a required review as the reason Merge is blocked", () => {
+    const merge = action("merge-pr-squash", { unavailableMessage: "Not ready", disabled: true });
+    const state = derivePrStripState(
+      { ...open, reviewDecision: "REVIEW_REQUIRED" },
+      actions(null, [merge]),
+    );
+    expect(state.label).toBe("reviewRequired");
+    expect(state.actions[0]).toMatchObject({ blocked: { reason: "reviewRequired" } });
+  });
+
+  it("puts conflicts ahead of failing checks, with Merge still shown", () => {
+    const merge = action("merge-pr-squash", { unavailableMessage: "Conflicts", disabled: true });
+    expect(
+      summarize(
+        { ...open, mergeable: "CONFLICTING", checksStatus: "failure" },
+        actions(null, [merge]),
+      ),
+    ).toEqual({
       label: "conflicts",
       tone: "warning",
-      actions: ["resolve"],
+      actions: ["resolve", "merge"],
     });
   });
 

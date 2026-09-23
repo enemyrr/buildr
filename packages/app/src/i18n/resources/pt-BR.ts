@@ -916,6 +916,10 @@ export const ptBR: TranslationResources = {
             "Merge da PR não está disponível aqui porque este repositório usa uma merge queue",
           mergePrNotReady:
             "Merge da {{noun}} não está disponível até o {{brand}} informar que a {{noun}} está pronta para merge",
+          mergePrDirty:
+            "Mesclar PR não está disponível enquanto houver alterações locais; faça commit e push primeiro",
+          mergePrUnpushed:
+            "Mesclar PR não está disponível até que seus commits locais sejam enviados",
           autoMergeCannotDisable:
             "O merge automático está ativado, mas esta conta não pode desativá-lo",
         },
@@ -1014,6 +1018,13 @@ export const ptBR: TranslationResources = {
         review: "Revisar",
         openPr: "Abrir pull request {{ref}}",
         commitAndPush: "Commit e push",
+        copyLink: "Copiar link",
+        blocked: {
+          checksFailed: "Corrija as verificações com falha antes de mesclar",
+          checksRunning: "As verificações ainda estão em execução",
+          changesRequested: "Um revisor solicitou alterações",
+          reviewRequired: "Uma revisão é necessária antes de mesclar",
+        },
         continue: "Continuar",
         continueTooltip: "Continuar em um novo branch com os mesmos chats",
         archive: "Arquivar",
@@ -1057,6 +1068,7 @@ export const ptBR: TranslationResources = {
           uncommitted_one: "{{count}} alteração não commitada",
           uncommitted_other: "{{count}} alterações não commitadas",
           uncommittedUnknown: "Alterações não commitadas",
+          unpushed: "Commits não enviados",
           clean: "Nenhuma alteração não commitada",
           comments: "Comentários",
           addAllToChat: "Adicionar tudo ao chat",

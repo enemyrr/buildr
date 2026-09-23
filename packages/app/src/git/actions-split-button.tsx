@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ChevronDown, GitBranch, MoreVertical } from "lucide-react-native";
@@ -23,6 +23,8 @@ interface GitActionsSplitButtonProps {
   gitActions: GitActions;
   hideLabels?: boolean;
   menuOnly?: boolean;
+  /** Items above the git actions in the `menuOnly` menu. */
+  menuLeading?: ReactNode;
 }
 
 interface GitActionMenuItemProps {
@@ -79,6 +81,7 @@ export function GitActionsSplitButton({
   gitActions,
   hideLabels,
   menuOnly = false,
+  menuLeading,
 }: GitActionsSplitButtonProps) {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
@@ -139,7 +142,7 @@ export function GitActionsSplitButton({
   );
 
   if (menuOnly) {
-    if (menuOnlyActions.length === 0) {
+    if (menuOnlyActions.length === 0 && !menuLeading) {
       return null;
     }
 
@@ -155,6 +158,8 @@ export function GitActionsSplitButton({
           <ChevronDown size={12} color={theme.colors.foregroundExtraMuted} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" testID="changes-primary-cta-menu">
+          {menuLeading}
+          {menuLeading && menuOnlyActions.length > 0 ? <DropdownMenuSeparator /> : null}
           {menuOnlyActions.map((action, index) => (
             <GitActionMenuItem
               key={action.id}

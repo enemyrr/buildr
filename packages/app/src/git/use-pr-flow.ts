@@ -37,8 +37,9 @@ export function usePrFlow({
   );
   const direct = actions.find((action) => action.id === "pr" && !action.unavailableMessage) ?? null;
   const commit = actions.find((action) => action.id === "commit") ?? null;
-  const branch = status?.isGit ? status.currentBranch : null;
-  const baseRef = status?.isGit ? status.baseRef : null;
+  const gitStatus = status?.isGit ? status : null;
+  const branch = gitStatus?.currentBranch ?? null;
+  const baseRef = gitStatus?.baseRef ?? null;
   const compareUrl = useMemo(
     () => buildForgeCompareUrl(forge, { remoteUrl: status?.remoteUrl, baseRef, branch }),
     [baseRef, branch, forge, status?.remoteUrl],
@@ -80,7 +81,7 @@ export function usePrFlow({
     prStatus,
     forge,
     baseRef,
-    isDirty: status?.isGit ? status.isDirty : false,
+    ...localWork(gitStatus),
     canSend,
     pending: requests.pending || direct?.status === "pending",
     busy: requests.busy,
@@ -95,3 +96,13 @@ export function usePrFlow({
 }
 
 export type PrFlow = ReturnType<typeof usePrFlow>;
+
+function localWork(status: { isDirty: boolean; aheadOfOrigin?: number | null } | null): {
+  isDirty: boolean;
+  hasUnpushedCommits: boolean;
+} {
+  return {
+    isDirty: status?.isDirty ?? false,
+    hasUnpushedCommits: (status?.aheadOfOrigin ?? 0) > 0,
+  };
+}

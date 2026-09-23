@@ -901,6 +901,8 @@ export const ko: TranslationResources = {
           mergePrQueue: "이 저장소는 병합 대기열을 사용하므로 여기서 PR 병합을 사용할 수 없습니다",
           mergePrNotReady:
             "{{brand}}에서 {{noun}}의 병합 준비가 확인될 때까지 {{noun}}을(를) 병합할 수 없습니다.",
+          mergePrDirty: "로컬 변경 사항이 있어 PR을 병합할 수 없습니다. 먼저 커밋하고 푸시하세요",
+          mergePrUnpushed: "로컬 커밋을 푸시할 때까지 PR을 병합할 수 없습니다",
           autoMergeCannotDisable: "자동 병합이 사용 설정되어 있지만 이 계정은 해제할 수 없습니다",
         },
         toasts: {
@@ -998,6 +1000,13 @@ export const ko: TranslationResources = {
         review: "리뷰",
         openPr: "풀 리퀘스트 {{ref}} 열기",
         commitAndPush: "커밋 후 푸시",
+        copyLink: "링크 복사",
+        blocked: {
+          checksFailed: "병합하기 전에 실패한 검사를 수정하세요",
+          checksRunning: "검사가 아직 실행 중입니다",
+          changesRequested: "리뷰어가 변경을 요청했습니다",
+          reviewRequired: "병합하기 전에 리뷰가 필요합니다",
+        },
         continue: "계속",
         continueTooltip: "같은 채팅으로 새 브랜치에서 계속",
         archive: "보관",
@@ -1041,6 +1050,7 @@ export const ko: TranslationResources = {
           uncommitted_one: "커밋되지 않은 변경 {{count}}개",
           uncommitted_other: "커밋되지 않은 변경 {{count}}개",
           uncommittedUnknown: "커밋되지 않은 변경",
+          unpushed: "푸시되지 않은 커밋",
           clean: "커밋되지 않은 변경 없음",
           comments: "댓글",
           addAllToChat: "모두 채팅에 추가",

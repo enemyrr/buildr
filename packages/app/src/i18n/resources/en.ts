@@ -920,6 +920,9 @@ export const en = {
           mergePrQueue: "Merge PR isn't available here because this repository uses a merge queue",
           mergePrNotReady:
             "Merge {{noun}} isn't available until {{brand}} reports the {{noun}} is ready to merge",
+          mergePrDirty:
+            "Merge PR isn't available while you have local changes so commit and push them first",
+          mergePrUnpushed: "Merge PR isn't available until your local commits are pushed",
           autoMergeCannotDisable: "Auto-merge is enabled, but this account can't disable it",
         },
         toasts: {
@@ -1017,6 +1020,13 @@ export const en = {
         review: "Review",
         openPr: "Open pull request {{ref}}",
         commitAndPush: "Commit and push",
+        copyLink: "Copy link",
+        blocked: {
+          checksFailed: "Fix the failing checks before merging",
+          checksRunning: "Checks are still running",
+          changesRequested: "A reviewer requested changes",
+          reviewRequired: "A review is required before merging",
+        },
         continue: "Continue",
         continueTooltip: "Continue on a new branch with the same chats",
         archive: "Archive",
@@ -1060,6 +1070,7 @@ export const en = {
           uncommitted_one: "{{count}} uncommitted change",
           uncommitted_other: "{{count}} uncommitted changes",
           uncommittedUnknown: "Uncommitted changes",
+          unpushed: "Unpushed commits",
           clean: "No uncommitted changes",
           comments: "Comments",
           addAllToChat: "Add all to chat",
@@ -1635,7 +1646,7 @@ export const en = {
         description: "Open a Claude Code, Codex or other session you started in a terminal",
       },
       setupProviders: {
-        title: "Setup providers",
+        title: "Set up providers",
         description: "Configure Claude Code, Codex, and more",
       },
       pairDevice: {

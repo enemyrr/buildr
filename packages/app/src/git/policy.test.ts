@@ -769,7 +769,6 @@ describe("git-actions-policy", () => {
     ["draft", { pullRequestIsDraft: true }],
     ["merged", { pullRequestIsMerged: true }],
     ["closed", { pullRequestState: "closed" as const }],
-    ["conflicting", { pullRequestMergeable: "CONFLICTING" as const }],
   ])("does not offer direct merge actions when the PR is %s", (_name, overrides) => {
     const actions = buildGitActions(
       createInput({
@@ -793,6 +792,54 @@ describe("git-actions-policy", () => {
       expect.arrayContaining([expect.objectContaining({ id: "pr", label: "View PR" })]),
     );
   });
+
+  it.each([
+    [
+      "conflicting",
+      { pullRequestMergeable: "CONFLICTING" as const },
+      "Merge PR isn't available because the pull request has conflicts",
+    ],
+    [
+      "dirty",
+      { hasUncommittedChanges: true },
+      "Merge PR isn't available while you have local changes so commit and push them first",
+    ],
+    [
+      "unpushed",
+      { aheadOfOrigin: 1 },
+      "Merge PR isn't available until your local commits are pushed",
+    ],
+  ])(
+    "keeps direct merge actions disabled with a reason when the workspace is %s",
+    (_name, overrides, message) => {
+      const actions = buildGitActions(
+        createInput({
+          hasRemote: true,
+          isOnBaseBranch: false,
+          aheadCount: 2,
+          hasPullRequest: true,
+          pullRequestUrl: "https://example.com/pr/456",
+          pullRequestState: "open",
+          pullRequestMergeable: "MERGEABLE",
+          pullRequestGithub: githubStatus(),
+          ...overrides,
+        }),
+      );
+      const mergePrActions = actions.secondary.filter((action) =>
+        ["merge-pr-squash", "merge-pr-merge", "merge-pr-rebase"].includes(action.id),
+      );
+
+      expect(actions.primary?.id.startsWith("merge-pr-")).toBe(false);
+      expect(mergePrActions.map((action) => action.id)).toEqual([
+        "merge-pr-squash",
+        "merge-pr-merge",
+        "merge-pr-rebase",
+      ]);
+      for (const action of mergePrActions) {
+        expect(action).toMatchObject({ disabled: true, unavailableMessage: message });
+      }
+    },
+  );
 
   it("preserves legacy direct merge actions when old payloads have no GitHub facts", () => {
     const oldDaemonStatus = CheckoutPrStatusSchema.parse({
@@ -876,14 +923,14 @@ describe("git-actions-policy", () => {
       "merge-from-base",
       "merge-branch",
       "pr",
+      "merge-pr-squash",
       "enable-pr-auto-merge-squash",
       "archive-workspace",
     ]);
-    expect(
-      actions.secondary.some((action) =>
-        ["merge-pr-squash", "merge-pr-merge", "merge-pr-rebase"].includes(action.id),
-      ),
-    ).toBe(false);
+    expect(actions.secondary.find((action) => action.id === "merge-pr-squash")).toMatchObject({
+      disabled: true,
+      unavailableMessage: "Merge PR isn't available until GitHub reports the PR is ready to merge",
+    });
   });
 
   it.each([
@@ -979,10 +1026,10 @@ describe("git-actions-policy", () => {
       ]),
     );
     expect(
-      actions.secondary.some((action) =>
-        ["merge-pr-squash", "merge-pr-merge", "merge-pr-rebase"].includes(action.id),
-      ),
-    ).toBe(false);
+      actions.secondary
+        .filter((action) => action.id.startsWith("merge-pr-"))
+        .every((action) => action.disabled && action.unavailableMessage),
+    ).toBe(true);
   });
 
   it("respects repository merge method policy for direct merge actions", () => {
@@ -1043,11 +1090,11 @@ describe("git-actions-policy", () => {
     );
 
     expect(actions.primary).toMatchObject({ id: "pr", label: "View PR" });
-    expect(
-      actions.secondary.some((action) =>
-        ["merge-pr-squash", "merge-pr-merge", "merge-pr-rebase"].includes(action.id),
-      ),
-    ).toBe(false);
+    expect(actions.secondary.find((action) => action.id === "merge-pr-squash")).toMatchObject({
+      disabled: true,
+      unavailableMessage:
+        "Merge PR isn't available here because this repository uses a merge queue",
+    });
   });
 
   it("groups merge-pr actions behind their own menu separator via startsGroup", () => {

@@ -910,6 +910,9 @@ export const ru: TranslationResources = {
           mergePrQueue: "Слияние PR недоступно: в этом репозитории используется очередь слияния.",
           mergePrNotReady:
             "Функция слияния {{noun}} недоступна до тех пор, пока {{brand}} не сообщит, что {{noun}} готов к слиянию.",
+          mergePrDirty:
+            "Слияние PR недоступно, пока есть локальные изменения: сначала закоммитьте и отправьте их",
+          mergePrUnpushed: "Слияние PR недоступно, пока локальные коммиты не отправлены",
           autoMergeCannotDisable:
             "Автослияние включено, но эта учётная запись не может его отключить.",
         },
@@ -1008,6 +1011,13 @@ export const ru: TranslationResources = {
         review: "Ревью",
         openPr: "Открыть pull request {{ref}}",
         commitAndPush: "Закоммитить и отправить",
+        copyLink: "Скопировать ссылку",
+        blocked: {
+          checksFailed: "Исправьте упавшие проверки перед слиянием",
+          checksRunning: "Проверки ещё выполняются",
+          changesRequested: "Ревьюер запросил изменения",
+          reviewRequired: "Перед слиянием требуется ревью",
+        },
         continue: "Продолжить",
         continueTooltip: "Продолжить в новой ветке с теми же чатами",
         archive: "Архивировать",
@@ -1051,6 +1061,7 @@ export const ru: TranslationResources = {
           uncommitted_one: "{{count}} незакоммиченное изменение",
           uncommitted_other: "Незакоммиченных изменений: {{count}}",
           uncommittedUnknown: "Незакоммиченные изменения",
+          unpushed: "Неотправленные коммиты",
           clean: "Нет незакоммиченных изменений",
           comments: "Комментарии",
           addAllToChat: "Добавить всё в чат",

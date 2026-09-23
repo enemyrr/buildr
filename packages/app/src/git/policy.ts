@@ -545,17 +545,29 @@ function canUsePullRequestActionAsShipDefault(input: BuildGitActionsInput): bool
   return input.aheadCount > 0;
 }
 
-function canMergePr(input: BuildGitActionsInput): boolean {
-  const capability = input.mergeCapability;
-  const canMergeFromPullRequestStatus =
+/** An open, non-draft change request: its merge actions always show, disabled until ready. */
+function isOpenPullRequest(input: BuildGitActionsInput): boolean {
+  return (
     input.githubFeaturesEnabled &&
     input.hasPullRequest &&
     input.pullRequestState === "open" &&
     !input.pullRequestIsDraft &&
-    !input.pullRequestIsMerged &&
+    !input.pullRequestIsMerged
+  );
+}
+
+function hasUnpushedCommits(input: BuildGitActionsInput): boolean {
+  return (input.aheadOfOrigin ?? 0) > 0;
+}
+
+function canMergePr(input: BuildGitActionsInput): boolean {
+  const capability = input.mergeCapability;
+  const canMergeFromPullRequestStatus =
+    isOpenPullRequest(input) &&
     input.pullRequestMergeable !== "CONFLICTING" &&
     input.aheadCount > 0 &&
-    !input.hasUncommittedChanges;
+    !input.hasUncommittedChanges &&
+    !hasUnpushedCommits(input);
 
   if (!canMergeFromPullRequestStatus) {
     return false;
@@ -719,13 +731,19 @@ function getMergePrUnavailableMessage(input: BuildGitActionsInput): string | und
   if (input.pullRequestMergeable === "CONFLICTING") {
     return i18n.t("workspace.git.actions.unavailable.mergePrConflicts");
   }
-  if (input.mergeCapability === null) {
-    return undefined;
+  if (input.hasUncommittedChanges) {
+    return i18n.t("workspace.git.actions.unavailable.mergePrDirty");
   }
-  if (input.mergeCapability.mergeBlockedByQueue) {
+  if (hasUnpushedCommits(input)) {
+    return i18n.t("workspace.git.actions.unavailable.mergePrUnpushed");
+  }
+  if (input.aheadCount === 0) {
+    return i18n.t("workspace.git.actions.unavailable.mergeNothing");
+  }
+  if (input.mergeCapability?.mergeBlockedByQueue) {
     return i18n.t("workspace.git.actions.unavailable.mergePrQueue");
   }
-  if (!input.mergeCapability.directMergeReady) {
+  if (!canMergePr(input)) {
     return i18n.t("workspace.git.actions.unavailable.mergePrNotReady", {
       brand: input.forgeBrandLabel,
       noun: input.forgeChangeRequestNoun,
@@ -749,7 +767,9 @@ function shouldShowPullRequestAction(
     return input.githubAutoMergeActionsEnabled && input.mergeCapability?.autoMergeEnabled === true;
   }
   if (isDirectPullRequestMergeActionId(id)) {
-    return canMergePr(input) && getAllowedDirectPullRequestMergeActionIds(input).includes(id);
+    return (
+      isOpenPullRequest(input) && getAllowedDirectPullRequestMergeActionIds(input).includes(id)
+    );
   }
   if (isEnablePullRequestAutoMergeActionId(id)) {
     return canEnablePrAutoMerge(input) && getAllowedAutoMergeEnableActionIds(input).includes(id);

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Circle, CircleCheck } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { getForgePresentation } from "@/git/forge";
-import { usePrFlow } from "@/git/use-pr-flow";
+import { usePrFlow, type PrFlow } from "@/git/use-pr-flow";
 import { useWorkingDiffSummary } from "@/git/use-working-diff-summary";
 import { Section, foregroundMutedColorMapping, successColorMapping } from "./section-kit";
 
@@ -16,8 +16,8 @@ const PENDING_ICON = <ThemedCircle size={14} uniProps={foregroundMutedColorMappi
 const DONE_ICON = <ThemedCircleCheck size={14} uniProps={successColorMapping} />;
 
 /**
- * The Checks view's checklist toward a mergeable PR: is there a PR, is everything committed.
- * Each open item carries the action that closes it.
+ * The Checks view's checklist toward a mergeable PR: is there a PR, is everything committed and
+ * pushed. Each open item carries the action that closes it.
  */
 export function GitStatusSection({
   serverId,
@@ -37,6 +37,11 @@ export function GitStatusSection({
   const prRef = pr?.number ? `${getForgePresentation(flow.forge).numberPrefix}${pr.number}` : null;
 
   if (!flow.isGit) return null;
+  const localWorkLabel = getLocalWorkLabel(t, {
+    isDirty: flow.isDirty,
+    hasUnpushedCommits: flow.hasUnpushedCommits,
+    uncommittedCount: uncommitted?.fileCount ?? 0,
+  });
   return (
     <Section
       title={t("workspace.git.prFlow.checks.gitStatus")}
@@ -60,29 +65,41 @@ export function GitStatusSection({
           </Button>
         </ChecklistRow>
       )}
-      {flow.isDirty ? (
-        <ChecklistRow
-          done={false}
-          label={
-            uncommitted && uncommitted.fileCount > 0
-              ? t("workspace.git.prFlow.checks.uncommitted", { count: uncommitted.fileCount })
-              : t("workspace.git.prFlow.checks.uncommittedUnknown")
-          }
-        >
-          <Button
-            variant="ghost"
-            size="xs"
-            onPress={flow.commitAndPush}
-            disabled={flow.busy || !flow.canCommitAndPush}
-            testID="git-status-commit-and-push"
-          >
-            {t("workspace.git.prFlow.commitAndPush")}
-          </Button>
+      {localWorkLabel ? (
+        <ChecklistRow done={false} label={localWorkLabel}>
+          <CommitAndPushButton flow={flow} />
         </ChecklistRow>
       ) : (
         <ChecklistRow done label={t("workspace.git.prFlow.checks.clean")} />
       )}
     </Section>
+  );
+}
+
+function getLocalWorkLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  work: { isDirty: boolean; hasUnpushedCommits: boolean; uncommittedCount: number },
+): string | null {
+  if (work.isDirty && work.uncommittedCount > 0) {
+    return t("workspace.git.prFlow.checks.uncommitted", { count: work.uncommittedCount });
+  }
+  if (work.isDirty) return t("workspace.git.prFlow.checks.uncommittedUnknown");
+  if (work.hasUnpushedCommits) return t("workspace.git.prFlow.checks.unpushed");
+  return null;
+}
+
+function CommitAndPushButton({ flow }: { flow: PrFlow }) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      onPress={flow.commitAndPush}
+      disabled={flow.busy || !flow.canCommitAndPush}
+      testID="git-status-commit-and-push"
+    >
+      {t("workspace.git.prFlow.commitAndPush")}
+    </Button>
   );
 }
 

@@ -926,6 +926,9 @@ export const es: TranslationResources = {
             "FusionarPRno está disponible aquí porque este repositorio utiliza una cola de fusión",
           mergePrNotReady:
             "Fusionar {{noun}} no está disponible hasta que {{brand}} informe que {{noun}} está listo para fusionarse",
+          mergePrDirty:
+            "Fusionar PR no está disponible mientras tengas cambios locales; confírmalos y súbelos primero",
+          mergePrUnpushed: "Fusionar PR no está disponible hasta que subas tus commits locales",
           autoMergeCannotDisable:
             "La combinación automática está habilitada, pero esta cuenta no puede deshabilitarla",
         },
@@ -1024,6 +1027,13 @@ export const es: TranslationResources = {
         review: "Revisar",
         openPr: "Abrir pull request {{ref}}",
         commitAndPush: "Confirmar y subir",
+        copyLink: "Copiar enlace",
+        blocked: {
+          checksFailed: "Corrige las comprobaciones fallidas antes de fusionar",
+          checksRunning: "Las comprobaciones siguen en curso",
+          changesRequested: "Un revisor pidió cambios",
+          reviewRequired: "Se requiere una revisión antes de fusionar",
+        },
         continue: "Continuar",
         continueTooltip: "Continuar en una rama nueva con los mismos chats",
         archive: "Archivar",
@@ -1067,6 +1077,7 @@ export const es: TranslationResources = {
           uncommitted_one: "{{count}} cambio sin confirmar",
           uncommitted_other: "{{count}} cambios sin confirmar",
           uncommittedUnknown: "Cambios sin confirmar",
+          unpushed: "Commits sin subir",
           clean: "Sin cambios sin confirmar",
           comments: "Comentarios",
           addAllToChat: "Añadir todo al chat",

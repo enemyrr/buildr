@@ -906,6 +906,9 @@ export const ja: TranslationResources = {
             "このリポジトリはマージキューを使用しているため、PRのマージはここでは利用できません",
           mergePrNotReady:
             "{{brand}}上で{{noun}}がマージ可能になるまで、{{noun}}のマージは利用できません",
+          mergePrDirty:
+            "ローカルの変更があるため PR をマージできません。先にコミットしてプッシュしてください",
+          mergePrUnpushed: "ローカルのコミットをプッシュするまで PR をマージできません",
           autoMergeCannotDisable:
             "自動マージは有効になっていますが、このアカウントでは無効にできません",
         },
@@ -1004,6 +1007,13 @@ export const ja: TranslationResources = {
         review: "レビュー",
         openPr: "プルリクエスト{{ref}}を開く",
         commitAndPush: "コミットしてプッシュ",
+        copyLink: "リンクをコピー",
+        blocked: {
+          checksFailed: "マージする前に失敗したチェックを修正してください",
+          checksRunning: "チェックを実行中です",
+          changesRequested: "レビュアーが変更をリクエストしました",
+          reviewRequired: "マージする前にレビューが必要です",
+        },
         continue: "続ける",
         continueTooltip: "同じチャットのまま新しいブランチで続ける",
         archive: "アーカイブ",
@@ -1047,6 +1057,7 @@ export const ja: TranslationResources = {
           uncommitted_one: "未コミットの変更 {{count}}件",
           uncommitted_other: "未コミットの変更 {{count}}件",
           uncommittedUnknown: "未コミットの変更",
+          unpushed: "未プッシュのコミット",
           clean: "未コミットの変更なし",
           comments: "コメント",
           addAllToChat: "すべてチャットに追加",

@@ -1,13 +1,16 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import {
   Archive,
   ArrowUpRight,
+  Check,
   ChevronDown,
   CircleDashed,
   CircleX,
+  Copy,
   FastForward,
+  GitCommitHorizontal,
   GitMerge,
   GitPullRequest,
   GitPullRequestClosed,
@@ -22,6 +25,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,6 +35,7 @@ import { useCheckoutGitActionsStore } from "@/git/actions-store";
 import { getForgePresentation } from "@/git/forge";
 import { deriveMergeCapability } from "@/git/merge-capability";
 import {
+  buildCommitAndPushRequest,
   buildContinueRequest,
   buildFixChecksRequest,
   buildResolveConflictsRequest,
@@ -45,9 +50,11 @@ import { useGitActionRunner, useGitActions, type GitAction } from "@/git/use-act
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
+import { useWorkingDiffSummary } from "@/git/use-working-diff-summary";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
 import { useHostFeature } from "@/runtime/host-features";
 import type { Theme } from "@/styles/theme";
+import { copyToClipboard } from "@/utils/copy-to-clipboard";
 import { openExternalUrl } from "@/utils/open-external-url";
 
 interface PrStatusStripProps {
@@ -58,13 +65,17 @@ interface PrStatusStripProps {
 }
 
 /**
- * The change request's lifecycle on a wash of its state's color: `#N` `↗` chips, the state, and
- * the next step — Merge while open, Continue or Archive once merged or closed.
+ * The change request's lifecycle on a wash of its state's color: `#N` `↗` copy chips, the state,
+ * and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
+ * Commit and push while local work is unpushed. Continue or Archive once merged or closed.
  */
 export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripProps) {
   const { t } = useTranslation();
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
-  const { status } = useCheckoutStatusQuery({ serverId, cwd });
+  const { hasUncommittedChanges, hasUnpushedCommits, uncommittedCount, baseRef } = useLocalWork({
+    serverId,
+    cwd,
+  });
   const { gitActions } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
   const requests = useInstructionRequests({ serverId, cwd });
   const runGitAction = useGitActionRunner();
@@ -79,13 +90,18 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
     if (!prStatus?.url) return null;
     const capability = deriveMergeCapability(prStatus.forgeSpecific, prStatus.github);
     return derivePrStripState(
-      { ...prStatus, autoMergeEnabled: capability?.autoMergeEnabled ?? false },
+      {
+        ...prStatus,
+        autoMergeEnabled: capability?.autoMergeEnabled ?? false,
+        hasUncommittedChanges,
+        hasUnpushedCommits,
+      },
       gitActions,
     );
-  }, [prStatus, gitActions]);
+  }, [prStatus, gitActions, hasUncommittedChanges, hasUnpushedCommits]);
+  const commit = gitActions.primary?.id === "commit" ? gitActions.primary : null;
 
   const prUrl = prStatus?.url ?? null;
-  const baseRef = status?.baseRef ?? null;
   const runAction = useCallback(
     (action: PrStripAction) => {
       if (action.kind === "git") return runGitAction(action.action);
@@ -99,17 +115,33 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
         // COMPAT(checkoutContinueBranch): daemons before v0.9.2 lack checkout.branch.continue.*,
         // so the agent creates the branch. Remove after 2027-03-23.
         void requests.send(buildContinueRequest({ baseRef, prUrl }));
+      } else if (action.kind === "commit-and-push") {
+        // Without a chat to post into, fall back to the daemon's direct commit.
+        if (requests.canSend) void requests.send(buildCommitAndPushRequest());
+        else if (commit) runGitAction(commit);
       } else if (action.kind === "fix-checks") {
         void requests.send(buildFixChecksRequest({ prUrl }));
       } else {
         void requests.send(buildResolveConflictsRequest({ baseRef, prUrl }));
       }
     },
-    [runGitAction, requests, baseRef, prUrl, directContinue, continueBranch, serverId, cwd, toast],
+    [
+      runGitAction,
+      requests,
+      commit,
+      baseRef,
+      prUrl,
+      directContinue,
+      continueBranch,
+      serverId,
+      cwd,
+      toast,
+    ],
   );
   const openPr = useCallback(() => {
     if (prUrl) void openExternalUrl(prUrl);
   }, [prUrl]);
+  const [copied, copyPrUrl] = useCopiedFlag(prUrl);
 
   if (!prStatus || !state) return null;
   const numberLabel = prStatus.number
@@ -136,6 +168,17 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
       >
         <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
       </PrChip>
+      <PrChip
+        tone={state.tone}
+        onPress={copyPrUrl}
+        role="button"
+        accessibilityLabel={
+          copied ? t("message.actions.copied") : t("workspace.git.prFlow.copyLink")
+        }
+        testID="workspace-pr-status-copy-link"
+      >
+        <ToneIcon icon={copied ? Check : Copy} tone={state.tone} size={12} />
+      </PrChip>
       <View style={styles.status}>
         <ToneIcon icon={STATE_ICONS[state.label]} tone={state.tone} size={14} />
         <Text
@@ -143,7 +186,7 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
           numberOfLines={1}
           testID="workspace-pr-status-label"
         >
-          {t(`workspace.git.prFlow.state.${state.label}`)}
+          {stripLabelText(t, state.label, uncommittedCount)}
         </Text>
       </View>
       <View style={styles.actions}>
@@ -158,6 +201,7 @@ export function PrStatusStrip({ serverId, cwd, variant = "bar" }: PrStatusStripP
             })}
             onPress={runAction}
             onRunOption={runGitAction}
+            onCopyLink={copyPrUrl}
           />
         ))}
       </View>
@@ -177,18 +221,77 @@ const STATE_ICONS: Record<PrStripLabel, LucideIcon> = {
   autoMergeEnabled: GitMerge,
   changesRequested: CircleX,
   reviewRequired: GitPullRequest,
+  uncommitted: TriangleAlert,
+  unpushed: TriangleAlert,
 };
 
-/** A small bordered square on the strip's wash; both chips open the change request. */
+/** The workspace's local state beside the PR: uncommitted changes and unpushed commits. */
+function useLocalWork({ serverId, cwd }: { serverId: string; cwd: string }) {
+  const { status } = useCheckoutStatusQuery({ serverId, cwd });
+  const uncommitted = useWorkingDiffSummary({ serverId, cwd, mode: "uncommitted" });
+  const gitStatus = status?.isGit ? status : null;
+  return {
+    hasUncommittedChanges: gitStatus?.isDirty === true,
+    hasUnpushedCommits: (gitStatus?.aheadOfOrigin ?? 0) > 0,
+    uncommittedCount: uncommitted?.fileCount ?? 0,
+    baseRef: gitStatus?.baseRef ?? null,
+  };
+}
+
+const COPIED_RESET_MS = 1500;
+const COPY_LINK_ICON = <ToneIcon icon={Copy} tone="muted" size={16} />;
+
+/** Copies `text` and flips a flag for a moment so the copy icon can confirm it. */
+function useCopiedFlag(text: string | null): [boolean, () => void] {
+  const [copied, setCopied] = useState(false);
+  const resetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (resetRef.current) clearTimeout(resetRef.current);
+    },
+    [],
+  );
+  const copy = useCallback(() => {
+    if (!text) return;
+    void copyToClipboard(text).then(() => {
+      setCopied(true);
+      if (resetRef.current) clearTimeout(resetRef.current);
+      resetRef.current = setTimeout(() => {
+        setCopied(false);
+        resetRef.current = null;
+      }, COPIED_RESET_MS);
+      return undefined;
+    });
+  }, [text]);
+  return [copied, copy];
+}
+
+function stripLabelText(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  label: PrStripLabel,
+  uncommittedCount: number,
+): string {
+  if (label === "uncommitted") {
+    return uncommittedCount > 0
+      ? t("workspace.git.prFlow.checks.uncommitted", { count: uncommittedCount })
+      : t("workspace.git.prFlow.checks.uncommittedUnknown");
+  }
+  if (label === "unpushed") return t("workspace.git.prFlow.checks.unpushed");
+  return t(`workspace.git.prFlow.state.${label}`);
+}
+
+/** A small bordered square on the strip's wash: open or copy the change request. */
 function PrChip({
   tone,
   onPress,
+  role = "link",
   accessibilityLabel,
   testID,
   children,
 }: {
   tone: PrStripTone;
   onPress: () => void;
+  role?: "link" | "button";
   accessibilityLabel: string;
   testID?: string;
   children: ReactNode;
@@ -204,7 +307,7 @@ function PrChip({
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="link"
+      accessibilityRole={role}
       accessibilityLabel={accessibilityLabel}
       style={style}
       testID={testID}
@@ -223,7 +326,10 @@ function stripActionState(
   },
 ): { pending: boolean; disabled: boolean } {
   if (action.kind === "git") {
-    return { pending: action.action.status === "pending", disabled: action.action.disabled };
+    return {
+      pending: action.action.status === "pending",
+      disabled: action.action.disabled || Boolean(action.blocked),
+    };
   }
   if (action.kind === "continue" && sources.direct) {
     return { pending: sources.direct.pending, disabled: sources.direct.pending };
@@ -232,6 +338,7 @@ function stripActionState(
 }
 
 function actionIcon(action: PrStripAction): LucideIcon {
+  if (action.kind === "commit-and-push") return GitCommitHorizontal;
   if (action.kind !== "git") return action.kind === "continue" ? FastForward : Wrench;
   return action.action.id === "archive-workspace" ? Archive : GitMerge;
 }
@@ -243,6 +350,7 @@ function StripButton({
   disabled,
   onPress,
   onRunOption,
+  onCopyLink,
 }: {
   action: PrStripAction;
   tone: PrStripTone;
@@ -250,19 +358,23 @@ function StripButton({
   disabled: boolean;
   onPress: (action: PrStripAction) => void;
   onRunOption: (action: GitAction) => void;
+  onCopyLink: () => void;
 }) {
   const { t } = useTranslation();
   const handlePress = useCallback(() => onPress(action), [onPress, action]);
   const icon = actionIcon(action);
   const filled = action.emphasis === "filled";
+  const blocked = action.kind === "git" ? action.blocked : undefined;
+  // A blocked action drops the state's color: outlined and muted beside the live next step.
+  const buttonTone: PrStripTone = blocked ? "muted" : tone;
   const leftIcon = useMemo(
-    () => <ToneIcon icon={icon} tone={filled ? "onTone" : tone} size={13} />,
-    [filled, icon, tone],
+    () => <ToneIcon icon={icon} tone={filled ? "onTone" : buttonTone} size={13} />,
+    [filled, icon, buttonTone],
   );
   const label = t(`workspace.git.prFlow.${action.label}`);
   const testID = `workspace-pr-status-${action.label}`;
   const options = action.kind === "git" ? (action.options ?? []) : [];
-  const sheet = TONE_SHEETS[tone];
+  const sheet = TONE_SHEETS[buttonTone];
   const button = (
     <Button
       variant={filled ? "default" : "outline"}
@@ -299,9 +411,28 @@ function StripButton({
             {options.map((option) => (
               <MergeOptionItem key={option.id} option={option} onRun={onRunOption} />
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem leading={COPY_LINK_ICON} onSelect={onCopyLink}>
+              {t("workspace.git.prFlow.copyLink")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </View>
+    );
+  }
+  if (blocked && action.kind === "git") {
+    const reason = blocked.reason
+      ? t(`workspace.git.prFlow.blocked.${blocked.reason}`)
+      : action.action.unavailableMessage;
+    if (!reason) return button;
+    // The trigger wraps the disabled button so hover, and a tap on phones, still reach it.
+    return (
+      <Tooltip delayDuration={150} enabledOnDesktop enabledOnMobile>
+        <TooltipTrigger accessibilityHint={reason}>{button}</TooltipTrigger>
+        <TooltipContent side="bottom" align="end">
+          <Text style={styles.tooltipText}>{reason}</Text>
+        </TooltipContent>
+      </Tooltip>
     );
   }
   if (action.kind !== "continue") return button;
