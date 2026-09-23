@@ -68,6 +68,11 @@ not automatically create an agent draft tab; choosing Agent opens one. Explorer 
 workspace canvas, even when visible. Restoring a saved layout enforces the same rule while preserving Explorer and saved
 tab content. There is no hidden side-pane lifecycle.
 
+Cmd+J (Ctrl+J elsewhere) toggles the bottom pane, an ordinary pane split below the workspace root
+and remembered per workspace. The first toggle creates it with a new terminal. Later toggles set the
+pane's `hidden` flag instead of closing it, so its terminals keep running and stay mounted. Closing
+its last tab removes the pane, and the next toggle creates a fresh one.
+
 Placement intent still controls existing tabs:
 
 | Mode      | New target                  | Existing target                   |

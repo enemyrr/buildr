@@ -2411,6 +2411,7 @@ export const es: TranslationResources = {
         showKeyboardShortcuts: "Mostrar atajos de teclado",
         toggleLeftSidebar: "Alternar barra lateral izquierda",
         toggleRightSidebar: "Alternar panel lateral",
+        toggleBottomTerminal: "Alternar terminal inferior",
         toggleBothSidebars: "Alternar ambas barras laterales",
         toggleSettings: "Alternar configuración",
         toggleFocusMode: "Alternar modo de enfoque",

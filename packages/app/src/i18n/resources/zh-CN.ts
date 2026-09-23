@@ -2330,6 +2330,7 @@ export const zhCN: TranslationResources = {
         showKeyboardShortcuts: "显示键盘快捷键",
         toggleLeftSidebar: "切换左侧边栏",
         toggleRightSidebar: "切换侧边面板",
+        toggleBottomTerminal: "切换底部终端",
         toggleBothSidebars: "切换两侧边栏",
         toggleSettings: "切换设置",
         toggleFocusMode: "切换专注模式",

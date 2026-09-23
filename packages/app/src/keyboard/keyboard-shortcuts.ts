@@ -192,7 +192,13 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-pane-move-tab-down",
     "workspace-pane-close",
   ],
-  layout: ["toggle-left-sidebar", "toggle-right-sidebar", "toggle-both-sidebars", "toggle-focus"],
+  layout: [
+    "toggle-left-sidebar",
+    "toggle-right-sidebar",
+    "toggle-bottom-terminal",
+    "toggle-both-sidebars",
+    "toggle-focus",
+  ],
   "agent-input": [
     "focus-message-input",
     "cycle-agent-mode",
@@ -240,6 +246,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "show-shortcuts": "settings.shortcuts.help.showKeyboardShortcuts",
   "toggle-left-sidebar": "settings.shortcuts.help.toggleLeftSidebar",
   "toggle-right-sidebar": "settings.shortcuts.help.toggleRightSidebar",
+  "toggle-bottom-terminal": "settings.shortcuts.help.toggleBottomTerminal",
   "toggle-both-sidebars": "settings.shortcuts.help.toggleBothSidebars",
   "toggle-settings": "settings.shortcuts.help.toggleSettings",
   "toggle-focus": "settings.shortcuts.help.toggleFocusMode",
@@ -1036,6 +1043,30 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     action: "sidebar.toggle.right",
     combo: "Ctrl+`",
     when: { commandCenter: false },
+  },
+
+  // --- Toggle bottom terminal ---
+  {
+    id: "workspace-terminal-toggle-cmd-j-mac",
+    action: "workspace.terminal.toggle",
+    combo: "Cmd+J",
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "toggle-bottom-terminal",
+      section: "layout",
+      label: "Toggle bottom terminal",
+    },
+  },
+  {
+    id: "workspace-terminal-toggle-ctrl-j-non-mac",
+    action: "workspace.terminal.toggle",
+    combo: "Ctrl+J",
+    when: { mac: false, commandCenter: false },
+    help: {
+      id: "toggle-bottom-terminal",
+      section: "layout",
+      label: "Toggle bottom terminal",
+    },
   },
 
   // --- Toggle both sidebars ---

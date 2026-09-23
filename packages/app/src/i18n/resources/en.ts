@@ -2511,6 +2511,7 @@ export const en = {
         showKeyboardShortcuts: "Show keyboard shortcuts",
         toggleLeftSidebar: "Toggle left sidebar",
         toggleRightSidebar: "Toggle Explorer sidebar",
+        toggleBottomTerminal: "Toggle bottom terminal",
         toggleBothSidebars: "Toggle both sidebars",
         toggleSettings: "Toggle settings",
         toggleFocusMode: "Toggle focus mode",

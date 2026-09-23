@@ -2377,6 +2377,7 @@ export const ja: TranslationResources = {
         showKeyboardShortcuts: "キーボードショートカットを表示",
         toggleLeftSidebar: "左サイドバーを切り替え",
         toggleRightSidebar: "サイドパネルを切り替え",
+        toggleBottomTerminal: "下部ターミナルを切り替え",
         toggleBothSidebars: "両方のサイドバーを切り替え",
         toggleSettings: "設定を切り替え",
         toggleFocusMode: "フォーカスモードを切り替え",

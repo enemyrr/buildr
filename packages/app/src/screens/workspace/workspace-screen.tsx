@@ -2447,6 +2447,24 @@ function WorkspaceScreenContent({
     });
   });
 
+  // Cmd+J: a full-width pane under the workspace that hides without killing its terminals.
+  const handleToggleBottomTerminal = useStableEvent(() => {
+    if (!persistenceKey || isMobile || !supportsDesktopPaneSplits()) {
+      return;
+    }
+    const revealed = useWorkspaceLayoutStore.getState().toggleBottomPane(persistenceKey);
+    if (!revealed?.created) {
+      return;
+    }
+    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey];
+    const launcherTabId = layout && findPaneById(layout.root, revealed.paneId)?.focusedTabId;
+    createTerminal({
+      destination: launcherTabId
+        ? { kind: "replace", tabId: launcherTabId }
+        : { kind: "open", paneId: revealed.paneId },
+    });
+  });
+
   const handleCreateTerminalWithProfile = useCallback(
     (profile: TerminalProfile) => {
       createTerminal({ profile, destination: { kind: "open" } });
@@ -3183,6 +3201,9 @@ function WorkspaceScreenContent({
         case "workspace.terminal.new":
           handleCreateTerminal();
           return true;
+        case "workspace.terminal.toggle":
+          handleToggleBottomTerminal();
+          return true;
         case "workspace.browser.new":
           handleCreateBrowserTab();
           return true;
@@ -3224,6 +3245,7 @@ function WorkspaceScreenContent({
       handleCreateBrowserTab,
       handleCreateNewTab,
       handleCreateTerminal,
+      handleToggleBottomTerminal,
       focusedPaneTabState.pane?.id,
       navigateToTabId,
       tabs,
@@ -3398,6 +3420,7 @@ function WorkspaceScreenContent({
       "workspace.tab.navigate-index",
       "workspace.tab.navigate-relative",
       "workspace.terminal.new",
+      "workspace.terminal.toggle",
       "workspace.browser.new",
       "workspace.tab.menu.open",
     ] as const,

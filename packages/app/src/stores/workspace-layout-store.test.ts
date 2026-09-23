@@ -552,6 +552,7 @@ describe("workspace-layout-store version 2 migration", () => {
       const persisted = JSON.parse((await AsyncStorage.getItem("workspace-layout-state")) ?? "{}");
       expect(persisted.version).toBe(2);
       expect(Object.keys(persisted.state).sort()).toEqual([
+        "bottomPaneIdByWorkspace",
         "explorerPaneIdByWorkspace",
         "explorerSidebarWidthByWorkspace",
         "layoutByWorkspace",
@@ -789,6 +790,32 @@ describe("workspace-layout-store tree transforms", () => {
 });
 
 describe("workspace-layout-store actions", () => {
+  it("toggles one bottom pane that hides without losing its tabs", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = workspaceLayoutStore.getState();
+    const getLayout = () => workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
+
+    const created = store.toggleBottomPane(workspaceKey);
+    expect(created?.created).toBe(true);
+    const paneId = created!.paneId;
+    const root = getLayout().root;
+    expect(root.kind === "group" && root.group.direction).toBe("vertical");
+    expect(root.kind === "group" && root.group.children.at(-1)).toMatchObject({
+      kind: "pane",
+      pane: { id: paneId },
+    });
+    expect(getLayout().focusedPaneId).toBe(paneId);
+    const tabIds = findPaneById(getLayout().root, paneId)?.tabIds;
+
+    expect(store.toggleBottomPane(workspaceKey)).toBeNull();
+    expect(findPaneById(getLayout().root, paneId)).toMatchObject({ hidden: true, tabIds });
+    expect(getLayout().focusedPaneId).not.toBe(paneId);
+
+    expect(store.toggleBottomPane(workspaceKey)).toEqual({ paneId, created: false });
+    expect(findPaneById(getLayout().root, paneId)?.hidden).toBeUndefined();
+    expect(getLayout().focusedPaneId).toBe(paneId);
+  });
+
   it("creates duplicate Changes instances while reveal keeps the first instance", () => {
     const workspaceKey = createWorkspaceKey();
     const store = workspaceLayoutStore.getState();
@@ -1108,6 +1135,7 @@ describe("workspace-layout-store actions", () => {
       hiddenAgentIdsByWorkspace: {},
       focusRestorationByWorkspace: {},
       explorerSidebarPaneIdByWorkspace: {},
+      bottomPaneIdByWorkspace: {},
     });
   });
 
@@ -3155,6 +3183,7 @@ describe("workspace-layout-store actions", () => {
       explorerPaneIdByWorkspace: {},
       pullRequestTabAutoOpenedByWorkspace: currentState.pullRequestTabAutoOpenedByWorkspace,
       sidePaneIdByWorkspace: currentState.sidePaneIdByWorkspace,
+      bottomPaneIdByWorkspace: currentState.bottomPaneIdByWorkspace,
     });
     expect(layout && collectAllTabs(layout.root).map((tab) => tab.target)).toEqual([
       {
@@ -3390,6 +3419,7 @@ describe("workspace-layout-store actions", () => {
       explorerSidebarWidthByWorkspace: {},
       explorerPaneIdByWorkspace: {},
       sidePaneIdByWorkspace: {},
+      bottomPaneIdByWorkspace: {},
     });
   });
 
