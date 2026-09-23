@@ -2537,13 +2537,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing[3],
   },
   // Same box as the send button, so the swap doesn't move anything.
-  // A ring with a stop glyph, like Conductor.
+  // Same box as the send button, so the swap doesn't move or restyle anything.
   cancelButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1.5,
-    borderColor: theme.colors.foregroundMuted,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.foreground,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
@@ -2650,8 +2649,8 @@ const ThemedClipboardPaste = withUnistyles(ClipboardPaste);
 const ThemedFileText = withUnistyles(FileText);
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconSquareMapping = (theme: Theme) => ({
-  color: theme.colors.foreground,
-  fill: theme.colors.foreground,
+  color: theme.colors.surface0,
+  fill: theme.colors.surface0,
 });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
