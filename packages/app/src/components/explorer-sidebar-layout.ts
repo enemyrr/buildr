@@ -3,6 +3,7 @@ import {
   paneContentToolbarTrailingPadding,
 } from "@/components/ui/pane-content-toolbar";
 import { smallIconButtonChromeFrameSize } from "@/components/ui/icon-button-chrome";
+import { DEFAULT_SIDEBAR_WIDTH } from "@/stores/panel-store";
 
 export function explorerSidebarCloseButtonLayout(compact: boolean) {
   // The inline native dock retains its padded close action and touch slop.
@@ -23,8 +24,9 @@ export function explorerSidebarCloseButtonLayout(compact: boolean) {
  */
 export const EXPLORER_TAB_RAIL_INSET = 4;
 
-const DEFAULT_EXPLORER_SIDEBAR_WIDTH = 320;
-const MIN_EXPLORER_SIDEBAR_WIDTH = 240;
+// Explorer carries diffs and file trees, so it opens half again as wide as the left sidebar.
+const DEFAULT_EXPLORER_SIDEBAR_WIDTH = Math.round(DEFAULT_SIDEBAR_WIDTH * 1.5);
+const MIN_EXPLORER_SIDEBAR_WIDTH = 280;
 const MIN_WORKSPACE_BODY_WIDTH = 400;
 
 export function resolveExplorerSidebarWidth(input: {
