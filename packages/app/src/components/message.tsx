@@ -59,6 +59,7 @@ import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { MarkdownRenderer, type MarkdownStyles } from "@/components/markdown/renderer";
 import type { TaskActivity, TodoEntry, UserMessageImageAttachment } from "@/types/stream";
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import { extractUploadedFileBlocks } from "@/utils/uploaded-file-blocks";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { buildToolCallPresentation } from "@/tool-calls/presentation";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
@@ -421,6 +422,7 @@ function UserMessageImagePill({ image, onOpen, accessibilityLabel }: UserMessage
 }
 
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
+const EMPTY_AGENT_ATTACHMENTS: AgentAttachment[] = [];
 
 function TextLink({ url, style }: { url: string; style: StyleProp<TextStyle> }) {
   const handlePress = useCallback(() => void openExternalUrl(url), [url]);
@@ -446,9 +448,9 @@ export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
   messageId,
-  message,
+  message: rawMessage,
   images = [],
-  attachments = [],
+  attachments: rawAttachments = EMPTY_AGENT_ATTACHMENTS,
   timestamp,
   capabilities,
   client,
@@ -457,6 +459,15 @@ export const UserMessage = memo(function UserMessage({
   isPending = false,
   disableOuterSpacing,
 }: UserMessageProps) {
+  const inlinedUploads = useMemo(() => extractUploadedFileBlocks(rawMessage), [rawMessage]);
+  const message = inlinedUploads.text;
+  const attachments = useMemo(
+    () =>
+      inlinedUploads.attachments.length === 0
+        ? rawAttachments
+        : [...rawAttachments, ...inlinedUploads.attachments],
+    [inlinedUploads.attachments, rawAttachments],
+  );
   const isCompact = useIsCompactFormFactor();
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
