@@ -589,7 +589,8 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
               style={layoutStyles.windowSidebarToggle}
             >
               <WindowSidebarMenuToggle />
-              <NavigationHistoryButtons />
+              {/* An open sidebar draws these right-aligned in its own chrome row. */}
+              {desktopSidebarVisible ? null : <NavigationHistoryButtons />}
             </WindowChromeSafeArea>
           </WindowChromeRegion>
         ) : null}

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { resolveDesktopSidebarWidth } from "@/components/desktop-sidebar-layout";
+import { NavigationHistoryButtons } from "@/components/headers/navigation-history-buttons";
 import {
   SIDEBAR_RESIZE_ACTIVATION_OFFSET,
   SIDEBAR_RESIZE_FAIL_OFFSET,
@@ -684,6 +685,7 @@ function DesktopSidebar({
                   </Text>
                 </View>
               ) : null}
+              {ownsTopLeft ? <NavigationHistoryButtons /> : null}
             </View>
           ) : (
             <TitlebarDragRegion />
@@ -846,6 +848,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
+    gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: "transparent",
