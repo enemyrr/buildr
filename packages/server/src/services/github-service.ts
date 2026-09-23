@@ -1700,7 +1700,9 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         );
         continue;
       }
-      if (repository.data.isFork && repository.data.parent) {
+      const node = selectBatchPollNode(entry, repository.data);
+      // A PR opened inside the fork itself wins; otherwise the PR lives in the parent.
+      if (!node && repository.data.isFork && repository.data.parent) {
         const forkOwner = repository.data.owner?.login ?? entry.owner;
         pollRepositoryRedirects.set(batchRepositoryRedirectKey(entry), {
           owner: repository.data.parent.owner.login,
@@ -1710,8 +1712,9 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         distribution.redirected.push(entry);
         continue;
       }
-      const node = selectBatchPollNode(entry, repository.data);
       if (!node) {
+        // The parent has no PR either, so the next poll checks the fork again.
+        pollRepositoryRedirects.delete(batchRepositoryRedirectKey(entry));
         // Legacy fallback covers the two ways "no match" can be wrong: a fork
         // whose PR lives in the parent repository, and a full candidate page —
         // ten newer same-named fork PRs can crowd the checkout's own PR out of
@@ -2160,6 +2163,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
             headSha: input.headSha,
             headRepositoryOwner: input.headRepositoryOwner,
             run,
+            resolveOriginSlug: () => resolveRepoSlugCached(input.cwd),
           });
           return addCurrentPullRequestGithubFacts({ cwd: input.cwd, status, run });
         },
@@ -2953,6 +2957,7 @@ async function resolveCurrentPullRequestView(options: {
   headSha?: string;
   headRepositoryOwner?: string;
   run: (args: string[], options: GitHubCommandRunnerOptions) => Promise<string>;
+  resolveOriginSlug?: () => Promise<string | null>;
 }): Promise<CurrentPullRequestStatus | null> {
   const viewCandidate = await tryCurrentPullRequestView(options);
   const viewMatch = viewCandidate
@@ -2969,6 +2974,7 @@ async function resolveCurrentPullRequestView(options: {
 
   let listHeadRef = options.headRef;
   let listRepo: string | undefined;
+  let searchedRepo: string | null = null;
   let headRepositoryOwner = options.headRepositoryOwner;
 
   if (!headRepositoryOwner) {
@@ -2984,6 +2990,7 @@ async function resolveCurrentPullRequestView(options: {
       listRepo = `${parentOwner}/${parentName}`;
     }
     headRepositoryOwner = forkOwner;
+    searchedRepo = listRepo ?? (repo?.name ? `${forkOwner}/${repo.name}` : null);
   }
 
   const candidates = await listCurrentPullRequestCandidates({
@@ -2997,6 +3004,41 @@ async function resolveCurrentPullRequestView(options: {
     headRef: options.headRef,
     headSha: options.headSha,
     headRepositoryOwner,
+  });
+  return match?.status ?? findPullRequestInOriginRepo({ ...options, searchedRepo });
+}
+
+/**
+ * gh resolves a checkout with an `upstream` remote to that repository, so a PR opened inside
+ * the `origin` fork is only found by asking origin directly.
+ */
+async function findPullRequestInOriginRepo(options: {
+  cwd: string;
+  headRef: string;
+  headSha?: string;
+  /** The repository the gh default lookup already searched; null when it is unknown. */
+  searchedRepo: string | null;
+  run: (args: string[], options: GitHubCommandRunnerOptions) => Promise<string>;
+  resolveOriginSlug?: () => Promise<string | null>;
+}): Promise<CurrentPullRequestStatus | null> {
+  if (!options.searchedRepo) {
+    return null;
+  }
+  const originSlug = await options.resolveOriginSlug?.();
+  if (!originSlug || originSlug.toLowerCase() === options.searchedRepo.toLowerCase()) {
+    return null;
+  }
+  const candidates = await listCurrentPullRequestCandidates({
+    cwd: options.cwd,
+    headRef: options.headRef,
+    run: options.run,
+    repo: originSlug,
+  });
+  const match = pickPullRequestCandidate({
+    candidates,
+    headRef: options.headRef,
+    headSha: options.headSha,
+    headRepositoryOwner: originSlug.split("/")[0],
   });
   return match?.status ?? null;
 }

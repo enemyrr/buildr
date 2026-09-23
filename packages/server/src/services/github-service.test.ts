@@ -1482,6 +1482,95 @@ describe("ForgeService", () => {
     service.dispose?.();
   });
 
+  it("uses a PR opened inside the fork before redirecting to the parent", async () => {
+    let now = 0;
+    const parent = { owner: { login: "upstream" }, name: "widgets" };
+    const ownPr = batchPollPrNodeJson({
+      state: "OPEN",
+      mergedAt: null,
+      url: "https://github.com/forkowner/widgets/pull/3",
+      number: 3,
+      headRefName: "feat-a",
+      headRefOid: "oid-a",
+      headRepositoryOwner: { login: "forkowner" },
+    });
+    const runner = createScriptedRunner([
+      batchPollStatusJson({
+        t0: batchPollRepositoryJson([ownPr], {
+          isFork: true,
+          parent,
+          owner: { login: "forkowner" },
+        }),
+      }),
+      batchPollStatusJson({ t0: batchPollChecksAliasJson([]) }),
+    ]);
+    const service = createGitHubService({
+      ttlMs: 0,
+      runner: runner.runner,
+      resolveGhPath: async () => "/usr/bin/gh",
+      resolveRepoHost: async () => null,
+      resolveRepoSlug: async () => "forkowner/widgets",
+      now: () => now,
+    });
+    const statuses: Array<CurrentPullRequestStatus | null> = [];
+
+    const subscription = service.retainCurrentPullRequestStatusPoll?.({
+      cwd: "/ws-a",
+      headRef: "feat-a",
+      headSha: "oid-a",
+      onStatus: (status) => statuses.push(status),
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await flushMicrotasks();
+
+    expect(
+      runner.calls.some((call) =>
+        call.args[3]?.includes('t0: repository(owner: "upstream", name: "widgets")'),
+      ),
+    ).toBe(false);
+    expect(statuses).toEqual([expect.objectContaining({ number: 3, state: "open" })]);
+
+    subscription?.unsubscribe();
+    service.dispose?.();
+  });
+
+  it("checks the fork again after its parent has no PR", async () => {
+    let now = 0;
+    const parent = { owner: { login: "upstream" }, name: "widgets" };
+    const runner = createScriptedRunner([
+      batchPollStatusJson({ t0: batchPollRepositoryJson([], { isFork: true, parent }) }),
+      batchPollStatusJson({ t0: batchPollRepositoryJson([]) }),
+      batchPollStatusJson({ t0: batchPollRepositoryJson([], { isFork: true, parent }) }),
+      batchPollStatusJson({ t0: batchPollRepositoryJson([]) }),
+    ]);
+    const service = createGitHubService({
+      ttlMs: 0,
+      runner: runner.runner,
+      resolveGhPath: async () => "/usr/bin/gh",
+      resolveRepoHost: async () => null,
+      resolveRepoSlug: async () => "forkowner/widgets",
+      now: () => now,
+    });
+
+    const subscription = service.retainCurrentPullRequestStatusPoll?.({
+      cwd: "/ws-a",
+      headRef: "feat-a",
+      onStatus: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await flushMicrotasks();
+    now = EXPECTED_GITHUB_SLOW_POLL_MS;
+    await vi.advanceTimersByTimeAsync(EXPECTED_GITHUB_SLOW_POLL_MS);
+    await flushMicrotasks();
+
+    expect(runner.calls[2]?.args[3]).toContain(
+      't0: repository(owner: "forkowner", name: "widgets")',
+    );
+
+    subscription?.unsubscribe();
+    service.dispose?.();
+  });
+
   it("treats a missing pullRequests connection as a failed alias", async () => {
     let now = 0;
     const runner = createScriptedRunner([
@@ -3668,6 +3757,45 @@ describe("ForgeService", () => {
       headRefName: "feature/fork",
     });
     expect(runner.calls[2]?.args).toContain("forkOwner:feature/fork");
+  });
+
+  it("finds a PR inside the origin fork when gh resolves to the upstream remote", async () => {
+    const runner = createScriptedRunner([
+      { error: noPullRequestError() },
+      JSON.stringify({ owner: { login: "parentOwner" }, name: "repo", parent: null }),
+      JSON.stringify([]),
+      JSON.stringify([
+        {
+          number: 3,
+          url: "https://github.com/forkOwner/repo/pull/3",
+          title: "Fork-internal PR",
+          state: "OPEN",
+          isDraft: false,
+          baseRefName: "main",
+          headRefName: "feature/fork",
+          mergedAt: null,
+          statusCheckRollup: [],
+          reviewDecision: null,
+          headRepositoryOwner: { login: "forkOwner" },
+        },
+      ]),
+    ]);
+    const service = createGitHubService({
+      runner: runner.runner,
+      resolveGhPath: async () => "/usr/bin/gh",
+      resolveRepoSlug: async () => "forkOwner/repo",
+      now: () => 100,
+    });
+
+    const status = await service.getCurrentPullRequestStatus({
+      cwd: "/repo",
+      headRef: "feature/fork",
+    });
+
+    expect(status).toMatchObject({ number: 3, repoOwner: "forkOwner", repoName: "repo" });
+    expect(runner.calls[3]?.args).toEqual(
+      expect.arrayContaining(["--repo", "forkOwner/repo", "--head", "feature/fork"]),
+    );
   });
 
   it("propagates DNS errors while resolving the current PR view", async () => {
