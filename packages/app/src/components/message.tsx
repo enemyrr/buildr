@@ -62,7 +62,6 @@ import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { buildToolCallPresentation } from "@/tool-calls/presentation";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
-import { hexColorWithAlpha } from "@/utils/color";
 import { getMarkdownListMarker, getMarkdownListSpacing } from "@/utils/markdown-list";
 import { markdownNodeContainsType } from "@/utils/markdown-ast";
 import { useStableEvent } from "@/hooks/use-stable-event";
@@ -2090,10 +2089,10 @@ const notificationStylesheet = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface2,
   },
   warningBg: {
-    backgroundColor: hexColorWithAlpha(theme.colors.statusWarning, 0.12),
+    backgroundColor: theme.colors.statusWarningSubtle,
   },
   errorBg: {
-    backgroundColor: hexColorWithAlpha(theme.colors.statusDanger, 0.12),
+    backgroundColor: theme.colors.statusDangerSubtle,
   },
   content: {
     paddingHorizontal: theme.spacing[3],

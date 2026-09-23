@@ -19,12 +19,13 @@ const GLYPH = [
   "######.",
 ];
 const CELL = 60;
-const VIEWBOX = 700;
+export const PASEO_LOGO_VIEWBOX = 700;
+const VIEWBOX = PASEO_LOGO_VIEWBOX;
 const ORIGIN_X = (VIEWBOX - CELL * GLYPH[0].length) / 2;
 const ORIGIN_Y = (VIEWBOX - CELL * GLYPH.length) / 2;
 
 // One rectangle per horizontal run of filled cells.
-const GLYPH_PATH = GLYPH.flatMap((line, row) =>
+export const PASEO_LOGO_PATH = GLYPH.flatMap((line, row) =>
   [...line.matchAll(/#+/g)].map((run) => {
     const x = ORIGIN_X + (run.index ?? 0) * CELL;
     const y = ORIGIN_Y + row * CELL;
@@ -38,7 +39,7 @@ export function PaseoLogo({ size = 64, color }: PaseoLogoProps) {
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`} fill="none">
-      <Path d={GLYPH_PATH} fill={fill} />
+      <Path d={PASEO_LOGO_PATH} fill={fill} />
     </Svg>
   );
 }
