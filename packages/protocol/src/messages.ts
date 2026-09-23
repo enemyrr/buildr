@@ -873,6 +873,8 @@ export const RecentProviderSessionDescriptorPayloadSchema = z.object({
   firstPromptPreview: z.string().nullable(),
   lastPromptPreview: z.string().nullable(),
   lastActivityAt: z.string(),
+  // The tool that owns this session outside Paseo, such as Conductor.
+  source: z.object({ label: z.string(), branch: z.string().nullable() }).nullable().optional(),
 });
 
 export type RecentProviderSessionDescriptorPayload = z.infer<

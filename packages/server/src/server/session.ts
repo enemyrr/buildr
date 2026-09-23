@@ -139,6 +139,7 @@ import {
   listImportableProviderSessions,
   normalizeImportAgentRequest,
 } from "./agent/import-sessions.js";
+import { loadExternalSessionIndex } from "./agent/external-session-sources.js";
 import {
   checkoutLiteFromGitSnapshot,
   checkoutFromPersistedWorkspacePlacement,
@@ -4486,6 +4487,7 @@ export class Session {
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
         logger: this.sessionLogger,
+        externalSessions: await this.loadExternalSessions(),
       });
       if (createdWorkspace) {
         await this.registerWorkspaceForImportedAgent(createdWorkspace);
@@ -6187,6 +6189,10 @@ export class Session {
     }
   }
 
+  private loadExternalSessions() {
+    return loadExternalSessionIndex({ paseoHome: this.paseoHome, logger: this.sessionLogger });
+  }
+
   private async handleFetchRecentProviderSessions(
     request: Extract<SessionInboundMessage, { type: "fetch_recent_provider_sessions_request" }>,
   ): Promise<void> {
@@ -6196,6 +6202,7 @@ export class Session {
         agentManager: this.agentManager,
         agentStorage: this.agentStorage,
         providerSnapshotManager: this.providerSnapshotManager,
+        externalSessions: await this.loadExternalSessions(),
       });
       this.emit({
         type: "fetch_recent_provider_sessions_response",

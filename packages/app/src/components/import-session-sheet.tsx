@@ -311,6 +311,7 @@ function ImportSessionSheetRow({
   const promptPreview = getPromptPreview(entry);
   const lastActivity = formatTimeAgo(new Date(entry.lastActivityAt));
   const ProviderIcon = getProviderIcon(entry.providerId, serverId);
+  const footer = [entry.source?.label, entry.source?.branch, folder].filter(Boolean).join(" · ");
   const accessibilityState = useMemo(
     () => (disabled ? DISABLED_ACCESSIBILITY_STATE : undefined),
     [disabled],
@@ -351,13 +352,13 @@ function ImportSessionSheetRow({
         <Text style={styles.rowPreview} numberOfLines={2}>
           {promptPreview}
         </Text>
-        {folder ? (
+        {footer ? (
           <Text
             style={styles.rowFolder}
             numberOfLines={1}
             testID={`import-session-row-folder-${entry.providerId}-${entry.providerHandleId}`}
           >
-            {folder}
+            {footer}
           </Text>
         ) : null}
       </View>

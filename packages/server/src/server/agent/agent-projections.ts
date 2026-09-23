@@ -1,3 +1,4 @@
+import type { ExternalSessionSource } from "./external-session-sources.js";
 import type {
   AgentListItemPayload,
   AgentSnapshotPayload,
@@ -34,6 +35,7 @@ interface ProjectionOptions {
 
 interface RecentProviderSessionProjectionOptions {
   providerLabel: string;
+  source?: ExternalSessionSource;
 }
 
 function normalizeThinkingOptionId(value: string | null | undefined): string | null {
@@ -284,10 +286,13 @@ export function toRecentProviderSessionDescriptorPayload(
     providerLabel: options.providerLabel,
     providerHandleId: session.providerHandleId,
     cwd: session.cwd,
-    title: session.title,
+    title: options.source?.title ?? session.title,
     firstPromptPreview: session.firstPromptPreview,
     lastPromptPreview: session.lastPromptPreview,
     lastActivityAt: session.lastActivityAt.toISOString(),
+    ...(options.source
+      ? { source: { label: options.source.label, branch: options.source.branch } }
+      : {}),
   };
 }
 

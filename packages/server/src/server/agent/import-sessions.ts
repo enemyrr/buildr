@@ -20,6 +20,7 @@ import type {
 } from "@getpaseo/protocol/messages";
 import { getParentAgentIdFromLabels, PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
 import { createRealpathAwarePathMatcher } from "../../utils/path.js";
+import { externalSessionKey, type ExternalSessionIndex } from "./external-session-sources.js";
 
 type ImportAgentRequestMessage = z.infer<typeof ImportAgentRequestMessageSchema>;
 
@@ -66,6 +67,7 @@ export interface ListImportableProviderSessionsInput {
   agentManager: Pick<AgentManager, "listAgents" | "listImportableSessions">;
   agentStorage: Pick<AgentStorage, "list">;
   providerSnapshotManager: Pick<ProviderSnapshotManager, "getProviderLabel">;
+  externalSessions?: ExternalSessionIndex;
 }
 
 export interface ListImportableProviderSessionsResult {
@@ -80,6 +82,7 @@ export interface ImportProviderSessionInput {
   agentManager: ImportSessionAgentManager;
   agentStorage: AgentStorage;
   logger: Logger;
+  externalSessions?: ExternalSessionIndex;
 }
 
 export interface ImportProviderSessionResult {
@@ -119,7 +122,7 @@ export function normalizeImportAgentRequest(
 export async function listImportableProviderSessions(
   input: ListImportableProviderSessionsInput,
 ): Promise<ListImportableProviderSessionsResult> {
-  const { request, agentManager, agentStorage, providerSnapshotManager } = input;
+  const { request, agentManager, agentStorage, providerSnapshotManager, externalSessions } = input;
   const limit = request.limit ?? 20;
   const sinceTimestamp = parseRecentProviderSessionsSince(request.since);
   const providerFilter = request.providers ? new Set(request.providers) : undefined;
@@ -167,6 +170,9 @@ export async function listImportableProviderSessions(
     .map((descriptor) =>
       toRecentProviderSessionDescriptorPayload(descriptor, {
         providerLabel: providerSnapshotManager.getProviderLabel(descriptor.provider),
+        source: externalSessions?.get(
+          externalSessionKey(descriptor.provider, descriptor.providerHandleId),
+        ),
       }),
     );
 
@@ -253,6 +259,7 @@ async function importProviderSessionNow(
     cwd,
     workspaceId,
     labels,
+    title: input.externalSessions?.get(externalSessionKey(provider, providerHandleId))?.title,
   });
   await unarchiveAgentState(input.agentStorage, input.agentManager, snapshot.id);
 
