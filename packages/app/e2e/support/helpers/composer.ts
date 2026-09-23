@@ -178,8 +178,20 @@ export async function removeAttachmentPill(
   pillTestId: string,
   removeAccessibilityLabel: string,
 ): Promise<void> {
-  await page.getByTestId(pillTestId).first().hover();
-  await page.getByRole("button", { name: removeAccessibilityLabel }).first().click();
+  const pill = page.getByTestId(pillTestId).first();
+  const inlineRemove = pill.locator("[data-composer-chip-remove]");
+  if ((await inlineRemove.count()) === 0) {
+    await pill.hover();
+    await page.getByRole("button", { name: removeAccessibilityLabel }).first().click();
+    return;
+  }
+  // Inline chips are painted under the textarea and ignore the pointer, so
+  // drive the mouse by position; the textarea hit-tests the chip.
+  const chipBox = await pill.boundingBox();
+  const removeBox = await inlineRemove.boundingBox();
+  if (!chipBox || !removeBox) throw new Error(`Chip ${pillTestId} has no layout`);
+  await page.mouse.move(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
+  await page.mouse.click(removeBox.x + removeBox.width / 2, removeBox.y + removeBox.height / 2);
 }
 
 export async function expectGithubAttachmentPill(

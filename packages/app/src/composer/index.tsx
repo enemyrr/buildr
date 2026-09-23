@@ -131,6 +131,9 @@ import { resolveComposerAttachmentSubmitFormat } from "@/composer/attachments/su
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
+import { useInlineAttachments } from "@/composer/inline-attachments/use-inline-attachments";
+import { buildInlineAttachments } from "@/composer/inline-attachments/attachments";
+import { serializeInlineTokens } from "@/composer/inline-attachments/tokens";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import {
   AttachmentFrame,
@@ -353,6 +356,7 @@ interface RenderAttachmentTrayArgs {
   isComposerLocked: boolean;
   handleOpenAttachment: (attachment: ComposerAttachment) => void;
   handleRemoveAttachment: (index: number) => void;
+  isInline: (attachment: ComposerAttachment) => boolean;
   labels: {
     openImage: string;
     removeImage: string;
@@ -369,20 +373,24 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
     isComposerLocked,
     handleOpenAttachment,
     handleRemoveAttachment,
+    isInline,
     labels,
   } = args;
-  if (selectedAttachments.length === 0 && pendingFiles.length === 0) return null;
+  const hasTrayAttachments = selectedAttachments.some((attachment) => !isInline(attachment));
+  if (!hasTrayAttachments && pendingFiles.length === 0) return null;
   return (
     <View style={styles.attachmentTray} testID="composer-attachment-tray">
       {selectedAttachments.map((attachment, index) =>
-        renderComposerAttachmentPill({
-          attachment,
-          index,
-          disabled: isComposerLocked,
-          onOpen: handleOpenAttachment,
-          onRemove: handleRemoveAttachment,
-          labels,
-        }),
+        isInline(attachment)
+          ? null
+          : renderComposerAttachmentPill({
+              attachment,
+              index,
+              disabled: isComposerLocked,
+              onOpen: handleOpenAttachment,
+              onRemove: handleRemoveAttachment,
+              labels,
+            }),
       )}
       {pendingFiles.map(({ id, file }) => (
         <AttachmentFrame key={id} testID="composer-pending-file-attachment">
@@ -1392,10 +1400,16 @@ function ComposerContentImpl({
     `message-input:${serverId}:${agentId}:${Math.random().toString(36).slice(2)}`,
   );
 
+  const isWritingTextRef = useRef(false);
   const replaceUserInput = useCallback(
     (text: string, selection?: { start: number; end: number }) => {
       if (messageInputRef.current) {
-        messageInputRef.current.replaceText(text, selection);
+        isWritingTextRef.current = true;
+        try {
+          messageInputRef.current.replaceText(text, selection);
+        } finally {
+          isWritingTextRef.current = false;
+        }
         return;
       }
       onChangeText(text);
@@ -1702,18 +1716,25 @@ function ComposerContentImpl({
     ],
   );
 
+  // Chips live in the draft as tokens; the agent reads them as plain references.
+  const serializeInlineText = useCallback(
+    (text: string) => serializeInlineTokens(text, buildInlineAttachments(attachments)),
+    [attachments],
+  );
+
   const handleSubmit = useCallback(
     (payload: MessagePayload) => {
+      const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
       const clientSlashCommand = resolveClientSlashCommand({
-        text: payload.text,
+        text,
         hasAttachments: outgoingAttachments.length > 0,
       });
       if (clientSlashCommand && runClientSlashCommand(clientSlashCommand)) {
         return;
       }
       const pluginSlashCommand = resolvePluginClientSlashCommand({
-        text: payload.text,
+        text,
         hasAttachments: outgoingAttachments.length > 0,
         commands: pluginClientSlashCommands,
       });
@@ -1722,7 +1743,7 @@ function ComposerContentImpl({
       if (blurOnSubmit) {
         messageInputRef.current?.blur();
       }
-      void sendMessageWithContent(payload.text, outgoingAttachments, payload.forceSend);
+      void sendMessageWithContent(text, outgoingAttachments, payload.forceSend);
     },
     [
       attachments,
@@ -1732,6 +1753,7 @@ function ComposerContentImpl({
       pluginClientSlashCommands,
       runPluginClientSlashCommand,
       sendMessageWithContent,
+      serializeInlineText,
     ],
   );
 
@@ -1957,21 +1979,22 @@ function ComposerContentImpl({
 
   const handleQueue = useCallback(
     (payload: MessagePayload) => {
+      const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
       const clientSlashCommand = resolveClientSlashCommand({
-        text: payload.text,
+        text,
         hasAttachments: outgoingAttachments.length > 0,
       });
       if (clientSlashCommand && runClientSlashCommand(clientSlashCommand)) {
         return;
       }
       const pluginSlashCommand = resolvePluginClientSlashCommand({
-        text: payload.text,
+        text,
         hasAttachments: outgoingAttachments.length > 0,
         commands: pluginClientSlashCommands,
       });
       if (pluginSlashCommand && runPluginClientSlashCommand(pluginSlashCommand)) return;
-      queueMessage(payload.text, outgoingAttachments);
+      queueMessage(text, outgoingAttachments);
     },
     [
       attachments,
@@ -1980,6 +2003,7 @@ function ComposerContentImpl({
       queueMessage,
       runClientSlashCommand,
       runPluginClientSlashCommand,
+      serializeInlineText,
     ],
   );
 
@@ -2227,6 +2251,32 @@ function ComposerContentImpl({
     [cursorPublication, cursor],
   );
 
+  const inlineAttachments = useInlineAttachments({
+    enabled: !readOnly,
+    attachments,
+    setAttachments: setSelectedAttachments,
+    textSource,
+    getText: () => messageInputRef.current?.getText() ?? textSource.getSnapshot(),
+    getSelection: () => {
+      const snapshot = messageInputRef.current?.getInputSnapshot();
+      const end = textSource.getSnapshot().length;
+      return snapshot?.selection ?? { start: end, end };
+    },
+    setSelection: (selection) => {
+      if (!isWeb) return;
+      const element = messageInputRef.current?.getNativeElement?.();
+      if (element instanceof HTMLTextAreaElement) {
+        element.setSelectionRange(selection.start, selection.end);
+      }
+    },
+    replaceText: replaceUserInput,
+    isWritingText: () => isWritingTextRef.current,
+    onChangeText: setUserInput,
+    onSelectionChange: handleSelectionChange,
+    onRemoveAttachment: handleRemoveAttachment,
+    onOpenAttachment: handleOpenAttachment,
+  });
+
   const handleFocusChange = useCallback(
     (focused: boolean) => {
       setIsMessageInputFocused(focused);
@@ -2290,6 +2340,7 @@ function ComposerContentImpl({
         isComposerLocked,
         handleOpenAttachment,
         handleRemoveAttachment,
+        isInline: inlineAttachments.isInline,
         labels: {
           openImage: t("composer.attachments.openImage"),
           removeImage: t("composer.attachments.removeImage"),
@@ -2303,6 +2354,7 @@ function ComposerContentImpl({
     [
       handleOpenAttachment,
       handleRemoveAttachment,
+      inlineAttachments.isInline,
       isComposerLocked,
       selectedAttachments,
       pendingFiles,
@@ -2419,7 +2471,7 @@ function ComposerContentImpl({
                 <StableMessageInput
                   ref={messageInputRef}
                   value={textSource.getSnapshot()}
-                  onChangeText={setUserInput}
+                  onChangeText={inlineAttachments.handleChangeText}
                   onSubmit={handleSubmit}
                   hasExternalContent={hasExternalContent}
                   allowEmptySubmit={allowEmptySubmit}
@@ -2456,11 +2508,12 @@ function ComposerContentImpl({
                   onQueue={handleQueue}
                   onSubmitLoadingPress={submitLoadingPressHandler}
                   onKeyPress={handleCommandKeyPress}
-                  onSelectionChange={handleSelectionChange}
+                  onSelectionChange={inlineAttachments.handleSelectionChange}
                   onFocusChange={handleFocusChange}
                   onHeightChange={onComposerHeightChange}
                   inputWrapperStyle={inputWrapperStyle}
                   attachmentSlot={attachmentTray}
+                  inlineChips={inlineAttachments.chips}
                   inputMode={inputMode}
                   readOnly={readOnly}
                   textReplacement={textReplacement}

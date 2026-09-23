@@ -131,7 +131,6 @@ function CreatePrSplitButton({ flow }: { flow: PrFlow }) {
         leftIcon={GitPullRequestCreateArrow}
         onPress={flow.createPr}
         disabled={flow.busy || !flow.canCreatePr}
-        loading={flow.pending}
         testID="workspace-create-pr"
       >
         {t("workspace.git.prFlow.createPr")}

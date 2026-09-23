@@ -56,7 +56,8 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useComposerHeight } from "./height";
-import { ComposerLinkOverlay } from "./link-overlay";
+import { ComposerTextOverlay } from "./text-overlay";
+import type { InlineChip } from "./text-overlay.types";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
 import {
@@ -166,6 +167,8 @@ export interface MessageInputProps {
   inputWrapperStyle?: import("react-native").ViewStyle;
   /** Content rendered inside the bordered input surface, above the text input (e.g. attachment pills). */
   attachmentSlot?: React.ReactNode;
+  /** Attachments painted as chips over their tokens in the text. Web only. */
+  inlineChips?: readonly InlineChip[];
   /** What this composer is for. See `@/composer/input-mode` for what each mode implies. */
   inputMode?: ComposerInputMode;
   /** Renders `value` as static text on the same surface, for content there is nothing to type into. */
@@ -631,6 +634,7 @@ interface ComposerTextSurfaceProps {
   value: string;
   textInputRef: React.Ref<ComposerTextInputHandle>;
   getTextArea: () => HTMLTextAreaElement | null;
+  inlineChips: readonly InlineChip[] | undefined;
   textInputStyle: EditingTextInputProps["style"];
   readOnlyTextStyle: React.ComponentProps<typeof Text>["style"];
   placeholder: string;
@@ -686,7 +690,11 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
         onPasteError={props.onPasteError}
         autoFocus={props.autoFocus}
       />
-      <ComposerLinkOverlay getTextArea={props.getTextArea} value={props.value} />
+      <ComposerTextOverlay
+        getTextArea={props.getTextArea}
+        value={props.value}
+        chips={props.inlineChips}
+      />
       <FocusHint
         visible={props.focusHintVisible}
         focusInputKeys={props.focusInputKeys}
@@ -1075,6 +1083,7 @@ interface ResolvedMessageInputProps {
   onHeightChange: ((height: number) => void) | undefined;
   inputWrapperStyle: import("react-native").ViewStyle | undefined;
   attachmentSlot: React.ReactNode;
+  inlineChips: readonly InlineChip[] | undefined;
   inputMode: ComposerInputMode;
   readOnly: boolean;
   textReplacement: TextReplacement;
@@ -1122,6 +1131,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     onHeightChange: props.onHeightChange,
     inputWrapperStyle: props.inputWrapperStyle,
     attachmentSlot: props.attachmentSlot,
+    inlineChips: props.inlineChips,
     inputMode: props.inputMode ?? "chat",
     readOnly: props.readOnly ?? false,
     textReplacement: props.textReplacement,
@@ -1177,6 +1187,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       onHeightChange,
       inputWrapperStyle,
       attachmentSlot,
+      inlineChips,
       inputMode,
       readOnly,
       textReplacement,
@@ -1804,6 +1815,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               value={value}
               textInputRef={textInputRef}
               getTextArea={getTextArea}
+              inlineChips={inlineChips}
               textInputStyle={textInputStyle}
               readOnlyTextStyle={readOnlyTextStyle}
               placeholder={placeholder ?? t("composer.placeholders.fallback")}
@@ -1980,6 +1992,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonRow: {
     flexShrink: 0,
+    // Pins the toolbar to the bottom when a caller gives the wrapper a min height.
+    marginTop: "auto",
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",

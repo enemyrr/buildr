@@ -2644,7 +2644,6 @@ const styles = StyleSheet.create((theme) => ({
   // inset puts the text on the same rail as the header's project avatar.
   dialogComposerInput: {
     minHeight: 220,
-    justifyContent: "space-between",
     backgroundColor: "transparent",
     borderWidth: 0,
     paddingHorizontal: theme.spacing[2],
