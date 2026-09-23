@@ -2478,22 +2478,22 @@ function WorkspaceScreenContent({
     });
   });
 
-  // Cmd+J: a full-width pane under the workspace that hides without killing its terminals.
+  // Cmd+J: the Explorer's Terminal panel, opening the Explorer first when it is hidden.
   const handleToggleBottomTerminal = useStableEvent(() => {
-    if (!persistenceKey || isMobile || !supportsDesktopPaneSplits()) {
+    if (!persistenceKey || isMobile) {
       return;
     }
-    const revealed = useWorkspaceLayoutStore.getState().toggleBottomPane(persistenceKey);
-    if (!revealed?.created) {
+    const utility = useExplorerUtilityStore.getState();
+    if (!isExplorerSidebarShowing) {
+      handleToggleExplorerSidebar();
+      utility.selectTab("terminal");
       return;
     }
-    const layout = useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey];
-    const launcherTabId = layout && findPaneById(layout.root, revealed.paneId)?.focusedTabId;
-    createTerminal({
-      destination: launcherTabId
-        ? { kind: "replace", tabId: launcherTabId }
-        : { kind: "open", paneId: revealed.paneId },
-    });
+    if (utility.collapsed || utility.tab !== "terminal") {
+      utility.selectTab("terminal");
+      return;
+    }
+    utility.setCollapsed(true);
   });
 
   const handleCreateTerminalWithProfile = useCallback(

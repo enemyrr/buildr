@@ -82,10 +82,8 @@ has no workspace tab, so the workspace screen removes its id from the standalone
 passes to tab sync. Otherwise tab sync opens it as a tab. Scripts started from **Run** register
 through `trackScriptTerminal` for the same reason.
 
-Cmd+J (Ctrl+J elsewhere) toggles the bottom pane, an ordinary pane split below the workspace root
-and remembered per workspace. The first toggle creates it with a new terminal. Later toggles set the
-pane's `hidden` flag instead of closing it, so its terminals keep running and stay mounted. Closing
-its last tab removes the pane, and the next toggle creates a fresh one.
+Cmd+J (Ctrl+J elsewhere) shows the Explorer's Terminal panel, opening the Explorer first when it
+is hidden, and collapses the panel when Terminal is already showing.
 
 Placement intent still controls existing tabs:
 

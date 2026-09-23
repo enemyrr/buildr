@@ -220,9 +220,8 @@ interface SplitPaneEmptyInLayoutInput {
   maxTreeDepth: number;
 }
 
-interface SplitWorkspaceRootInLayoutInput {
+interface SplitWorkspaceRootRightInLayoutInput {
   layout: WorkspaceLayout;
-  position: "right" | "bottom";
   createNodeId: (prefix: WorkspaceLayoutNodeIdPrefix) => string;
   maxTreeDepth: number;
 }
@@ -2012,14 +2011,14 @@ export function splitPaneEmptyInLayout(
 }
 
 /** Creates a full-height ordinary pane to the right of the complete workspace split tree. */
-export function splitWorkspaceRootInLayout(
-  input: SplitWorkspaceRootInLayoutInput,
+export function splitWorkspaceRootRightInLayout(
+  input: SplitWorkspaceRootRightInLayoutInput,
 ): SplitPaneInLayoutResult | null {
   const layout = asInternalLayout(input.layout);
   const paneId = input.createNodeId("pane");
   const root = createGroupNode({
     id: input.createNodeId("group"),
-    direction: input.position === "right" ? "horizontal" : "vertical",
+    direction: "horizontal",
     children: [layout.root, createPaneNode({ id: paneId, tabs: [createNewWorkspaceTab()] })],
     sizes: [0.7, 0.3],
   });

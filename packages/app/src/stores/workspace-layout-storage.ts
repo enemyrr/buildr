@@ -108,6 +108,8 @@ export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
   explorerPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   explorerSidebarPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   sidePaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
+  // COMPAT(bottomPane): the fork's full-width Cmd+J pane was replaced by the Explorer's Terminal
+  // panel; accepted and ignored so the strict schema keeps saved layouts. Remove after 2026-12-23.
   bottomPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   pullRequestTabAutoOpenedByWorkspace: z.record(z.string(), z.literal(true)).optional(),
   // COMPAT(pullRequestAutoAdd): PR detection stopped opening a tab in v0.5; accepted
