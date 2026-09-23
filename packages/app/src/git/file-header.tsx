@@ -228,11 +228,15 @@ function FileHeaderContent({
     const slash = file.path.lastIndexOf("/");
     return (
       <View style={styles.content} testID={contentTestID}>
-        <View ref={dragSourceRef} style={styles.left}>
-          <Text style={nameStyle} numberOfLines={1} ellipsizeMode="head" testID={nameTestID}>
-            {slash >= 0 ? (
-              <Text style={styles.flatDirectory}>{file.path.slice(0, slash + 1)}</Text>
-            ) : null}
+        {/* Only the directory shrinks, so the file name stays readable. Web ignores
+            ellipsizeMode="head" on nested text, so the two parts are siblings. */}
+        <View ref={dragSourceRef} style={[styles.left, styles.flatPath]}>
+          {slash >= 0 ? (
+            <Text style={[nameStyle, styles.flatDirectory]} numberOfLines={1}>
+              {file.path.slice(0, slash + 1)}
+            </Text>
+          ) : null}
+          <Text style={[nameStyle, styles.flatName]} numberOfLines={1} testID={nameTestID}>
             {fileName}
           </Text>
         </View>
@@ -515,7 +519,9 @@ const styles = StyleSheet.create((theme) => ({
     userSelect: "none",
   },
   directorySpacer: { flex: 1, minWidth: 0 },
-  flatDirectory: { color: theme.colors.foregroundExtraMuted },
+  flatPath: { gap: 0 },
+  flatDirectory: { flexShrink: 1, minWidth: 0, color: theme.colors.foregroundExtraMuted },
+  flatName: { flexShrink: 0, maxWidth: "100%" },
   statusLetter: {
     width: 10,
     textAlign: "center",
