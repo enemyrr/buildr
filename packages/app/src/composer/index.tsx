@@ -2542,7 +2542,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: 28,
     height: 28,
     borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.foreground,
+    borderWidth: 1,
+    borderColor: theme.colors.borderAccent,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
@@ -2649,8 +2650,8 @@ const ThemedClipboardPaste = withUnistyles(ClipboardPaste);
 const ThemedFileText = withUnistyles(FileText);
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconSquareMapping = (theme: Theme) => ({
-  color: theme.colors.surface0,
-  fill: theme.colors.surface0,
+  color: theme.colors.foreground,
+  fill: theme.colors.foreground,
 });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
