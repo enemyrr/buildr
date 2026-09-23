@@ -2393,6 +2393,7 @@ export const ptBR: TranslationResources = {
         showKeyboardShortcuts: "Mostrar atalhos de teclado",
         toggleLeftSidebar: "Alternar barra lateral esquerda",
         toggleRightSidebar: "Alternar painel lateral",
+        toggleBottomTerminal: "Alternar terminal inferior",
         toggleBothSidebars: "Alternar ambas as barras laterais",
         toggleSettings: "Alternar Configurações",
         toggleFocusMode: "Alternar modo de foco",

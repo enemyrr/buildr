@@ -2356,6 +2356,7 @@ export const ar: TranslationResources = {
         showKeyboardShortcuts: "إظهار اختصارات لوحة المفاتيح",
         toggleLeftSidebar: "تبديل الشريط الجانبي الأيسر",
         toggleRightSidebar: "تبديل اللوحة الجانبية",
+        toggleBottomTerminal: "تبديل الطرفية السفلية",
         toggleBothSidebars: "تبديل كلا الشريطين الجانبيين",
         toggleSettings: "تبديل الإعدادات",
         toggleFocusMode: "تبديل وضع التركيز",

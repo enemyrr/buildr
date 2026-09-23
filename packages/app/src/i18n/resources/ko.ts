@@ -2366,6 +2366,7 @@ export const ko: TranslationResources = {
         showKeyboardShortcuts: "키보드 단축키 표시",
         toggleLeftSidebar: "왼쪽 사이드바 토글",
         toggleRightSidebar: "사이드 패널 토글",
+        toggleBottomTerminal: "하단 터미널 토글",
         toggleBothSidebars: "양쪽 사이드바 토글",
         toggleSettings: "설정 토글",
         toggleFocusMode: "집중 모드 토글",

@@ -2397,6 +2397,7 @@ export const ru: TranslationResources = {
         showKeyboardShortcuts: "Показать сочетания клавиш",
         toggleLeftSidebar: "Переключить левую боковую панель",
         toggleRightSidebar: "Переключить боковую панель",
+        toggleBottomTerminal: "Переключить нижний терминал",
         toggleBothSidebars: "Переключить обе боковые панели",
         toggleSettings: "Переключить настройки",
         toggleFocusMode: "Переключить режим фокусировки",

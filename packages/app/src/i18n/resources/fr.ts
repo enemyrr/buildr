@@ -2415,6 +2415,7 @@ export const fr: TranslationResources = {
         showKeyboardShortcuts: "Afficher les raccourcis clavier",
         toggleLeftSidebar: "Basculer la barre latérale gauche",
         toggleRightSidebar: "Basculer le panneau latéral",
+        toggleBottomTerminal: "Basculer le terminal inférieur",
         toggleBothSidebars: "Basculer les deux barres latérales",
         toggleSettings: "Basculer les paramètres",
         toggleFocusMode: "Basculer le mode de mise au point",
