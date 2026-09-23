@@ -164,6 +164,7 @@ interface ServiceLinkRowProps {
   scriptName: string;
   onSelectKind: (kind: WorkspaceScriptLinkKind) => void;
   onCopy: (url: string, label: string) => void;
+  onDismiss?: () => void;
 }
 
 function routeLabelKey(
@@ -295,15 +296,15 @@ function ServiceLinkRow({
   scriptName,
   onSelectKind,
   onCopy,
+  onDismiss,
 }: ServiceLinkRowProps): ReactElement {
   const { t } = useTranslation();
-  const closeMenu = useDropdownMenuClose();
   const { label, url } = selectedTarget;
 
   const handleCopy = useCallback(() => {
-    closeMenu();
+    onDismiss?.();
     onCopy(url, label);
-  }, [url, label, onCopy, closeMenu]);
+  }, [url, label, onCopy, onDismiss]);
 
   return (
     <View style={styles.hostRow}>
@@ -362,6 +363,8 @@ interface ScriptRowProps {
   onSelectRouteKind: (kind: WorkspaceScriptLinkKind) => void;
   onViewTerminal?: (terminalId: string) => void;
   onOpenUrlInBrowserTab?: (url: string) => void;
+  /** Closes the surrounding menu before an action leaves it. */
+  onDismiss?: () => void;
 }
 
 function resolveScriptIconColorMapping(args: {
@@ -380,7 +383,8 @@ function resolveScriptIconColorMapping(args: {
   return mutedColorMapping;
 }
 
-function ScriptRow({
+/** One script's controls: start, stop, restart, view its terminal, and its service link. */
+export function ScriptRow({
   script,
   liveTerminalIdSet,
   activeConnection,
@@ -394,6 +398,7 @@ function ScriptRow({
   onSelectRouteKind,
   onViewTerminal,
   onOpenUrlInBrowserTab,
+  onDismiss,
 }: ScriptRowProps): ReactElement {
   const { t } = useTranslation();
   const isRunning = script.lifecycle === "running";
@@ -411,13 +416,12 @@ function ScriptRow({
   const iconColorMapping = resolveScriptIconColorMapping({ script, isService, isRunning });
   const ScriptIcon = isService ? ThemedGlobe : ThemedSquareTerminal;
   const showExitBadge = !isRunning && exitCode !== null;
-  const closeMenu = useDropdownMenuClose();
 
   const handleOpenService = useCallback(() => {
     if (!selectedLink) return;
-    closeMenu();
+    onDismiss?.();
     void openServiceUrl(selectedLink.url, { openInApp: onOpenUrlInBrowserTab });
-  }, [selectedLink, closeMenu, onOpenUrlInBrowserTab]);
+  }, [selectedLink, onDismiss, onOpenUrlInBrowserTab]);
 
   const handleView = useCallback(() => {
     if (liveTerminalId) onViewTerminal?.(liveTerminalId);
@@ -527,6 +531,7 @@ function ScriptRow({
             scriptName={script.scriptName}
             onSelectKind={onSelectRouteKind}
             onCopy={onCopyUrl}
+            onDismiss={onDismiss}
           />
         </View>
       ) : null}
@@ -534,17 +539,22 @@ function ScriptRow({
   );
 }
 
-export function WorkspaceScriptsButton({
+interface WorkspaceScriptControlsInput {
+  serverId: string;
+  workspaceId: string;
+  scripts: WorkspaceDescriptor["scripts"];
+  liveTerminalIds: readonly string[];
+  onScriptTerminalStarted?: (terminalId: string) => void;
+}
+
+/** Start, stop, and restart state for a workspace's scripts, shared by every script surface. */
+export function useWorkspaceScriptControls({
   serverId,
   workspaceId,
   scripts,
-  liveTerminalIds = [],
+  liveTerminalIds,
   onScriptTerminalStarted,
-  onViewTerminal,
-  onOpenUrlInBrowserTab,
-  hideLabels,
-  presentation = "split",
-}: WorkspaceScriptsButtonProps): ReactElement | null {
+}: WorkspaceScriptControlsInput) {
   const { t } = useTranslation();
   const toast = useToast();
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
@@ -626,15 +636,6 @@ export function WorkspaceScriptsButton({
     }
   }, [scripts, startScript]);
 
-  const triggerStyle = useCallback(
-    ({ hovered, pressed, open }: { hovered: boolean; pressed: boolean; open: boolean }) => [
-      presentation === "ghost" ? styles.ghostButton : styles.splitButtonPrimary,
-      (hovered || pressed || open) &&
-        (presentation === "ghost" ? styles.ghostButtonHovered : styles.splitButtonPrimaryHovered),
-    ],
-    [presentation],
-  );
-
   const handleStartScript = useCallback(
     (scriptName: string) => startScriptMutation.mutate(scriptName),
     [startScriptMutation],
@@ -664,6 +665,54 @@ export function WorkspaceScriptsButton({
   const handleSelectRouteKind = useCallback(
     (kind: WorkspaceScriptLinkKind) => setPreferredRoute(serverId, kind),
     [serverId, setPreferredRoute],
+  );
+
+  return {
+    liveTerminalIdSet,
+    activeConnection,
+    preferredRouteKind,
+    isStartPending: startScriptMutation.isPending,
+    isStopPending: stopScriptMutation.isPending,
+    onStartScript: handleStartScript,
+    onStopScript: handleStopScript,
+    onRestartScript: handleRestartScript,
+    onCopyUrl: handleCopyUrl,
+    onSelectRouteKind: handleSelectRouteKind,
+  };
+}
+
+function MenuScriptRow(props: Omit<ScriptRowProps, "onDismiss">): ReactElement {
+  const closeMenu = useDropdownMenuClose();
+  return <ScriptRow {...props} onDismiss={closeMenu} />;
+}
+
+export function WorkspaceScriptsButton({
+  serverId,
+  workspaceId,
+  scripts,
+  liveTerminalIds = [],
+  onScriptTerminalStarted,
+  onViewTerminal,
+  onOpenUrlInBrowserTab,
+  hideLabels,
+  presentation = "split",
+}: WorkspaceScriptsButtonProps): ReactElement | null {
+  const { t } = useTranslation();
+  const controls = useWorkspaceScriptControls({
+    serverId,
+    workspaceId,
+    scripts,
+    liveTerminalIds,
+    onScriptTerminalStarted,
+  });
+
+  const triggerStyle = useCallback(
+    ({ hovered, pressed, open }: { hovered: boolean; pressed: boolean; open: boolean }) => [
+      presentation === "ghost" ? styles.ghostButton : styles.splitButtonPrimary,
+      (hovered || pressed || open) &&
+        (presentation === "ghost" ? styles.ghostButtonHovered : styles.splitButtonPrimaryHovered),
+    ],
+    [presentation],
   );
 
   if (scripts.length === 0) {
@@ -707,19 +756,10 @@ export function WorkspaceScriptsButton({
             testID="workspace-scripts-menu"
           >
             {scripts.map((script) => (
-              <ScriptRow
+              <MenuScriptRow
                 key={script.scriptName}
                 script={script}
-                liveTerminalIdSet={liveTerminalIdSet}
-                activeConnection={activeConnection}
-                isStartPending={startScriptMutation.isPending}
-                isStopPending={stopScriptMutation.isPending}
-                onStartScript={handleStartScript}
-                onStopScript={handleStopScript}
-                onRestartScript={handleRestartScript}
-                onCopyUrl={handleCopyUrl}
-                preferredRouteKind={preferredRouteKind}
-                onSelectRouteKind={handleSelectRouteKind}
+                {...controls}
                 onViewTerminal={onViewTerminal}
                 onOpenUrlInBrowserTab={onOpenUrlInBrowserTab}
               />

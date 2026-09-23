@@ -752,6 +752,15 @@ export const ar: TranslationResources = {
         branchNameCopiedLabel: "اسم الفرع",
       },
     },
+    utilityPanel: {
+      setup: "الإعداد",
+      run: "تشغيل",
+      terminal: "الطرفية",
+      runEmpty: "شغّل الاختبارات أو خادم التطوير لاختبار التغييرات في مساحة العمل هذه",
+      addRunScript: "إضافة سكربت تشغيل",
+      collapse: "طي اللوحة",
+      expand: "توسيع اللوحة",
+    },
     scripts: {
       title: "البرامج النصية",
       actions: {

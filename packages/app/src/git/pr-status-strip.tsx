@@ -1,21 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import {
   Archive,
   ArrowUpRight,
-  Check,
   ChevronDown,
-  CircleDashed,
-  CircleX,
   Copy,
   FastForward,
   GitCommitHorizontal,
   GitMerge,
-  GitPullRequest,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-  TriangleAlert,
   Wrench,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
@@ -67,8 +60,8 @@ interface PrStatusStripProps {
 }
 
 /**
- * The change request's lifecycle on a wash of its state's color: the `#N` `↗` link, a copy chip,
- * the state, and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
+ * The change request's lifecycle on a wash of its state's color: the `#N` `↗` link, the state,
+ * and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
  * Commit and push while local work is unpushed. Continue or Archive once merged or closed.
  */
 export function PrStatusStrip({
@@ -148,7 +141,9 @@ export function PrStatusStrip({
   const openPr = useCallback(() => {
     if (prUrl) void openExternalUrl(prUrl);
   }, [prUrl]);
-  const [copied, copyPrUrl] = useCopiedFlag(prUrl);
+  const copyPrUrl = useCallback(() => {
+    if (prUrl) void copyToClipboard(prUrl).then(() => toast.copied("Link"));
+  }, [prUrl, toast]);
 
   if (!prStatus || !state) return null;
   const numberLabel = prStatus.number
@@ -185,19 +180,7 @@ export function PrStatusStrip({
           <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
         </PrSegment>
       </View>
-      <PrChip
-        tone={state.tone}
-        onPress={copyPrUrl}
-        role="button"
-        accessibilityLabel={
-          copied ? t("message.actions.copied") : t("workspace.git.prFlow.copyLink")
-        }
-        testID="workspace-pr-status-copy-link"
-      >
-        <ToneIcon icon={copied ? Check : Copy} tone={state.tone} size={12} />
-      </PrChip>
       <View style={styles.status}>
-        <ToneIcon icon={STATE_ICONS[state.label]} tone={state.tone} size={14} />
         <Text
           style={[styles.label, tone.text]}
           numberOfLines={1}
@@ -226,22 +209,6 @@ export function PrStatusStrip({
   );
 }
 
-const STATE_ICONS: Record<PrStripLabel, LucideIcon> = {
-  open: GitPullRequest,
-  readyToMerge: GitPullRequest,
-  draft: GitPullRequestDraft,
-  merged: GitMerge,
-  closed: GitPullRequestClosed,
-  conflicts: TriangleAlert,
-  checksFailed: CircleX,
-  checksRunning: CircleDashed,
-  autoMergeEnabled: GitMerge,
-  changesRequested: CircleX,
-  reviewRequired: GitPullRequest,
-  uncommitted: TriangleAlert,
-  unpushed: TriangleAlert,
-};
-
 /** The workspace's local state beside the PR: uncommitted changes and unpushed commits. */
 function useLocalWork({ serverId, cwd }: { serverId: string; cwd: string }) {
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
@@ -255,33 +222,7 @@ function useLocalWork({ serverId, cwd }: { serverId: string; cwd: string }) {
   };
 }
 
-const COPIED_RESET_MS = 1500;
 const COPY_LINK_ICON = <ToneIcon icon={Copy} tone="muted" size={16} />;
-
-/** Copies `text` and flips a flag for a moment so the copy icon can confirm it. */
-function useCopiedFlag(text: string | null): [boolean, () => void] {
-  const [copied, setCopied] = useState(false);
-  const resetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (resetRef.current) clearTimeout(resetRef.current);
-    },
-    [],
-  );
-  const copy = useCallback(() => {
-    if (!text) return;
-    void copyToClipboard(text).then(() => {
-      setCopied(true);
-      if (resetRef.current) clearTimeout(resetRef.current);
-      resetRef.current = setTimeout(() => {
-        setCopied(false);
-        resetRef.current = null;
-      }, COPIED_RESET_MS);
-      return undefined;
-    });
-  }, [text]);
-  return [copied, copy];
-}
 
 function stripLabelText(
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -295,43 +236,6 @@ function stripLabelText(
   }
   if (label === "unpushed") return t("workspace.git.prFlow.checks.unpushed");
   return t(`workspace.git.prFlow.state.${label}`);
-}
-
-/** A small bordered square on the strip's wash: open or copy the change request. */
-function PrChip({
-  tone,
-  onPress,
-  role = "link",
-  accessibilityLabel,
-  testID,
-  children,
-}: {
-  tone: PrStripTone;
-  onPress: () => void;
-  role?: "link" | "button";
-  accessibilityLabel: string;
-  testID?: string;
-  children: ReactNode;
-}) {
-  const style = useCallback(
-    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.chip,
-      TONE_SHEETS[tone].border,
-      hovered && TONE_SHEETS[tone].tint,
-    ],
-    [tone],
-  );
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole={role}
-      accessibilityLabel={accessibilityLabel}
-      style={style}
-      testID={testID}
-    >
-      {children}
-    </Pressable>
-  );
 }
 
 /** One half of the `#N` `↗` link: the number opens the PR in the app, the arrow in the browser. */
@@ -442,6 +346,7 @@ function StripButton({
       style={[
         styles.stripButton,
         filled ? sheet.fill : sheet.border,
+        action.kind === "continue" && styles.dashed,
         options.length > 0 && styles.splitStart,
       ]}
       textStyle={filled ? styles.onToneText : sheet.text}
@@ -604,7 +509,7 @@ const TONE_SHEETS = {
 };
 
 const CHIP_SIZE = 20;
-const STRIP_BUTTON_HEIGHT = 24;
+const STRIP_BUTTON_HEIGHT = 22;
 
 const styles = StyleSheet.create((theme) => ({
   bar: {
@@ -623,15 +528,6 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1],
     paddingHorizontal: theme.spacing[1.5],
     borderRadius: theme.borderRadius.md,
-  },
-  chip: {
-    height: CHIP_SIZE,
-    minWidth: CHIP_SIZE,
-    paddingHorizontal: theme.spacing[1],
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: theme.borderWidth[1],
-    borderRadius: theme.borderRadius.base,
   },
   link: {
     height: CHIP_SIZE,
@@ -660,8 +556,7 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[1],
-    paddingLeft: theme.spacing[1],
+    paddingLeft: theme.spacing[2],
   },
   label: {
     flexShrink: 1,
@@ -679,6 +574,9 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     gap: theme.spacing[1],
     borderRadius: theme.borderRadius.md,
+  },
+  dashed: {
+    borderStyle: "dashed",
   },
   split: {
     flexDirection: "row",

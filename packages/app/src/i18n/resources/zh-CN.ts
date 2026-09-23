@@ -748,6 +748,15 @@ export const zhCN: TranslationResources = {
         branchNameCopiedLabel: "分支名称",
       },
     },
+    utilityPanel: {
+      setup: "设置",
+      run: "运行",
+      terminal: "终端",
+      runEmpty: "运行测试或开发服务器以测试此工作区中的更改",
+      addRunScript: "添加运行脚本",
+      collapse: "折叠面板",
+      expand: "展开面板",
+    },
     scripts: {
       title: "Scripts",
       actions: {

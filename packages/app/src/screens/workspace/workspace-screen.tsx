@@ -37,8 +37,9 @@ import {
 } from "@/components/ui/floating-panel-portal";
 import { SplitContainer } from "@/components/split-container";
 import { RetainedPanel } from "@/components/retained-panel";
-import { WorkspaceActions } from "@/git/workspace-actions";
-import { PrStatusStrip } from "@/git/pr-status-strip";
+import { ExplorerGitBar, ExplorerGitToolbar, WorkspaceActions } from "@/git/workspace-actions";
+import { ExplorerUtilityPanel } from "@/screens/workspace/explorer-utility-panel";
+import { useExplorerUtilityStore } from "@/stores/explorer-utility-store";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
@@ -1510,6 +1511,10 @@ function useWorkspaceTerminalTabActions({
       if (!persistenceKey) {
         return;
       }
+      if (destination.kind === "utility") {
+        useExplorerUtilityStore.getState().setTerminalId(persistenceKey, terminalId);
+        return;
+      }
       if (destination.kind === "replace") {
         replaceWorkspaceTabTarget(persistenceKey, destination.tabId, {
           kind: "terminal",
@@ -1769,7 +1774,8 @@ function WorkspaceScreenContent({
     query: terminalsQuery,
     queryKey: terminalsQueryKey,
     removeTerminalFromCache,
-    standaloneTerminalIds,
+    standaloneTerminalIds: allStandaloneTerminalIds,
+    trackScriptTerminal,
   } = useWorkspaceTerminals({
     client,
     isConnected,
@@ -1786,6 +1792,17 @@ function WorkspaceScreenContent({
     onTerminalCreateQueued: handleTerminalCreateQueued,
     onTerminalCreateFailed: handleTerminalCreateFailed,
   });
+  // The Explorer's Terminal panel owns its shell, so tab sync must not open a tab for it.
+  const utilityTerminalId = useExplorerUtilityStore((state) =>
+    persistenceKey ? (state.terminalIdByWorkspace[persistenceKey] ?? null) : null,
+  );
+  const standaloneTerminalIds = useMemo(
+    () =>
+      utilityTerminalId
+        ? allStandaloneTerminalIds.filter((terminalId) => terminalId !== utilityTerminalId)
+        : allStandaloneTerminalIds,
+    [allStandaloneTerminalIds, utilityTerminalId],
+  );
   const { archiveAgent } = useArchiveAgent();
 
   const { checkoutQuery, isCheckoutStatusLoading } = useWorkspaceCheckoutStatus({
@@ -3851,7 +3868,11 @@ function WorkspaceScreenContent({
     () => (
       <View style={styles.headerRight}>
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
-        {!isMobile && workspaceDescriptor && workspaceDescriptor.scripts.length > 0 ? (
+        {/* An open Explorer carries the scripts and git controls in its own chrome. */}
+        {!isMobile &&
+        !isExplorerSidebarShowing &&
+        workspaceDescriptor &&
+        workspaceDescriptor.scripts.length > 0 ? (
           <WorkspaceScriptsButton
             serverId={normalizedServerId}
             workspaceId={normalizedWorkspaceId}
@@ -3873,12 +3894,13 @@ function WorkspaceScreenContent({
         ) : null}
         {!isMobile && workspaceDirectory ? (
           <>
-            <WorkspaceActions
-              serverId={normalizedServerId}
-              cwd={workspaceDirectory}
-              prStripVisible={isExplorerSidebarShowing}
-              onOpenPullRequest={handleOpenPullRequest}
-            />
+            {isExplorerSidebarShowing ? null : (
+              <WorkspaceActions
+                serverId={normalizedServerId}
+                cwd={workspaceDirectory}
+                onOpenPullRequest={handleOpenPullRequest}
+              />
+            )}
             <WorkspaceHeaderExplorerToggle
               owner={explorerToggleOwner}
               onPress={handleToggleExplorerSidebar}
@@ -3929,27 +3951,68 @@ function WorkspaceScreenContent({
   );
   const renderExplorerSidebarHeaderAction = useCallback(
     () => (
-      <WorkspaceExplorerSidebarToggle
-        owner={explorerToggleOwner}
-        onPress={handleToggleExplorerSidebar}
-        label={explorerSidebarToggleLabel}
-        tooltipLabel={t("workspace.tabs.explorerSidebar.toggle")}
-        tooltipKeys={EXPLORER_TOGGLE_KEYS}
-        accessibilityState={explorerSidebarToggleAccessibilityState}
-      />
+      <>
+        {workspaceDirectory ? (
+          <ExplorerGitToolbar serverId={normalizedServerId} cwd={workspaceDirectory} />
+        ) : null}
+        <WorkspaceExplorerSidebarToggle
+          owner={explorerToggleOwner}
+          onPress={handleToggleExplorerSidebar}
+          label={explorerSidebarToggleLabel}
+          tooltipLabel={t("workspace.tabs.explorerSidebar.toggle")}
+          tooltipKeys={EXPLORER_TOGGLE_KEYS}
+          accessibilityState={explorerSidebarToggleAccessibilityState}
+        />
+      </>
     ),
     [
       explorerSidebarToggleAccessibilityState,
       explorerSidebarToggleLabel,
       explorerToggleOwner,
       handleToggleExplorerSidebar,
+      normalizedServerId,
+      workspaceDirectory,
       t,
+    ],
+  );
+  const handleCreateUtilityTerminal = useStableEvent(() => {
+    createTerminal({ destination: { kind: "utility" } });
+  });
+  const renderExplorerSidebarUtility = useCallback(
+    () =>
+      workspaceDescriptor && workspaceDirectory && persistenceKey ? (
+        <ExplorerUtilityPanel
+          serverId={normalizedServerId}
+          workspaceId={normalizedWorkspaceId}
+          workspaceKey={persistenceKey}
+          projectId={workspaceDescriptor.projectId || null}
+          scripts={workspaceDescriptor.scripts}
+          liveTerminalIds={liveTerminalIds}
+          isWorkspaceFocused={isRouteFocused}
+          buildPaneContentModel={buildDesktopPaneContentModel}
+          onCreateTerminal={handleCreateUtilityTerminal}
+          onTrackScriptTerminal={trackScriptTerminal}
+          onOpenUrlInBrowserTab={handleOpenUrlInBrowserTab}
+        />
+      ) : null,
+    [
+      workspaceDescriptor,
+      workspaceDirectory,
+      persistenceKey,
+      normalizedServerId,
+      normalizedWorkspaceId,
+      liveTerminalIds,
+      isRouteFocused,
+      buildDesktopPaneContentModel,
+      handleCreateUtilityTerminal,
+      trackScriptTerminal,
+      handleOpenUrlInBrowserTab,
     ],
   );
   const renderExplorerSidebarStatus = useCallback(
     () =>
       workspaceDirectory ? (
-        <PrStatusStrip
+        <ExplorerGitBar
           serverId={normalizedServerId}
           cwd={workspaceDirectory}
           onOpenPullRequest={handleOpenPullRequest}
@@ -4071,6 +4134,7 @@ function WorkspaceScreenContent({
         renderMainHeader={renderWorkspaceScreenHeader}
         renderExplorerSidebarHeaderAction={renderExplorerSidebarHeaderAction}
         renderExplorerSidebarStatus={renderExplorerSidebarStatus}
+        renderExplorerSidebarUtility={renderExplorerSidebarUtility}
         focusModeEnabled={desktopFocusModeEnabled}
         onExitFocusMode={toggleFocusMode}
         workspaceKey={persistenceKey}
@@ -4109,6 +4173,7 @@ function WorkspaceScreenContent({
     renderWorkspaceScreenHeader,
     renderExplorerSidebarHeaderAction,
     renderExplorerSidebarStatus,
+    renderExplorerSidebarUtility,
     persistenceKey,
     desktopFocusModeEnabled,
     toggleFocusMode,

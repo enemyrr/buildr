@@ -18,6 +18,7 @@ import { buildReviewRequest } from "@/git/review-instructions";
 import { useGitActionRunner, type GitAction } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { usePrFlow, type PrFlow } from "@/git/use-pr-flow";
+import { HEADER_INNER_HEIGHT } from "@/constants/layout";
 
 const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
   color: theme.colors.foregroundMuted,
@@ -26,8 +27,6 @@ const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
 interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
-  /** The Explorer shows the PR strip; otherwise the header carries it inline. */
-  prStripVisible: boolean;
   /** Opens the in-app pull request view from the strip's number. */
   onOpenPullRequest?: () => void;
 }
@@ -50,19 +49,40 @@ function GitMenuItem({ action }: { action: GitAction }) {
   );
 }
 
-/** The header's git area: Create PR before a PR exists, the PR lifecycle strip after. */
-export function WorkspaceActions({
-  serverId,
-  cwd,
-  prStripVisible,
-  onOpenPullRequest,
-}: WorkspaceActionsProps) {
-  const { t } = useTranslation();
+/** The header's git area while the Explorer is hidden: Create PR, then the inline PR strip. */
+export function WorkspaceActions({ serverId, cwd, onOpenPullRequest }: WorkspaceActionsProps) {
   const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
+  const commitAndPushItem = useCommitAndPushItem(flow);
+
+  if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
+  if (!prUrl) return <CreatePrSplitButton flow={flow} />;
+  return (
+    <View style={styles.group}>
+      <PrStatusStrip
+        serverId={serverId}
+        cwd={cwd}
+        variant="inline"
+        onOpenPullRequest={onOpenPullRequest}
+      />
+      {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
+        <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
+      )}
+      <GitActionsSplitButton
+        gitActions={flow.gitActions}
+        menuOnly
+        menuLeading={commitAndPushItem}
+      />
+    </View>
+  );
+}
+
+/** "Commit and push" above the git menu while the checkout has local work to publish. */
+function useCommitAndPushItem(flow: PrFlow) {
+  const { t } = useTranslation();
   const hasLocalWork = flow.isDirty || flow.hasUnpushedCommits;
   const { canCommitAndPush, commitAndPush, busy } = flow;
-  const commitAndPushItem = useMemo(
+  return useMemo(
     () =>
       hasLocalWork && canCommitAndPush ? (
         <DropdownMenuItem
@@ -76,21 +96,46 @@ export function WorkspaceActions({
       ) : null,
     [hasLocalWork, canCommitAndPush, commitAndPush, busy, t],
   );
+}
 
-  if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
-  if (!prUrl) return <CreatePrSplitButton flow={flow} />;
+interface ExplorerGitProps {
+  serverId: string;
+  cwd: string;
+}
+
+/** The Explorer's top row: the PR lifecycle strip, or Create PR before a PR exists. */
+export function ExplorerGitBar({
+  serverId,
+  cwd,
+  onOpenPullRequest,
+}: ExplorerGitProps & { onOpenPullRequest?: () => void }) {
+  const flow = usePrFlow({ serverId, cwd });
+  if (!flow.isGit) return null;
+  if (flow.prStatus?.url) {
+    return <PrStatusStrip serverId={serverId} cwd={cwd} onOpenPullRequest={onOpenPullRequest} />;
+  }
+  return (
+    <View style={styles.bar} testID="workspace-explorer-git-bar">
+      <CreatePrSplitButton flow={flow} />
+    </View>
+  );
+}
+
+/** The Explorer tab rail's trailing tools: Review and the git menu. */
+export function ExplorerGitToolbar({ serverId, cwd }: ExplorerGitProps) {
+  const flow = usePrFlow({ serverId, cwd });
+  const commitAndPushItem = useCommitAndPushItem(flow);
+  if (!flow.isGit) return null;
+  const closed = flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed";
   return (
     <View style={styles.group}>
-      {prStripVisible ? null : (
-        <PrStatusStrip
+      {closed ? null : (
+        <ReviewButton
           serverId={serverId}
           cwd={cwd}
-          variant="inline"
-          onOpenPullRequest={onOpenPullRequest}
+          baseRef={flow.baseRef}
+          prUrl={flow.prStatus?.url ?? null}
         />
-      )}
-      {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
-        <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
       )}
       <GitActionsSplitButton
         gitActions={flow.gitActions}
@@ -110,7 +155,7 @@ function ReviewButton({
   serverId: string;
   cwd: string;
   baseRef: string | null;
-  prUrl: string;
+  prUrl: string | null;
 }) {
   const { t } = useTranslation();
   const { send, pending, busy } = useInstructionRequests({ serverId, cwd });
@@ -186,6 +231,15 @@ function CreatePrSplitButton({ flow }: { flow: PrFlow }) {
 const styles = StyleSheet.create((theme) => ({
   row: { flexDirection: "row", alignItems: "stretch" },
   group: { flexDirection: "row", alignItems: "center", gap: theme.spacing[1] },
+  bar: {
+    height: HEADER_INNER_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingHorizontal: theme.spacing[2],
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
+  },
   primary: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
   caret: {
     justifyContent: "center",

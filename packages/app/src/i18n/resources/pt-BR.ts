@@ -756,6 +756,16 @@ export const ptBR: TranslationResources = {
         branchNameCopiedLabel: "Nome da branch",
       },
     },
+    utilityPanel: {
+      setup: "Configuração",
+      run: "Executar",
+      terminal: "Terminal",
+      runEmpty:
+        "Execute testes ou um servidor de desenvolvimento para testar as mudanças neste workspace",
+      addRunScript: "Adicionar script de execução",
+      collapse: "Recolher painel",
+      expand: "Expandir painel",
+    },
     scripts: {
       title: "Scripts",
       actions: {

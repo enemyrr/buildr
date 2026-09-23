@@ -21,7 +21,9 @@ import {
 
 export type TerminalTabDestination =
   | { kind: "open"; paneId?: string }
-  | { kind: "replace"; tabId: string };
+  | { kind: "replace"; tabId: string }
+  /** The Explorer's Terminal panel, which shows the terminal without a workspace tab. */
+  | { kind: "utility" };
 
 interface PendingTerminalCreateInput {
   destination: TerminalTabDestination;
@@ -243,7 +245,8 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     ],
   );
 
-  const handleScriptTerminalStarted = useCallback(
+  // Tracks a started script's terminal until the terminal list reports it.
+  const trackScriptTerminal = useCallback(
     (terminalId: string) => {
       setPendingScriptTerminalIds((pendingTerminalIds) => {
         if (pendingTerminalIds.get(terminalId) === query.dataUpdatedAt) {
@@ -253,10 +256,17 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
         nextTerminalIds.set(terminalId, query.dataUpdatedAt);
         return nextTerminalIds;
       });
-      onScriptTerminalSelected(terminalId);
       void queryClient.invalidateQueries({ queryKey });
     },
-    [onScriptTerminalSelected, query.dataUpdatedAt, queryClient, queryKey],
+    [query.dataUpdatedAt, queryClient, queryKey],
+  );
+
+  const handleScriptTerminalStarted = useCallback(
+    (terminalId: string) => {
+      trackScriptTerminal(terminalId);
+      onScriptTerminalSelected(terminalId);
+    },
+    [onScriptTerminalSelected, trackScriptTerminal],
   );
 
   const handleViewScriptTerminal = useCallback(
@@ -286,6 +296,7 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     createTerminal,
     handleScriptTerminalStarted,
     handleViewScriptTerminal,
+    trackScriptTerminal,
     invalidateTerminals,
     killMutation,
     knownTerminalIds,

@@ -765,6 +765,15 @@ export const en = {
         branchNameCopiedLabel: "Branch name",
       },
     },
+    utilityPanel: {
+      setup: "Setup",
+      run: "Run",
+      terminal: "Terminal",
+      runEmpty: "Run tests or a development server to test changes in this workspace",
+      addRunScript: "Add run script",
+      collapse: "Collapse panel",
+      expand: "Expand panel",
+    },
     scripts: {
       title: "Scripts",
       actions: {

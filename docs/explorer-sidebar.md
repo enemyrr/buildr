@@ -68,6 +68,20 @@ not automatically create an agent draft tab; choosing Agent opens one. Explorer 
 workspace canvas, even when visible. Restoring a saved layout enforces the same rule while preserving Explorer and saved
 tab content. There is no hidden side-pane lifecycle.
 
+### Explorer chrome
+
+An open Explorer owns the workspace's git and script controls, and the main header drops them. The
+top row is the pull request strip, or **Create PR** before a pull request exists. The tab rail ends
+with **Review** and the git menu. When the Explorer is hidden, the header carries **Create PR**, the
+inline strip, and the scripts menu instead.
+
+Under the views, `packages/app/src/screens/workspace/explorer-utility-panel.tsx` renders the
+**Setup**, **Run**, and **Terminal** panel. Its panels mount through `WorkspacePanelHost` with the
+synthetic pane id `explorer-utility`, so they never enter the workspace layout. The Terminal shell
+has no workspace tab, so the workspace screen removes its id from the standalone terminals it
+passes to tab sync. Otherwise tab sync opens it as a tab. Scripts started from **Run** register
+through `trackScriptTerminal` for the same reason.
+
 Cmd+J (Ctrl+J elsewhere) toggles the bottom pane, an ordinary pane split below the workspace root
 and remembered per workspace. The first toggle creates it with a new terminal. Later toggles set the
 pane's `hidden` flag instead of closing it, so its terminals keep running and stay mounted. Closing

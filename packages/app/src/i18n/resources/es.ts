@@ -760,6 +760,16 @@ export const es: TranslationResources = {
         branchNameCopiedLabel: "Nombre de la sucursal",
       },
     },
+    utilityPanel: {
+      setup: "Configuración",
+      run: "Ejecutar",
+      terminal: "Terminal",
+      runEmpty:
+        "Ejecuta pruebas o un servidor de desarrollo para probar los cambios en este espacio de trabajo",
+      addRunScript: "Añadir script de ejecución",
+      collapse: "Contraer panel",
+      expand: "Expandir panel",
+    },
     scripts: {
       title: "Scripts",
       actions: {

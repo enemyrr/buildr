@@ -752,6 +752,15 @@ export const ko: TranslationResources = {
         branchNameCopiedLabel: "브랜치 이름",
       },
     },
+    utilityPanel: {
+      setup: "설정",
+      run: "실행",
+      terminal: "터미널",
+      runEmpty: "테스트나 개발 서버를 실행해 이 워크스페이스의 변경 사항을 확인하세요",
+      addRunScript: "실행 스크립트 추가",
+      collapse: "패널 접기",
+      expand: "패널 펼치기",
+    },
     scripts: {
       title: "스크립트",
       actions: {

@@ -97,6 +97,7 @@ interface SplitContainerProps {
   renderMainHeader?: () => ReactNode;
   renderExplorerSidebarHeaderAction?: () => ReactNode;
   renderExplorerSidebarStatus?: () => ReactNode;
+  renderExplorerSidebarUtility?: () => ReactNode;
   workspaceKey: string;
   normalizedServerId: string;
   normalizedWorkspaceId: string;
@@ -311,6 +312,7 @@ export function SplitContainer({
   renderMainHeader,
   renderExplorerSidebarHeaderAction,
   renderExplorerSidebarStatus,
+  renderExplorerSidebarUtility,
   workspaceKey,
   normalizedServerId,
   normalizedWorkspaceId,
@@ -735,6 +737,7 @@ export function SplitContainer({
                   tabDropPreview={tabDropPreview}
                   headerAction={renderExplorerSidebarHeaderAction?.()}
                   statusStrip={renderExplorerSidebarStatus?.()}
+                  utilityPanel={renderExplorerSidebarUtility?.()}
                 />
               </View>
             </>

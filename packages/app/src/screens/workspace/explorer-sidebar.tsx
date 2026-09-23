@@ -34,6 +34,8 @@ interface ExplorerSidebarDockProps {
   }) => WorkspacePaneContentModel;
   headerAction?: ReactNode;
   statusStrip?: ReactNode;
+  /** The Setup, Run, and Terminal panel under the Explorer's views. */
+  utilityPanel?: ReactNode;
 }
 
 /** A dock shell over the shared panel host. It owns no workspace-pane capabilities. */
@@ -54,6 +56,7 @@ export function ExplorerSidebarDock({
   buildPaneContentModel,
   headerAction,
   statusStrip,
+  utilityPanel,
 }: ExplorerSidebarDockProps) {
   const paneState = useMemo(() => deriveWorkspacePaneState({ pane, tabs: uiTabs }), [pane, uiTabs]);
   const tabs = useMemo(() => paneState.tabs.map((tab) => tab.descriptor), [paneState.tabs]);
@@ -119,6 +122,7 @@ export function ExplorerSidebarDock({
               buildPaneContentModel={buildPaneContentModel}
             />
           </View>
+          {utilityPanel}
         </View>
       </WindowChromeRegion>
     </RetainedPanel>

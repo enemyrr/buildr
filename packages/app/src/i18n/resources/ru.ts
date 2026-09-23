@@ -760,6 +760,16 @@ export const ru: TranslationResources = {
         branchNameCopiedLabel: "Имя ветки",
       },
     },
+    utilityPanel: {
+      setup: "Настройка",
+      run: "Запуск",
+      terminal: "Терминал",
+      runEmpty:
+        "Запускайте тесты или сервер разработки, чтобы проверить изменения в этом рабочем пространстве",
+      addRunScript: "Добавить скрипт запуска",
+      collapse: "Свернуть панель",
+      expand: "Развернуть панель",
+    },
     scripts: {
       title: "Скрипты",
       actions: {

@@ -756,6 +756,15 @@ export const ja: TranslationResources = {
         branchNameCopiedLabel: "ブランチ名",
       },
     },
+    utilityPanel: {
+      setup: "セットアップ",
+      run: "実行",
+      terminal: "ターミナル",
+      runEmpty: "テストや開発サーバーを実行して、このワークスペースの変更を確認します",
+      addRunScript: "実行スクリプトを追加",
+      collapse: "パネルを折りたたむ",
+      expand: "パネルを展開",
+    },
     scripts: {
       title: "スクリプト",
       actions: {
