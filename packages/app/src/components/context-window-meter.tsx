@@ -127,35 +127,10 @@ export function ContextWindowMeter({
 
   const geometry = getMeterGeometry(showPercentage, glyphSize);
 
-  // No usage yet: reserve the footprint with a track-only ring while a session is
-  // active so the real ring fades in without shifting siblings. Render nothing when
-  // no usage is expected.
+  // No usage yet: reserve the footprint with an empty box while a session is active,
+  // so the ring appears without shifting siblings. An empty track read as a spinner.
   if (percentage === null || maxTokens === null || usedTokens === null) {
-    if (!pending) {
-      return null;
-    }
-    return (
-      <View style={geometry.containerStyle}>
-        <Svg
-          width={geometry.svgSize}
-          height={geometry.svgSize}
-          viewBox={`0 0 ${geometry.svgSize} ${geometry.svgSize}`}
-          style={styles.svg}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Circle
-            cx={geometry.center}
-            cy={geometry.center}
-            r={geometry.radius}
-            fill="none"
-            stroke={theme.colors.surface3}
-            strokeWidth={geometry.strokeWidth}
-          />
-        </Svg>
-        {showPercentage ? <View style={styles.skeletonLabel} /> : null}
-      </View>
-    );
+    return pending ? <View style={geometry.containerStyle} /> : null;
   }
 
   const clampedPercentage = clampPercentage(percentage);

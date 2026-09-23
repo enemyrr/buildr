@@ -2025,8 +2025,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   sendButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.accent,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.foreground,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
@@ -2040,7 +2040,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   sendButtonLabel: {
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
-    color: theme.colors.accentForeground,
+    color: theme.colors.surface0,
   },
   iconButtonHovered: {
     backgroundColor: theme.colors.surface2,
@@ -2080,4 +2080,4 @@ const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
+const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.surface0 });

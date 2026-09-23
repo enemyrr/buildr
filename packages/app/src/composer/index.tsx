@@ -1132,7 +1132,7 @@ function ComposerCancelButton({
         accessibilityRole="button"
         style={buttonStyle}
       >
-        <ThemedSquare size={buttonIconSize - 2} uniProps={iconSquareMapping} />
+        <ThemedSquare size={buttonIconSize - 6} uniProps={iconSquareMapping} />
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipRow}>
@@ -2552,9 +2552,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   cancelButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.foreground,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface3,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
