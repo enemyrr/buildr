@@ -4,11 +4,10 @@
 # daemon on the first free port from PASEO_FORK_LISTEN upward, and never
 # installs official updates. See packages/desktop/src/desktop-variant.ts.
 #
-# The bundle keeps productName "Paseo" so the executable, helper apps, and CLI
-# shim keep the names the runtime looks up. A renamed helper makes the daemon
-# and terminal workers fall back to the main executable, and each one appears
-# in the Dock. Electron finds its helper through CFBundleName, so only
-# CFBundleDisplayName carries the display name.
+# The bundle, executable, and helper apps are all named after the display
+# name, so Electron finds its helpers through CFBundleName and the macOS menu
+# bar shows the display name. Code that locates the helper derives its name
+# from the main executable (see bin/paseo and daemon/runtime-paths.ts).
 #
 # PASEO_FORK_NAME is internal: it names the userData directory and the keychain
 # item that encrypts browser cookies. Change it and the app starts empty.
@@ -28,10 +27,12 @@ npm run build:desktop -- --mac dir --arm64 \
   -c.mac.notarize=false \
   -c.mac.identity=null \
   -c.appId="$FORK_APP_ID" \
+  -c.productName="$FORK_DISPLAY_NAME" \
+  -c.executableName="$FORK_DISPLAY_NAME" \
   -c.mac.extendInfo.CFBundleDisplayName="$FORK_DISPLAY_NAME" \
   -c.extraMetadata.paseoVariant.name="$FORK_NAME" \
   -c.extraMetadata.paseoVariant.displayName="$FORK_DISPLAY_NAME" \
   -c.extraMetadata.paseoVariant.home="$FORK_HOME" \
   -c.extraMetadata.paseoVariant.listen="$FORK_LISTEN"
 
-echo "Built packages/desktop/release/mac-arm64/Paseo.app. Install it as /Applications/$FORK_DISPLAY_NAME.app."
+echo "Built packages/desktop/release/mac-arm64/$FORK_DISPLAY_NAME.app. Install it in /Applications."
