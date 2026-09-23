@@ -18,6 +18,7 @@ import { createUserMessage, generateMessageId, type UserMessageItem } from "@/ty
 import type { MessageSubmissionRejectionOutcome } from "@/composer/submission/model";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
 import { i18n } from "@/i18n/i18next";
+import type { WorkspaceFileLocation } from "@/workspace/file-open";
 
 export interface QueuedComposerMessage {
   id: string;
@@ -339,6 +340,7 @@ export interface OpenComposerAttachmentInput {
   attachment: ComposerAttachment;
   setLightboxMetadata: (metadata: AttachmentMetadata) => void;
   openWorkspaceAttachment: (input: { attachment: ComposerAttachment }) => boolean;
+  openFile: (location: WorkspaceFileLocation) => void;
   openExternalUrl: (url: string) => void;
 }
 
@@ -347,7 +349,17 @@ export function openComposerAttachment(input: OpenComposerAttachmentInput): void
     input.setLightboxMetadata(input.attachment.metadata);
     return;
   }
-  if (input.attachment.kind === "file" || input.attachment.kind === "workspace_file") {
+  if (input.attachment.kind === "file") {
+    input.openFile({ path: input.attachment.attachment.path });
+    return;
+  }
+  if (input.attachment.kind === "workspace_file") {
+    const { path, selection } = input.attachment;
+    input.openFile(
+      selection.kind === "line_range"
+        ? { path, lineStart: selection.startLine, lineEnd: selection.endLine }
+        : { path },
+    );
     return;
   }
   if (isWorkspaceAttachment(input.attachment)) {

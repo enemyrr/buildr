@@ -1542,7 +1542,7 @@ function ActiveAgentComposer({
   );
   const paneContext = usePaneContext();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
-  const { workspaceId, tabId, retargetCurrentTab } = paneContext;
+  const { workspaceId, tabId, retargetCurrentTab, openFileInWorkspace } = paneContext;
   const { archiveAgent } = useArchiveAgent();
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
   const hideWorkspaceAgent = useWorkspaceLayoutStore((state) => state.hideAgent);
@@ -1623,6 +1623,7 @@ function ActiveAgentComposer({
         attachments={agentInputDraft.attachments}
         attachmentScopeKeys={attachmentScopeKeys}
         onOpenWorkspaceAttachment={handleOpenWorkspaceAttachment}
+        onOpenWorkspaceFile={openFileInWorkspace}
         onChangeAttachments={agentInputDraft.setAttachments}
         cwd={cwd}
         clearDraft={agentInputDraft.clear}

@@ -132,6 +132,8 @@ interface UserMessageProps {
   isLastInGroup?: boolean;
   isPending?: boolean;
   disableOuterSpacing?: boolean;
+  /** Opens an uploaded file attachment in a file tab. */
+  onOpenFile?: (path: string) => void;
 }
 
 const MessageOuterSpacingContext = createContext(false);
@@ -421,6 +423,28 @@ function UserMessageImagePill({ image, onOpen, accessibilityLabel }: UserMessage
   );
 }
 
+interface UserMessageAttachmentPillProps {
+  attachment: AgentAttachment;
+  onOpenFile?: (path: string) => void;
+}
+
+function UserMessageAttachmentPill({ attachment, onOpenFile }: UserMessageAttachmentPillProps) {
+  const { t } = useTranslation();
+  const content = getAgentAttachmentPillContent(attachment, t);
+  const filePath = attachment.type === "uploaded_file" ? attachment.path : null;
+  const handlePress = useCallback(() => {
+    if (filePath) onOpenFile?.(filePath);
+  }, [filePath, onOpenFile]);
+  return (
+    <AttachmentFrame
+      onPress={filePath && onOpenFile ? handlePress : undefined}
+      accessibilityLabel={content.label}
+    >
+      <AttachmentLabel icon={content.icon} title={content.label} />
+    </AttachmentFrame>
+  );
+}
+
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
 const EMPTY_AGENT_ATTACHMENTS: AgentAttachment[] = [];
 
@@ -458,6 +482,7 @@ export const UserMessage = memo(function UserMessage({
   isLastInGroup = true,
   isPending = false,
   disableOuterSpacing,
+  onOpenFile,
 }: UserMessageProps) {
   const inlinedUploads = useMemo(() => extractUploadedFileBlocks(rawMessage), [rawMessage]);
   const message = inlinedUploads.text;
@@ -538,16 +563,13 @@ export const UserMessage = memo(function UserMessage({
               accessibilityLabel={t("composer.attachments.openImage")}
             />
           ))}
-          {attachments.map((attachment, index) => {
-            const content = getAgentAttachmentPillContent(attachment, t);
-            return (
-              <AttachmentFrame
-                key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
-              >
-                <AttachmentLabel icon={content.icon} title={content.label} />
-              </AttachmentFrame>
-            );
-          })}
+          {attachments.map((attachment, index) => (
+            <UserMessageAttachmentPill
+              key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
+              attachment={attachment}
+              onOpenFile={onOpenFile}
+            />
+          ))}
         </View>
         {hasText ? (
           <View

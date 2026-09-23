@@ -153,6 +153,7 @@ import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
+import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import {
   getWorkspaceFileAttachmentKey,
@@ -182,7 +183,6 @@ type AttachmentListUpdater =
 const EMPTY_ATTACHMENT_SCOPE_KEYS: readonly string[] = [];
 
 function noop() {}
-const noopCallback = () => {};
 
 function resolveComposerButtonIconSize(): number {
   return isWeb ? ICON_SIZE.sm : ICON_SIZE.md;
@@ -461,6 +461,7 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
         attachment={attachment}
         index={index}
         disabled={disabled}
+        onOpen={onOpen}
         onRemove={onRemove}
         removeLabel={labels.removeFile}
       />
@@ -473,6 +474,7 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
         attachment={attachment}
         index={index}
         disabled={disabled}
+        onOpen={onOpen}
         onRemove={onRemove}
         removeLabel={labels.removeFile}
       />
@@ -830,6 +832,7 @@ interface FileAttachmentPillProps {
   attachment: Extract<ComposerAttachment, { kind: "file" }>;
   index: number;
   disabled: boolean;
+  onOpen: (attachment: ComposerAttachment) => void;
   onRemove: (index: number) => void;
   removeLabel: string;
 }
@@ -838,9 +841,13 @@ function FileAttachmentPill({
   attachment,
   index,
   disabled,
+  onOpen,
   onRemove,
   removeLabel,
 }: FileAttachmentPillProps) {
+  const handleOpen = useCallback(() => {
+    onOpen(attachment);
+  }, [onOpen, attachment]);
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [onRemove, index]);
@@ -848,7 +855,7 @@ function FileAttachmentPill({
   return (
     <AttachmentPill
       testID="composer-file-attachment-pill"
-      onOpen={noopCallback}
+      onOpen={handleOpen}
       onRemove={handleRemove}
       openAccessibilityLabel={fileName}
       removeAccessibilityLabel={removeLabel}
@@ -863,6 +870,7 @@ interface WorkspaceFileAttachmentPillProps {
   attachment: WorkspaceFileComposerAttachment;
   index: number;
   disabled: boolean;
+  onOpen: (attachment: ComposerAttachment) => void;
   onRemove: (index: number) => void;
   removeLabel: string;
 }
@@ -871,9 +879,13 @@ function WorkspaceFileAttachmentPill({
   attachment,
   index,
   disabled,
+  onOpen,
   onRemove,
   removeLabel,
 }: WorkspaceFileAttachmentPillProps) {
+  const handleOpen = useCallback(() => {
+    onOpen(attachment);
+  }, [onOpen, attachment]);
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [index, onRemove]);
@@ -881,7 +893,7 @@ function WorkspaceFileAttachmentPill({
   return (
     <AttachmentPill
       testID="composer-workspace-file-attachment-pill"
-      onOpen={noopCallback}
+      onOpen={handleOpen}
       onRemove={handleRemove}
       openAccessibilityLabel={label}
       removeAccessibilityLabel={removeLabel}
@@ -962,6 +974,8 @@ interface ComposerProps {
   attachments: UserComposerAttachment[];
   attachmentScopeKeys?: readonly string[];
   onOpenWorkspaceAttachment?: (attachment: WorkspaceComposerAttachment) => void;
+  /** Opens file attachments in a file tab. */
+  onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
   onChangeAttachments: (updater: AttachmentListUpdater) => void;
   onForgeChangeRequestDetected?: () => void;
   onForgeChangeRequestAutoAttach?: (item: ForgeSearchItem) => void;
@@ -1254,6 +1268,7 @@ function ComposerContentImpl({
   attachments,
   attachmentScopeKeys = EMPTY_ATTACHMENT_SCOPE_KEYS,
   onOpenWorkspaceAttachment,
+  onOpenWorkspaceFile,
   onChangeAttachments,
   onForgeChangeRequestDetected,
   onForgeChangeRequestAutoAttach,
@@ -1895,12 +1910,13 @@ function ComposerContentImpl({
         attachment,
         setLightboxMetadata,
         openWorkspaceAttachment: openAttachment,
+        openFile: (location) => onOpenWorkspaceFile?.({ location, disposition: "preferred" }),
         openExternalUrl: (url) => {
           void openExternalUrl(url);
         },
       });
     },
-    [openAttachment],
+    [onOpenWorkspaceFile, openAttachment],
   );
 
   const handleCancelAgent = useCallback(() => {
