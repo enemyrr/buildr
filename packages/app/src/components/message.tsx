@@ -636,7 +636,7 @@ const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
 }));
 
 /**
- * Meta row at the end of an assistant turn: `14m 51s · 11:33 AM`, then the turn actions, then
+ * Meta row at the end of an assistant turn: `14m 51s · 11:33`, then the turn actions, then
  * whatever the caller trails with. A turn without a visible start shows only its end time.
  */
 export const AssistantTurnFooter = memo(function AssistantTurnFooter({
