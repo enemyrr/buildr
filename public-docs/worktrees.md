@@ -112,6 +112,26 @@ Both fields accept a multiline shell script or an array of commands; commands ru
 
 Commands run with the worktree as `cwd`. Use `$PASEO_SOURCE_CHECKOUT_PATH` to reach files in the original checkout (untracked config, local caches, etc).
 
+## Git settings
+
+Three `worktree` fields control branches. You can also edit them in the **Git** section of the project settings.
+
+```json
+{
+  "worktree": {
+    "baseBranch": "origin/develop",
+    "deleteBranchOnArchive": true,
+    "archiveOnMerge": true
+  }
+}
+```
+
+- `baseBranch`: the ref that new workspaces branch from when you don't pick one. Without it, the new-workspace screen uses the branch checked out in the source checkout.
+- `deleteBranchOnArchive`: deletes the local branch after the worktree is removed. Paseo keeps the branch if it has commits that aren't on a remote, if it's the default branch, or if another worktree has it checked out.
+- `archiveOnMerge`: archives the workspace after its pull request merges. This overrides the host-wide **Archive merged PR workspaces** setting for this project. Omit the field to use the host setting.
+
+Unlike setup and teardown, Paseo reads these fields from the `paseo.json` file on disk in the project root, so changes apply without a commit.
+
 ## Scripts and services
 
 `scripts` are named commands you can run inside a worktree on demand. Mark one as a _service_ and Paseo supervises it as a long-running process, assigns it a port, and routes HTTP traffic to it through the daemon's reverse proxy.

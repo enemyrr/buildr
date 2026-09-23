@@ -2698,6 +2698,20 @@ export const ru: TranslationResources = {
         teardown: "Удаление",
         teardownAccessibility: "Команды удаления worktree",
       },
+      git: {
+        title: "Git",
+        info: "От какой ветки создаются новые рабочие пространства и что происходит с их ветками после слияния и архивации",
+        baseBranch: "Создавать рабочие пространства от",
+        baseBranchHint: "Оставьте пустым, чтобы использовать текущую ветку",
+        deleteBranchOnArchive: "Удалять ветку при архивации",
+        deleteBranchOnArchiveHint:
+          "Удаляет локальную ветку при удалении worktree. Ветки с неотправленными коммитами сохраняются.",
+        archiveOnMerge: "Архивировать после слияния",
+        archiveOnMergeHint: "Архивирует рабочее пространство после слияния его pull request",
+        archiveOnMergeHost: "По умолчанию для хоста",
+        archiveOnMergeOn: "Вкл.",
+        archiveOnMergeOff: "Выкл.",
+      },
       scripts: {
         title: "Скрипты",
         info: "Долго работающие сервисы и одноразовые команды, которые можно запускать из любого агента этого проекта.",

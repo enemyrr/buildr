@@ -9,6 +9,9 @@ function emptyDraft(): ProjectConfigDraft {
     setupOriginalKind: "missing",
     teardownText: "",
     teardownOriginalKind: "missing",
+    baseBranchText: "",
+    deleteBranchOnArchive: false,
+    archiveOnMerge: "host",
     scripts: [],
     metadataPrompts: {
       branchName: "",
@@ -18,6 +21,37 @@ function emptyDraft(): ProjectConfigDraft {
     metadataGenerationBase: undefined,
   };
 }
+
+describe("git settings", () => {
+  it("round-trips base branch, branch deletion, and the archive-on-merge override", () => {
+    const base: PaseoConfigRaw = {
+      worktree: {
+        setup: "npm install",
+        baseBranch: "origin/develop",
+        deleteBranchOnArchive: true,
+        archiveOnMerge: false,
+      },
+    };
+    const draft = configToDraft(base);
+    expect(draft.baseBranchText).toBe("origin/develop");
+    expect(draft.deleteBranchOnArchive).toBe(true);
+    expect(draft.archiveOnMerge).toBe("off");
+    expect(applyDraftToConfig({ draft, base })).toEqual(base);
+  });
+
+  it("omits defaults so an untouched project keeps a minimal paseo.json", () => {
+    const base: PaseoConfigRaw = {
+      worktree: { baseBranch: "develop", deleteBranchOnArchive: true, archiveOnMerge: true },
+    };
+    const draft = {
+      ...configToDraft(base),
+      baseBranchText: "  ",
+      deleteBranchOnArchive: false,
+      archiveOnMerge: "host" as const,
+    };
+    expect(applyDraftToConfig({ draft, base })).toEqual({});
+  });
+});
 
 describe("configToDraft", () => {
   it("returns an empty draft for null config", () => {

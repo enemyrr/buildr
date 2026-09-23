@@ -49,6 +49,11 @@ export const PaseoWorktreeConfigRawSchema = z
     teardown: PaseoLifecycleCommandRawSchema.optional(),
     terminals: z.unknown().optional(),
     servicePorts: PaseoServicePortAllocationSchema.optional(),
+    // Base ref for new worktrees when the creator doesn't pick one.
+    baseBranch: z.string().optional(),
+    deleteBranchOnArchive: z.boolean().optional(),
+    // Overrides the host-wide `autoArchiveAfterMerge` daemon setting.
+    archiveOnMerge: z.boolean().optional(),
   })
   .passthrough();
 
@@ -82,6 +87,10 @@ export const PaseoConfigRawSchema = z
 export const WorktreeConfigSchema = PaseoWorktreeConfigRawSchema.extend({
   setup: z.unknown().optional().transform(normalizeLifecycleCommands),
   teardown: z.unknown().optional().transform(normalizeLifecycleCommands),
+  // A mistyped Git setting must not discard the lifecycle commands next to it.
+  baseBranch: z.string().trim().min(1).optional().catch(undefined),
+  deleteBranchOnArchive: z.boolean().optional().catch(undefined),
+  archiveOnMerge: z.boolean().optional().catch(undefined),
 })
   .passthrough()
   .catch({ setup: [], teardown: [] });

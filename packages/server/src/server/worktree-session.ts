@@ -27,6 +27,7 @@ import type { WorkspaceScriptRuntimeStore } from "./workspace-script-runtime-sto
 import type { CheckoutExistingBranchResult } from "../utils/checkout-git.js";
 import { expandTilde } from "../utils/path.js";
 import {
+  getWorktreeGitSettings,
   getWorktreeSetupCommands,
   resolveWorktreeRuntimeEnv,
   runWorktreeSetupCommands,
@@ -405,7 +406,10 @@ export async function resolveGitCreateBaseBranch(
     throw new Error("WorkspaceGitService is required to resolve the repository root");
   }
 
-  return workspaceGitService.resolveDefaultBranch(cwd);
+  const repoRoot = await workspaceGitService.resolveRepoRoot(cwd);
+  return (
+    getWorktreeGitSettings(repoRoot).baseBranch ?? workspaceGitService.resolveDefaultBranch(cwd)
+  );
 }
 
 export async function handlePaseoWorktreeListRequest(

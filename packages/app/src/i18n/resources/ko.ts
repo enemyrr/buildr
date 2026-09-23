@@ -2661,6 +2661,20 @@ export const ko: TranslationResources = {
         teardown: "정리",
         teardownAccessibility: "워크트리 정리 명령",
       },
+      git: {
+        title: "Git",
+        info: "새 워크스페이스가 분기하는 브랜치와 병합 및 보관 후 브랜치 처리 방식",
+        baseBranch: "새 워크스페이스 분기 기준",
+        baseBranchHint: "비워 두면 체크아웃된 브랜치에서 분기합니다",
+        deleteBranchOnArchive: "보관 시 브랜치 삭제",
+        deleteBranchOnArchiveHint:
+          "worktree가 제거될 때 로컬 브랜치를 삭제합니다. 푸시하지 않은 커밋이 있는 브랜치는 유지됩니다.",
+        archiveOnMerge: "병합 시 보관",
+        archiveOnMergeHint: "풀 리퀘스트가 병합되면 워크스페이스를 보관합니다",
+        archiveOnMergeHost: "호스트 기본값",
+        archiveOnMergeOn: "켜기",
+        archiveOnMergeOff: "끄기",
+      },
       scripts: {
         title: "스크립트",
         info: "이 프로젝트의 모든 에이전트에서 실행할 수 있는 장기 실행 서비스 및 일회성 명령",

@@ -157,10 +157,18 @@ function refQualifier(refName: string): string | null {
 // row, the trigger label, and the created ref all read this; computing it twice is how the
 // picker once showed local main while branching off something else.
 //
-// The upstream wins when the branch has one, because branching off the local ref silently
-// carries unpushed commits into the new workspace. The daemon sends the resolved ref rather
-// than a remote name, so a fork tracking upstream/main branches from upstream/main.
-export function defaultBasePickerItem(status: BaseRefCheckoutStatus): PickerItem | null {
+// The project base branch from paseo.json wins. Otherwise the upstream wins when the branch
+// has one, because branching off the local ref silently carries unpushed commits into the new
+// workspace. The daemon sends the resolved ref rather than a remote name, so a fork tracking
+// upstream/main branches from upstream/main.
+export function defaultBasePickerItem(
+  status: BaseRefCheckoutStatus,
+  projectBaseBranch?: string | null,
+): PickerItem | null {
+  const trimmedProjectBaseBranch = projectBaseBranch?.trim();
+  if (trimmedProjectBaseBranch) {
+    return projectBasePickerItem(trimmedProjectBaseBranch);
+  }
   const currentBranch = status.currentBranch;
   if (!currentBranch) return null;
   // COMPAT(checkoutUpstreamRef): added in v0.2.6, remove after 2027-02-01 once the daemon
@@ -175,6 +183,21 @@ export function defaultBasePickerItem(status: BaseRefCheckoutStatus): PickerItem
     name,
     refName,
     accessibilityLabel: status.upstreamRef ? `${name}, upstream branch` : `${name}, local branch`,
+  };
+}
+
+// Qualifies "origin/x" the way the branch list does so the project base row reads as
+// selected. A bare name stays bare; the daemon resolves it local-first, then origin.
+function projectBasePickerItem(baseBranch: string): PickerItem {
+  const refName = baseBranch.startsWith("origin/")
+    ? `${REMOTE_TRACKING_PREFIX}${baseBranch}`
+    : baseBranch;
+  const name = branchNameFromRef(refName);
+  return {
+    kind: "branch",
+    name,
+    refName,
+    accessibilityLabel: `${name}, project base branch`,
   };
 }
 

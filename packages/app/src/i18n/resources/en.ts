@@ -2772,6 +2772,20 @@ export const en = {
         teardown: "Teardown",
         teardownAccessibility: "Worktree teardown commands",
       },
+      git: {
+        title: "Git",
+        info: "How new workspaces branch, and what happens to their branches after merge and archive",
+        baseBranch: "Branch new workspaces from",
+        baseBranchHint: "Leave empty to branch from the checked-out branch",
+        deleteBranchOnArchive: "Delete branch on archive",
+        deleteBranchOnArchiveHint:
+          "Deletes the local branch when the worktree is removed. Branches with unpushed commits are kept.",
+        archiveOnMerge: "Archive on merge",
+        archiveOnMergeHint: "Archive the workspace after its pull request merges",
+        archiveOnMergeHost: "Host default",
+        archiveOnMergeOn: "On",
+        archiveOnMergeOff: "Off",
+      },
       scripts: {
         title: "Scripts",
         info: "Long-running services and one-off commands you can launch from any agent in this project",

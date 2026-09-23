@@ -336,6 +336,24 @@ describe("defaultBasePickerItem", () => {
     });
   });
 
+  it("prefers the project base branch over the current branch", () => {
+    const status = { currentBranch: "feature", upstreamRef: "refs/remotes/origin/feature" };
+    expect(defaultBasePickerItem(status, "origin/develop")).toMatchObject({
+      refName: "refs/remotes/origin/develop",
+      name: "develop",
+    });
+    expect(defaultBasePickerItem(status, "develop")).toMatchObject({
+      refName: "develop",
+      name: "develop",
+    });
+    expect(defaultBasePickerItem({ currentBranch: null }, "release")).toMatchObject({
+      refName: "release",
+    });
+    expect(defaultBasePickerItem(status, "  ")).toMatchObject({
+      refName: "refs/remotes/origin/feature",
+    });
+  });
+
   it("has no default for detached HEAD", () => {
     expect(defaultBasePickerItem({ currentBranch: null })).toBeNull();
   });

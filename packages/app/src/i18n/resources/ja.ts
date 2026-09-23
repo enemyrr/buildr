@@ -2675,6 +2675,20 @@ export const ja: TranslationResources = {
         teardown: "削除時",
         teardownAccessibility: "ワークツリー削除時のコマンド",
       },
+      git: {
+        title: "Git",
+        info: "新しいワークスペースの作成元ブランチと、マージ・アーカイブ後のブランチの扱い",
+        baseBranch: "新しいワークスペースの作成元",
+        baseBranchHint: "空欄の場合はチェックアウト中のブランチから作成します",
+        deleteBranchOnArchive: "アーカイブ時にブランチを削除",
+        deleteBranchOnArchiveHint:
+          "worktree の削除時にローカルブランチを削除します。未プッシュのコミットがあるブランチは残します。",
+        archiveOnMerge: "マージ時にアーカイブ",
+        archiveOnMergeHint: "プルリクエストのマージ後にワークスペースをアーカイブします",
+        archiveOnMergeHost: "ホストの既定値",
+        archiveOnMergeOn: "オン",
+        archiveOnMergeOff: "オフ",
+      },
       scripts: {
         title: "スクリプト",
         info: "このプロジェクトのどのエージェントからでも起動できる、長時間実行サービスと単発コマンド",

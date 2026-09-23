@@ -28,6 +28,7 @@ import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-moda
 import { ProjectEditSheet } from "@/components/project-edit-sheet";
 import { EditingTextInput as TextInput } from "@/components/ui/text-input";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
+import { SettingsCard, SettingsInput, SettingsSelect, SettingsSwitch } from "@/components/settings";
 import { SettingsGroup } from "@/components/settings/headings/settings-group";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { settingsStyles } from "@/styles/settings";
@@ -42,6 +43,7 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 import {
   applyDraftToConfig,
   configToDraft,
+  type ArchiveOnMergeChoice,
   METADATA_PROMPT_KEYS,
   type LifecycleOriginalKind,
   type MetadataPromptKey,
@@ -230,6 +232,7 @@ function ProjectSettingsBody({
 
   const data = readQuery.data;
   const supportsCustomIcon = useHostFeature(selectedHost.serverId, "projectCustomIcon");
+  const supportsGitSettings = useHostFeature(selectedHost.serverId, "projectGitSettings");
   const customIconRevision = selectedHost.customIconRevision ?? null;
   const projectIconTargets = useMemo(() => {
     const target = createProjectIconTarget({
@@ -309,6 +312,7 @@ function ProjectSettingsBody({
         loadedConfig,
         loadedRevision,
         hasUncommittedWorktreeSetupChanges,
+        supportsGitSettings,
         readError,
         selectedHost,
         queryKey,
@@ -327,6 +331,7 @@ interface RenderContentInput {
   loadedConfig: PaseoConfigRaw | null;
   loadedRevision: PaseoConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
+  supportsGitSettings: boolean;
   readError: ProjectConfigRpcError | null;
   selectedHost: ProjectHostEntry;
   queryKey: readonly [string, string, string];
@@ -342,6 +347,7 @@ function renderContent({
   loadedConfig,
   loadedRevision,
   hasUncommittedWorktreeSetupChanges,
+  supportsGitSettings,
   readError,
   selectedHost,
   queryKey,
@@ -391,6 +397,7 @@ function renderContent({
       baseConfig={loadedConfig}
       revision={loadedRevision}
       hasUncommittedWorktreeSetupChanges={hasUncommittedWorktreeSetupChanges}
+      supportsGitSettings={supportsGitSettings}
       repoRoot={selectedHost.repoRoot}
       queryKey={queryKey}
       client={client}
@@ -472,6 +479,7 @@ interface ProjectConfigFormProps {
   baseConfig: PaseoConfigRaw;
   revision: PaseoConfigRevision | null;
   hasUncommittedWorktreeSetupChanges: boolean;
+  supportsGitSettings: boolean;
   repoRoot: string;
   queryKey: readonly [string, string, string];
   client: DaemonClient;
@@ -482,6 +490,7 @@ function ProjectConfigForm({
   baseConfig,
   revision,
   hasUncommittedWorktreeSetupChanges,
+  supportsGitSettings,
   repoRoot,
   queryKey,
   client,
@@ -551,6 +560,27 @@ function ProjectConfigForm({
   const handleTeardownChange = useCallback(
     (text: string) => updateDraft((d) => ({ ...d, teardownText: text })),
     [updateDraft],
+  );
+
+  const handleBaseBranchChange = useCallback(
+    (text: string) => updateDraft((d) => ({ ...d, baseBranchText: text })),
+    [updateDraft],
+  );
+  const handleDeleteBranchOnArchiveChange = useCallback(
+    (value: boolean) => updateDraft((d) => ({ ...d, deleteBranchOnArchive: value })),
+    [updateDraft],
+  );
+  const handleArchiveOnMergeChange = useCallback(
+    (value: ArchiveOnMergeChoice) => updateDraft((d) => ({ ...d, archiveOnMerge: value })),
+    [updateDraft],
+  );
+  const archiveOnMergeOptions = useMemo(
+    () => [
+      { value: "host" as const, label: t("settings.project.git.archiveOnMergeHost") },
+      { value: "on" as const, label: t("settings.project.git.archiveOnMergeOn") },
+      { value: "off" as const, label: t("settings.project.git.archiveOnMergeOff") },
+    ],
+    [t],
   );
 
   const handleMetadataPromptChange = useCallback(
@@ -731,6 +761,40 @@ function ProjectConfigForm({
           />
         </SettingsSection>
       </SettingsGroup>
+
+      {supportsGitSettings ? (
+        <SettingsGroup
+          title={t("settings.project.git.title")}
+          info={t("settings.project.git.info")}
+          testID="git-group"
+        >
+          <SettingsCard>
+            <SettingsInput
+              testID="git-base-branch"
+              label={t("settings.project.git.baseBranch")}
+              hint={t("settings.project.git.baseBranchHint")}
+              initialValue={draft.baseBranchText}
+              onChangeText={handleBaseBranchChange}
+              placeholder="origin/main"
+            />
+            <SettingsSwitch
+              testID="git-delete-branch-on-archive"
+              label={t("settings.project.git.deleteBranchOnArchive")}
+              hint={t("settings.project.git.deleteBranchOnArchiveHint")}
+              value={draft.deleteBranchOnArchive}
+              onValueChange={handleDeleteBranchOnArchiveChange}
+            />
+            <SettingsSelect
+              testID="git-archive-on-merge"
+              label={t("settings.project.git.archiveOnMerge")}
+              hint={t("settings.project.git.archiveOnMergeHint")}
+              value={draft.archiveOnMerge}
+              options={archiveOnMergeOptions}
+              onValueChange={handleArchiveOnMergeChange}
+            />
+          </SettingsCard>
+        </SettingsGroup>
+      ) : null}
 
       <SettingsGroup
         title={t("settings.project.scripts.title")}

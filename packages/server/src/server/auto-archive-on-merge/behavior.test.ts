@@ -120,6 +120,7 @@ async function createWorkspaceJourney() {
       active = false;
     },
     resolvePath: path.resolve,
+    readProjectArchiveOnMerge: () => undefined,
   };
 
   function startDaemon(): void {

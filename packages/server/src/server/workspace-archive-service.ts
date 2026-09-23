@@ -7,8 +7,11 @@ import type { AgentStorage, StoredAgentRecord } from "./agent/agent-storage.js";
 import type { WorkspaceGitService } from "./workspace-git-service.js";
 import type { ForgeService } from "../services/forge-service.js";
 import {
+  deleteArchivedWorktreeBranch,
   deletePaseoWorktree,
+  getWorktreeGitSettings,
   isPaseoOwnedWorktreeCwd,
+  resolveWorktreeBranchName,
   runWorktreeTeardownCommands,
   WorktreeTeardownError,
 } from "../utils/worktree.js";
@@ -399,6 +402,9 @@ async function maybeRemoveDirectory(
     return false;
   }
 
+  // The branch name is only discoverable while the worktree is still registered.
+  const branchToDelete = await resolveBranchToDeleteOnArchive(dependencies, request, backing);
+
   try {
     await deletePaseoWorktree({
       cwd: backing.mainRepoRoot,
@@ -409,13 +415,62 @@ async function maybeRemoveDirectory(
       worktreesBaseRoot: dependencies.paseoWorktreesBaseRoot,
     });
     dependencies.github.invalidate({ cwd: backing.path });
-    return true;
   } catch (error) {
     dependencies.sessionLogger?.warn(
       { err: error, targetPath: backing.path, requestId: request.requestId },
       "Worktree disk removal failed during archive; workspace already archived",
     );
     return false;
+  }
+
+  if (branchToDelete) {
+    await deleteBranchAfterArchive(dependencies, request, branchToDelete);
+  }
+  return true;
+}
+
+interface BranchToDelete {
+  repoRoot: string;
+  branchName: string;
+}
+
+async function resolveBranchToDeleteOnArchive(
+  dependencies: ArchiveDependencies,
+  request: Pick<ArchiveByScopeRequest, "requestId">,
+  backing: BackingDirectory,
+): Promise<BranchToDelete | null> {
+  const repoRoot = backing.mainRepoRoot;
+  if (!repoRoot || getWorktreeGitSettings(repoRoot).deleteBranchOnArchive !== true) {
+    return null;
+  }
+  try {
+    const branchName = await resolveWorktreeBranchName(repoRoot, backing.path);
+    return branchName ? { repoRoot, branchName } : null;
+  } catch (error) {
+    dependencies.sessionLogger?.warn(
+      { err: error, targetPath: backing.path, requestId: request.requestId },
+      "Failed to resolve worktree branch for deletion on archive",
+    );
+    return null;
+  }
+}
+
+async function deleteBranchAfterArchive(
+  dependencies: ArchiveDependencies,
+  request: Pick<ArchiveByScopeRequest, "requestId">,
+  target: BranchToDelete,
+): Promise<void> {
+  try {
+    const outcome = await deleteArchivedWorktreeBranch(target.repoRoot, target.branchName);
+    dependencies.sessionLogger?.info(
+      { ...target, outcome, requestId: request.requestId },
+      "Handled branch deletion on archive",
+    );
+  } catch (error) {
+    dependencies.sessionLogger?.warn(
+      { err: error, ...target, requestId: request.requestId },
+      "Branch deletion on archive failed; workspace already archived",
+    );
   }
 }
 

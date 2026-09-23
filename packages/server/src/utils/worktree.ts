@@ -283,6 +283,23 @@ function readPaseoConfigOrThrow(repoRoot: string): PaseoConfig | null {
   return result.config;
 }
 
+export interface WorktreeGitSettings {
+  baseBranch?: string;
+  deleteBranchOnArchive?: boolean;
+  archiveOnMerge?: boolean;
+}
+
+// A broken paseo.json falls back to host defaults instead of blocking git operations.
+export function getWorktreeGitSettings(repoRoot: string): WorktreeGitSettings {
+  const result = readPaseoConfig(repoRoot);
+  const worktree = result.ok ? result.config?.worktree : undefined;
+  return {
+    baseBranch: worktree?.baseBranch,
+    deleteBranchOnArchive: worktree?.deleteBranchOnArchive,
+    archiveOnMerge: worktree?.archiveOnMerge,
+  };
+}
+
 export function getWorktreeSetupCommands(repoRoot: string): string[] {
   return readPaseoConfigOrThrow(repoRoot)?.worktree?.setup ?? [];
 }
@@ -1717,6 +1734,67 @@ async function resolveUniqueLocalBranchName(cwd: string, candidateBranch: string
     suffix++;
   }
   return newBranchName;
+}
+
+export async function resolveWorktreeBranchName(
+  repoRoot: string,
+  worktreePath: string,
+): Promise<string | null> {
+  const { stdout } = await runGitCommand(["worktree", "list", "--porcelain"], {
+    cwd: repoRoot,
+    envOverlay: READ_ONLY_GIT_ENV,
+  });
+  const target = normalizePathForOwnership(worktreePath);
+  const entry = parseWorktreeList(stdout).find(
+    (candidate) => normalizePathForOwnership(candidate.path) === target,
+  );
+  return entry?.branchName ?? null;
+}
+
+export type ArchivedBranchDeletion =
+  | "deleted"
+  | "missing"
+  | "kept-default-branch"
+  | "kept-checked-out"
+  | "kept-unpushed-commits";
+
+// Squash and rebase merges leave the branch unmerged in git's eyes, so a branch whose
+// commits all exist on a remote is force-deleted. Local-only commits keep the branch,
+// since restoring the workspace later fetches it back from origin.
+export async function deleteArchivedWorktreeBranch(
+  repoRoot: string,
+  branchName: string,
+): Promise<ArchivedBranchDeletion> {
+  if (branchName === (await resolveOriginDefaultBranchName(repoRoot))) {
+    return "kept-default-branch";
+  }
+  if (!(await localBranchExists(repoRoot, branchName))) {
+    return "missing";
+  }
+  if (await isBranchCheckedOut(repoRoot, branchName)) {
+    return "kept-checked-out";
+  }
+  const { stdout } = await runGitCommand(
+    ["rev-list", "-n", "1", `refs/heads/${branchName}`, "--not", "--remotes"],
+    { cwd: repoRoot, envOverlay: READ_ONLY_GIT_ENV },
+  );
+  if (stdout.trim().length > 0) {
+    return "kept-unpushed-commits";
+  }
+  await runGitCommand(["branch", "-D", branchName], { cwd: repoRoot });
+  return "deleted";
+}
+
+async function resolveOriginDefaultBranchName(repoRoot: string): Promise<string | null> {
+  try {
+    const { stdout } = await runGitCommand(
+      ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"],
+      { cwd: repoRoot, envOverlay: READ_ONLY_GIT_ENV },
+    );
+    return stdout.trim().replace(/^refs\/remotes\/origin\//, "") || null;
+  } catch {
+    return null;
+  }
 }
 
 async function isBranchCheckedOut(cwd: string, branchName: string): Promise<boolean> {

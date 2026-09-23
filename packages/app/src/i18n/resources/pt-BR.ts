@@ -2690,6 +2690,20 @@ export const ptBR: TranslationResources = {
         teardown: "Desmontagem",
         teardownAccessibility: "Comandos de desmontagem do worktree",
       },
+      git: {
+        title: "Git",
+        info: "Como novos workspaces criam branches e o que acontece com elas após merge e arquivamento",
+        baseBranch: "Criar workspaces a partir de",
+        baseBranchHint: "Deixe vazio para partir da branch atual",
+        deleteBranchOnArchive: "Excluir branch ao arquivar",
+        deleteBranchOnArchiveHint:
+          "Exclui a branch local quando o worktree é removido. Branches com commits não enviados são mantidas.",
+        archiveOnMerge: "Arquivar no merge",
+        archiveOnMergeHint: "Arquiva o workspace após o merge do pull request",
+        archiveOnMergeHost: "Padrão do host",
+        archiveOnMergeOn: "Ativado",
+        archiveOnMergeOff: "Desativado",
+      },
       scripts: {
         title: "Scripts",
         info: "Serviços contínuos e comandos avulsos que você pode iniciar de qualquer agente neste projeto",

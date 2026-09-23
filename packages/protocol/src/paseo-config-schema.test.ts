@@ -49,6 +49,33 @@ describe("paseo config schema", () => {
     });
   });
 
+  it("parses worktree git settings and drops mistyped ones without losing commands", () => {
+    expect(
+      PaseoConfigSchema.parse({
+        worktree: {
+          setup: "npm install",
+          baseBranch: "origin/develop",
+          deleteBranchOnArchive: true,
+          archiveOnMerge: false,
+        },
+      }),
+    ).toEqual({
+      worktree: {
+        setup: ["npm install"],
+        teardown: [],
+        baseBranch: "origin/develop",
+        deleteBranchOnArchive: true,
+        archiveOnMerge: false,
+      },
+    });
+
+    expect(
+      PaseoConfigSchema.parse({
+        worktree: { setup: "npm install", baseBranch: 5, deleteBranchOnArchive: "yes" },
+      }).worktree,
+    ).toEqual({ setup: ["npm install"], teardown: [] });
+  });
+
   it("rejects invalid service port ranges", () => {
     expect(() =>
       PaseoConfigRawSchema.parse({ worktree: { servicePorts: { range: "4000-3000" } } }),

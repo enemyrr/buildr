@@ -396,6 +396,32 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       }
     });
 
+    test("branches from the project base branch in paseo.json when no ref is picked", async () => {
+      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      cleanupPaths.push(tempDir);
+      writeFileSync(
+        path.join(repoDir, "paseo.json"),
+        JSON.stringify({ worktree: { baseBranch: "dev" } }),
+      );
+      const { resolveDefaultBranch: _injected, ...deps } = createCoreDeps();
+
+      const result = await createCoreWorktree(
+        { cwd: repoDir, worktreeSlug: "from-project-base", paseoHome, runSetup: false },
+        {
+          ...deps,
+          workspaceGitService: {
+            ...deps.workspaceGitService,
+            resolveDefaultBranch: async () => "main",
+          },
+        },
+      );
+
+      expect(result.intent).toMatchObject({ kind: "branch-off", baseBranch: "dev" });
+      expect(readFileSync(path.join(result.worktree.worktreePath, "README.md"), "utf8")).toBe(
+        "dev branch\n",
+      );
+    });
+
     test("creates the legacy RPC branch-off worktree from the repo default branch", async () => {
       const { tempDir, repoDir, paseoHome } = createGitRepo();
       cleanupPaths.push(tempDir);

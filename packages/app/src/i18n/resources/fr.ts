@@ -2714,6 +2714,20 @@ export const fr: TranslationResources = {
         teardown: "Démolir",
         teardownAccessibility: "Commandes de démontage de Worktree",
       },
+      git: {
+        title: "Git",
+        info: "Comment les nouveaux espaces de travail créent leur branche, et ce qu'il advient de leurs branches après fusion et archivage",
+        baseBranch: "Créer les espaces de travail depuis",
+        baseBranchHint: "Laissez vide pour partir de la branche active",
+        deleteBranchOnArchive: "Supprimer la branche à l'archivage",
+        deleteBranchOnArchiveHint:
+          "Supprime la branche locale lorsque le worktree est retiré. Les branches avec des commits non poussés sont conservées.",
+        archiveOnMerge: "Archiver à la fusion",
+        archiveOnMergeHint: "Archive l'espace de travail après la fusion de sa pull request",
+        archiveOnMergeHost: "Valeur par défaut de l'hôte",
+        archiveOnMergeOn: "Activé",
+        archiveOnMergeOff: "Désactivé",
+      },
       scripts: {
         title: "Scripts",
         info: "Services de longue durée et commandes ponctuelles que vous pouvez lancer à partir de n'importe quel agent de ce projet",

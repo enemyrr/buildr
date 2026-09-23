@@ -2707,6 +2707,20 @@ export const es: TranslationResources = {
         teardown: "Demoler",
         teardownAccessibility: "Comandos de desmontaje del árbol de trabajo",
       },
+      git: {
+        title: "Git",
+        info: "Cómo se ramifican los nuevos espacios de trabajo y qué ocurre con sus ramas tras fusionar y archivar",
+        baseBranch: "Crear espacios de trabajo desde",
+        baseBranchHint: "Déjalo vacío para partir de la rama activa",
+        deleteBranchOnArchive: "Eliminar la rama al archivar",
+        deleteBranchOnArchiveHint:
+          "Elimina la rama local cuando se borra el worktree. Las ramas con commits sin enviar se conservan.",
+        archiveOnMerge: "Archivar al fusionar",
+        archiveOnMergeHint: "Archiva el espacio de trabajo cuando se fusiona su pull request",
+        archiveOnMergeHost: "Predeterminado del host",
+        archiveOnMergeOn: "Activado",
+        archiveOnMergeOff: "Desactivado",
+      },
       scripts: {
         title: "Scripts",
         info: "Servicios de larga duración y comandos únicos que puede iniciar desde cualquier agente en este proyecto",

@@ -3,6 +3,7 @@ import { createNameId } from "mnemonic-id";
 import type { ForgeService } from "../services/forge-service.js";
 import {
   createWorktree,
+  getWorktreeGitSettings,
   slugify,
   validateBranchSlug,
   type CreatedWorktree,
@@ -152,7 +153,8 @@ async function resolveDefaultBranch(
 ): Promise<string> {
   const baseBranch = deps.resolveDefaultBranch
     ? await deps.resolveDefaultBranch(repoRoot)
-    : await deps.workspaceGitService?.resolveDefaultBranch(repoRoot);
+    : (getWorktreeGitSettings(repoRoot).baseBranch ??
+      (await deps.workspaceGitService?.resolveDefaultBranch(repoRoot)));
   if (!baseBranch) {
     throw new Error("Unable to resolve repository default branch");
   }

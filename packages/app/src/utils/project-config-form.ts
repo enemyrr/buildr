@@ -10,6 +10,8 @@ export type LifecycleOriginalKind = "string" | "array" | "missing";
 export const METADATA_PROMPT_KEYS = ["branchName", "commitMessage", "pullRequest"] as const;
 export type MetadataPromptKey = (typeof METADATA_PROMPT_KEYS)[number];
 
+export type ArchiveOnMergeChoice = "host" | "on" | "off";
+
 export interface ProjectScriptDraft {
   id: string;
   name: string;
@@ -25,6 +27,9 @@ export interface ProjectConfigDraft {
   setupOriginalKind: LifecycleOriginalKind;
   teardownText: string;
   teardownOriginalKind: LifecycleOriginalKind;
+  baseBranchText: string;
+  deleteBranchOnArchive: boolean;
+  archiveOnMerge: ArchiveOnMergeChoice;
   scripts: ProjectScriptDraft[];
   metadataPrompts: Record<MetadataPromptKey, string>;
   metadataGenerationBase: PaseoMetadataGeneration | undefined;
@@ -106,6 +111,11 @@ function emptyMetadataPrompts(): Record<MetadataPromptKey, string> {
   };
 }
 
+function archiveOnMergeChoice(value: boolean | undefined): ArchiveOnMergeChoice {
+  if (value === undefined) return "host";
+  return value ? "on" : "off";
+}
+
 export function configToDraft(config: PaseoConfigRaw | null | undefined): ProjectConfigDraft {
   const worktree = config?.worktree ?? {};
   const setup = projectLifecycle(worktree.setup);
@@ -140,10 +150,33 @@ export function configToDraft(config: PaseoConfigRaw | null | undefined): Projec
     setupOriginalKind: setup.kind,
     teardownText: teardown.text,
     teardownOriginalKind: teardown.kind,
+    baseBranchText: worktree.baseBranch ?? "",
+    deleteBranchOnArchive: worktree.deleteBranchOnArchive === true,
+    archiveOnMerge: archiveOnMergeChoice(worktree.archiveOnMerge),
     scripts,
     metadataPrompts,
     metadataGenerationBase: metadataGeneration,
   };
+}
+
+// Defaults are omitted so an untouched project keeps a minimal paseo.json.
+function applyGitSettings(worktree: Record<string, unknown>, draft: ProjectConfigDraft): void {
+  const baseBranch = draft.baseBranchText.trim();
+  if (baseBranch.length === 0) {
+    delete worktree.baseBranch;
+  } else {
+    worktree.baseBranch = baseBranch;
+  }
+  if (draft.deleteBranchOnArchive) {
+    worktree.deleteBranchOnArchive = true;
+  } else {
+    delete worktree.deleteBranchOnArchive;
+  }
+  if (draft.archiveOnMerge === "host") {
+    delete worktree.archiveOnMerge;
+  } else {
+    worktree.archiveOnMerge = draft.archiveOnMerge === "on";
+  }
 }
 
 interface ApplyDraftInput {
@@ -171,6 +204,8 @@ export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
   } else {
     nextWorktree.teardown = nextTeardown;
   }
+
+  applyGitSettings(nextWorktree, input.draft);
 
   const nextScripts: Record<string, PaseoScriptEntryRaw> = {};
   for (const row of input.draft.scripts) {

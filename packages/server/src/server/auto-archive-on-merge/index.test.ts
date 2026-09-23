@@ -81,6 +81,7 @@ test("fans one fresh observation out to every workspace attached to its exact cw
       if (calls.length === 2) resolveFinished?.();
     },
     resolvePath: resolve,
+    readProjectArchiveOnMerge: () => undefined,
   };
 
   setupAutoArchiveOnMerge(options, deps);
@@ -132,6 +133,7 @@ test("serializes the complete fan-out for duplicate merge events on one cwd", as
       if (archivedWorkspaceIds.length === 2) resolveFinished?.();
     },
     resolvePath: resolve,
+    readProjectArchiveOnMerge: () => undefined,
   };
 
   setupAutoArchiveOnMerge(options, deps);
@@ -171,7 +173,11 @@ test("does not fan out a stale merged event when the fresh observation has no PR
     ]),
   } as unknown as AutoArchiveOnMergeOptions;
 
-  setupAutoArchiveOnMerge(options, { archiveIfSafe, resolvePath: resolve });
+  setupAutoArchiveOnMerge(options, {
+    archiveIfSafe,
+    resolvePath: resolve,
+    readProjectArchiveOnMerge: () => undefined,
+  });
   if (!onSnapshotUpdated) throw new Error("Snapshot listener was not registered");
   onSnapshotUpdated(createSnapshot("/repo/worktree", "open"));
   onSnapshotUpdated(eventSnapshot);
@@ -200,7 +206,11 @@ test("logs and skips when the fresh observation cannot be read", async () => {
     listActiveWorkspaces: vi.fn(),
   } as unknown as AutoArchiveOnMergeOptions;
 
-  setupAutoArchiveOnMerge(options, { archiveIfSafe, resolvePath: resolve });
+  setupAutoArchiveOnMerge(options, {
+    archiveIfSafe,
+    resolvePath: resolve,
+    readProjectArchiveOnMerge: () => undefined,
+  });
   if (!onSnapshotUpdated) throw new Error("Snapshot listener was not registered");
   onSnapshotUpdated(createSnapshot("/repo/worktree", "open"));
   onSnapshotUpdated(createSnapshot("/repo/worktree"));
@@ -231,9 +241,59 @@ test("does not read an observation when auto-archive is disabled", async () => {
     listActiveWorkspaces: vi.fn(),
   } as unknown as AutoArchiveOnMergeOptions;
 
-  setupAutoArchiveOnMerge(options, { archiveIfSafe, resolvePath: resolve });
+  setupAutoArchiveOnMerge(options, {
+    archiveIfSafe,
+    resolvePath: resolve,
+    readProjectArchiveOnMerge: () => undefined,
+  });
   if (!onSnapshotUpdated) throw new Error("Snapshot listener was not registered");
   onSnapshotUpdated(createSnapshot("/repo/worktree"));
   expect(getSnapshot).not.toHaveBeenCalled();
   expect(archiveIfSafe).not.toHaveBeenCalled();
+});
+
+function createOverrideHarness(daemonSetting: boolean, projectSetting: boolean | undefined) {
+  let onSnapshotUpdated: ((snapshot: WorkspaceGitRuntimeSnapshot) => void) | null = null;
+  const getSnapshot = vi.fn(async () => createSnapshot("/repo/worktree"));
+  const archiveIfSafe = vi.fn(async () => {});
+  const readProjectArchiveOnMerge = vi.fn(() => projectSetting);
+  const options = {
+    logger: { child: () => ({ warn: vi.fn() }) } as unknown as Logger,
+    daemonConfigStore: { get: () => ({ autoArchiveAfterMerge: daemonSetting }) },
+    workspaceGitService: {
+      onSnapshotUpdated: (listener: (next: WorkspaceGitRuntimeSnapshot) => void) => {
+        onSnapshotUpdated = listener;
+        return { unsubscribe: vi.fn() };
+      },
+      getSnapshot,
+    },
+    listActiveWorkspaces: async () => [{ workspaceId: "workspace-a", cwd: "/repo/worktree" }],
+  } as unknown as AutoArchiveOnMergeOptions;
+
+  setupAutoArchiveOnMerge(options, {
+    archiveIfSafe,
+    resolvePath: resolve,
+    readProjectArchiveOnMerge,
+  });
+  const emit = (snapshot: WorkspaceGitRuntimeSnapshot) => {
+    if (!onSnapshotUpdated) throw new Error("Snapshot listener was not registered");
+    onSnapshotUpdated(snapshot);
+  };
+  return { emit, getSnapshot, archiveIfSafe, readProjectArchiveOnMerge };
+}
+
+test("archives on merge when the project enables it on a host where it is off", async () => {
+  const harness = createOverrideHarness(false, true);
+  harness.emit(createSnapshot("/repo/worktree", "open"));
+  harness.emit(createSnapshot("/repo/worktree"));
+  await vi.waitFor(() => expect(harness.archiveIfSafe).toHaveBeenCalledTimes(1));
+  expect(harness.readProjectArchiveOnMerge).toHaveBeenCalledWith("/repo");
+});
+
+test("does not archive on merge when the project disables it on a host where it is on", () => {
+  const harness = createOverrideHarness(true, false);
+  harness.emit(createSnapshot("/repo/worktree", "open"));
+  harness.emit(createSnapshot("/repo/worktree"));
+  expect(harness.getSnapshot).not.toHaveBeenCalled();
+  expect(harness.archiveIfSafe).not.toHaveBeenCalled();
 });

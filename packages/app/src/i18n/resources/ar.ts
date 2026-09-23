@@ -2647,6 +2647,20 @@ export const ar: TranslationResources = {
         teardown: "هدم",
         teardownAccessibility: "أوامر هدم شجرة العمل",
       },
+      git: {
+        title: "Git",
+        info: "الفرع الذي تنشأ منه مساحات العمل الجديدة، وما يحدث لفروعها بعد الدمج والأرشفة",
+        baseBranch: "إنشاء مساحات العمل الجديدة من",
+        baseBranchHint: "اتركه فارغًا للإنشاء من الفرع الحالي",
+        deleteBranchOnArchive: "حذف الفرع عند الأرشفة",
+        deleteBranchOnArchiveHint:
+          "يحذف الفرع المحلي عند إزالة worktree. تُحتفظ بالفروع التي تحتوي على commits غير مدفوعة.",
+        archiveOnMerge: "الأرشفة عند الدمج",
+        archiveOnMergeHint: "يؤرشف مساحة العمل بعد دمج طلب السحب الخاص بها",
+        archiveOnMergeHost: "الإعداد الافتراضي للمضيف",
+        archiveOnMergeOn: "تشغيل",
+        archiveOnMergeOff: "إيقاف",
+      },
       scripts: {
         title: "البرامج النصية",
         info: "خدمات طويلة الأمد وأوامر لمرة واحدة يمكنك إطلاقها من أي وكيل في هذا المشروع",

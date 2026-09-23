@@ -3,6 +3,7 @@ import { LRUCache } from "lru-cache";
 import type { Logger } from "pino";
 
 import { archiveIfSafe, type AutoArchiveArchiveOptions } from "./archive-if-safe.js";
+import { getWorktreeGitSettings } from "../../utils/worktree.js";
 import type {
   WorkspaceGitRuntimeSnapshot,
   WorkspaceGitSubscription,
@@ -15,6 +16,8 @@ export interface AutoArchiveOnMergeOptions extends AutoArchiveArchiveOptions {
 export interface AutoArchiveOnMergeDependencies {
   archiveIfSafe: typeof archiveIfSafe;
   resolvePath: typeof resolve;
+  // The project's paseo.json override of the daemon-wide setting, if any.
+  readProjectArchiveOnMerge: (repoRoot: string) => boolean | undefined;
 }
 
 const OPEN_PULL_REQUEST_LATCH_MAX = 1_024;
@@ -22,6 +25,7 @@ const OPEN_PULL_REQUEST_LATCH_MAX = 1_024;
 const defaultDependencies: AutoArchiveOnMergeDependencies = {
   archiveIfSafe,
   resolvePath: resolve,
+  readProjectArchiveOnMerge: (repoRoot) => getWorktreeGitSettings(repoRoot).archiveOnMerge,
 };
 
 export function setupAutoArchiveOnMerge(
@@ -34,13 +38,18 @@ export function setupAutoArchiveOnMerge(
     max: OPEN_PULL_REQUEST_LATCH_MAX,
   });
 
+  const isAutoArchiveEnabled = (snapshot: WorkspaceGitRuntimeSnapshot): boolean => {
+    const projectRoot = snapshot.git.isPaseoOwnedWorktree
+      ? (snapshot.git.mainRepoRoot ?? snapshot.git.repoRoot)
+      : snapshot.git.repoRoot;
+    const projectOverride = projectRoot ? deps.readProjectArchiveOnMerge(projectRoot) : undefined;
+    return projectOverride ?? options.daemonConfigStore.get().autoArchiveAfterMerge === true;
+  };
+
   return options.workspaceGitService.onSnapshotUpdated((snapshot) => {
     const snapshotCwd = deps.resolvePath(snapshot.cwd);
-    if (options.daemonConfigStore.get().autoArchiveAfterMerge !== true) {
-      openPullRequestUrlsByCwd.delete(snapshotCwd);
-      return;
-    }
-
+    // The latch is tracked regardless of the setting because a project can enable
+    // auto-archive on a host where it is off. The setting is read once per merge.
     const pullRequest = snapshot.forge.pullRequest;
     if (!pullRequest?.isMerged) {
       if (pullRequest?.state.toLowerCase() === "open") {
@@ -51,6 +60,10 @@ export function setupAutoArchiveOnMerge(
       return;
     }
     if (openPullRequestUrlsByCwd.get(snapshotCwd) !== pullRequest.url) {
+      openPullRequestUrlsByCwd.delete(snapshotCwd);
+      return;
+    }
+    if (!isAutoArchiveEnabled(snapshot)) {
       openPullRequestUrlsByCwd.delete(snapshotCwd);
       return;
     }

@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   createWorktree as createWorktreePrimitive,
   deriveWorktreeProjectHash,
+  deleteArchivedWorktreeBranch,
   deletePaseoWorktree,
   isPaseoOwnedWorktreeCwd,
   mapWorkspaceCwdToWorktree,
+  resolveWorktreeBranchName,
   slugify,
   type CreateWorktreeOptions,
   type WorktreeConfig,
@@ -347,5 +349,84 @@ describe("slugify", () => {
       const slug = slugify(input);
       expect(slugify(slug)).toBe(slug);
     }
+  });
+});
+
+describe("deleteArchivedWorktreeBranch", () => {
+  let tempDir: string;
+  let repoDir: string;
+  let paseoHome: string;
+
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repoDir }).toString();
+  const branchExists = (name: string) =>
+    git("branch", "--list", name)
+      .trim()
+      .replace(/^[*+ ]+/, "") === name;
+
+  async function archiveWorktree(branchName: string, commitLocally: boolean): Promise<string> {
+    const created = await createLegacyWorktreeForTest({
+      branchName,
+      cwd: repoDir,
+      baseBranch: "main",
+      worktreeSlug: branchName,
+      runSetup: false,
+      paseoHome,
+    });
+    if (commitLocally) {
+      writeFileSync(join(created.worktreePath, "local.txt"), "local\n");
+      execFileSync("git", ["add", "."], { cwd: created.worktreePath });
+      execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "local"], {
+        cwd: created.worktreePath,
+      });
+    }
+    const resolved = await resolveWorktreeBranchName(repoDir, created.worktreePath);
+    await deletePaseoWorktree({ cwd: repoDir, worktreePath: created.worktreePath, paseoHome });
+    return resolved ?? "";
+  }
+
+  beforeEach(() => {
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), "archive-branch-test-")));
+    repoDir = join(tempDir, "repo");
+    paseoHome = join(tempDir, "paseo-home");
+    const remoteDir = join(tempDir, "remote.git");
+    execFileSync("git", ["init", "--bare", "-b", "main", remoteDir]);
+    mkdirSync(repoDir, { recursive: true });
+    git("init", "-b", "main");
+    git("config", "user.email", "test@test.com");
+    git("config", "user.name", "Test");
+    writeFileSync(join(repoDir, "file.txt"), "hello\n");
+    git("add", ".");
+    git("-c", "commit.gpgsign=false", "commit", "-m", "initial");
+    git("remote", "add", "origin", remoteDir);
+    git("push", "-u", "origin", "main");
+    git("remote", "set-head", "origin", "main");
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("deletes a branch whose commits all exist on a remote", async () => {
+    const branchName = await archiveWorktree("pushed-work", false);
+    expect(branchName).toBe("pushed-work");
+
+    await expect(deleteArchivedWorktreeBranch(repoDir, branchName)).resolves.toBe("deleted");
+    expect(branchExists(branchName)).toBe(false);
+  });
+
+  it("keeps a branch with commits that exist only locally", async () => {
+    const branchName = await archiveWorktree("local-work", true);
+
+    await expect(deleteArchivedWorktreeBranch(repoDir, branchName)).resolves.toBe(
+      "kept-unpushed-commits",
+    );
+    expect(branchExists(branchName)).toBe(true);
+  });
+
+  it("never deletes the default branch", async () => {
+    await expect(deleteArchivedWorktreeBranch(repoDir, "main")).resolves.toBe(
+      "kept-default-branch",
+    );
+    expect(branchExists("main")).toBe(true);
   });
 });

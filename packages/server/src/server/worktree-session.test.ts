@@ -433,6 +433,7 @@ describe("resolveGitCreateBaseBranch", () => {
     const { tempDir, repoDir } = createGitRepo();
     const cwd = path.join(repoDir, "packages", "app");
     const workspaceGitService = {
+      resolveRepoRoot: vi.fn().mockResolvedValue(repoDir),
       resolveDefaultBranch: vi.fn().mockResolvedValue("main"),
       getSnapshot: vi.fn(async () => {
         throw new Error("getSnapshot should not be used for default-branch resolution");
@@ -446,6 +447,27 @@ describe("resolveGitCreateBaseBranch", () => {
 
       expect(workspaceGitService.resolveDefaultBranch).toHaveBeenCalledWith(cwd);
       expect(workspaceGitService.getSnapshot).not.toHaveBeenCalled();
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("prefers the project base branch from paseo.json", async () => {
+    const { tempDir, repoDir } = createGitRepo();
+    writeFileSync(
+      path.join(repoDir, "paseo.json"),
+      JSON.stringify({ worktree: { baseBranch: "origin/develop" } }),
+    );
+    const workspaceGitService = {
+      resolveRepoRoot: vi.fn().mockResolvedValue(repoDir),
+      resolveDefaultBranch: vi.fn().mockResolvedValue("main"),
+    };
+
+    try {
+      await expect(
+        resolveGitCreateBaseBranch(repoDir, workspaceGitService as unknown as WorkspaceGitService),
+      ).resolves.toBe("origin/develop");
+      expect(workspaceGitService.resolveDefaultBranch).not.toHaveBeenCalled();
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

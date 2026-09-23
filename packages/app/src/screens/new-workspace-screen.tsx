@@ -39,6 +39,7 @@ import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { ensureCheckoutStatus } from "@/git/checkout-status-cache";
+import { useProjectBaseBranch } from "@/screens/new-workspace/use-project-base-branch";
 import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { resolveTerminalProfiles } from "@getpaseo/protocol/terminal-profiles";
 import type { TerminalProfile } from "@getpaseo/protocol/messages";
@@ -1810,6 +1811,13 @@ export function NewWorkspaceScreen({
     cwd: selectedSourceDirectory ?? "",
   });
 
+  const { projectBaseBranch, fetchProjectBaseBranch } = useProjectBaseBranch({
+    serverId: selectedServerId,
+    sourceDirectory: selectedSourceDirectory,
+    enabled: clientReady,
+    getClient: withConnectedClient,
+  });
+
   const worktreeSupport = selectedProject
     ? getWorktreeSupportForHostProject({ project: selectedProject, serverId: selectedServerId })
     : "unsupported";
@@ -1864,8 +1872,10 @@ export function NewWorkspaceScreen({
   }, [forgeSearchAuthenticated, githubPrSearchQuery.data?.items]);
 
   const baseItem = useMemo(
-    () => selectedItem ?? (checkoutStatus ? defaultBasePickerItem(checkoutStatus) : null),
-    [checkoutStatus, selectedItem],
+    () =>
+      selectedItem ??
+      (checkoutStatus ? defaultBasePickerItem(checkoutStatus, projectBaseBranch) : null),
+    [checkoutStatus, projectBaseBranch, selectedItem],
   );
   const { options, itemById, selectedOptionId }: PickerOptionData = useMemo(
     () =>
@@ -2063,7 +2073,8 @@ export function NewWorkspaceScreen({
         : null;
       const checkoutRequest = checkoutStatusForCreate
         ? pickerItemToCheckoutRequest(
-            selectedItem ?? defaultBasePickerItem(checkoutStatusForCreate),
+            selectedItem ??
+              defaultBasePickerItem(checkoutStatusForCreate, await fetchProjectBaseBranch()),
           )
         : undefined;
       const normalizedWorkspace = await createMultiplicityWorkspace({
@@ -2090,6 +2101,7 @@ export function NewWorkspaceScreen({
       creationIdentity,
       creationResult,
       effectiveIsolation,
+      fetchProjectBaseBranch,
       mergeWorkspaces,
       queryClient,
       selectedItem,
