@@ -590,7 +590,7 @@ export const ko: TranslationResources = {
       modified: "저장되지 않은 변경사항",
       loadingAgentTitle: "에이전트 제목 불러오는 중",
       fallback: {
-        newAgent: "새 에이전트",
+        untitled: "제목 없음",
         setup: "설정",
         workspaceSetup: "워크스페이스 설정",
         terminal: "터미널",
@@ -1811,7 +1811,7 @@ export const ko: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "새 에이전트",
+      untitled: "제목 없음",
       creatingAgent: "에이전트 생성 중",
     },
     file: {

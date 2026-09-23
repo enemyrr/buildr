@@ -1,12 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type ComponentType,
-  type ReactElement,
-} from "react";
+import { memo, useCallback, useEffect, useRef, type ComponentType, type ReactElement } from "react";
 import { Pressable, ScrollView, Text, View, type PressableStateCallbackType } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Pencil, Plus } from "lucide-react-native";
@@ -15,8 +7,6 @@ import { TerminalProfileIcon } from "@/components/terminal-profile-icon";
 import { Shortcut } from "@/components/ui/shortcut";
 import { isWeb } from "@/constants/platform";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
-import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
-import type { KeyboardActionDefinition } from "@/keyboard/keyboard-action-dispatcher";
 import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { definePanel, type PanelIconProps } from "@/panels/panel-registry";
 import { ICON_SIZE, SPACING, type Theme } from "@/styles/theme";
@@ -129,20 +119,35 @@ function useNewTabDescriptor() {
   };
 }
 
+/**
+ * Main panes have no launcher: an empty slot becomes an agent draft as soon as it
+ * mounts. The placeholder stays in the layout model because pane operations replace
+ * it synchronously (splits, the explorer sidebar) before it ever renders.
+ */
+function PromoteToAgentDraft(): null {
+  const { serverId, tabId } = usePaneContext();
+  const groups = useWorkspaceTabLaunchCatalog({ serverId, purpose: "primary", host: "main" });
+  const agentItem = groups.flatMap((group) => group.items).find((item) => item.id === "agent");
+  useEffect(() => {
+    agentItem?.launch({ kind: "replace", tabId });
+  }, [agentItem, tabId]);
+  return null;
+}
+
 const NewTabPanel = memo(function NewTabPanel(): ReactElement {
-  const { host, serverId, tabId } = usePaneContext();
+  const { host } = usePaneContext();
+  return host === "explorer" ? <NewTabLauncher /> : <PromoteToAgentDraft />;
+});
+
+function NewTabLauncher(): ReactElement {
+  const { serverId } = usePaneContext();
   const { isInteractive, focusPane } = usePaneFocus();
   const containerRef = useRef<View | null>(null);
   const groups = useWorkspaceTabLaunchCatalog({
     serverId,
-    purpose: host === "explorer" ? "supporting" : "primary",
-    host,
+    purpose: "supporting",
+    host: "explorer",
   });
-  const itemsById = useMemo(
-    () => new Map(groups.flatMap((group) => group.items).map((item) => [item.id, item])),
-    [groups],
-  );
-  const handlesWorkspaceShortcuts = isInteractive && host === "main";
 
   useEffect(() => {
     if (!isWeb || !isInteractive) return;
@@ -195,52 +200,6 @@ const NewTabPanel = memo(function NewTabPanel(): ReactElement {
     };
   }, [focusPane, isInteractive]);
 
-  const handleKeyboardAction = useCallback(
-    (action: KeyboardActionDefinition): boolean => {
-      if (action.id === "workspace.agent.new" || action.id === "workspace.tab.target.agent") {
-        itemsById.get("agent")?.launch({ kind: "replace", tabId });
-        return true;
-      }
-      if (action.id === "workspace.terminal.new") {
-        itemsById.get("terminal")?.launch({ kind: "replace", tabId });
-        return true;
-      }
-      if (action.id === "workspace.browser.new" || action.id === "workspace.tab.target.browser") {
-        itemsById.get("browser")?.launch({ kind: "replace", tabId });
-        return true;
-      }
-      if (action.id === "workspace.tab.target.changes") {
-        const changesItem = itemsById.get("changes") ?? itemsById.get("diff");
-        if (!changesItem) return false;
-        changesItem.launch({ kind: "replace", tabId });
-        return true;
-      }
-      if (action.id === "workspace.tab.target.files") {
-        const filesItem = itemsById.get("files");
-        if (!filesItem) return false;
-        filesItem.launch({ kind: "replace", tabId });
-        return true;
-      }
-      return false;
-    },
-    [itemsById, tabId],
-  );
-  useKeyboardActionHandler({
-    handlerId: `new-tab:${tabId}`,
-    actions: [
-      "workspace.agent.new",
-      "workspace.terminal.new",
-      "workspace.browser.new",
-      "workspace.tab.target.agent",
-      "workspace.tab.target.browser",
-      "workspace.tab.target.changes",
-      "workspace.tab.target.files",
-    ],
-    enabled: handlesWorkspaceShortcuts,
-    priority: 250,
-    handle: handleKeyboardAction,
-  });
-
   return (
     <View ref={containerRef} style={styles.container} testID="workspace-new-tab-panel">
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -267,7 +226,7 @@ const NewTabPanel = memo(function NewTabPanel(): ReactElement {
       </ScrollView>
     </View>
   );
-});
+}
 
 export const newTabPanelRegistration = definePanel("new_tab", {
   component: NewTabPanel,

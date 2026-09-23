@@ -29,15 +29,15 @@ describe("buildDraftPanelDescriptor", () => {
       icon: TestIcon,
     });
 
-    expect(descriptor.label).toBe("New Agent");
+    expect(descriptor.label).toBe("Untitled");
   });
 
-  it("keeps ordinary draft tabs labeled as new agents", () => {
+  it("labels idle draft tabs as untitled", () => {
     const descriptor = buildDraftPanelDescriptor({ isCreating: false, icon: TestIcon });
 
     expect(descriptor).toMatchObject({
-      label: "New Agent",
-      subtitle: "New Agent",
+      label: "Untitled",
+      subtitle: "Untitled",
       titleState: "ready",
       statusBucket: null,
     });
@@ -56,11 +56,11 @@ describe("buildDraftPanelDescriptor", () => {
     });
 
     expect(idleDescriptor).toMatchObject({
-      label: "新建 Agent",
-      subtitle: "新建 Agent",
+      label: "未命名",
+      subtitle: "未命名",
     });
     expect(creatingDescriptor).toMatchObject({
-      label: "新建 Agent",
+      label: "未命名",
       subtitle: "正在创建 Agent",
     });
     await i18n.changeLanguage("en");

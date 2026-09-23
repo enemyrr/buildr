@@ -244,7 +244,7 @@ describe("translation resources", () => {
     expect(en.agentStream.permission.proposedPlan).toBe("Proposed plan");
     expect(en.agentPanel.unavailable.selectedHost).toBe("Selected host");
     expect(en.agentPanel.states.notFound).toBe("Agent not found");
-    expect(en.panels.draft.newAgent).toBe("New Agent");
+    expect(en.panels.draft.untitled).toBe("Untitled");
   });
 
   it("includes Settings expansion keys for the Batch 3A migration", () => {

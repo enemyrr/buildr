@@ -595,7 +595,7 @@ export const es: TranslationResources = {
       modified: "Cambios sin guardar",
       loadingAgentTitle: "Título del agente de carga",
       fallback: {
-        newAgent: "Nuevo agente",
+        untitled: "Sin título",
         setup: "Configuración",
         workspaceSetup: "Configuración deWorkspace",
         terminal: "Terminal",
@@ -1849,7 +1849,7 @@ export const es: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "Nuevo agente",
+      untitled: "Sin título",
       creatingAgent: "Agente creador",
     },
     file: {

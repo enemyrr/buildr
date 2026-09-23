@@ -594,7 +594,7 @@ export const ptBR: TranslationResources = {
       modified: "Alterações não salvas",
       loadingAgentTitle: "Carregando título do agente",
       fallback: {
-        newAgent: "Novo agente",
+        untitled: "Sem título",
         setup: "Configuração",
         workspaceSetup: "Configuração do workspace",
         terminal: "Terminal",
@@ -1834,7 +1834,7 @@ export const ptBR: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "Novo Agente",
+      untitled: "Sem título",
       creatingAgent: "Criando agente",
     },
     file: {

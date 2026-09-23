@@ -595,7 +595,7 @@ export const ja: TranslationResources = {
       modified: "未保存の変更",
       loadingAgentTitle: "エージェントタイトルを読み込み中",
       fallback: {
-        newAgent: "新しいエージェント",
+        untitled: "無題",
         setup: "セットアップ",
         workspaceSetup: "ワークスペースセットアップ",
         terminal: "ターミナル",
@@ -1820,7 +1820,7 @@ export const ja: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "新しいエージェント",
+      untitled: "無題",
       creatingAgent: "エージェントを作成中",
     },
     file: {

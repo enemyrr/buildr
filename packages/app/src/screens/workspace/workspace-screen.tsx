@@ -308,7 +308,7 @@ function getFallbackTabOptionLabel(
   tab: WorkspaceTabDescriptor,
   labels: {
     newTab: string;
-    newAgent: string;
+    untitled: string;
     setup: string;
     terminal: string;
     browser: string;
@@ -322,7 +322,7 @@ function getFallbackTabOptionLabel(
     return labels.newTab;
   }
   if (tab.target.kind === "draft") {
-    return labels.newAgent;
+    return labels.untitled;
   }
   if (tab.target.kind === "setup") {
     return labels.setup;
@@ -355,7 +355,7 @@ function getFallbackTabOptionDescription(
   tab: WorkspaceTabDescriptor,
   labels: {
     newTab: string;
-    newAgent: string;
+    untitled: string;
     workspaceSetup: string;
     agent: string;
     terminal: string;
@@ -369,7 +369,7 @@ function getFallbackTabOptionDescription(
     return labels.newTab;
   }
   if (tab.target.kind === "draft") {
-    return labels.newAgent;
+    return labels.untitled;
   }
   if (tab.target.kind === "setup") {
     return labels.workspaceSetup;
@@ -587,7 +587,7 @@ function MobileWorkspaceTabOption({
   const fallbackLabels = useMemo(
     () => ({
       newTab: t("workspace.tabs.actions.newTab"),
-      newAgent: t("workspace.tabs.fallback.newAgent"),
+      untitled: t("workspace.tabs.fallback.untitled"),
       setup: t("workspace.tabs.fallback.setup"),
       terminal: t("workspace.tabs.fallback.terminal"),
       browser: t("workspace.tabs.fallback.browser"),
@@ -2357,7 +2357,7 @@ function WorkspaceScreenContent({
   const tabFallbackLabels = useMemo(
     () => ({
       newTab: t("workspace.tabs.actions.newTab"),
-      newAgent: t("workspace.tabs.fallback.newAgent"),
+      untitled: t("workspace.tabs.fallback.untitled"),
       setup: t("workspace.tabs.fallback.setup"),
       workspaceSetup: t("workspace.tabs.fallback.workspaceSetup"),
       terminal: t("workspace.tabs.fallback.terminal"),

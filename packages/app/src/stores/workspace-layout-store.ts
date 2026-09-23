@@ -890,7 +890,14 @@ export function createWorkspaceLayoutStore(
             const closingTab = collectAllTabs(layout.root).find(
               (tab) => tab.tabId === normalizedTabId,
             );
-            if (closingPane?.tabIds.length === 1 && closingTab?.target.kind === "new_tab") {
+            // An empty slot in a split pane becomes a draft, so closing its only draft
+            // closes the pane instead of spawning another draft.
+            const closesPane =
+              closingTab?.target.kind === "new_tab" ||
+              (closingTab?.target.kind === "draft" &&
+                closingPane?.id !== DEFAULT_PANE_ID &&
+                closingPane?.id !== explorerSidebarPaneId);
+            if (closingPane?.tabIds.length === 1 && closesPane) {
               const nextLayout =
                 closingPane.id === explorerSidebarPaneId
                   ? setPaneHiddenInLayout({

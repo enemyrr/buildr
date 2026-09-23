@@ -604,7 +604,7 @@ export const en = {
       modified: "Unsaved changes",
       loadingAgentTitle: "Loading agent title",
       fallback: {
-        newAgent: "New agent",
+        untitled: "Untitled",
         setup: "Setup",
         workspaceSetup: "Workspace setup",
         terminal: "Terminal",
@@ -1844,7 +1844,7 @@ export const en = {
   },
   panels: {
     draft: {
-      newAgent: "New Agent",
+      untitled: "Untitled",
       creatingAgent: "Creating agent",
     },
     file: {

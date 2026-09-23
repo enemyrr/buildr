@@ -8,8 +8,8 @@ export function buildDraftPanelDescriptor(input: {
   icon: ComponentType<PanelIconProps>;
 }): PanelDescriptor {
   const { icon, isCreating, pendingPrompt } = input;
-  const newAgentLabel = i18n.t("panels.draft.newAgent");
-  const creatingLabel = pendingPrompt?.trim() || newAgentLabel;
+  const untitledLabel = i18n.t("panels.draft.untitled");
+  const creatingLabel = pendingPrompt?.trim() || untitledLabel;
   if (isCreating) {
     return {
       label: creatingLabel,
@@ -22,9 +22,9 @@ export function buildDraftPanelDescriptor(input: {
   }
 
   return {
-    label: newAgentLabel,
-    subtitle: newAgentLabel,
-    tooltip: newAgentLabel,
+    label: untitledLabel,
+    subtitle: untitledLabel,
+    tooltip: untitledLabel,
     titleState: "ready",
     icon,
     statusBucket: null,

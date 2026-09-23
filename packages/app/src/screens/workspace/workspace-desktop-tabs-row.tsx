@@ -591,7 +591,7 @@ function getFallbackTabLabel(
   tab: WorkspaceTabDescriptor,
   labels: {
     newTab: string;
-    newAgent: string;
+    untitled: string;
     setup: string;
     terminal: string;
     agent: string;
@@ -604,7 +604,7 @@ function getFallbackTabLabel(
     return labels.newTab;
   }
   if (tab.target.kind === "draft") {
-    return labels.newAgent;
+    return labels.untitled;
   }
   if (tab.target.kind === "setup") {
     return labels.setup;
@@ -1076,7 +1076,7 @@ function ResolvedWorkspaceDesktopTabsRow({
   const fallbackTabLabels = useMemo(
     () => ({
       newTab: t("workspace.tabs.actions.newTab"),
-      newAgent: t("workspace.tabs.fallback.newAgent"),
+      untitled: t("workspace.tabs.fallback.untitled"),
       setup: t("workspace.tabs.fallback.setup"),
       terminal: t("workspace.tabs.fallback.terminal"),
       agent: t("workspace.tabs.fallback.agent"),

@@ -596,7 +596,7 @@ export const ru: TranslationResources = {
       modified: "Несохранённые изменения",
       loadingAgentTitle: "Загрузка названия агента",
       fallback: {
-        newAgent: "Новый агент",
+        untitled: "Без названия",
         setup: "Настройка",
         workspaceSetup: "Настройка рабочего пространства",
         terminal: "Терминал",
@@ -1833,7 +1833,7 @@ export const ru: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "Новый агент",
+      untitled: "Без названия",
       creatingAgent: "Создание агента",
     },
     file: {

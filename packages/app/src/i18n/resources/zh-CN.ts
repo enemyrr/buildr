@@ -589,7 +589,7 @@ export const zhCN: TranslationResources = {
       modified: "未保存的更改",
       loadingAgentTitle: "正在加载 Agent 标题",
       fallback: {
-        newAgent: "新建 Agent",
+        untitled: "未命名",
         setup: "Setup",
         workspaceSetup: "Workspace setup",
         terminal: "Terminal",
@@ -1780,7 +1780,7 @@ export const zhCN: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "新建 Agent",
+      untitled: "未命名",
       creatingAgent: "正在创建 Agent",
     },
     file: {

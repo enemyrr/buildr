@@ -589,7 +589,7 @@ export const ar: TranslationResources = {
       modified: "تغييرات غير محفوظة",
       loadingAgentTitle: "جارٍ تحميل عنوان الوكيل",
       fallback: {
-        newAgent: "وكيل جديد",
+        untitled: "بلا عنوان",
         setup: "يثبت",
         workspaceSetup: "إعداد Workspace",
         terminal: "Terminal",
@@ -1801,7 +1801,7 @@ export const ar: TranslationResources = {
   },
   panels: {
     draft: {
-      newAgent: "وكيل جديد",
+      untitled: "بلا عنوان",
       creatingAgent: "وكيل الخلق",
     },
     file: {
