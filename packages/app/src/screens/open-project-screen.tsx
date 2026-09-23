@@ -1,8 +1,8 @@
 import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable } from "react-native";
-import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
+import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useReducedMotion } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { FolderOpen, Inbox, Plug, Smartphone } from "lucide-react-native";
@@ -22,6 +22,7 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import type { Theme } from "@/styles/theme";
 
 export function OpenProjectScreen() {
   const { t } = useTranslation();
@@ -67,24 +68,27 @@ export function OpenProjectScreen() {
         {hosts.map((host) => (
           <HostError key={host.serverId} serverId={host.serverId} label={host.label} />
         ))}
-        <View style={styles.tiles}>
+        <View style={isCompactLayout ? styles.tiles : styles.desktopTiles}>
           <HomeTile
-            icon={FolderOpen}
+            icon={ThemedFolderOpen}
+            accent
+            compact={isCompactLayout}
             title={t("openProject.tiles.addProject.title")}
             description={t("openProject.tiles.addProject.description")}
             onPress={handleOpenPicker}
             testID="open-project-submit"
-            accent
           />
           <HomeTile
-            icon={Inbox}
+            icon={ThemedInbox}
+            compact={isCompactLayout}
             title={t("openProject.tiles.importSession.title")}
             description={t("openProject.tiles.importSession.description")}
             onPress={importSession.open}
             testID="open-project-import-session"
           />
           <HomeTile
-            icon={Plug}
+            icon={ThemedPlug}
+            compact={isCompactLayout}
             title={t("openProject.tiles.setupProviders.title")}
             description={t("openProject.tiles.setupProviders.description")}
             onPress={handleOpenProviders}
@@ -92,7 +96,8 @@ export function OpenProjectScreen() {
           />
           {localServerId ? (
             <HomeTile
-              icon={Smartphone}
+              icon={ThemedSmartphone}
+              compact={isCompactLayout}
               title={t("openProject.tiles.pairDevice.title")}
               description={t("openProject.tiles.pairDevice.description")}
               onPress={handleOpenPairDevice}
@@ -147,46 +152,71 @@ function HostError({ serverId, label }: { serverId: string; label: string }) {
   ) : null;
 }
 
+type ThemedIcon = ComponentType<{ size: number; uniProps: (theme: Theme) => { color: string } }>;
+
+const ThemedFolderOpen = withUnistyles(FolderOpen);
+const ThemedInbox = withUnistyles(Inbox);
+const ThemedPlug = withUnistyles(Plug);
+const ThemedSmartphone = withUnistyles(Smartphone);
+
+const accentMapping = (theme: Theme) => ({ color: theme.colors.accent });
+const mutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+
 interface HomeTileProps {
-  icon: ComponentType<{ size: number; color: string }>;
+  icon: ThemedIcon;
   title: string;
   description: string;
   onPress: () => void;
+  compact: boolean;
   testID?: string;
   accent?: boolean;
 }
 
-function HomeTile({ icon: Icon, title, description, onPress, testID, accent }: HomeTileProps) {
-  // useUnistyles is acceptable here: leaf component, off the hot path (home screen renders once).
-  const { theme } = useUnistyles();
-  const [hovered, setHovered] = useState(false);
-  const handleHoverIn = useCallback(() => setHovered(true), []);
-  const handleHoverOut = useCallback(() => setHovered(false), []);
+function compactTileStyle({ pressed, hovered }: PressableStateCallbackType) {
+  return [styles.tile, hovered && styles.tileHovered, pressed && styles.tilePressed];
+}
 
-  const iconColor = accent ? theme.colors.accent : theme.colors.foregroundMuted;
+function desktopTileStyle({ pressed, hovered }: PressableStateCallbackType) {
+  return [styles.desktopTile, hovered && styles.tileHovered, pressed && styles.tilePressed];
+}
 
-  const pressableStyle = useCallback(
-    ({ pressed }: { pressed: boolean }) => [
-      styles.tile,
-      hovered && styles.tileHovered,
-      pressed && styles.tilePressed,
-    ],
-    [hovered],
-  );
+// Desktop tiles show only the icon and title; the description moves to the accessibility hint.
+function HomeTile({
+  icon: Icon,
+  title,
+  description,
+  onPress,
+  compact,
+  testID,
+  accent,
+}: HomeTileProps) {
+  const uniProps = accent ? accentMapping : mutedMapping;
+
+  if (compact) {
+    return (
+      <Pressable onPress={onPress} testID={testID} style={compactTileStyle}>
+        <Icon size={20} uniProps={uniProps} />
+        <View style={styles.tileText}>
+          <Text style={styles.tileTitle}>{title}</Text>
+          <Text style={styles.tileDescription}>{description}</Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
       onPress={onPress}
-      onHoverIn={handleHoverIn}
-      onHoverOut={handleHoverOut}
       testID={testID}
-      style={pressableStyle}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={description}
+      style={desktopTileStyle}
     >
-      <Icon size={20} color={iconColor} />
-      <View style={styles.tileText}>
-        <Text style={styles.tileTitle}>{title}</Text>
-        <Text style={styles.tileDescription}>{description}</Text>
-      </View>
+      <Icon size={16} uniProps={uniProps} />
+      <Text style={styles.tileTitle} numberOfLines={1}>
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -227,7 +257,7 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: "center",
   },
   tiles: {
-    marginTop: { xs: theme.spacing[6], md: theme.spacing[12] },
+    marginTop: theme.spacing[6],
     width: "100%",
     maxWidth: 452,
     flexDirection: "row",
@@ -235,15 +265,32 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "flex-start",
     gap: theme.spacing[3],
   },
+  desktopTiles: {
+    marginTop: theme.spacing[12],
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: theme.spacing[3],
+  },
   tile: {
-    width: { xs: "100%", md: 220 },
-    minHeight: { xs: 0, md: 132 },
+    width: "100%",
     padding: theme.spacing[4],
     backgroundColor: theme.colors.surface1,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.xl,
     gap: theme.spacing[3],
+  },
+  desktopTile: {
+    width: 200,
+    height: 128,
+    padding: theme.spacing[4],
+    justifyContent: "space-between",
+    backgroundColor: theme.colors.surface1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
   },
   tileHovered: {
     backgroundColor: theme.colors.surface2,
