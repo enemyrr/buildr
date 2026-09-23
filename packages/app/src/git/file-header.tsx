@@ -519,7 +519,7 @@ const styles = StyleSheet.create((theme) => ({
     userSelect: "none",
   },
   directorySpacer: { flex: 1, minWidth: 0 },
-  flatPath: { gap: 0 },
+  flatPath: { gap: 0, marginRight: theme.spacing[2] },
   flatDirectory: { flexShrink: 1, minWidth: 0, color: theme.colors.foregroundExtraMuted },
   flatName: { flexShrink: 0, maxWidth: "100%" },
   statusLetter: {
