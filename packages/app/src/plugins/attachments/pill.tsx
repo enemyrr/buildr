@@ -15,7 +15,7 @@ function ResourceIcon({
   Icon: ReturnType<typeof resolvePluginIcon>;
   color?: string;
 }) {
-  return <Icon size={ICON_SIZE.sm} color={color} />;
+  return <Icon size={ICON_SIZE.xs} color={color} />;
 }
 
 const ThemedResourceIcon = withUnistyles(ResourceIcon);
@@ -57,8 +57,7 @@ export function PluginResourceAttachmentPill({
     >
       <AttachmentLabel
         icon={icon}
-        title={attachment.item.title}
-        subtitle={`${attachment.sourceTitle} ${attachment.item.identifier}`}
+        title={`${attachment.item.identifier} ${attachment.item.title}`}
       />
     </AttachmentPill>
   );

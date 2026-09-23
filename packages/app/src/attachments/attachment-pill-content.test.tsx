@@ -23,7 +23,6 @@ describe("agent attachment pill content", () => {
       i18n.t,
     );
 
-    expect(content.title).toBe("Plugin attachments");
-    expect(content.subtitle).toBe("Linear issue ENG-123");
+    expect(content.label).toBe("ENG-123 Plugin attachments");
   });
 });

@@ -24,7 +24,7 @@ import {
   STATUS_INDICATOR_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
-import { PixelLoader } from "@/components/pixel-loader";
+import { DotSpinner } from "@/components/dot-spinner";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
 import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
@@ -37,8 +37,8 @@ const needsInputColorMapping = (theme: Theme) => ({
 });
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
-const ThemedPixelLoader = withUnistyles(PixelLoader);
-const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const ThemedDotSpinner = withUnistyles(DotSpinner);
+const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const foregroundExtraMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundExtraMuted,
 });
@@ -218,11 +218,7 @@ function WorkspaceStatusIndicator({
         style={styles.workspaceStatusDot}
         testID={`workspace-status-indicator-${loading ? "loading" : "running"}`}
       >
-        <ThemedPixelLoader
-          size={14}
-          seed={workspace.workspaceKey}
-          uniProps={foregroundColorMapping}
-        />
+        <ThemedDotSpinner size={12} uniProps={mutedColorMapping} />
       </View>
     );
   }

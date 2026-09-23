@@ -122,6 +122,7 @@ export const ru: TranslationResources = {
       mobile: "Сообщение,@files,/commands",
       fallback: "Сообщение...",
       terminal: "Prompt",
+      followUp: "Добавить уточнение",
     },
     input: {
       accessibilityLabel: "Написать агенту...",
@@ -1016,8 +1017,8 @@ export const ru: TranslationResources = {
         fix: "Исправить проверки",
         autoMerge: "Автослияние",
         state: {
-          open: "Открыт",
           readyToMerge: "Готов к слиянию",
+          open: "Открыт",
           draft: "Черновик",
           merged: "Слит",
           closed: "Закрыт",

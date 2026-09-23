@@ -121,6 +121,7 @@ export const ar: TranslationResources = {
       mobile: "الرسالة، @files ، /commands",
       fallback: "رسالة...",
       terminal: "Prompt",
+      followUp: "أضف متابعة",
     },
     input: {
       accessibilityLabel: "وكيل الرسائل...",
@@ -999,8 +1000,8 @@ export const ar: TranslationResources = {
         fix: "إصلاح الفحوصات",
         autoMerge: "دمج تلقائي",
         state: {
-          open: "مفتوح",
           readyToMerge: "جاهز للدمج",
+          open: "مفتوح",
           draft: "مسودة",
           merged: "مدموج",
           closed: "مغلق",

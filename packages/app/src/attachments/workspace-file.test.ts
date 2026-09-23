@@ -3,7 +3,7 @@ import {
   createWorkspaceFileAttachment,
   formatWorkspaceFileMention,
   getWorkspaceFileAttachmentKey,
-  getWorkspaceFileAttachmentSubtitle,
+  getWorkspaceFileAttachmentLabel,
   insertWorkspaceFileMention,
   workspaceFileAttachmentToAgentAttachment,
 } from "./workspace-file";
@@ -25,8 +25,8 @@ describe("workspace file attachments", () => {
     expect(getWorkspaceFileAttachmentKey(wholeFile)).not.toBe(
       getWorkspaceFileAttachmentKey(lineRange),
     );
-    expect(getWorkspaceFileAttachmentSubtitle(wholeFile)).toBe("src/app.ts");
-    expect(getWorkspaceFileAttachmentSubtitle(lineRange)).toBe("src/app.ts · 12-24");
+    expect(getWorkspaceFileAttachmentLabel(wholeFile)).toBe("app.ts");
+    expect(getWorkspaceFileAttachmentLabel(lineRange)).toBe("app.ts:12-24");
   });
 
   it("formats inline mentions and pads them against surrounding text", () => {

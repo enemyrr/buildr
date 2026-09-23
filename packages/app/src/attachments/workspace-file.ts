@@ -102,11 +102,12 @@ export function workspaceFileAttachmentToAgentAttachment(
   };
 }
 
-export function getWorkspaceFileAttachmentSubtitle(
+export function getWorkspaceFileAttachmentLabel(
   attachment: WorkspaceFileComposerAttachment,
 ): string {
+  const fileName = attachment.path.split("/").pop() ?? attachment.path;
   if (attachment.selection.kind === "whole_file") {
-    return attachment.path;
+    return fileName;
   }
-  return `${attachment.path} · ${attachment.selection.startLine}-${attachment.selection.endLine}`;
+  return `${fileName}:${attachment.selection.startLine}-${attachment.selection.endLine}`;
 }

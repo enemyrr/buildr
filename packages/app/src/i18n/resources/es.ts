@@ -122,6 +122,7 @@ export const es: TranslationResources = {
       mobile: "Mensaje,@files,/commands",
       fallback: "Mensaje...",
       terminal: "Prompt",
+      followUp: "Añade un seguimiento",
     },
     input: {
       accessibilityLabel: "Agente de mensajes...",
@@ -1032,8 +1033,8 @@ export const es: TranslationResources = {
         fix: "Corregir comprobaciones",
         autoMerge: "Fusión automática",
         state: {
-          open: "Abierto",
           readyToMerge: "Listo para fusionar",
+          open: "Abierto",
           draft: "Borrador",
           merged: "Fusionado",
           closed: "Cerrado",

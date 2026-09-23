@@ -121,6 +121,7 @@ export const zhCN: TranslationResources = {
       mobile: "发消息，@files，/commands",
       fallback: "输入消息...",
       terminal: "Prompt",
+      followUp: "添加后续消息",
     },
     input: {
       accessibilityLabel: "给 Agent 发消息...",
@@ -991,8 +992,8 @@ export const zhCN: TranslationResources = {
         fix: "修复检查",
         autoMerge: "自动合并",
         state: {
-          open: "打开",
           readyToMerge: "可以合并",
+          open: "打开",
           draft: "草稿",
           merged: "已合并",
           closed: "已关闭",

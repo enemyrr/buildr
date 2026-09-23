@@ -270,7 +270,7 @@ function WorkspaceAttachmentPill({
       removeAccessibilityLabel={getRemoveAccessibilityLabel(attachment, t)}
       disabled={disabled}
     >
-      <AttachmentLabel icon={content.icon} title={content.title} subtitle={content.subtitle} />
+      <AttachmentLabel icon={content.icon} title={content.label} />
     </AttachmentPill>
   );
 }

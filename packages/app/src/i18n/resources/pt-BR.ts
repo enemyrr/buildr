@@ -122,6 +122,7 @@ export const ptBR: TranslationResources = {
       mobile: "Mensagem, @files, /commands",
       fallback: "Mensagem...",
       terminal: "Prompt",
+      followUp: "Adicionar um acompanhamento",
     },
     input: {
       accessibilityLabel: "Enviar mensagem ao agente...",
@@ -1022,8 +1023,8 @@ export const ptBR: TranslationResources = {
         fix: "Corrigir verificações",
         autoMerge: "Mesclagem automática",
         state: {
-          open: "Aberto",
           readyToMerge: "Pronto para mesclar",
+          open: "Aberto",
           draft: "Rascunho",
           merged: "Mesclado",
           closed: "Fechado",

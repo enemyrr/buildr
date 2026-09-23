@@ -6,11 +6,12 @@ import { isNative } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
-import type { Theme } from "@/styles/theme";
+import { ICON_SIZE, SPACING, type Theme } from "@/styles/theme";
 
-// Every attachment pill body — image thumbnail or labelled — renders at this
-// height so mixed attachment trays line up.
-const ATTACHMENT_CONTENT_HEIGHT = 48;
+// Every chip is this tall, border included, so chips line up inline with text.
+const CHIP_HEIGHT = 20;
+const CHIP_INNER_HEIGHT = CHIP_HEIGHT - 2;
+const CHIP_PADDING_X = SPACING[1.5];
 
 interface AttachmentPillProps {
   onOpen: () => void;
@@ -22,6 +23,10 @@ interface AttachmentPillProps {
   children: ReactNode;
 }
 
+/**
+ * Removable attachment chip for the composer. On hover (web) the remove `×` covers the leading
+ * icon slot; on touch layouts it sits inline at the trailing edge.
+ */
 export function AttachmentPill({
   onOpen,
   onRemove,
@@ -32,43 +37,42 @@ export function AttachmentPill({
   children,
 }: AttachmentPillProps) {
   const isCompact = useIsCompactFormFactor();
-  const [isBodyHovered, setIsBodyHovered] = useState(false);
-  const [isCloseHovered, setIsCloseHovered] = useState(false);
-  const alwaysShow = isNative || isCompact;
-  const showRemove = alwaysShow || isBodyHovered || isCloseHovered;
-  const closeButtonStyle = useMemo(
-    () => [styles.closeButton, !showRemove && styles.closeButtonHidden],
-    [showRemove],
+  const isTouchLayout = isNative || isCompact;
+  const [isHovered, setIsHovered] = useState(false);
+  const removeStyle = useMemo(
+    () =>
+      isTouchLayout
+        ? styles.removeInline
+        : [styles.removeOverlay, !isHovered && styles.removeHidden],
+    [isHovered, isTouchLayout],
   );
-  const handleBodyHoverIn = useCallback(() => setIsBodyHovered(true), []);
-  const handleBodyHoverOut = useCallback(() => setIsBodyHovered(false), []);
-  const handleCloseHoverIn = useCallback(() => setIsCloseHovered(true), []);
-  const handleCloseHoverOut = useCallback(() => setIsCloseHovered(false), []);
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
   return (
-    <View style={styles.wrapper}>
+    <View
+      style={styles.chip}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
+    >
       <Pressable
         testID={testID}
         onPress={onOpen}
         disabled={disabled}
-        onHoverIn={handleBodyHoverIn}
-        onHoverOut={handleBodyHoverOut}
         accessibilityRole="button"
         accessibilityLabel={openAccessibilityLabel}
-        style={styles.frame}
+        style={styles.body}
       >
         {children}
       </Pressable>
       <Pressable
         onPress={onRemove}
         disabled={disabled}
-        onHoverIn={handleCloseHoverIn}
-        onHoverOut={handleCloseHoverOut}
-        hitSlop={8}
+        hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={removeAccessibilityLabel}
-        style={closeButtonStyle}
+        style={removeStyle}
       >
-        <ThemedX size={12} uniProps={iconForegroundMutedMapping} />
+        <ThemedX size={ICON_SIZE.xs} uniProps={iconForegroundMapping} />
       </Pressable>
     </View>
   );
@@ -81,7 +85,7 @@ interface AttachmentFrameProps {
   children: ReactNode;
 }
 
-/** Bare attachment frame for read-only surfaces (sent messages) — no remove button. */
+/** Read-only attachment chip (sent messages, pending uploads). */
 export function AttachmentFrame({
   onPress,
   accessibilityLabel,
@@ -90,7 +94,7 @@ export function AttachmentFrame({
 }: AttachmentFrameProps) {
   if (!onPress) {
     return (
-      <View testID={testID} style={styles.frame}>
+      <View testID={testID} style={styles.chip}>
         {children}
       </View>
     );
@@ -101,7 +105,7 @@ export function AttachmentFrame({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={styles.frame}
+      style={styles.chip}
     >
       {children}
     </Pressable>
@@ -111,100 +115,117 @@ export function AttachmentFrame({
 interface AttachmentLabelProps {
   icon?: ReactNode;
   title: string;
-  subtitle: string;
 }
 
-/** Two-line labelled pill body: attachment name over its type. */
-export function AttachmentLabel({ icon, title, subtitle }: AttachmentLabelProps) {
+/** Chip body: a small muted icon followed by the attachment name. */
+export function AttachmentLabel({ icon, title }: AttachmentLabelProps) {
   return (
-    <View style={styles.labelBody}>
+    <View style={styles.label}>
       {icon ? <View style={styles.labelIcon}>{icon}</View> : null}
-      <View style={styles.labelTextColumn}>
-        <Text style={styles.labelTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.labelSubtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
+      <Text style={styles.labelText} numberOfLines={1}>
+        {title}
+      </Text>
     </View>
   );
 }
 
-/** Square image preview pill body. */
+/** Image chip body: a flush thumbnail, followed by the file name when there is one. */
 export function AttachmentThumbnail({ metadata }: { metadata: AttachmentMetadata }) {
   const uri = useAttachmentPreviewUrl(metadata);
   const source = useMemo(() => ({ uri: uri ?? "" }), [uri]);
-  if (!uri) {
-    return <View style={styles.thumbnailPlaceholder} />;
-  }
-  return <Image source={source} style={styles.thumbnail} />;
+  const fileName = metadata.fileName?.trim();
+  return (
+    <View style={styles.thumbnailLabel}>
+      {uri ? (
+        <Image source={source} style={styles.thumbnail} />
+      ) : (
+        <View style={styles.thumbnailPlaceholder} />
+      )}
+      {fileName ? (
+        <Text style={styles.thumbnailText} numberOfLines={1}>
+          {fileName}
+        </Text>
+      ) : null}
+    </View>
+  );
 }
 
 const ThemedX = withUnistyles(X);
-const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 
 const styles = StyleSheet.create((theme) => ({
-  wrapper: {
+  chip: {
     position: "relative",
-  },
-  frame: {
-    borderRadius: theme.borderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    height: CHIP_HEIGHT,
+    maxWidth: 240,
+    borderRadius: theme.borderRadius.base,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
     overflow: "hidden",
   },
-  labelBody: {
-    height: ATTACHMENT_CONTENT_HEIGHT,
-    maxWidth: 260,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    paddingHorizontal: theme.spacing[3],
-    backgroundColor: theme.colors.surface1,
-  },
-  labelIcon: {
-    width: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  labelTextColumn: {
+  body: {
     minWidth: 0,
     flexShrink: 1,
   },
-  labelTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
+  label: {
+    height: CHIP_INNER_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: CHIP_PADDING_X,
   },
-  labelSubtitle: {
+  labelIcon: {
+    width: ICON_SIZE.xs,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  labelText: {
+    minWidth: 0,
+    flexShrink: 1,
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
+  thumbnailLabel: {
+    height: CHIP_INNER_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   thumbnail: {
-    width: ATTACHMENT_CONTENT_HEIGHT,
-    height: ATTACHMENT_CONTENT_HEIGHT,
+    width: CHIP_INNER_HEIGHT,
+    height: CHIP_INNER_HEIGHT,
   },
   thumbnailPlaceholder: {
-    width: ATTACHMENT_CONTENT_HEIGHT,
-    height: ATTACHMENT_CONTENT_HEIGHT,
-    backgroundColor: theme.colors.surface1,
-  },
-  closeButton: {
-    position: "absolute",
-    top: -8,
-    left: -8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: CHIP_INNER_HEIGHT,
+    height: CHIP_INNER_HEIGHT,
     backgroundColor: theme.colors.surface2,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
+  },
+  thumbnailText: {
+    minWidth: 0,
+    flexShrink: 1,
+    paddingHorizontal: CHIP_PADDING_X,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  // Covers the leading icon slot, so hover never changes the chip's geometry.
+  removeOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: CHIP_PADDING_X + ICON_SIZE.xs + theme.spacing[0.5],
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1,
+    backgroundColor: theme.colors.surface1,
   },
-  closeButtonHidden: {
+  removeHidden: {
     opacity: 0,
     pointerEvents: "none",
+  },
+  removeInline: {
+    height: CHIP_INNER_HEIGHT,
+    paddingRight: CHIP_PADDING_X,
+    justifyContent: "center",
   },
 }));

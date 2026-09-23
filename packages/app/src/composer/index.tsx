@@ -131,7 +131,6 @@ import { resolveComposerAttachmentSubmitFormat } from "@/composer/attachments/su
 import { composerWorkspaceAttachment } from "@/composer/attachments/workspace";
 import { useWorkspaceAttachmentsForScopes } from "@/attachments/workspace-attachments-store";
 import { droppedItemsToSelectedFiles } from "@/composer/attachments/drop";
-import { getFileTypeLabel } from "@/attachments/file-types";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import {
   AttachmentFrame,
@@ -154,7 +153,7 @@ import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugi
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import {
   getWorkspaceFileAttachmentKey,
-  getWorkspaceFileAttachmentSubtitle,
+  getWorkspaceFileAttachmentLabel,
   insertWorkspaceFileMention,
 } from "@/attachments/workspace-file";
 import {
@@ -387,11 +386,7 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
       )}
       {pendingFiles.map(({ id, file }) => (
         <AttachmentFrame key={id} testID="composer-pending-file-attachment">
-          <AttachmentLabel
-            icon={pendingFilePillIcon}
-            title={file.fileName}
-            subtitle={getFileTypeLabel(file.fileName) ?? ""}
-          />
+          <AttachmentLabel icon={pendingFilePillIcon} title={file.fileName} />
         </AttachmentFrame>
       ))}
     </View>
@@ -799,7 +794,6 @@ function GithubAttachmentPill({
   const presentation = getForgePresentation(item.forge ?? "github");
   const isChangeRequest = item.kind === "change_request";
   const kindLabel = isChangeRequest ? presentation.changeRequestAbbrev : "issue";
-  const subtitleKind = isChangeRequest ? presentation.changeRequestAbbrev : "Issue";
   const numberPrefix = isChangeRequest ? presentation.numberPrefix : presentation.issueNumberPrefix;
   const handleOpen = useCallback(() => {
     onOpen(attachment);
@@ -818,8 +812,7 @@ function GithubAttachmentPill({
     >
       <AttachmentLabel
         icon={isChangeRequest ? githubPrPillIcon : githubIssuePillIcon}
-        title={item.title}
-        subtitle={`${subtitleKind} ${numberPrefix}${item.number}`}
+        title={`${numberPrefix}${item.number} ${item.title}`}
       />
     </AttachmentPill>
   );
@@ -840,7 +833,6 @@ function FileAttachmentPill({
   onRemove,
   removeLabel,
 }: FileAttachmentPillProps) {
-  const { t } = useTranslation();
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [onRemove, index]);
@@ -854,11 +846,7 @@ function FileAttachmentPill({
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getFileTypeLabel(fileName) ?? t("message.attachments.file")}
-      />
+      <AttachmentLabel icon={filePillIcon} title={fileName} />
     </AttachmentPill>
   );
 }
@@ -881,21 +869,17 @@ function WorkspaceFileAttachmentPill({
   const handleRemove = useCallback(() => {
     onRemove(index);
   }, [index, onRemove]);
-  const fileName = attachment.path.split("/").pop() ?? attachment.path;
+  const label = getWorkspaceFileAttachmentLabel(attachment);
   return (
     <AttachmentPill
       testID="composer-workspace-file-attachment-pill"
       onOpen={noopCallback}
       onRemove={handleRemove}
-      openAccessibilityLabel={fileName}
+      openAccessibilityLabel={label}
       removeAccessibilityLabel={removeLabel}
       disabled={disabled}
     >
-      <AttachmentLabel
-        icon={filePillIcon}
-        title={fileName}
-        subtitle={getWorkspaceFileAttachmentSubtitle(attachment)}
-      />
+      <AttachmentLabel icon={filePillIcon} title={label} />
     </AttachmentPill>
   );
 }
@@ -1132,7 +1116,7 @@ function ComposerCancelButton({
         accessibilityRole="button"
         style={buttonStyle}
       >
-        <ThemedSquare size={buttonIconSize - 6} uniProps={iconSquareMapping} />
+        <ThemedSquare size={buttonIconSize - 7} uniProps={iconSquareMapping} />
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipRow}>
@@ -2453,7 +2437,11 @@ function ComposerContentImpl({
                   onPasteImages={handleNativePasteImages}
                   client={client}
                   isReadyForDictation={isDictationReady}
-                  placeholder={messagePlaceholder}
+                  placeholder={
+                    isAgentRunning && inputMode !== "terminal" && placeholder === undefined
+                      ? t("composer.placeholders.followUp")
+                      : messagePlaceholder
+                  }
                   autoFocus={messageInputAutoFocus}
                   autoFocusKey={`${serverId}:${agentId}:${autoFocusKey ?? ""}`}
                   disabled={isSubmitLoading}
@@ -2549,11 +2537,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing[3],
   },
   // Same box as the send button, so the swap doesn't move anything.
+  // A ring with a stop glyph, like Conductor.
   cancelButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surface3,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: 1.5,
+    borderColor: theme.colors.foregroundMuted,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
@@ -2673,13 +2663,13 @@ function renderForgeAttachmentIcon(icon: string): ReactElement {
 }
 
 const githubPrPillIcon = (
-  <ThemedGitPullRequest size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
+  <ThemedGitPullRequest size={ICON_SIZE.xs} uniProps={iconForegroundMutedMapping} />
 );
 const githubIssuePillIcon = (
-  <ThemedCircleDot size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
+  <ThemedCircleDot size={ICON_SIZE.xs} uniProps={iconForegroundMutedMapping} />
 );
-const filePillIcon = <ThemedFileText size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />;
+const filePillIcon = <ThemedFileText size={ICON_SIZE.xs} uniProps={iconForegroundMutedMapping} />;
 
 const pendingFilePillIcon = (
-  <ThemedAttachmentSpinner size={18} uniProps={iconForegroundMutedMapping} />
+  <ThemedAttachmentSpinner size={ICON_SIZE.xs} uniProps={iconForegroundMutedMapping} />
 );

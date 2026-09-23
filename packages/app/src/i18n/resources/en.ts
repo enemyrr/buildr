@@ -135,6 +135,7 @@ export const en = {
       mobile: "Message, @files, /commands",
       fallback: "Message...",
       terminal: "Prompt",
+      followUp: "Add a follow up",
     },
     input: {
       accessibilityLabel: "Message agent...",
@@ -1025,8 +1026,8 @@ export const en = {
         fix: "Fix checks",
         autoMerge: "Auto-merge",
         state: {
-          open: "Open",
           readyToMerge: "Ready to merge",
+          open: "Open",
           draft: "Draft",
           merged: "Merged",
           closed: "Closed",

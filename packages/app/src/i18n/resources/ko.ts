@@ -121,6 +121,7 @@ export const ko: TranslationResources = {
       mobile: "메시지, @files, /commands",
       fallback: "메시지...",
       terminal: "Prompt",
+      followUp: "후속 메시지 추가",
     },
     input: {
       accessibilityLabel: "에이전트에게 메시지...",
@@ -1006,8 +1007,8 @@ export const ko: TranslationResources = {
         fix: "검사 수정",
         autoMerge: "자동 병합",
         state: {
-          open: "열림",
           readyToMerge: "병합 준비됨",
+          open: "열림",
           draft: "초안",
           merged: "병합됨",
           closed: "닫힘",

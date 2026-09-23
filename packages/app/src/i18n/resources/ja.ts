@@ -122,6 +122,7 @@ export const ja: TranslationResources = {
       mobile: "メッセージ、@ファイル、/コマンド",
       fallback: "メッセージ...",
       terminal: "Prompt",
+      followUp: "フォローアップを追加",
     },
     input: {
       accessibilityLabel: "エージェントにメッセージ...",
@@ -1012,8 +1013,8 @@ export const ja: TranslationResources = {
         fix: "チェックを修正",
         autoMerge: "自動マージ",
         state: {
-          open: "オープン",
           readyToMerge: "マージ可能",
+          open: "オープン",
           draft: "ドラフト",
           merged: "マージ済み",
           closed: "クローズ",
