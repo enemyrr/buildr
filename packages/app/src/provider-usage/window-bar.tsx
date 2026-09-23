@@ -1,15 +1,9 @@
 import { useMemo } from "react";
 import { Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { clampPct, formatPct, formatResetLabel } from "./format";
+import { clampPct, formatPct, formatResetLabel, resolveUsedPct } from "./format";
 import { deriveTone } from "./tone";
 import type { ProviderUsageTone, ProviderUsageWindow } from "./types";
-
-function resolveUsedPct(window: ProviderUsageWindow): number | null {
-  if (window.usedPct != null) return window.usedPct;
-  if (window.remainingPct != null) return 100 - window.remainingPct;
-  return null;
-}
 
 function fillToneStyle(tone: ProviderUsageTone) {
   switch (tone) {

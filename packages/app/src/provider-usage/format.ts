@@ -1,8 +1,14 @@
 import { formatTokenCount } from "@/components/context-window-meter.utils";
-import type { ProviderUsageBalanceUnit } from "./types";
+import type { ProviderUsageBalanceUnit, ProviderUsageWindow } from "./types";
 
 export function clampPct(value: number): number {
   return Math.max(0, Math.min(100, value));
+}
+
+export function resolveUsedPct(window: ProviderUsageWindow): number | null {
+  if (window.usedPct != null) return window.usedPct;
+  if (window.remainingPct != null) return 100 - window.remainingPct;
+  return null;
 }
 
 export function formatPct(value: number): string {

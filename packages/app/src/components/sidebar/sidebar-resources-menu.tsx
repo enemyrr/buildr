@@ -19,7 +19,7 @@ import { useProviderUsage } from "@/provider-usage/use-provider-usage";
 import type { ProviderUsage } from "@/provider-usage/types";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent } from "@/stores/session-store";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import { ICON_SIZE } from "@/styles/theme";
 import {
   buildResourceRows,
   formatCpu,
@@ -27,6 +27,14 @@ import {
   sumResources,
   type ResourceRow,
 } from "./resources/resource-tree";
+import {
+  ThemedProviderIcon,
+  UsageGlanceTooltip,
+  UsageBars,
+  foregroundColorMapping,
+  foregroundMutedColorMapping,
+  useUsageGlances,
+} from "./sidebar-usage-bars";
 
 const RESOURCES_POLL_MS = 2_000;
 const COLLAPSED_ROW_COUNT = 8;
@@ -34,8 +42,6 @@ const CONTEXT_AGENT_LIMIT = 6;
 const INDENT_PER_DEPTH = 12;
 
 const ThemedGauge = withUnistyles(Gauge);
-const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
-const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 function useResourcesServerId(): string | null {
   const localServerId = useLocalDaemonServerId();
@@ -207,7 +213,7 @@ function LimitsProvider({ usage }: { usage: ProviderUsage }) {
   return (
     <View style={styles.limitsProvider}>
       <View style={styles.limitsHeader}>
-        <ThemedProviderIcon Icon={Icon} />
+        <ThemedProviderIcon Icon={Icon} size={ICON_SIZE.sm} />
         <Text style={styles.limitsName} numberOfLines={1}>
           {usage.displayName}
         </Text>
@@ -219,18 +225,6 @@ function LimitsProvider({ usage }: { usage: ProviderUsage }) {
     </View>
   );
 }
-
-function ProviderIcon({
-  Icon,
-  color = "",
-}: {
-  Icon: ReturnType<typeof getProviderIcon>;
-  color?: string;
-}) {
-  return <Icon size={ICON_SIZE.sm} color={color} />;
-}
-
-const ThemedProviderIcon = withUnistyles(ProviderIcon, foregroundMutedColorMapping);
 
 function LimitsSection({ serverId, open }: { serverId: string | null; open: boolean }) {
   const { view } = useProviderUsage(serverId, { enabled: open });
@@ -252,6 +246,7 @@ export function SidebarResourcesMenu() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const serverId = useResourcesServerId();
+  const glances = useUsageGlances(serverId);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -259,22 +254,30 @@ export function SidebarResourcesMenu() {
         <TooltipTrigger asChild>
           <View>
             <DropdownMenuTrigger
-              style={styles.trigger}
+              style={glances.length > 0 ? styles.barsTrigger : styles.trigger}
               testID="sidebar-resources"
               accessibilityRole="button"
               accessibilityLabel={t("sidebar.resources.trigger")}
             >
-              {({ hovered }) => (
-                <ThemedGauge
-                  size={ICON_SIZE.md}
-                  uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
-                />
-              )}
+              {({ hovered }) =>
+                glances.length > 0 ? (
+                  <UsageBars glances={glances} active={hovered || open} />
+                ) : (
+                  <ThemedGauge
+                    size={ICON_SIZE.md}
+                    uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
+                  />
+                )
+              }
             </DropdownMenuTrigger>
           </View>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" offset={8}>
-          <Text style={styles.tooltipText}>{t("sidebar.resources.trigger")}</Text>
+          {glances.length > 0 ? (
+            <UsageGlanceTooltip glances={glances} />
+          ) : (
+            <Text style={styles.tooltipText}>{t("sidebar.resources.trigger")}</Text>
+          )}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -312,6 +315,14 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  barsTrigger: {
+    height: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
   },
   tooltipText: {
     color: theme.colors.foreground,

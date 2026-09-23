@@ -20,6 +20,7 @@ async function fetchProviderUsage(client: ProviderUsageClient): Promise<Provider
 
 interface UseProviderUsageOptions {
   enabled?: boolean;
+  refetchIntervalMs?: number;
 }
 
 export function useProviderUsage(
@@ -52,6 +53,7 @@ export function useProviderUsage(
     queryFn,
     enabled,
     staleTime: PROVIDER_USAGE_STALE_TIME_MS,
+    refetchInterval: options.refetchIntervalMs ?? false,
     refetchOnMount: true,
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
