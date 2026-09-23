@@ -56,8 +56,7 @@ async function openWorkspaceReadAction(
 ) {
   const workspaceKey = `${getServerId()}:${workspaceId}`;
   const row = await waitForSidebarWorkspace(page, workspaceId);
-  await row.hover();
-  await page.getByTestId(`sidebar-workspace-kebab-${workspaceKey}`).click();
+  await row.click({ button: "right" });
   const item = page.getByTestId(`sidebar-workspace-menu-mark-as-${action}-${workspaceKey}`);
   await expect(item).toBeVisible({ timeout: 30_000 });
   return item;

@@ -2517,19 +2517,27 @@ const x = 1;
   });
 
   it("returns merged PR status when no open PR exists for the current branch", async () => {
-    execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
     execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
       cwd: repoDir,
     });
+    const worktree = await createLegacyWorktreeForTest({
+      branchName: "feature",
+      cwd: repoDir,
+      baseBranch: "main",
+      worktreeSlug: "feature",
+      paseoHome,
+    });
 
     const status = await getPullRequestStatus(
-      repoDir,
+      worktree.worktreePath,
       createGitHubServiceForStatus(
         createPullRequestStatus({
           state: "merged",
           isMerged: true,
         }),
       ),
+      undefined,
+      { paseoHome },
     );
     expect(status.githubFeaturesEnabled).toBe(true);
     expect(status.status).not.toBeNull();
@@ -2538,6 +2546,23 @@ const x = 1;
     expect(status.status?.headRefName).toBe("feature");
     expect(status.status?.isMerged).toBe(true);
     expect(status.status?.state).toBe("merged");
+  });
+
+  it("ignores a merged PR in a local checkout", async () => {
+    execFileSync("git", ["checkout", "-b", "dev"], { cwd: repoDir });
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+      cwd: repoDir,
+    });
+
+    const status = await getPullRequestStatus(
+      repoDir,
+      createGitHubServiceForStatus(
+        createPullRequestStatus({ headRefName: "dev", state: "merged", isMerged: true }),
+      ),
+      undefined,
+      { paseoHome },
+    );
+    expect(status.status).toBeNull();
   });
 
   it("propagates S1 PR metadata and check display fields through checkout PR status", async () => {
@@ -3215,13 +3240,19 @@ const x = 1;
   });
 
   it("returns closed-unmerged PR status without marking it as merged", async () => {
-    execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
     execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
       cwd: repoDir,
     });
+    const worktree = await createLegacyWorktreeForTest({
+      branchName: "feature",
+      cwd: repoDir,
+      baseBranch: "main",
+      worktreeSlug: "feature",
+      paseoHome,
+    });
 
     const status = await getPullRequestStatus(
-      repoDir,
+      worktree.worktreePath,
       createGitHubServiceForStatus(
         createPullRequestStatus({
           url: "https://github.com/getpaseo/paseo/pull/999",
@@ -3229,6 +3260,8 @@ const x = 1;
           state: "closed",
         }),
       ),
+      undefined,
+      { paseoHome },
     );
     expect(status.githubFeaturesEnabled).toBe(true);
     expect(status.status).not.toBeNull();

@@ -240,11 +240,6 @@ describe("translation resources", () => {
     expect(en.composer.github.title).toBe("Attach issue or PR");
     expect(en.composer.github.title_mr).toBe("Attach issue or MR");
     expect(en.composer.github.searchPlaceholder_mr).toBe("Search issues and MRs...");
-    expect(en.agentControls.provider.fallback).toBe("Provider");
-    expect(en.agentControls.hints.model).toBe("Change model");
-    expect(en.agentControls.hints.mode).toBe("Change mode");
-    expect(en.agentControls.features.title).toBe("Features");
-    expect(en.agentControls.mode.title).toBe("Mode");
     expect(en.agentStream.permission.required).toBe("Permission Required");
     expect(en.agentStream.permission.proposedPlan).toBe("Proposed plan");
     expect(en.agentPanel.unavailable.selectedHost).toBe("Selected host");
@@ -345,7 +340,7 @@ describe("translation resources", () => {
 
   it("includes provider selector and pairing keys for the Batch 4D migration", () => {
     expect(en.modelSelector.title).toBe("Select provider");
-    expect(en.modelSelector.profiles).toBe("Profiles");
+    expect(en.modelSelector.profiles).toBe("Presets");
     expect(en.providerCatalog.title).toBe("Add provider");
     expect(en.providerCatalog.actions.installInstructions).toBe("Install instructions");
     expect(en.pairing.link.title).toBe("Paste pairing link");

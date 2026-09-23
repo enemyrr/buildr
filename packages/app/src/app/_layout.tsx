@@ -35,6 +35,8 @@ import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import { LeftSidebar } from "@/components/left-sidebar";
 import { WindowSidebarMenuToggle } from "@/components/headers/menu-header";
+import { NavigationHistoryButtons } from "@/components/headers/navigation-history-buttons";
+import { useNavigationHistoryRecorder } from "@/navigation/navigation-history-store";
 import { DesktopWindowControls } from "@/components/desktop/window-controls";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
 import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut-handler";
@@ -514,6 +516,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
 
   useActiveWorktreeNewAction();
   useGlobalNewWorkspaceAction();
+  useNavigationHistoryRecorder();
 
   const appContentMinimumWidth = resolveDesktopAppContentMinimum({
     isSettingsRoute: pathname.includes("/settings"),
@@ -586,6 +589,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
               style={layoutStyles.windowSidebarToggle}
             >
               <WindowSidebarMenuToggle />
+              <NavigationHistoryButtons />
             </WindowChromeSafeArea>
           </WindowChromeRegion>
         ) : null}
@@ -887,6 +891,13 @@ const ROOT_STACK_SCREEN_OPTIONS = {
   animation: "none" as const,
 };
 const ROOT_STACK_NESTED_NAVIGATOR_SCREENS = ["h/[serverId]"] as const;
+// Web shows the new workspace flow as a dialog over the screen it opened from.
+const NEW_WORKSPACE_SCREEN_OPTIONS = isWeb
+  ? {
+      presentation: "transparentModal" as const,
+      contentStyle: { backgroundColor: "transparent" },
+    }
+  : undefined;
 
 function RootStack() {
   const storeReady = useStoreReady();
@@ -900,7 +911,7 @@ function RootStack() {
         <Stack.Screen name="welcome" />
         <Stack.Screen name="settings/index" />
         <Stack.Screen name="settings/[section]" />
-        <Stack.Screen name="new" />
+        <Stack.Screen name="new" options={NEW_WORKSPACE_SCREEN_OPTIONS} />
         <Stack.Screen name="open-project" />
         <Stack.Screen name="sessions" />
         <Stack.Screen name="schedules" />

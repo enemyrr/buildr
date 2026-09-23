@@ -147,7 +147,7 @@ describe("useAgentInputDraft live contract", () => {
     useDraftStore.setState({
       drafts: {},
       createModalDraft: null,
-      attachmentFocusRequestByDraftKey: {},
+      fileMentionRequestByDraftKey: {},
     });
   });
 
@@ -451,7 +451,7 @@ describe("useAgentInputDraft live contract", () => {
     });
   });
 
-  it("attaches to an unmounted legacy draft without losing its input", async () => {
+  it("mentions a file in an unmounted legacy draft without losing its input", async () => {
     const image: AttachmentMetadata = {
       id: "legacy-image",
       mimeType: "image/png",
@@ -470,17 +470,14 @@ describe("useAgentInputDraft live contract", () => {
       },
     });
 
-    await useDraftStore.getState().attachWorkspaceFile({
+    await useDraftStore.getState().mentionWorkspaceFile({
       draftKey: "draft:legacy-workspace-file",
       attachment: createWorkspaceFileAttachment({ path: "src/app.ts" }),
     });
 
     expect(useDraftStore.getState().getDraftInput("draft:legacy-workspace-file")).toEqual({
-      text: "legacy text",
-      attachments: [
-        { kind: "image", metadata: image },
-        createWorkspaceFileAttachment({ path: "src/app.ts" }),
-      ],
+      text: 'legacy text "src/app.ts" ',
+      attachments: [{ kind: "image", metadata: image }],
     });
   });
 

@@ -2,7 +2,6 @@ import { expect, type Page } from "@playwright/test";
 import { buildHostWorkspaceRoute } from "../../../src/utils/host-routes";
 import { createTempGitRepo } from "./workspace";
 import { getServerId } from "./server-id";
-import { createAgentTabFromMenu } from "./workspace-tabs";
 
 // ─── Navigation ────────────────────────────────────────────────────────────
 
@@ -96,16 +95,16 @@ export async function assertNewTabMenuTriggerVisible(page: Page): Promise<void> 
 
 // ─── Tab creation actions ─────────────────────────────────────────────────
 
-/** Choose Agent from the pane-local `+` menu. */
+/** Open an agent with the pane-local `+` button. */
 export async function clickNewChat(page: Page): Promise<void> {
-  await createAgentTabFromMenu(page);
+  await page.getByTestId("workspace-new-tab-button").filter({ visible: true }).first().click();
 }
 
 /** Choose Terminal from the pane-local `+` menu. */
 export async function clickNewTerminal(page: Page): Promise<void> {
   const trigger = page.getByTestId("workspace-new-tab-button").filter({ visible: true }).first();
   await expect(trigger).toBeVisible({ timeout: 10_000 });
-  await trigger.click();
+  await trigger.click({ button: "right" });
   const item = page
     .getByTestId("workspace-new-tab-menu-terminal")
     .filter({ visible: true })

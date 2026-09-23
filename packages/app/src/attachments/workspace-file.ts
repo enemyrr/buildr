@@ -1,9 +1,6 @@
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
-import type {
-  UserComposerAttachment,
-  WorkspaceFileComposerAttachment,
-  WorkspaceFileSelection,
-} from "./types";
+import { formatQuotedFileMentionPath } from "@/utils/file-mention-autocomplete";
+import type { WorkspaceFileComposerAttachment, WorkspaceFileSelection } from "./types";
 
 interface CreateWorkspaceFileAttachmentInput {
   path: string;
@@ -67,17 +64,26 @@ export function getWorkspaceFileAttachmentKey(attachment: WorkspaceFileComposerA
   return `${normalizePath(attachment.path)}:${selectionKey}`;
 }
 
-export function appendWorkspaceFileAttachment(
-  current: UserComposerAttachment[],
-  attachment: WorkspaceFileComposerAttachment,
-): UserComposerAttachment[] {
-  const attachmentKey = getWorkspaceFileAttachmentKey(attachment);
-  const alreadyAttached = current.some(
-    (candidate) =>
-      candidate.kind === "workspace_file" &&
-      getWorkspaceFileAttachmentKey(candidate) === attachmentKey,
-  );
-  return alreadyAttached ? current : [...current, attachment];
+export function formatWorkspaceFileMention(attachment: WorkspaceFileComposerAttachment): string {
+  const path = formatQuotedFileMentionPath(attachment.path);
+  const { selection } = attachment;
+  return selection.kind === "line_range"
+    ? `${path} (lines ${selection.startLine}-${selection.endLine})`
+    : path;
+}
+
+export function insertWorkspaceFileMention(input: {
+  text: string;
+  attachment: WorkspaceFileComposerAttachment;
+  at?: number;
+}): { text: string; cursor: number } {
+  const at = Math.max(0, Math.min(input.at ?? input.text.length, input.text.length));
+  const before = input.text.slice(0, at);
+  const after = input.text.slice(at);
+  const lead = before.length === 0 || /\s$/.test(before) ? "" : " ";
+  const trail = /^\s/.test(after) ? "" : " ";
+  const mention = `${lead}${formatWorkspaceFileMention(input.attachment)}${trail}`;
+  return { text: `${before}${mention}${after}`, cursor: before.length + mention.length };
 }
 
 export function workspaceFileAttachmentToAgentAttachment(

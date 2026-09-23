@@ -62,7 +62,7 @@ export interface AgentInputDraft {
   setAttachments: (updater: AttachmentUpdater) => void;
   clear: (lifecycle: "sent" | "abandoned") => void;
   isHydrated: boolean;
-  attachmentFocusRequestId: number;
+  fileMentionRequestId: number;
   composerState: DraftComposerState | null;
 }
 
@@ -108,8 +108,8 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     }),
     [draftKey],
   );
-  const attachmentFocusRequestId = useDraftStore(
-    (state) => state.attachmentFocusRequestByDraftKey[draftKey] ?? 0,
+  const fileMentionRequestId = useDraftStore(
+    (state) => state.fileMentionRequestByDraftKey[draftKey] ?? 0,
   );
   const [hydratedDraftKey, setHydratedDraftKey] = useState<string | null>(null);
   const isHydrated = hydratedDraftKey === draftKey;
@@ -186,6 +186,15 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     },
     [saveDraft],
   );
+
+  // A file mention written straight to the store must reach the mounted input too.
+  const appliedFileMentionRequestIdRef = useRef(fileMentionRequestId);
+  useEffect(() => {
+    if (appliedFileMentionRequestIdRef.current === fileMentionRequestId) return;
+    appliedFileMentionRequestIdRef.current = fileMentionRequestId;
+    textPublication.cancel();
+    publishTextReplacement(textSource.getSnapshot());
+  }, [fileMentionRequestId, publishTextReplacement, textPublication, textSource]);
 
   const clear = useCallback(
     (lifecycle: "sent" | "abandoned") => {
@@ -349,7 +358,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     setAttachments,
     clear,
     isHydrated,
-    attachmentFocusRequestId,
+    fileMentionRequestId,
     composerState,
   };
 }

@@ -1,3 +1,4 @@
+import { WORKSPACE_CITIES, selectWorkspaceCityName } from "./worktree-city-name.js";
 // POSIX-only: git worktree reuse fixtures
 /* eslint-disable max-nested-callbacks */
 import { execFileSync, spawnSync } from "node:child_process";
@@ -396,6 +397,28 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       }
     });
 
+    test("uses a city directory for unnamed workspaces and keeps explicit branch names", async () => {
+      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      cleanupPaths.push(tempDir);
+      const result = await createCoreWorktree(
+        { cwd: repoDir, paseoHome, branchName: "feature/my-change", runSetup: false },
+        createCoreDeps(),
+      );
+      expect(WORKSPACE_CITIES).toContain(path.basename(result.worktree.worktreePath));
+      expect(result.worktree.branchName).toBe("feature/my-change");
+      expect(
+        execFileSync("git", ["branch", "--show-current"], {
+          cwd: repoDir,
+          encoding: "utf8",
+        }).trim(),
+      ).toBe("main");
+    });
+
+    test("avoids occupied city names and adds a version after all cities are used", () => {
+      expect(selectWorkspaceCityName(new Set(["amsterdam"]), 0)).toBe("athens");
+      expect(selectWorkspaceCityName(new Set(WORKSPACE_CITIES), 0)).toBe("amsterdam-v2");
+    });
+
     test("branches from the project base branch in paseo.json when no ref is picked", async () => {
       const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
       cleanupPaths.push(tempDir);
@@ -470,7 +493,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       expect(getBranchUpstream(result.worktree.worktreePath)).toBeNull();
     });
 
-    test("creates a branch-off worktree with a mnemonic slug when no slug is supplied", async () => {
+    test("creates a branch-off worktree with a city name when no slug is supplied", async () => {
       const { tempDir, repoDir, paseoHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
@@ -485,7 +508,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
 
       expect(result.intent.kind).toBe("branch-off");
       expect(result.created).toBe(true);
-      expect(result.worktree.branchName).toMatch(/^[a-z0-9]+-[a-z0-9]+$/);
+      expect(WORKSPACE_CITIES).toContain(result.worktree.branchName);
       expect(result.worktree.branchName).toBe(path.basename(result.worktree.worktreePath));
       expect(existsSync(result.worktree.worktreePath)).toBe(true);
     });
@@ -518,7 +541,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       expect(result.worktree.branchName).toBe("feature/review-pr");
     });
 
-    test("uses the PR head ref as the default slug when no slug is supplied", async () => {
+    test("uses a city directory while preserving the PR head branch", async () => {
       const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
 
@@ -533,7 +556,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
         createCoreDeps(),
       );
 
-      expect(path.basename(result.worktree.worktreePath)).toBe("feature-review-pr");
+      expect(WORKSPACE_CITIES).toContain(path.basename(result.worktree.worktreePath));
       expect(result.worktree.branchName).toBe("feature/review-pr");
     });
 
@@ -1271,7 +1294,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
         pushRemoteUrl: headRemoteDir,
       });
       expect(result.worktree.branchName).toBe("therainisme/main");
-      expect(path.basename(result.worktree.worktreePath)).toBe("therainisme-main");
+      expect(WORKSPACE_CITIES).toContain(path.basename(result.worktree.worktreePath));
       expect(worktreeBranch).toBe("therainisme/main");
       expect(readme.replace(/\r\n/g, "\n")).toBe("fork pr main branch\n");
       expect(getBranchUpstream(result.worktree.worktreePath)).toBe("paseo-pr-526/main");
@@ -1492,7 +1515,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       expect(second.worktree.branchName).toBe("reused-worktree-1");
     });
 
-    test("creates a suffixed GitHub PR worktree for the resolved slug", async () => {
+    test("creates another city workspace when reopening a PR", async () => {
       const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
       const deps = createCoreDeps();
@@ -1509,7 +1532,8 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
 
       expect(first.created).toBe(true);
       expect(second.created).toBe(true);
-      expect(path.basename(second.worktree.worktreePath)).toBe("feature-review-pr-1");
+      expect(WORKSPACE_CITIES).toContain(path.basename(second.worktree.worktreePath));
+      expect(second.worktree.worktreePath).not.toBe(first.worktree.worktreePath);
       expect(second.worktree.branchName).toBe("feature/review-pr-1");
     });
 

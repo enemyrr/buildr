@@ -2760,6 +2760,8 @@ export class Session {
         return undefined;
       case "daemon.get_status.request":
         return this.daemonSession.handleGetStatusRequest(msg);
+      case "daemon.get_resources.request":
+        return this.daemonSession.handleGetResourcesRequest(msg);
       case "daemon.get_pairing_offer.request":
         return this.daemonSession.handleGetPairingOfferRequest(msg);
       case "daemon.config.reload.request":

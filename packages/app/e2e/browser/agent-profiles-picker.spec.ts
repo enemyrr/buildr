@@ -1,17 +1,17 @@
 import { expect, test } from "../support/fixtures";
 import {
-  applyProfileFromPicker,
+  applyLoadoutSlot,
   closeModelPicker,
   expectComposerDoesNotName,
-  expectAgentProfilesEmptyPrompt,
-  expectProfileEditTooltip,
   expectComposerMode,
   expectComposerModel,
+  expectEmptyLoadout,
+  expectLoadoutSlotActive,
+  expectLoadoutSlots,
   expectModelRowSelected,
-  expectProfileEditIsPencilOnly,
-  expectProfileVisibleForProvider,
+  openDefaultModelsFromPicker,
+  openModelBrowser,
   openModelPicker,
-  openAgentProfilesFromEmptyPrompt,
   seedAgentProfiles,
 } from "../support/helpers/agent-profiles";
 import { expectWorkspaceAgentConfiguration } from "../support/helpers/command-center-agent-controls";
@@ -28,10 +28,10 @@ const PROFILE = {
   notes: "Use for UI work.",
 };
 
-const PROFILE_SUMMARY = "Mock Load Test · One minute stream · Approval test";
-
-test.describe("Agent profiles in the model picker", () => {
-  test("an empty host still exposes agent profile settings from the picker", async ({ page }) => {
+test.describe("Model loadout in the composer picker", () => {
+  test("an empty loadout offers Add models and links to Default models settings", async ({
+    page,
+  }) => {
     const seed = await seedAgentProfiles([]);
     const workspace = await seedMockAgentWorkspace({
       repoPrefix: "agent-profiles-empty-",
@@ -42,20 +42,18 @@ test.describe("Agent profiles in the model picker", () => {
       await openAgentRoute(page, workspace);
       await expectComposerVisible(page);
       await openModelPicker(page);
-      await expectAgentProfilesEmptyPrompt(page);
-      await openAgentProfilesFromEmptyPrompt(page);
+      await expectEmptyLoadout(page);
+      await openDefaultModelsFromPicker(page);
     } finally {
       await workspace.cleanup();
       await seed.restore();
     }
   });
 
-  test("applying a pinned profile materializes it into the composer and is then forgotten", async ({
-    page,
-  }) => {
+  test("applying a loadout slot materializes it into the composer", async ({ page }) => {
     const seed = await seedAgentProfiles([PROFILE]);
-    // A live agent is one provider's process, so the profile has to name that
-    // same provider or the picker will not offer it at all.
+    // A live agent is one provider's process, so the slot has to name that
+    // same provider or the picker shows it as unavailable.
     const workspace = await seedMockAgentWorkspace({
       repoPrefix: "agent-profiles-picker-",
       title: "Agent profiles picker",
@@ -71,21 +69,24 @@ test.describe("Agent profiles in the model picker", () => {
         await expectComposerMode(page, "Load test");
       });
 
-      await test.step("the sole provider opens directly", async () => {
+      await test.step("the loadout lists the slot by name, not yet active", async () => {
         await openModelPicker(page);
-        await expect(page.getByTestId("model-search-input").first()).toBeVisible();
-        await expect(page.getByTestId("sheet-header-back")).toHaveCount(0);
+        await expectLoadoutSlots(page, [PROFILE.name]);
+        await expectLoadoutSlotActive(page, PROFILE.name, false);
+        await closeModelPicker(page);
+      });
+
+      await test.step("More models opens the catalog flat, without provider rows", async () => {
+        await openModelBrowser(page);
+        await expectModelRowSelected(page, { provider: "mock", modelId: "ten-second-stream" });
         await expect(page.locator('[data-testid^="model-provider-"]')).toHaveCount(0);
-        await expectProfileVisibleForProvider(page, {
-          name: PROFILE.name,
-          summary: PROFILE_SUMMARY,
-        });
-        await expectProfileEditIsPencilOnly(page);
-        await expectProfileEditTooltip(page);
+        await expect(page.getByTestId("sheet-header-back")).toHaveCount(0);
+        await closeModelPicker(page);
       });
 
       await test.step("applying it writes its model and mode into the composer", async () => {
-        await applyProfileFromPicker(page, PROFILE.name);
+        await openModelPicker(page);
+        await applyLoadoutSlot(page, PROFILE.name);
         await expectComposerModel(page, "One minute stream");
         await expectComposerMode(page, "Approval test");
         await expectWorkspaceAgentConfiguration(workspace, {
@@ -100,14 +101,9 @@ test.describe("Agent profiles in the model picker", () => {
         await expectComposerDoesNotName(page, PROFILE.name);
       });
 
-      await test.step("reopening returns directly to the provider models", async () => {
+      await test.step("reopening marks the applied slot active", async () => {
         await openModelPicker(page);
-        await expect(page.getByTestId("model-search-input").first()).toBeVisible();
-        await expectProfileVisibleForProvider(page, {
-          name: PROFILE.name,
-          summary: PROFILE_SUMMARY,
-        });
-        await expectModelRowSelected(page, { provider: "mock", modelId: "one-minute-stream" });
+        await expectLoadoutSlotActive(page, PROFILE.name, true);
         await closeModelPicker(page);
       });
     } finally {

@@ -10,7 +10,6 @@ import {
 import type { OpenInSidePanePreferences, PullRequestOpenLocation } from "@/hooks/use-settings";
 import type { ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
 import {
-  isExplorerSidebarOpen,
   openExplorerSidebarView,
   usesCompactExplorerSidebar,
   type ExplorerSidebarView,
@@ -52,15 +51,6 @@ export function openWorkspaceChanges(input: OpenWorkspaceChangesInput): string |
     source: "diffs",
     preferences: input.preferences,
   });
-}
-
-/** Reveals Changes from the composer, then opens its diff on a subsequent desktop action. */
-export function openComposerChanges(input: OpenWorkspaceChangesInput): string | null {
-  if (usesCompactExplorerSidebar(input) || isExplorerSidebarOpen(input)) {
-    return openWorkspaceChanges(input);
-  }
-  openExplorerView(input, "changes");
-  return null;
 }
 
 /** Opens the workspace pull request at its semantic destination. */

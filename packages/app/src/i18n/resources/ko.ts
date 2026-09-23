@@ -78,6 +78,8 @@ export const ko: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "사이드바 토글",
+      back: "뒤로",
+      forward: "앞으로",
       open: "메뉴 열기",
       close: "메뉴 닫기",
     },
@@ -113,6 +115,7 @@ export const ko: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "에이전트에게 메시지를 보내거나 @files 태그, /commands, /skills를 사용하세요",
       mobile: "메시지, @files, /commands",
@@ -195,35 +198,12 @@ export const ko: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "프로바이더",
-      select: "에이전트 프로바이더 선택",
-    },
     thinking: {
-      title: "사고",
       unknown: "알 수 없음",
       extraHigh: "매우 높음",
-      select: "사고 옵션 선택",
-      selectWithValue: "사고 옵션 선택 ({{value}})",
     },
     model: {
       unknown: "알 수 없는 모델",
-    },
-    features: {
-      title: "기능",
-      open: "에이전트 기능 열기",
-      on: "켜짐",
-      off: "꺼짐",
-    },
-    mode: {
-      title: "모드",
-      searchPlaceholder: "모드 검색...",
-      selectWithValue: "에이전트 모드 선택 ({{value}})",
-    },
-    hints: {
-      thinking: "사고 모드",
-      model: "모델 변경",
-      mode: "모드 변경",
     },
   },
   agentStream: {
@@ -1163,6 +1143,21 @@ export const ko: TranslationResources = {
       whatsNew: "새로운 소식",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "리소스 및 사용량",
+      title: "리소스",
+      cpu: "CPU",
+      memory: "메모리",
+      memoryShort: "메모리",
+      name: "이름",
+      showAll: "모두 보기 ({{count}})",
+      showLess: "간단히 보기",
+      context: "컨텍스트",
+      noContext: "아직 컨텍스트 사용량을 보고한 열린 에이전트가 없습니다.",
+      untitledAgent: "제목 없는 에이전트",
+      limits: "요금제 한도",
+      updateHost: "CPU 및 메모리 사용량을 보려면 호스트를 업데이트하세요.",
+    },
     sections: {
       sessions: "기록",
       search: "검색",
@@ -1572,8 +1567,6 @@ export const ko: TranslationResources = {
     error: "오류",
     defaultModel: "기본값",
     profiles: "프로필",
-    providers: "제공자",
-    model: "모델",
     editProfiles: "편집",
     editProfilesLabel: "에이전트 프로필 편집",
     createProfile: "프로필 만들기",
@@ -1938,6 +1931,7 @@ export const ko: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "설정",
     loading: "설정 불러오는 중...",
     groups: {

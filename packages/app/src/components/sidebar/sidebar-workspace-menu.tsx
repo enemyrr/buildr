@@ -1,6 +1,18 @@
-import { useMemo, type ComponentProps, type PropsWithChildren, type ReactNode } from "react";
+import {
+  useCallback,
+  useMemo,
+  type ComponentProps,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { type PressableStateCallbackType } from "react-native";
+import {
+  Pressable,
+  Text,
+  View,
+  type GestureResponderEvent,
+  type PressableStateCallbackType,
+} from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   Archive,
@@ -13,7 +25,8 @@ import {
   PinOff,
   Tag,
 } from "lucide-react-native";
-import { isWeb } from "@/constants/platform";
+import { useIsCompactFormFactor } from "@/constants/layout";
+import { isNative, isWeb } from "@/constants/platform";
 import { getForgePresentation, normalizeForge } from "@/git/forge";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { useAppSettings } from "@/hooks/use-settings";
@@ -32,7 +45,9 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Shortcut } from "@/components/ui/shortcut";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { OpenInFileManagerMenuItem } from "@/workspace/open-in-file-manager/menu-item";
 import { resolveSidebarWorkspaceAccessibilityLabel } from "@/components/sidebar/sidebar-workspace-title";
 import {
@@ -59,6 +74,7 @@ const ThemedCircleCheck = withUnistyles(CircleCheck);
 const ThemedPin = withUnistyles(Pin);
 const ThemedPinOff = withUnistyles(PinOff);
 const ThemedTag = withUnistyles(Tag);
+const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 
 const copyLeadingIcon = <ThemedCopy size={14} uniProps={foregroundMutedColorMapping} />;
 const renameLeadingIcon = <ThemedPencil size={14} uniProps={foregroundMutedColorMapping} />;
@@ -249,7 +265,68 @@ function SidebarWorkspaceMenuItems({
   );
 }
 
-export function SidebarWorkspaceMenu({
+/**
+ * The row's trailing action. Pointer layouts get a one-tap archive button and reach the rest of
+ * the actions through the row's context menu; touch has no right-click, so it keeps the kebab.
+ */
+export function SidebarWorkspaceMenu(props: SidebarWorkspaceMenuProps) {
+  const isCompact = useIsCompactFormFactor();
+  if (isNative || isCompact) return <SidebarWorkspaceKebabMenu {...props} />;
+  return <SidebarWorkspaceArchiveButton {...props} />;
+}
+
+function SidebarWorkspaceArchiveButton({
+  workspaceKey,
+  onArchive,
+  archiveLabel,
+  archiveStatus,
+  archiveShortcutKeys,
+}: SidebarWorkspaceMenuProps) {
+  const { t } = useTranslation();
+  const label = archiveLabel ?? t("sidebar.workspace.actions.archive");
+  const isPending = archiveStatus === "pending";
+  const handlePress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      onArchive();
+    },
+    [onArchive],
+  );
+
+  return (
+    <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger asChild>
+        <Pressable
+          hitSlop={8}
+          style={archiveTriggerStyle}
+          onPress={handlePress}
+          disabled={isPending}
+          accessibilityLabel={label}
+          testID={`sidebar-workspace-archive-${workspaceKey}`}
+        >
+          {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) =>
+            isPending ? (
+              <ThemedLoadingSpinner size={14} uniProps={foregroundMutedColorMapping} />
+            ) : (
+              <ThemedArchive
+                size={14}
+                uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
+              />
+            )
+          }
+        </Pressable>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="center" offset={8}>
+        <View style={styles.tooltipRow}>
+          <Text style={styles.tooltipText}>{label}</Text>
+          {archiveShortcutKeys ? <Shortcut chord={archiveShortcutKeys} /> : null}
+        </View>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function SidebarWorkspaceKebabMenu({
   workspaceKey,
   serverId,
   workspaceId,
@@ -436,6 +513,12 @@ function triggerStyle({ hovered = false }: PressableStateCallbackType & { hovere
   return [styles.trigger, hovered && styles.triggerHovered];
 }
 
+function archiveTriggerStyle({
+  hovered = false,
+}: PressableStateCallbackType & { hovered?: boolean }) {
+  return [styles.archiveTrigger, hovered && styles.triggerHovered];
+}
+
 const styles = StyleSheet.create((theme) => ({
   trigger: {
     padding: 2,
@@ -445,7 +528,23 @@ const styles = StyleSheet.create((theme) => ({
     // pull the painted dots through that unused view-box space onto the trailing-content rail.
     marginRight: -7,
   },
+  // The archive glyph fills its view box, so only the padding needs pulling onto the rail.
+  archiveTrigger: {
+    padding: 2,
+    borderRadius: 4,
+    marginLeft: 2,
+    marginRight: -3,
+  },
   triggerHovered: {
     backgroundColor: theme.colors.surface2,
+  },
+  tooltipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  tooltipText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
   },
 }));

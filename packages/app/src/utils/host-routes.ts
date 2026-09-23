@@ -513,6 +513,7 @@ export const HOST_SECTION_SLUGS = [
   "connections",
   "pair-device",
   "agents",
+  "models",
   "metadata",
   "workspaces",
   "providers",

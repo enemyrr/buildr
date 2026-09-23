@@ -191,6 +191,8 @@ interface ModelBrowserProps {
   searchAllOnFocus?: boolean;
   /** Replaces provider rows only while the all-provider search is empty. */
   rootBrowseContent?: React.ReactNode;
+  /** List every provider's models in one flat list instead of grouping them by provider. */
+  flatModels?: boolean;
   /** Hide the pinned Profiles section while still using rows for model matching. */
   showProfilesSection?: boolean;
 }
@@ -208,6 +210,7 @@ interface ModelBrowserContentProps extends Omit<ModelBrowserProps, "state" | "sc
   scrolling: "sheet" | "independent";
   searchAllOnFocus: boolean;
   rootBrowseContent?: React.ReactNode;
+  flatModels?: boolean;
 }
 
 type ProviderGlyphTone = "muted" | "foreground";
@@ -1381,6 +1384,7 @@ function ModelBrowserContent({
   scrolling,
   searchAllOnFocus,
   rootBrowseContent,
+  flatModels = false,
   showProfilesSection = true,
 }: ModelBrowserContentProps) {
   const { t } = useTranslation();
@@ -1460,6 +1464,28 @@ function ModelBrowserContent({
     );
   }
 
+  let modelContent = rootBrowseContent;
+  if (!modelContent && flatModels) {
+    modelContent = (
+      <ModelRowList
+        rows={getAllProviderModelRows(providers)}
+        serverId={serverId}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
+        onSelect={onSelect}
+        scrolling="sheet"
+        profiledLookup={profiledLookup}
+        onCreateProfile={onCreateProfile}
+        onEditProfile={onEditProfile}
+        onEditProfiles={onEditProfiles}
+      />
+    );
+  }
+  if (!modelContent && providers.length > 0) {
+    modelContent = (
+      <GroupedProviderRows providers={providers} serverId={serverId} onDrillDown={onDrillDown} />
+    );
+  }
   const allProvidersContent = (
     <View>
       {showProfilesSection && profiles ? (
@@ -1469,21 +1495,7 @@ function ModelBrowserContent({
           onEditProfiles={onEditProfiles}
         />
       ) : null}
-      {rootBrowseContent ??
-        (providers.length > 0 ? (
-          <View>
-            {showProfilesSection && profiles ? (
-              <View style={styles.sectionHeading}>
-                <Text style={styles.sectionHeadingText}>{t("modelSelector.providers")}</Text>
-              </View>
-            ) : null}
-            <GroupedProviderRows
-              providers={providers}
-              serverId={serverId}
-              onDrillDown={onDrillDown}
-            />
-          </View>
-        ) : null)}
+      {modelContent}
       {!hasResults ? <ModelSearchEmptyState /> : null}
     </View>
   );
@@ -1519,6 +1531,7 @@ export function ModelBrowser({
   scrolling = "sheet",
   searchAllOnFocus = false,
   rootBrowseContent,
+  flatModels = false,
   showProfilesSection,
 }: ModelBrowserProps) {
   return (
@@ -1542,6 +1555,7 @@ export function ModelBrowser({
       scrolling={scrolling}
       searchAllOnFocus={searchAllOnFocus}
       rootBrowseContent={rootBrowseContent}
+      flatModels={flatModels}
       showProfilesSection={showProfilesSection}
     />
   );

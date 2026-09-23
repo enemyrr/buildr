@@ -6,6 +6,8 @@ export interface WorkspaceTabLayoutMetrics {
   rowPaddingHorizontal: number;
   tabGap: number;
   minTabWidth: number;
+  /** Width a short-labelled tab takes when the row has room; crowding shrinks it to `minTabWidth`. */
+  preferredTabWidth: number;
   maxTabWidth: number;
   tabIconWidth: number;
   tabContentGap: number;
@@ -75,7 +77,7 @@ export function computeWorkspaceTabLayout(
     input.metrics.tabHorizontalPadding * 2 +
     input.metrics.closeButtonWidth;
   const naturalWidths = input.tabLabelWidths.map((labelWidth) =>
-    clamp(tabChromeWidth + labelWidth, input.metrics.minTabWidth, input.metrics.maxTabWidth),
+    clamp(tabChromeWidth + labelWidth, input.metrics.preferredTabWidth, input.metrics.maxTabWidth),
   );
   const naturalTotalWidth = naturalWidths.reduce((total, width) => total + width, 0);
   const minimumTotalWidth = input.metrics.minTabWidth * tabCount;

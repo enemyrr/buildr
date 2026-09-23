@@ -1371,6 +1371,11 @@ export const DaemonGetStatusRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const DaemonGetResourcesRequestSchema = z.object({
+  type: z.literal("daemon.get_resources.request"),
+  requestId: z.string(),
+});
+
 export const DaemonGetPairingOfferRequestSchema = z.object({
   type: z.literal("daemon.get_pairing_offer.request"),
   requestId: z.string(),
@@ -3187,6 +3192,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   SendAgentMessageRequestSchema,
   WaitForFinishRequestSchema,
   DaemonGetStatusRequestSchema,
+  DaemonGetResourcesRequestSchema,
   DaemonGetPairingOfferRequestSchema,
   DaemonConfigReloadRequestSchema,
   HubManagementDaemonConnectRequestSchema,
@@ -3619,6 +3625,8 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceFileEditing: z.boolean().optional(),
         // COMPAT(providerUsageList): added in v0.1.98, drop the gate when daemon floor >= v0.1.98.
         providerUsageList: z.boolean().optional(),
+        // COMPAT(daemonResources): added in v0.9.2, remove gate after 2027-03-22.
+        daemonResources: z.boolean().optional(),
         // COMPAT(agentDetach): added in v0.1.98, remove gate after 2026-12-19 once daemon floor >= v0.1.98.
         agentDetach: z.boolean().optional(),
         // COMPAT(agentThinkingUpdate): added in v0.2.4, remove gate after 2027-01-28.
@@ -4932,6 +4940,25 @@ export const GetDaemonConfigResponseMessageSchema = z.object({
       config: MutableDaemonConfigSchema,
     })
     .passthrough(),
+});
+
+export const DaemonResourceProcessSchema = z.object({
+  pid: z.number(),
+  parentPid: z.number().nullable(),
+  name: z.string(),
+  cpuPercent: z.number(),
+  memoryBytes: z.number(),
+});
+
+// `processes` is the daemon's process tree, flattened; `rootPid` is the daemon itself.
+export const DaemonGetResourcesResponseSchema = z.object({
+  type: z.literal("daemon.get_resources.response"),
+  payload: z.object({
+    requestId: z.string(),
+    sampledAt: z.string(),
+    rootPid: z.number(),
+    processes: z.array(DaemonResourceProcessSchema),
+  }),
 });
 
 export const DaemonGetStatusResponseSchema = z.object({
@@ -6825,6 +6852,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SendAgentMessageResponseMessageSchema,
   SetVoiceModeResponseMessageSchema,
   DaemonGetStatusResponseSchema,
+  DaemonGetResourcesResponseSchema,
   DaemonGetPairingOfferResponseSchema,
   DaemonConfigReloadResponseSchema,
   HubManagementDaemonConnectResponseSchema,
@@ -7078,6 +7106,8 @@ export type ListProviderFeaturesResponseMessage = z.infer<
 >;
 export type ListAvailableProvidersResponse = z.infer<typeof ListAvailableProvidersResponseSchema>;
 export type DaemonGetStatusResponse = z.infer<typeof DaemonGetStatusResponseSchema>;
+export type DaemonGetResourcesResponse = z.infer<typeof DaemonGetResourcesResponseSchema>;
+export type DaemonResourceProcess = z.infer<typeof DaemonResourceProcessSchema>;
 export type DaemonGetPairingOfferResponse = z.infer<typeof DaemonGetPairingOfferResponseSchema>;
 export type DaemonConfigReloadResponse = z.infer<typeof DaemonConfigReloadResponseSchema>;
 export type DiagnosticsResponse = z.infer<typeof DiagnosticsResponseSchema>;

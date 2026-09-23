@@ -40,6 +40,7 @@ test.describe("Composer control density across tab switches", () => {
     try {
       const first = await seedSettledMockAgent(workspace, "First chat");
       const second = await seedSettledMockAgent(workspace, "Second chat");
+      await page.emulateMedia({ colorScheme: "dark" });
       await openWorkspaceWithAgents(page, [first, second]);
 
       await recordComposerToolbarFrames(page);
@@ -49,6 +50,18 @@ test.describe("Composer control density across tab switches", () => {
       await page.waitForTimeout(SETTLE_MS);
 
       await expectNoCollapsedComposerToolbarFrame(page);
+      await expect(page.getByTestId("mode-control").filter({ visible: true })).toHaveCount(0);
+      await page
+        .getByTestId("workspace-new-tab-button")
+        .filter({ visible: true })
+        .first()
+        .click({ button: "right" });
+      await expect(
+        page.getByTestId("workspace-new-tab-menu-terminal").filter({ visible: true }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await page.getByTestId("combined-model-selector").filter({ visible: true }).first().click();
+      await page.screenshot({ path: "/tmp/paseo-composer-presets.png" });
     } finally {
       await workspace.cleanup();
     }
@@ -77,7 +90,7 @@ test.describe("Composer control density across tab switches", () => {
         .filter({ visible: true });
       await expect(draftTabs).toHaveCount(2, { timeout: 30_000 });
       await expect(
-        page.locator('[data-testid="mode-control"]').filter({ visible: true }).first(),
+        page.locator('[data-testid="combined-model-selector"]').filter({ visible: true }).first(),
       ).toBeVisible({ timeout: 30_000 });
 
       await recordComposerToolbarFrames(page);

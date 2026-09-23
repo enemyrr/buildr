@@ -1,27 +1,6 @@
-import type { AgentFeature, AgentModelDefinition } from "@getpaseo/protocol/agent-types";
+import type { AgentModelDefinition } from "@getpaseo/protocol/agent-types";
 import { i18n } from "@/i18n/i18next";
 import { formatThinkingOptionLabel } from "@/agent-controls/labels";
-import { FAST_MODE_FEATURE_ID, PLAN_MODE_FEATURE_ID } from "@/agent-controls/policy";
-
-export type ExplainedAgentControl = "mode" | "model" | "thinking";
-export type FeatureHighlightColor = "blue" | "default" | "green" | "yellow";
-export type AgentControlHintKey =
-  | "agentControls.hints.thinking"
-  | "agentControls.hints.model"
-  | "agentControls.hints.mode";
-
-export function getAgentControlHintKey(selector: ExplainedAgentControl): AgentControlHintKey {
-  switch (selector) {
-    case "thinking":
-      return "agentControls.hints.thinking";
-    case "model":
-      return "agentControls.hints.model";
-    case "mode":
-      return "agentControls.hints.mode";
-    default:
-      throw new Error("unreachable");
-  }
-}
 
 export function normalizeModelId(modelId: string | null | undefined): string | null {
   const normalized = typeof modelId === "string" ? modelId.trim() : "";
@@ -29,23 +8,6 @@ export function normalizeModelId(modelId: string | null | undefined): string | n
     return null;
   }
   return normalized;
-}
-
-export function getFeatureTooltip(feature: Pick<AgentFeature, "label" | "tooltip">): string {
-  return feature.tooltip ?? feature.label;
-}
-
-export function getFeatureHighlightColor(featureId: string): FeatureHighlightColor {
-  switch (featureId) {
-    case FAST_MODE_FEATURE_ID:
-      return "yellow";
-    case "auto_accept":
-      return "green";
-    case PLAN_MODE_FEATURE_ID:
-      return "blue";
-    default:
-      return "default";
-  }
 }
 
 function findModelById(

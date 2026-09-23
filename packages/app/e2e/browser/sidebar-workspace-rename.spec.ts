@@ -15,11 +15,7 @@ async function openRenameModal(page: Page, workspaceId: string) {
   const serverId = getServerId();
   const row = page.getByTestId(`sidebar-workspace-row-${serverId}:${workspaceId}`);
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.hover();
-
-  const kebab = page.getByTestId(`sidebar-workspace-kebab-${serverId}:${workspaceId}`);
-  await expect(kebab).toBeVisible({ timeout: 10_000 });
-  await kebab.click();
+  await row.click({ button: "right" });
 
   const renameItem = page.getByTestId(`sidebar-workspace-menu-rename-${serverId}:${workspaceId}`);
   await expect(renameItem).toBeVisible({ timeout: 10_000 });

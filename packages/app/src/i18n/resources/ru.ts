@@ -79,6 +79,8 @@ export const ru: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "Переключить боковую панель",
+      back: "Назад",
+      forward: "Вперёд",
       open: "Открыть меню",
       close: "Закрыть меню",
     },
@@ -114,6 +116,7 @@ export const ru: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "Напишите агенту сообщение, отметьте @files или используйте /commands и /skills.",
       mobile: "Сообщение,@files,/commands",
@@ -197,35 +200,12 @@ export const ru: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "Провайдер",
-      select: "Выбрать провайдера агента",
-    },
     thinking: {
-      title: "Рассуждения",
       unknown: "Неизвестно",
       extraHigh: "Очень высокий",
-      select: "Выбрать уровень рассуждений",
-      selectWithValue: "Выбрать уровень рассуждений ({{value}})",
     },
     model: {
       unknown: "Неизвестная модель",
-    },
-    features: {
-      title: "Функции",
-      open: "Открыть настройки функций агента",
-      on: "Включено",
-      off: "Выключено",
-    },
-    mode: {
-      title: "Режим",
-      searchPlaceholder: "Поиск режимов...",
-      selectWithValue: "Выбрать режим агента ({{value}})",
-    },
-    hints: {
-      thinking: "Режим рассуждений",
-      model: "Изменить модель",
-      mode: "Изменить режим",
     },
   },
   agentStream: {
@@ -1174,6 +1154,21 @@ export const ru: TranslationResources = {
       whatsNew: "Что нового",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "Ресурсы и использование",
+      title: "Ресурсы",
+      cpu: "ЦП",
+      memory: "Память",
+      memoryShort: "Пам.",
+      name: "Имя",
+      showAll: "Показать все ({{count}})",
+      showLess: "Свернуть",
+      context: "Контекст",
+      noContext: "Открытые агенты пока не сообщают об использовании контекста.",
+      untitledAgent: "Агент без названия",
+      limits: "Лимиты тарифа",
+      updateHost: "Обновите хост, чтобы видеть загрузку ЦП и памяти.",
+    },
     sections: {
       sessions: "История",
       search: "Поиск",
@@ -1591,8 +1586,6 @@ export const ru: TranslationResources = {
     error: "Ошибка",
     defaultModel: "По умолчанию",
     profiles: "Профили",
-    providers: "Провайдеры",
-    model: "Модель",
     editProfiles: "Изменить",
     editProfilesLabel: "Изменить профили агентов",
     createProfile: "Создать профиль",
@@ -1961,6 +1954,7 @@ export const ru: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "Настройки",
     loading: "Загрузка настроек...",
     groups: {

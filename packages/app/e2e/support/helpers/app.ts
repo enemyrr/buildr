@@ -201,137 +201,64 @@ export const createAgent = async (page: Page, message: string) => {
 };
 
 async function preferFastThinkingOption(page: Page): Promise<void> {
-  const providerTrigger = page
-    .locator(
-      '[data-testid="agent-provider-selector"]:visible, [data-testid="draft-provider-select"]:visible',
-    )
-    .first();
-  if (await providerTrigger.isVisible().catch(() => false)) {
-    const providerText = ((await providerTrigger.innerText().catch(() => "")) ?? "").trim();
-    if (!/codex/i.test(providerText)) {
-      return;
-    }
+  const trigger = page.getByTestId("combined-model-selector").filter({ visible: true }).first();
+  if (!(await trigger.isVisible().catch(() => false))) {
+    return;
   }
-
-  const thinkingTrigger = page.getByTestId("agent-thinking-selector").first();
-  if (!(await thinkingTrigger.isVisible().catch(() => false))) {
+  // Only Codex is slow enough at high effort to matter; its model labels name GPT or Codex.
+  const modelLabel = (await trigger.getAttribute("aria-label").catch(() => null)) ?? "";
+  if (!/codex|gpt/i.test(modelLabel)) {
     return;
   }
 
-  const currentThinkingLabel = ((await thinkingTrigger.innerText().catch(() => "")) ?? "")
-    .trim()
-    .toLowerCase();
-  if (/\b(low|minimal|off)\b/.test(currentThinkingLabel)) {
+  // Effort is a submenu row in the loadout picker; its page lists one row per level.
+  await trigger.click();
+  const effortRow = page.getByTestId("agent-thinking-selector").filter({ visible: true }).first();
+  const effortLabel = (await effortRow.innerText().catch(() => "")).trim();
+  if (!effortLabel || /\b(low|minimal|off)\b/i.test(effortLabel)) {
+    await page.keyboard.press("Escape");
     return;
   }
+  await effortRow.click();
 
-  await thinkingTrigger.click();
-  const menu = page.getByTestId("agent-thinking-menu").first();
-  if (!(await menu.isVisible().catch(() => false))) {
-    return;
-  }
-
-  const preferredLabels = ["low", "minimal", "off", "medium"];
-  let selected = false;
-  for (const label of preferredLabels) {
-    const option = menu
-      .getByRole("button", { name: new RegExp(`^${escapeRegex(label)}$`, "i") })
-      .first();
+  const options = page.locator('[data-testid^="model-loadout-effort-"]').filter({ visible: true });
+  for (const label of ["low", "minimal", "off", "medium"]) {
+    const option = options.filter({ hasText: new RegExp(`^${escapeRegex(label)}$`, "i") }).first();
     if (await option.isVisible().catch(() => false)) {
-      await option.click({ force: true });
-      selected = true;
+      await option.click();
       break;
     }
   }
-
-  if (!selected) {
-    const options = menu.getByRole("button");
-    const count = await options.count();
-    for (let index = 0; index < count; index += 1) {
-      const option = options.nth(index);
-      const label = ((await option.innerText().catch(() => "")) ?? "").trim();
-      if (!label) {
-        continue;
-      }
-      if (label.toLowerCase() === currentThinkingLabel) {
-        continue;
-      }
-      await option.click({ force: true });
-      selected = true;
-      break;
-    }
+  if (await effortRow.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
   }
-
-  if (!selected) {
-    await page.keyboard.press("Escape").catch(() => undefined);
-    return;
-  }
-
-  await expect(menu).not.toBeVisible({ timeout: 5000 });
+  await expect(effortRow).not.toBeVisible({ timeout: 5000 });
 }
 
 export interface AgentConfig {
   directory: string;
-  provider?: string;
   model?: string;
   mode?: string;
   prompt: string;
 }
 
-export const selectProvider = async (page: Page, provider: string) => {
-  const normalizedProvider = provider.trim();
-  if (!normalizedProvider) {
-    throw new Error("Provider must be a non-empty string.");
-  }
-
-  const providerTrigger = page
-    .locator(
-      '[data-testid="agent-provider-selector"]:visible, [data-testid="draft-provider-select"]:visible',
-    )
-    .first();
-  if (
-    await providerTrigger
-      .getByText(new RegExp(`^${escapeRegex(normalizedProvider)}$`, "i"))
-      .first()
-      .isVisible()
-      .catch(() => false)
-  ) {
-    return;
-  }
-
-  if (await providerTrigger.isVisible().catch(() => false)) {
-    await providerTrigger.click();
-  } else {
-    const providerLabel = page.getByText("PROVIDER", { exact: true }).first();
-    await expect(providerLabel).toBeVisible();
-    await providerLabel.click();
-  }
-
-  const dialog = page.getByRole("dialog").last();
-  const searchInput = dialog.getByRole("textbox", { name: /search provider/i }).first();
-  if (await searchInput.isVisible().catch(() => false)) {
-    await searchInput.fill(normalizedProvider);
-  }
-
-  const option = dialog.getByText(new RegExp(`^${escapeRegex(normalizedProvider)}$`, "i")).first();
-  await expect(option).toBeVisible();
-  await option.click();
-};
-
+/**
+ * Picks a model through the loadout picker's catalog, which spans every
+ * provider, so a model choice also sets the provider. On an empty loadout the
+ * catalog row reads "Add models…" and the pick joins the loadout.
+ */
 export const selectModel = async (page: Page, model: string) => {
   const normalizedModel = model.trim();
   if (!normalizedModel) {
     throw new Error("Model must be a non-empty string.");
   }
+  const exactLabel = new RegExp(`^${escapeRegex(normalizedModel)}$`, "i");
 
-  const modelTrigger = page
-    .locator(
-      '[data-testid="agent-model-selector"]:visible, [data-testid="draft-model-select"]:visible',
-    )
-    .first();
+  const trigger = page.getByTestId("combined-model-selector").filter({ visible: true }).first();
+  await expect(trigger).toBeVisible({ timeout: 30000 });
   if (
-    await modelTrigger
-      .getByText(new RegExp(`^${escapeRegex(normalizedModel)}$`, "i"))
+    await trigger
+      .getByText(exactLabel)
       .first()
       .isVisible()
       .catch(() => false)
@@ -339,87 +266,51 @@ export const selectModel = async (page: Page, model: string) => {
     return;
   }
 
-  if (await modelTrigger.isVisible().catch(() => false)) {
-    await modelTrigger.click();
-  } else {
-    const modelButton = page
-      .getByRole("button", { name: /Select model/i })
-      .filter({ visible: true })
-      .first();
-    if (await modelButton.isVisible().catch(() => false)) {
-      await modelButton.click();
-    } else {
-      const modelLabel = page.getByText("MODEL", { exact: true }).first();
-      await expect(modelLabel).toBeVisible();
-      await modelLabel.click();
-    }
-  }
-
-  // Wait for the model dropdown to open
-  const searchInput = page.getByRole("textbox", { name: /search model/i });
+  await trigger.click();
+  await page.getByTestId("browse-all-models").filter({ visible: true }).first().click();
+  const searchInput = page.getByTestId("model-search-all-input").filter({ visible: true }).first();
   await expect(searchInput).toBeVisible({ timeout: 10000 });
-
-  // Type to search/filter models
   await searchInput.fill(normalizedModel);
 
-  const dialog = page.getByRole("dialog");
-  const exactOption = dialog
-    .getByText(new RegExp(`^${escapeRegex(normalizedModel)}$`, "i"))
-    .first();
-  const exactVisible = await exactOption.isVisible().catch(() => false);
-  if (exactVisible) {
-    await exactOption.click({ force: true });
+  const rows = page.locator('[data-testid^="model-row-"]').filter({ visible: true });
+  await expect(rows.first()).toBeVisible({ timeout: 10000 });
+  const exactOption = rows.filter({ has: page.getByText(exactLabel) }).first();
+  if (await exactOption.isVisible().catch(() => false)) {
+    await exactOption.click();
   } else {
-    // Modern labels include version suffixes (for example "Haiku 4.5"), so
-    // select the first filtered result using keyboard confirm.
-    await searchInput.press("Enter");
+    // Model IDs and version suffixes ("Haiku 4.5") miss the exact label, so
+    // take the best-ranked result instead.
+    await rows.first().click();
   }
 
-  // Wait for dropdown to close
   if (await searchInput.isVisible().catch(() => false)) {
     await page.keyboard.press("Escape").catch(() => undefined);
   }
   await expect(searchInput).not.toBeVisible({ timeout: 5000 });
 };
 
+/** Picks a mode from the Mode page of the loadout picker. */
 export const selectMode = async (page: Page, mode: string) => {
-  const modeTrigger = page
-    .locator(
-      '[data-testid="agent-mode-selector"]:visible, [data-testid="draft-mode-select"]:visible',
-    )
+  const trigger = page.getByTestId("combined-model-selector").filter({ visible: true }).first();
+  await trigger.click();
+  const modeRow = page.getByTestId("mode-control").filter({ visible: true }).first();
+  await expect(modeRow).toBeVisible({ timeout: 10000 });
+  await modeRow.click();
+
+  const option = page
+    .locator('[data-testid^="model-loadout-mode-"]')
+    .filter({ visible: true })
+    .filter({ hasText: new RegExp(`^${escapeRegex(mode)}$`, "i") })
     .first();
-  if (await modeTrigger.isVisible().catch(() => false)) {
-    await modeTrigger.click();
-  } else {
-    const modeLabel = page.getByText("MODE", { exact: true }).first();
-    await expect(modeLabel).toBeVisible();
-    await modeLabel.click();
-  }
-
-  // Wait for the mode dropdown to open
-  const searchInput = page.getByRole("textbox", { name: /search mode/i });
-  await expect(searchInput).toBeVisible({ timeout: 10000 });
-
-  // Type to filter modes
-  await searchInput.fill(mode);
-
-  const dialog = page.getByRole("dialog");
-  const option = dialog.getByText(new RegExp(`^${escapeRegex(mode)}$`, "i")).first();
-  await expect(option).toBeVisible();
-  await option.click({ force: true });
-
-  // Wait for dropdown to close
-  await expect(searchInput).not.toBeVisible({ timeout: 5000 });
+  await expect(option).toBeVisible({ timeout: 10000 });
+  await option.click();
+  await expect(modeRow).not.toBeVisible({ timeout: 5000 });
 };
 
 export const createAgentWithConfig = async (page: Page, config: AgentConfig) => {
   await gotoHome(page);
   await ensureHostSelected(page);
   await setWorkingDirectory(page, config.directory);
-
-  if (config.provider) {
-    await selectProvider(page, config.provider);
-  }
 
   if (config.model) {
     await selectModel(page, config.model);

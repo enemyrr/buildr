@@ -96,6 +96,7 @@ interface SplitContainerProps {
   layout: WorkspaceLayout;
   renderMainHeader?: () => ReactNode;
   renderExplorerSidebarHeaderAction?: () => ReactNode;
+  renderExplorerSidebarStatus?: () => ReactNode;
   workspaceKey: string;
   normalizedServerId: string;
   normalizedWorkspaceId: string;
@@ -309,6 +310,7 @@ export function SplitContainer({
   layout,
   renderMainHeader,
   renderExplorerSidebarHeaderAction,
+  renderExplorerSidebarStatus,
   workspaceKey,
   normalizedServerId,
   normalizedWorkspaceId,
@@ -732,6 +734,7 @@ export function SplitContainer({
                   activeDragTabId={activeDragTabId}
                   tabDropPreview={tabDropPreview}
                   headerAction={renderExplorerSidebarHeaderAction?.()}
+                  statusStrip={renderExplorerSidebarStatus?.()}
                 />
               </View>
             </>
@@ -827,7 +830,7 @@ function DragOverlayTabChipInner({
 
         return (
           <View style={chipStyle}>
-            <WorkspaceTabIcon presentation={presentation} active size={14} backdrop="surface1" />
+            <WorkspaceTabIcon presentation={presentation} active size={14} />
             <Text numberOfLines={1} style={chipLabelStyle}>
               {label}
             </Text>

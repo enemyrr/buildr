@@ -93,8 +93,8 @@ test.describe("Command Center agent controls", () => {
       });
 
       await expect(
-        page.getByTestId("agent-thinking-selector").filter({ visible: true }),
-      ).toHaveAccessibleName("Select thinking option (Max)");
+        page.getByTestId("combined-model-selector").filter({ visible: true }),
+      ).toContainText("Max");
     } finally {
       await workspace.cleanup();
     }

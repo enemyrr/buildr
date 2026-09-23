@@ -116,8 +116,7 @@ async function openWorkspaceLabels(page: import("@playwright/test").Page, worksp
   const serverId = getServerId();
   const row = page.getByTestId(`sidebar-workspace-row-${serverId}:${workspaceId}`).first();
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.hover();
-  await page.getByTestId(`sidebar-workspace-kebab-${serverId}:${workspaceId}`).first().click();
+  await row.click({ button: "right" });
   await page.getByTestId(`sidebar-workspace-menu-labels-${serverId}:${workspaceId}`).click();
   await expect(page.getByTestId("workspace-label-picker-create")).toBeVisible();
 }

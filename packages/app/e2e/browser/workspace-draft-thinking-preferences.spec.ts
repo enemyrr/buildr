@@ -9,6 +9,7 @@ import {
 import { openCommandCenter } from "../support/helpers/command-center";
 import { runWorkspaceActionFromCommandCenter } from "../support/helpers/command-center-workspace-actions";
 import { selectModel } from "../support/helpers/app";
+import { expectComposerMode, expectComposerThinking } from "../support/helpers/agent-profiles";
 
 const DISABLE_DEFAULT_SEED_ONCE_KEY = "@paseo:e2e-disable-default-seed-once";
 const SEED_NONCE_KEY = "@paseo:e2e-seed-nonce";
@@ -25,17 +26,11 @@ async function chooseDraftControl(page: Page, query: string, choice: string): Pr
 }
 
 async function expectThinkingSelected(page: Page, label: string): Promise<void> {
-  await expect(
-    page
-      .getByRole("button", { name: `Select thinking option (${label})` })
-      .filter({ visible: true }),
-  ).toBeVisible({ timeout: 30_000 });
+  await expectComposerThinking(page, label);
 }
 
 async function expectModeSelected(page: Page, label: string): Promise<void> {
-  await expect(
-    page.getByRole("button", { name: `Select agent mode (${label})` }).filter({ visible: true }),
-  ).toBeVisible({ timeout: 30_000 });
+  await expectComposerMode(page, label);
 }
 
 async function reloadWithPersistedPreferences(page: Page): Promise<void> {

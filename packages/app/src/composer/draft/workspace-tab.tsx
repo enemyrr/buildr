@@ -680,7 +680,7 @@ export function WorkspaceDraftAgentTab({
             cwd={composerState.workingDir}
             clearDraft={draftInput.clear}
             autoFocus={shouldAutoFocusWorkspaceDraftComposer({ isPaneFocused, isSubmitting })}
-            autoFocusKey={String(draftInput.attachmentFocusRequestId)}
+            autoFocusKey={String(draftInput.fileMentionRequestId)}
             onFocusInput={handleFocusInputCallback}
             commandDraftConfig={composerState.commandDraftConfig}
             agentControls={composerAgentControls}

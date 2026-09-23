@@ -1,22 +1,32 @@
 # FORM_URL is paseo://new?serverId=<connected-serverId>.
-# Gesture coordinates target a 1080x1920 Android emulator at density 420.
+# The selected provider must expose modes. Gesture coordinates target a 1080x1920
+# Android emulator at density 420.
 context platform=android timeout=60000 retries=0
 env APP_ID=sh.paseo.debug
 
 open "${APP_ID}" "${FORM_URL}"
 wait "id=\"combined-model-selector\"" 20000
 press "id=\"combined-model-selector\""
-wait "id=\"agent-controls-model\"" 10000
+wait "id=\"browse-all-models\"" 10000
 gesture pan 540 790 0 960 500
 wait "id=\"combined-model-selector\"" 3000
 
-# Reopen, dismiss the nested model browser, then dismiss its restored parent.
+# Reopen, push the Mode page, and return to the loadout root with its back button.
 press "id=\"combined-model-selector\""
-wait "id=\"agent-controls-model\"" 10000
-press "id=\"agent-controls-model\""
-wait stable 300 5000
+wait "id=\"mode-control\"" 10000
+press "id=\"mode-control\""
+wait "id=\"menu-sheet-back\"" 3000
+press "id=\"menu-sheet-back\""
+wait "id=\"browse-all-models\"" 3000
 gesture pan 540 790 0 960 500
-wait "id=\"agent-controls-model\"" 3000
+wait "id=\"combined-model-selector\"" 3000
+
+# The catalog replaces the loadout sheet; dismissing it returns to the composer.
+press "id=\"combined-model-selector\""
+wait "id=\"browse-all-models\"" 10000
+press "id=\"browse-all-models\""
+wait "id=\"model-search-all-input\"" 10000
+wait stable 300 5000
 gesture pan 540 790 0 960 500
 wait "id=\"combined-model-selector\"" 3000
 close

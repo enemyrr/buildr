@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "../support/fixtures";
 import type { FormPreferences } from "@/create-agent-preferences/preferences";
+import { expectComposerMode } from "../support/helpers/agent-profiles";
 import { daemonWsRoutePattern } from "../support/helpers/daemon-port";
 import { openAgentRoute } from "../support/helpers/mock-agent";
 import {
@@ -119,9 +120,7 @@ test.describe("New Workspace mode cycle safety", () => {
 
       // Mount the live agent tab: its mode control registers a mode-cycle keyboard handler.
       await openAgentRoute(page, { workspaceId: seeded.workspaceId, agentId: agent.id });
-      await expect(
-        page.getByRole("button", { name: "Select agent mode (Default permissions)" }),
-      ).toBeVisible({ timeout: 30_000 });
+      await expectComposerMode(page, "Default permissions");
 
       // Move to the New Workspace composer. The agent tab stays mounted in the background,
       // so its handler is still registered when we cycle here.

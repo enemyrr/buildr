@@ -1,44 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getFeatureHighlightColor,
-  getFeatureTooltip,
-  getAgentControlHintKey,
-  normalizeModelId,
-  resolveAgentModelSelection,
-} from "./utils";
-
-describe("getAgentControlHintKey", () => {
-  it("returns translation keys for each editable agent control hint", () => {
-    expect(getAgentControlHintKey("thinking")).toBe("agentControls.hints.thinking");
-    expect(getAgentControlHintKey("model")).toBe("agentControls.hints.model");
-    expect(getAgentControlHintKey("mode")).toBe("agentControls.hints.mode");
-  });
-});
-
-describe("feature metadata helpers", () => {
-  it("prefers explicit feature tooltip copy", () => {
-    expect(
-      getFeatureTooltip({
-        label: "Plan",
-        tooltip: "Toggle plan mode",
-      }),
-    ).toBe("Toggle plan mode");
-  });
-
-  it("falls back to the feature label when no tooltip is provided", () => {
-    expect(
-      getFeatureTooltip({
-        label: "Custom",
-      }),
-    ).toBe("Custom");
-  });
-
-  it("maps feature highlight colors by feature id", () => {
-    expect(getFeatureHighlightColor("fast_mode")).toBe("yellow");
-    expect(getFeatureHighlightColor("plan_mode")).toBe("blue");
-    expect(getFeatureHighlightColor("other")).toBe("default");
-  });
-});
+import { normalizeModelId, resolveAgentModelSelection } from "./utils";
 
 describe("normalizeModelId", () => {
   it("treats empty values as unset", () => {

@@ -80,6 +80,8 @@ export const fr: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "Basculer la barre latérale",
+      back: "Précédent",
+      forward: "Suivant",
       open: "Ouvrir le menu",
       close: "Fermer le menu",
     },
@@ -116,6 +118,7 @@ export const fr: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "Envoyez un message à l'agent, marquez@filesou utilisez/commandset/skills",
       mobile: "Message,@files,/commands",
@@ -199,35 +202,12 @@ export const fr: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "Fournisseur",
-      select: "Sélectionnez le fournisseur d'agent",
-    },
     thinking: {
-      title: "Pensée",
       unknown: "Inconnu",
       extraHigh: "Très haut",
-      select: "Sélectionnez l'option de réflexion",
-      selectWithValue: "Sélectionnez l'option de réflexion ({{value}})",
     },
     model: {
       unknown: "Modèle inconnu",
-    },
-    features: {
-      title: "Caractéristiques",
-      open: "Fonctionnalités de l'agent ouvert",
-      on: "Sur",
-      off: "Désactivé",
-    },
-    mode: {
-      title: "Mode",
-      searchPlaceholder: "Modes de recherche...",
-      selectWithValue: "Sélectionnez le mode agent ({{value}})",
-    },
-    hints: {
-      thinking: "Mode réflexion",
-      model: "Changer de modèle",
-      mode: "Changer de mode",
     },
   },
   agentStream: {
@@ -1192,6 +1172,21 @@ export const fr: TranslationResources = {
       whatsNew: "Nouveautés",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "Ressources et utilisation",
+      title: "Ressources",
+      cpu: "CPU",
+      memory: "Mémoire",
+      memoryShort: "Mém.",
+      name: "Nom",
+      showAll: "Tout afficher ({{count}})",
+      showLess: "Afficher moins",
+      context: "Contexte",
+      noContext: "Aucun agent ouvert ne signale encore son contexte.",
+      untitledAgent: "Agent sans titre",
+      limits: "Limites du forfait",
+      updateHost: "Mettez à jour l’hôte pour voir le CPU et la mémoire.",
+    },
     sections: {
       sessions: "Historique",
       search: "Rechercher",
@@ -1612,8 +1607,6 @@ export const fr: TranslationResources = {
     error: "Erreur",
     defaultModel: "Défaut",
     profiles: "Profils",
-    providers: "Fournisseurs",
-    model: "Modèle",
     editProfiles: "Modifier",
     editProfilesLabel: "Modifier les profils d'agent",
     createProfile: "Créer un profil",
@@ -1981,6 +1974,7 @@ export const fr: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "Paramètres",
     loading: "Chargement des paramètres...",
     groups: {

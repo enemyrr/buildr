@@ -5,7 +5,7 @@ import { gotoAppShell, openSettings } from "./app";
 import { connectDaemonClient } from "./daemon-client-loader";
 import { getServerId } from "./server-id";
 import { expectAppRoute } from "./route-assertions";
-import { openSettingsHost } from "./settings";
+import { openSettingsHost, openSettingsHostSection } from "./settings";
 
 // ─── Daemon-side seeding ───────────────────────────────────────────────────
 
@@ -136,21 +136,33 @@ export async function seedModelProvider(input: {
 
 // ─── Settings: navigation ──────────────────────────────────────────────────
 
-/** Reach agent profiles through the same visible Settings path a person uses. */
+/**
+ * Reach model presets through the same visible Settings path a person uses.
+ * They live on Default models, under the loadout that is their head.
+ */
 export async function openAgentProfileSettings(page: Page): Promise<void> {
   const serverId = getServerId();
   await gotoAppShell(page);
   await openSettings(page);
   await openSettingsHost(page, serverId);
-  await page.getByRole("button", { name: "Agents", exact: true }).click();
-  await expectAppRoute(page, buildSettingsHostSectionRoute(serverId, "agents"));
+  await openSettingsHostSection(page, serverId, "models");
+  await expect(page.getByTestId("default-models-loadout")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("agent-profiles-card")).toBeVisible({ timeout: 30_000 });
+}
+
+/** The loadout is the first five presets, so its slots follow preset order. */
+export async function expectDefaultModelsLoadout(page: Page, names: string[]): Promise<void> {
+  for (const [index, name] of names.entries()) {
+    await expect(page.getByTestId(`default-models-slot-${index}`)).toContainText(name, {
+      timeout: 30_000,
+    });
+  }
 }
 
 export async function expectNoAgentProfiles(page: Page): Promise<void> {
   const card = page.getByTestId("agent-profiles-card");
   await expect(card.getByTestId("agent-profiles-empty")).toBeVisible();
-  await expect(card.getByRole("button", { name: "New profile", exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "New preset", exact: true })).toBeVisible();
 }
 
 // ─── Settings: the profile list ────────────────────────────────────────────
@@ -285,7 +297,7 @@ async function saveAgentProfile(page: Page): Promise<void> {
 }
 
 export async function createAgentProfile(page: Page, draft: AgentProfileDraft): Promise<void> {
-  await page.getByRole("button", { name: "Add agent profile", exact: true }).click();
+  await page.getByTestId("agent-profiles-add-button").click();
   await expect(editModal(page)).toBeVisible({ timeout: 30_000 });
   await fillAgentProfileForm(page, draft);
   await saveAgentProfile(page);
@@ -297,7 +309,7 @@ export async function createAgentProfileFromEmptyState(
 ): Promise<void> {
   await page
     .getByTestId("agent-profiles-card")
-    .getByRole("button", { name: "New profile", exact: true })
+    .getByRole("button", { name: "New preset", exact: true })
     .click();
   await expect(editModal(page)).toBeVisible({ timeout: 30_000 });
   await fillAgentProfileForm(page, draft);
@@ -309,9 +321,7 @@ export async function editAgentProfile(
   name: string,
   changes: AgentProfileDraft,
 ): Promise<void> {
-  await agentProfileRow(page, name)
-    .getByRole("button", { name: "Edit profile", exact: true })
-    .click();
+  await agentProfileRow(page, name).locator('[data-testid^="agent-profile-edit-"]').click();
   await expect(editModal(page)).toBeVisible({ timeout: 30_000 });
   await fillAgentProfileForm(page, changes);
   await saveAgentProfile(page);
@@ -323,15 +333,13 @@ export async function expectAgentProfileForm(
   name: string,
   expected: { provider?: string; model?: string; mode?: string; notes?: string },
 ): Promise<void> {
-  await agentProfileRow(page, name)
-    .getByRole("button", { name: "Edit profile", exact: true })
-    .click();
+  await agentProfileRow(page, name).locator('[data-testid^="agent-profile-edit-"]').click();
   const modal = editModal(page);
   await expect(modal).toBeVisible({ timeout: 30_000 });
   await expect(modal.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(name);
   const notesHint = modal.getByTestId("agent-profile-notes-field-hint");
   await expect(notesHint).toHaveText(
-    "Helps agents choose this profile when starting another agent.",
+    "Helps agents choose this preset when starting another agent.",
   );
   expect(await notesHint.evaluate((element) => getComputedStyle(element).webkitLineClamp)).not.toBe(
     "1",
@@ -353,124 +361,99 @@ export async function expectAgentProfileForm(
 
 // ─── The model picker ──────────────────────────────────────────────────────
 
-/** Desktop web renders the model browser inside the combobox popover. */
-function pickerViewport(page: Page): Locator {
+/**
+ * The composer's loadout picker. It is a popover on wide layouts and a sheet on
+ * compact ones; the sheet carries the `-content` suffix.
+ */
+export function loadoutMenu(page: Page): Locator {
+  return page
+    .locator('[data-testid="model-loadout-menu"], [data-testid="model-loadout-menu-content"]')
+    .filter({ visible: true });
+}
+
+/** The full catalog behind "More models…". Desktop web renders it in the combobox popover. */
+function modelBrowser(page: Page): Locator {
   return page.getByTestId("combobox-desktop-container");
+}
+
+function loadoutRows(page: Page): Locator {
+  return loadoutMenu(page).locator('[data-testid^="model-loadout-row-"]');
 }
 
 export async function openModelPicker(page: Page): Promise<void> {
   await page.getByTestId("combined-model-selector").filter({ visible: true }).first().click();
-  await expect(pickerViewport(page)).toBeVisible({ timeout: 30_000 });
+  await expect(loadoutMenu(page)).toBeVisible({ timeout: 30_000 });
+}
+
+/**
+ * Opens the catalog through the loadout's "More models…" row. On an empty
+ * loadout that row reads "Add models…" and a pick is also added to the loadout,
+ * so journeys that pick a model seed the loadout they expect.
+ */
+export async function openModelBrowser(page: Page): Promise<void> {
+  await openModelPicker(page);
+  await loadoutMenu(page).getByTestId("browse-all-models").click();
+  await expect(loadoutMenu(page)).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByTestId("model-search-all-input")).toBeVisible({ timeout: 30_000 });
 }
 
 export async function closeModelPicker(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
-  await expect(pickerViewport(page)).toHaveCount(0, { timeout: 30_000 });
+  await expect(loadoutMenu(page)).toHaveCount(0, { timeout: 30_000 });
+  await expect(modelBrowser(page)).toHaveCount(0, { timeout: 30_000 });
 }
 
-export function profilePickerRow(page: Page, name: string): Locator {
-  return pickerViewport(page)
-    .locator('[data-testid^="model-profile-row-"]')
-    .filter({ hasText: name });
+export function loadoutSlot(page: Page, name: string): Locator {
+  return loadoutRows(page).filter({ hasText: name });
 }
 
-/**
- * Profiles are pinned above the provider list, so "pinned" is an ordering claim:
- * the profile row's top edge sits above every provider row's.
- */
-export async function expectProfilePinnedAboveProviders(
+/** Slot order is preset order, top to bottom. */
+export async function expectLoadoutSlots(page: Page, names: string[]): Promise<void> {
+  await expect(loadoutRows(page)).toHaveCount(names.length, { timeout: 30_000 });
+  await expect(loadoutRows(page)).toContainText(names);
+}
+
+export async function expectLoadoutSlotActive(
   page: Page,
-  input: { name: string; summary: string },
+  name: string,
+  active: boolean,
 ): Promise<void> {
-  const viewport = pickerViewport(page);
-  await expect(viewport.getByText("Profiles", { exact: true })).toBeVisible({ timeout: 30_000 });
-  const row = profilePickerRow(page, input.name);
-  await expect(row).toBeVisible({ timeout: 30_000 });
-  await expect(row.getByText(input.summary, { exact: true })).toBeVisible();
-
-  const profileTop = await boxTop(row);
-  const providerRows = viewport.locator('[data-testid^="model-provider-"]');
-  await expect(providerRows.first()).toBeVisible();
-  const providerCount = await providerRows.count();
-  for (let index = 0; index < providerCount; index += 1) {
-    expect(profileTop).toBeLessThan(await boxTop(providerRows.nth(index)));
-  }
-}
-
-export async function expectProfileVisibleForProvider(
-  page: Page,
-  input: { name: string; summary: string },
-): Promise<void> {
-  const viewport = pickerViewport(page);
-  await expect(viewport.getByText("Profiles", { exact: true })).toBeVisible({ timeout: 30_000 });
-  const row = profilePickerRow(page, input.name);
-  await expect(row).toBeVisible({ timeout: 30_000 });
-  await expect(row.getByText(input.summary, { exact: true })).toBeVisible();
-}
-
-export async function expectProfileEditIsPencilOnly(page: Page): Promise<void> {
-  const viewport = pickerViewport(page);
-  await expect(
-    viewport.getByRole("button", { name: "Edit agent profiles", exact: true }),
-  ).toBeVisible();
-  await expect(viewport.getByText("Edit", { exact: true })).toHaveCount(0);
-}
-
-export async function expectAgentProfilesEmptyPrompt(page: Page): Promise<void> {
-  const viewport = pickerViewport(page);
-  await expect(viewport.getByText("Profiles", { exact: true })).toHaveCount(0);
-  await expect(
-    viewport.getByRole("button", { name: "Edit agent profiles", exact: true }),
-  ).toHaveCount(0);
-  await expect(viewport.getByRole("button", { name: "Create profile", exact: true })).toBeVisible({
+  await expect(loadoutSlot(page, name)).toHaveAttribute("aria-checked", String(active), {
     timeout: 30_000,
   });
 }
 
-export async function expectProfileEditTooltip(page: Page): Promise<void> {
-  const edit = pickerViewport(page).getByRole("button", {
-    name: "Edit agent profiles",
-    exact: true,
-  });
-  await edit.hover();
-  await expect(page.getByText("Edit agent profiles", { exact: true })).toBeVisible();
+export async function expectEmptyLoadout(page: Page): Promise<void> {
+  await expect(loadoutRows(page)).toHaveCount(0);
+  await expect(loadoutMenu(page).getByTestId("browse-all-models")).toHaveText("Add models…");
 }
 
-export async function openAgentProfilesFromEmptyPrompt(page: Page): Promise<void> {
-  await pickerViewport(page).getByRole("button", { name: "Create profile", exact: true }).click();
-  await expect(page.getByTestId("agent-profiles-card")).toBeVisible({ timeout: 30_000 });
+export async function applyLoadoutSlot(page: Page, name: string): Promise<void> {
+  await loadoutSlot(page, name).click();
+  await expect(loadoutMenu(page)).toHaveCount(0, { timeout: 30_000 });
 }
 
-async function boxTop(locator: Locator): Promise<number> {
-  const box = await locator.boundingBox();
-  if (!box) {
-    throw new Error("Expected a laid-out element to measure");
-  }
-  return box.y;
+/** The picker's Edit footer leads to the Default models settings page. */
+export async function openDefaultModelsFromPicker(page: Page): Promise<void> {
+  await loadoutMenu(page).getByTestId("model-loadout-edit").click();
+  await expectAppRoute(page, buildSettingsHostSectionRoute(getServerId(), "models"));
+  await expect(page.getByTestId("default-models-loadout")).toBeVisible({ timeout: 30_000 });
 }
 
-export async function applyProfileFromPicker(page: Page, name: string): Promise<void> {
-  await profilePickerRow(page, name).click();
-  await expect(pickerViewport(page)).toHaveCount(0, { timeout: 30_000 });
-}
-
-/**
- * Applying a profile materializes it and forgets it: nothing in the root view
- * claims selection. Model rows do carry `aria-selected`, so a count of zero here
- * is the absence of a checkmark, not the absence of the attribute everywhere.
- */
-export async function expectNothingSelectedInPickerRoot(page: Page): Promise<void> {
-  await expect(pickerViewport(page).locator("[aria-selected]")).toHaveCount(0);
-}
-
-export async function expectAgentProfilesEditShortcut(page: Page): Promise<void> {
-  await expect(
-    pickerViewport(page).getByRole("button", { name: "Edit agent profiles", exact: true }),
-  ).toBeVisible({ timeout: 30_000 });
-}
-
-export async function drillIntoProvider(page: Page, providerId: string): Promise<void> {
-  await pickerViewport(page).getByTestId(`model-provider-${providerId}`).click();
+/** Picks a model from the catalog by provider and visible label. */
+export async function selectModelFromBrowser(
+  page: Page,
+  input: { provider: string; label: string },
+): Promise<void> {
+  await openModelBrowser(page);
+  await searchAllModels(page, input.label);
+  await modelBrowser(page)
+    .locator(`[data-testid^="model-row-${input.provider}-"]`)
+    .filter({ has: page.getByText(input.label, { exact: true }) })
+    .first()
+    .click();
+  await expect(modelBrowser(page)).toHaveCount(0, { timeout: 30_000 });
+  await expectComposerModel(page, input.label);
 }
 
 export async function expectModelRowSelected(
@@ -478,7 +461,7 @@ export async function expectModelRowSelected(
   input: { provider: string; modelId: string },
 ): Promise<void> {
   await expect(
-    pickerViewport(page).getByTestId(`model-row-${input.provider}-${input.modelId}`),
+    modelBrowser(page).getByTestId(`model-row-${input.provider}-${input.modelId}`),
   ).toHaveAttribute("aria-selected", "true", { timeout: 30_000 });
 }
 
@@ -494,9 +477,7 @@ export async function expectModelSearchResult(
   page: Page,
   expected: { provider: string; modelId: string; providerLabel: string; modelLabel: string },
 ): Promise<void> {
-  const row = pickerViewport(page).getByTestId(
-    `model-row-${expected.provider}-${expected.modelId}`,
-  );
+  const row = modelBrowser(page).getByTestId(`model-row-${expected.provider}-${expected.modelId}`);
   await expect(row).toBeVisible({ timeout: 30_000 });
   await expect(row.getByText(expected.modelLabel, { exact: true })).toBeVisible();
   await expect(
@@ -508,11 +489,6 @@ function escapeForRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Search results replace the whole root view, pinned profiles included. */
-export async function expectPinnedProfilesHidden(page: Page): Promise<void> {
-  await expect(pickerViewport(page).locator('[data-testid^="model-profile-row-"]')).toHaveCount(0);
-}
-
 export async function expectModelSearchEmptyState(page: Page, query: string): Promise<void> {
   const empty = page.getByTestId("model-search-empty");
   await expect(empty).toBeVisible({ timeout: 30_000 });
@@ -520,17 +496,17 @@ export async function expectModelSearchEmptyState(page: Page, query: string): Pr
 }
 
 export async function readModelPickerHeight(page: Page): Promise<number> {
-  const box = await pickerViewport(page).boundingBox();
+  const box = await modelBrowser(page).boundingBox();
   if (!box) {
-    throw new Error("Expected the model picker to be laid out");
+    throw new Error("Expected the model browser to be laid out");
   }
   return box.height;
 }
 
 export async function readModelPickerWidth(page: Page): Promise<number> {
-  const box = await pickerViewport(page).boundingBox();
+  const box = await modelBrowser(page).boundingBox();
   if (!box) {
-    throw new Error("Expected the model picker to be laid out");
+    throw new Error("Expected the model browser to be laid out");
   }
   return box.width;
 }
@@ -547,7 +523,7 @@ export async function expectSearchResultsVirtualized(
   page: Page,
   input: { provider: string; total: number },
 ): Promise<void> {
-  const mountedRows = pickerViewport(page).locator(`[data-testid^="model-row-${input.provider}-"]`);
+  const mountedRows = modelBrowser(page).locator(`[data-testid^="model-row-${input.provider}-"]`);
   await expect.poll(() => mountedRows.count()).toBeGreaterThan(0);
   expect(await mountedRows.count()).toBeLessThan(input.total);
 }
@@ -556,14 +532,30 @@ export async function expectSearchResultsVirtualized(
 
 export async function expectComposerModel(page: Page, modelLabel: string): Promise<void> {
   await expect(
-    page.getByRole("button", { name: `Select model (${modelLabel})`, exact: true }),
+    page
+      .getByRole("button", { name: `Select model (${modelLabel})`, exact: true })
+      .filter({ visible: true })
+      .first(),
   ).toBeVisible({ timeout: 30_000 });
 }
 
+/** Mode lives in the loadout picker as a submenu row that shows its current value. */
 export async function expectComposerMode(page: Page, modeLabel: string): Promise<void> {
-  await expect(
-    page.getByRole("button", { name: `Select agent mode (${modeLabel})`, exact: true }).first(),
-  ).toBeVisible({ timeout: 30_000 });
+  await openModelPicker(page);
+  await expect(loadoutMenu(page).getByTestId("mode-control")).toContainText(modeLabel, {
+    timeout: 30_000,
+  });
+  await closeModelPicker(page);
+}
+
+/** Effort lives in the loadout picker as a submenu row that shows its current value. */
+export async function expectComposerThinking(page: Page, thinkingLabel: string): Promise<void> {
+  await openModelPicker(page);
+  await expect(loadoutMenu(page).getByTestId("agent-thinking-selector")).toContainText(
+    thinkingLabel,
+    { timeout: 30_000 },
+  );
+  await closeModelPicker(page);
 }
 
 /** The composer never shows the profile's name — a profile is not a selection. */
@@ -571,4 +563,12 @@ export async function expectComposerDoesNotName(page: Page, profileName: string)
   await expect(
     page.locator('[data-testid="message-input-root"]:visible').getByText(profileName),
   ).toHaveCount(0);
+}
+
+async function boxTop(locator: Locator): Promise<number> {
+  const box = await locator.boundingBox();
+  if (!box) {
+    throw new Error("Expected a laid-out element to measure");
+  }
+  return box.y;
 }

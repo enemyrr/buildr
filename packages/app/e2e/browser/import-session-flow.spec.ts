@@ -126,9 +126,9 @@ test("captures the compact import-session journey", async ({ page }, testInfo) =
   const flow = new ImportSessionFlow(page);
   await flow.openWorkspace(scenario.project.workspaceId, { width: 390, height: 844 });
 
-  await test.step("the mobile sidebar exposes import in its footer", async () => {
+  await test.step("the mobile sidebar exposes import in its new menu", async () => {
     await flow.revealMobileEntryPoint();
-    await capture(page, testInfo, "01-mobile-sidebar-footer.png");
+    await capture(page, testInfo, "01-mobile-sidebar-new-menu.png");
   });
 
   await test.step("the host-wide sheet is newest first and fits its provider filter", async () => {

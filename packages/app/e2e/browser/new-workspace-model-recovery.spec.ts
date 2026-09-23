@@ -2,8 +2,9 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { test, expect, type Page } from "../support/fixtures";
 import {
   closeModelPicker,
-  drillIntoProvider,
-  openModelPicker,
+  expectModelRowSelected,
+  openModelBrowser,
+  searchAllModels,
   seedModelProvider,
 } from "../support/helpers/agent-profiles";
 import { connectDaemonClient } from "../support/helpers/daemon-client-loader";
@@ -33,12 +34,9 @@ async function rememberModel(page: Page) {
 }
 
 async function expectRecoveredModelInPicker(page: Page) {
-  await openModelPicker(page);
-  await page.getByRole("dialog").getByRole("button", { name: "Back", exact: true }).click();
-  await drillIntoProvider(page, PROVIDER);
-  await expect(
-    page.getByTestId("combobox-desktop-container").getByText(LABEL, { exact: true }),
-  ).toBeVisible();
+  await openModelBrowser(page);
+  await searchAllModels(page, LABEL);
+  await expectModelRowSelected(page, { provider: PROVIDER, modelId: MODEL });
   await closeModelPicker(page);
 }
 

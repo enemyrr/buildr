@@ -79,6 +79,8 @@ export const ptBR: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "Alternar barra lateral",
+      back: "Voltar",
+      forward: "Avançar",
       open: "Abrir menu",
       close: "Fechar menu",
     },
@@ -114,6 +116,7 @@ export const ptBR: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "Envie uma mensagem ao agente, marque @files ou use /commands e /skills",
       mobile: "Mensagem, @files, /commands",
@@ -196,35 +199,12 @@ export const ptBR: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "Provedor",
-      select: "Selecionar provedor do agente",
-    },
     thinking: {
-      title: "Raciocínio",
       unknown: "Desconhecido",
       extraHigh: "Extra alto",
-      select: "Selecionar opção de raciocínio",
-      selectWithValue: "Selecionar opção de raciocínio ({{value}})",
     },
     model: {
       unknown: "Modelo desconhecido",
-    },
-    features: {
-      title: "Recursos",
-      open: "Abrir recursos do agente",
-      on: "Ativado",
-      off: "Desativado",
-    },
-    mode: {
-      title: "Modo",
-      searchPlaceholder: "Buscar modos...",
-      selectWithValue: "Selecionar modo do agente ({{value}})",
-    },
-    hints: {
-      thinking: "Modo de raciocínio",
-      model: "Alterar modelo",
-      mode: "Alterar modo de permissão",
     },
   },
   agentStream: {
@@ -1182,6 +1162,21 @@ export const ptBR: TranslationResources = {
       whatsNew: "Novidades",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "Recursos e uso",
+      title: "Recursos",
+      cpu: "CPU",
+      memory: "Memória",
+      memoryShort: "Mem.",
+      name: "Nome",
+      showAll: "Mostrar tudo ({{count}})",
+      showLess: "Mostrar menos",
+      context: "Contexto",
+      noContext: "Nenhum agente aberto informa o contexto ainda.",
+      untitledAgent: "Agente sem título",
+      limits: "Limites do plano",
+      updateHost: "Atualize o host para ver o uso de CPU e memória.",
+    },
     sections: {
       sessions: "Histórico",
       search: "Buscar",
@@ -1593,8 +1588,6 @@ export const ptBR: TranslationResources = {
     error: "Erro",
     defaultModel: "Padrão",
     profiles: "Perfis",
-    providers: "Provedores",
-    model: "Modelo",
     editProfiles: "Editar",
     editProfilesLabel: "Editar perfis de agente",
     createProfile: "Criar perfil",
@@ -1961,6 +1954,7 @@ export const ptBR: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "Configurações",
     loading: "Carregando configurações...",
     groups: {

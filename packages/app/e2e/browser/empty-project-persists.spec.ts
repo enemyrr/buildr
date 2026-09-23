@@ -22,11 +22,7 @@ async function archiveWorkspaceFromSidebar(page: Page, workspaceId: string): Pro
   const serverId = getServerId();
   const row = page.getByTestId(workspaceRowTestId(workspaceId));
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.hover();
-
-  const kebab = page.getByTestId(`sidebar-workspace-kebab-${serverId}:${workspaceId}`);
-  await expect(kebab).toBeVisible({ timeout: 10_000 });
-  await kebab.click();
+  await row.click({ button: "right" });
 
   const archiveItem = page.getByTestId(`sidebar-workspace-menu-archive-${serverId}:${workspaceId}`);
   await expect(archiveItem).toBeVisible({ timeout: 10_000 });

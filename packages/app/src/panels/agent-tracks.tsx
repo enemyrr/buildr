@@ -1,6 +1,4 @@
 import { memo, useCallback, type ReactElement } from "react";
-import { WorkspaceDiffStatPill } from "@/composer/diff-stat-pill";
-import { useWorkspaceHasDiffStat } from "@/composer/workspace-diff-stat";
 import { AgentTaskList } from "@/composer/task-list";
 import { ComposerTrackBar } from "@/composer/tracks";
 import { supportsDesktopPaneSplits, useIsCompactFormFactor } from "@/constants/layout";
@@ -19,10 +17,9 @@ import type { TodoEntry } from "@/types/stream";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
-import { openComposerChanges } from "@/workspace-tabs/open-supporting-view";
 
 /**
- * The pane's ambient context — workspace changes, subagents, and tasks — as a row of pills above
+ * The pane's ambient context — subagents, tasks, and plugin pills — as a row of pills above
  * the composer.
  *
  * The row shares the composer's keyboard transform and owns the space between itself and the
@@ -32,7 +29,6 @@ export const AgentTracks = memo(function AgentTracks({
   serverId,
   workspaceId,
   agentId,
-  cwd,
   subagentRows,
   tasks,
   archiveFinishedStatus,
@@ -42,7 +38,6 @@ export const AgentTracks = memo(function AgentTracks({
   serverId: string;
   workspaceId: string;
   agentId: string;
-  cwd: string;
   subagentRows: SubagentRow[];
   tasks: TodoEntry[] | undefined;
   archiveFinishedStatus: ArchiveFinishedStatus;
@@ -50,7 +45,6 @@ export const AgentTracks = memo(function AgentTracks({
   hasPluginComposerPills: boolean;
 }): ReactElement | null {
   const { tabId, openTab } = usePaneContext();
-  const hasWorkspaceDiffStat = useWorkspaceHasDiffStat(serverId, workspaceId);
   const isCompact = useIsCompactFormFactor();
   const canSplit = supportsDesktopPaneSplits() && !isCompact;
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
@@ -100,20 +94,8 @@ export const AgentTracks = memo(function AgentTracks({
     },
     [canSplit, isCompact, openInSidePane, openTab, tabId, workspaceKey],
   );
-  const handleOpenChanges = useCallback(() => {
-    if (!workspaceKey) {
-      return;
-    }
-    openComposerChanges({
-      isCompact,
-      workspaceKey,
-      checkout: { serverId, cwd, isGit: true },
-      preferences: openInSidePane,
-    });
-  }, [cwd, isCompact, openInSidePane, serverId, workspaceKey]);
 
   if (
-    !hasWorkspaceDiffStat &&
     !hasAgentTracks({
       subagentRows,
       tasks,
@@ -142,11 +124,6 @@ export const AgentTracks = memo(function AgentTracks({
         workspaceId={workspaceId}
         agentId={agentId}
         compact={isCompact}
-      />
-      <WorkspaceDiffStatPill
-        serverId={serverId}
-        workspaceId={workspaceId}
-        onPress={handleOpenChanges}
       />
     </ComposerTrackBar>
   );

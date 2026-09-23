@@ -440,24 +440,27 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 // Dark tint definitions
 // ---------------------------------------------------------------------------
 
-// Paseo — subtle teal-green tint (default)
+// Warm charcoal palette for this fork, matched to the Conductor reference.
 const paseoDarkColors = buildDarkSemanticColors({
-  surface0: "#181B1A",
-  surface1: "#1E2120",
-  surface2: "#272A29",
-  surface3: "#434645",
-  surface4: "#595B5B",
-  surfaceDiffEmpty: "#252827",
-  surfaceSidebar: "#141716",
-  foregroundMuted: "#A1A5A4",
-  foregroundExtraMuted: "#717574",
-  border: "#252B2A",
-  borderAccent: "#2F3534",
-  accent: "#20744A",
-  accentBright: "#7ccba0",
+  surface0: "#151110",
+  surface1: "#211F1D",
+  surface2: "#2B2825",
+  surface3: "#373330",
+  surface4: "#625C57",
+  surfaceDiffEmpty: "#211C19",
+  surfaceSidebar: "#1B1917",
+  foreground: "#EAE8E6",
+  foregroundMuted: "#A39E99",
+  foregroundExtraMuted: "#77716C",
+  border: "#302C29",
+  borderAccent: "#3A3531",
+  accent: "#C6B3A5",
+  accentBright: "#DDCABB",
+  accentForeground: "#151110",
+  ring: "#9B8778",
   destructive: "#c64f43", // warm red, hue ~7 — reads as red (not pink) against the green tint
-  terminalBlack: "#141716",
-  terminalBrightBlack: "#434645",
+  terminalBlack: "#211F1D",
+  terminalBrightBlack: "#625C57",
 });
 
 // Zinc — neutral gray, no tint
@@ -688,7 +691,7 @@ export function buildDarkTheme(semanticColors: ReturnType<typeof buildDarkSemant
   } as const;
 }
 
-export const darkTheme = buildDarkTheme(paseoDarkColors);
+export const darkTheme = buildDarkTheme({ ...paseoDarkColors, surfaceWorkspace: "#151110" });
 export const darkZincTheme = buildDarkTheme(zincDarkColors);
 export const darkMidnightTheme = buildDarkTheme(midnightDarkColors);
 export const darkClaudeTheme = buildDarkTheme(claudeDarkColors);

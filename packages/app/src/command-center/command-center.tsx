@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronRight, Folder, X } from "lucide-react-native";
+import { Check, ChevronRight, Folder, Search, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   BottomSheetBackdrop,
@@ -86,6 +86,7 @@ const ThemedCheck = withUnistyles(Check, (theme) => ({ color: theme.colors.foreg
 const ThemedChevronRight = withUnistyles(ChevronRight, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
+const ThemedSearch = withUnistyles(Search, (theme) => ({ color: theme.colors.foregroundMuted }));
 const ThemedX = withUnistyles(X, (theme) => ({ color: theme.colors.foregroundMuted }));
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner, (theme) => ({
   color: theme.colors.foregroundMuted,
@@ -572,7 +573,7 @@ function SectionRow({ row }: { row: Extract<CommandCenterListRow, { kind: "secti
   if (row.title && !row.divider) sizeStyle = styles.titledSection;
   return (
     <View style={sizeStyle}>
-      {row.divider ? <View style={styles.sectionDivider} /> : null}
+      {row.divider && !row.title ? <View style={styles.sectionDivider} /> : null}
       {row.title ? <Text style={styles.sectionLabel}>{row.title}</Text> : null}
     </View>
   );
@@ -690,6 +691,7 @@ export function CommandCenter() {
     getItemLayout,
     ListEmptyComponent: empty,
     style: styles.results,
+    contentContainerStyle: styles.resultsContent,
     testID: "command-center-results",
     keyboardShouldPersistTaps: KEYBOARD_SHOULD_PERSIST_TAPS,
     showsVerticalScrollIndicator: false,
@@ -744,6 +746,7 @@ export function CommandCenter() {
         accessible={false}
       >
         <View style={[styles.bottomSheetHeader, styles.searchRow]} testID="command-center-header">
+          <ThemedSearch size={16} strokeWidth={2} />
           {state.scope === "files" ? (
             <ScopeChip label={t("shell.commandCenter.files")} onRemove={state.clearScope} />
           ) : null}
@@ -783,6 +786,7 @@ export function CommandCenter() {
           <Pressable style={styles.backdrop} onPress={state.close} />
           <View ref={setWebOverlayScope} testID="command-center-panel" style={styles.panel}>
             <View style={[styles.header, styles.searchRow]} testID="command-center-header">
+              <ThemedSearch size={16} strokeWidth={2} />
               {state.scope === "files" ? (
                 <ScopeChip label={t("shell.commandCenter.files")} onRemove={state.clearScope} />
               ) : null}
@@ -865,14 +869,14 @@ const styles = StyleSheet.create((theme) => ({
     maxHeight: "80%",
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.xl,
     overflow: "hidden",
     backgroundColor: theme.colors.surface0,
     ...theme.shadow.lg,
   },
   header: {
     paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[3],
+    paddingVertical: theme.spacing[4],
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
@@ -911,10 +915,13 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "500",
   },
   results: { flex: 1 },
+  resultsContent: { paddingBottom: theme.spacing[1.5] },
+  // Labels align with row content: the row's inset plus its own padding.
   sectionLabel: {
-    paddingHorizontal: theme.spacing[4],
-    paddingBottom: theme.spacing[2],
+    paddingHorizontal: theme.spacing[1.5] + theme.spacing[3],
+    paddingBottom: theme.spacing[1.5],
     fontSize: theme.fontSize.sm,
+    fontWeight: "500",
     color: theme.colors.foregroundMuted,
   },
   sectionDivider: {
@@ -923,7 +930,15 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing[2],
     backgroundColor: theme.colors.border,
   },
-  row: { height: 36, paddingHorizontal: theme.spacing[4], paddingVertical: theme.spacing[2] },
+  // Rows are inset from the panel edge so the highlight reads as a rounded pill.
+  row: {
+    height: 36,
+    marginHorizontal: theme.spacing[1.5],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+    borderRadius: theme.borderRadius.lg,
+    justifyContent: "center",
+  },
   tallRow: { height: 56 },
   activeRow: { backgroundColor: theme.colors.surface1 },
   rowContent: {
@@ -936,7 +951,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: theme.spacing[3],
   },
   textContent: { flex: 1, minWidth: 0 },

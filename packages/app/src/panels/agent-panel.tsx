@@ -27,7 +27,6 @@ import { FileDropZone } from "@/components/file-drop/file-drop-zone";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { RetainedChatContent } from "./retained-chat-content";
 import { Composer } from "@/composer";
-import { useWorkspaceHasDiffStat } from "@/composer/workspace-diff-stat";
 import {
   resolveComposerTrackControlClearance,
   resolveComposerTrackTailClearance,
@@ -1191,7 +1190,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
     setAttachments,
     clear,
     isHydrated,
-    attachmentFocusRequestId,
+    fileMentionRequestId,
     composerState,
   } = rawAgentInputDraft;
   const agentInputDraft = useMemo(
@@ -1204,7 +1203,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
       setAttachments,
       clear,
       isHydrated,
-      attachmentFocusRequestId,
+      fileMentionRequestId,
       composerState,
     }),
     [
@@ -1216,7 +1215,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
       setAttachments,
       clear,
       isHydrated,
-      attachmentFocusRequestId,
+      fileMentionRequestId,
       composerState,
     ],
   );
@@ -1244,7 +1243,6 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
         <AgentStreamSection
           streamViewRef={streamViewRef}
           serverId={serverId}
-          workspaceId={workspaceId}
           agentId={agentId}
           agent={effectiveAgent}
           routeBottomAnchorRequest={routeBottomAnchorRequest}
@@ -1260,7 +1258,6 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
           serverId={serverId}
           workspaceId={workspaceId}
           agentId={agentId}
-          cwd={cwd}
           subagentRows={subagentRows}
           tasks={tasks}
           archiveFinishedStatus={archiveFinishedSubagents.status}
@@ -1369,7 +1366,6 @@ function TimelineSyncErrorCallout({
 const AgentStreamSection = memo(function AgentStreamSection({
   streamViewRef,
   serverId,
-  workspaceId,
   agentId,
   agent,
   routeBottomAnchorRequest,
@@ -1381,7 +1377,6 @@ const AgentStreamSection = memo(function AgentStreamSection({
 }: {
   streamViewRef: React.RefObject<AgentStreamViewHandle | null>;
   serverId: string;
-  workspaceId: string;
   agentId?: string;
   agent: AgentScreenAgent;
   routeBottomAnchorRequest: RouteBottomAnchorRequest;
@@ -1392,9 +1387,7 @@ const AgentStreamSection = memo(function AgentStreamSection({
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
 }) {
   const isCompactFormFactor = useIsCompactFormFactor();
-  const hasWorkspaceDiffStat = useWorkspaceHasDiffStat(serverId, workspaceId);
-  const hasVisibleComposerTracks =
-    hasActiveComposer && (hasVisibleAgentTracks || hasWorkspaceDiffStat);
+  const hasVisibleComposerTracks = hasActiveComposer && hasVisibleAgentTracks;
   const bottomOverlayTailClearance = hasVisibleComposerTracks
     ? resolveComposerTrackTailClearance(isCompactFormFactor)
     : 0;
@@ -1634,7 +1627,7 @@ function ActiveAgentComposer({
         cwd={cwd}
         clearDraft={agentInputDraft.clear}
         autoFocus
-        autoFocusKey={String(agentInputDraft.attachmentFocusRequestId)}
+        autoFocusKey={String(agentInputDraft.fileMentionRequestId)}
         isSubmitLoading={isSubmitLoading}
         onAttentionInputFocus={onAttentionInputFocus}
         onAttentionPromptSend={onAttentionPromptSend}

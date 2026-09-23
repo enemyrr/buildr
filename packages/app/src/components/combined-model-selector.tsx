@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  Pressable,
+  Text,
+  View,
+  type PressableStateCallbackType,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
@@ -59,10 +66,108 @@ interface CombinedModelSelectorProps {
    * (the composer's layout).
    */
   triggerFill?: boolean;
+  /**
+   * Render only the browser, opened by the caller and anchored to its trigger. Used by pickers
+   * that own their trigger and reach the full model list from a row of their own.
+   */
+  controlled?: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    anchorRef: RefObject<View | null>;
+  };
   toolbar?: {
     glyphSize: number;
     showCaret: boolean;
   };
+}
+
+function useSelectorOpenState(controlled: CombinedModelSelectorProps["controlled"]) {
+  const ownAnchorRef = useRef<View>(null);
+  const [ownIsOpen, setOwnIsOpen] = useState(false);
+  return {
+    ownAnchorRef,
+    anchorRef: controlled?.anchorRef ?? ownAnchorRef,
+    isOpen: controlled?.open ?? ownIsOpen,
+    setOpen: controlled?.onOpenChange ?? setOwnIsOpen,
+  };
+}
+
+function SelectorTrigger({
+  anchorRef,
+  renderTrigger,
+  toolbar,
+  disabled,
+  isOpen,
+  onPress,
+  style,
+  accessibilityLabel,
+  triggerLabel,
+  selectedProvider,
+  serverId,
+}: {
+  anchorRef: RefObject<View | null>;
+  renderTrigger: CombinedModelSelectorProps["renderTrigger"];
+  toolbar: CombinedModelSelectorProps["toolbar"];
+  disabled: boolean;
+  isOpen: boolean;
+  onPress: () => void;
+  style: (state: PressableStateCallbackType & { hovered?: boolean }) => StyleProp<ViewStyle>;
+  accessibilityLabel: string;
+  triggerLabel: string;
+  selectedProvider: string;
+  serverId: string | null;
+}) {
+  if (renderTrigger) {
+    return (
+      <Pressable
+        ref={anchorRef}
+        collapsable={false}
+        disabled={disabled}
+        onPress={onPress}
+        style={style}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        testID="combined-model-selector"
+      >
+        {({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) =>
+          renderTrigger({
+            selectedModelLabel: triggerLabel,
+            onPress,
+            disabled,
+            isOpen,
+            hovered: Boolean(hovered),
+            pressed,
+          })
+        }
+      </Pressable>
+    );
+  }
+  return (
+    <ComboboxTrigger
+      ref={anchorRef}
+      collapsable={false}
+      disabled={disabled}
+      onPress={onPress}
+      style={style}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      testID="combined-model-selector"
+      chevron={toolbar?.showCaret === false ? null : undefined}
+    >
+      {selectedProvider.trim().length > 0 ? (
+        <View style={toolbar?.glyphSize === 20 ? styles.toolbarGlyph20 : styles.toolbarGlyph16}>
+          <ModelProviderGlyph
+            provider={selectedProvider}
+            serverId={serverId}
+            size={toolbar?.glyphSize ?? ICON_SIZE.md}
+          />
+        </View>
+      ) : null}
+      <Text style={styles.triggerText} numberOfLines={1} ellipsizeMode="tail">
+        {triggerLabel}
+      </Text>
+    </ComboboxTrigger>
+  );
 }
 
 export function CombinedModelSelector({
@@ -87,12 +192,12 @@ export function CombinedModelSelector({
   desktopMinWidth,
   triggerFill = false,
   toolbar,
+  controlled,
 }: CombinedModelSelectorProps) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const modelBrowserScrolling = resolveModelBrowserScrolling({ isNative, isCompact });
-  const anchorRef = useRef<View>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  const { ownAnchorRef, anchorRef, isOpen, setOpen } = useSelectorOpenState(controlled);
   const [isContentReady, setIsContentReady] = useState(isWeb);
   const browser = useModelBrowser({
     providers,
@@ -102,11 +207,11 @@ export function CombinedModelSelector({
     profiles,
     serverId,
   });
-  const { prepareToOpen, reset } = browser;
+  const { prepareToOpen, reset, showAll } = browser;
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
-      setIsOpen(open);
+      setOpen(open);
       if (open) {
         prepareToOpen();
         onOpen?.();
@@ -115,8 +220,14 @@ export function CombinedModelSelector({
       reset();
       onClose?.();
     },
-    [onClose, onOpen, prepareToOpen, reset],
+    [onClose, onOpen, prepareToOpen, reset, setOpen],
   );
+
+  // A controlled browser is opened by its owner, so it starts on the full list here.
+  const controlledOpen = Boolean(controlled?.open);
+  useEffect(() => {
+    if (controlledOpen) showAll();
+  }, [controlledOpen, showAll]);
 
   const handleSelect = useCallback(
     (provider: string, modelId: string) => {
@@ -203,6 +314,8 @@ export function CombinedModelSelector({
       onRetryProvider={onRetryProvider}
       isRetryingProvider={isRetryingProvider}
       scrolling={modelBrowserScrolling}
+      flatModels={Boolean(controlled)}
+      showProfilesSection={!controlled}
     />
   ) : (
     <View style={styles.sheetLoadingState}>
@@ -213,57 +326,22 @@ export function CombinedModelSelector({
 
   return (
     <>
-      {renderTrigger ? (
-        <Pressable
-          ref={anchorRef}
-          collapsable={false}
+      {controlled ? null : (
+        <SelectorTrigger
+          anchorRef={ownAnchorRef}
+          renderTrigger={renderTrigger}
+          toolbar={toolbar}
           disabled={disabled}
+          isOpen={isOpen}
           onPress={handleTriggerPress}
           style={triggerStyle}
-          accessibilityRole="button"
           accessibilityLabel={t("modelSelector.selectedModel", {
             model: browser.selectedModelLabel,
           })}
-          testID="combined-model-selector"
-        >
-          {({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) =>
-            renderTrigger({
-              selectedModelLabel: browser.triggerLabel,
-              onPress: handleTriggerPress,
-              disabled,
-              isOpen,
-              hovered: Boolean(hovered),
-              pressed,
-            })
-          }
-        </Pressable>
-      ) : (
-        <ComboboxTrigger
-          ref={anchorRef}
-          collapsable={false}
-          disabled={disabled}
-          onPress={handleTriggerPress}
-          style={triggerStyle}
-          accessibilityRole="button"
-          accessibilityLabel={t("modelSelector.selectedModel", {
-            model: browser.selectedModelLabel,
-          })}
-          testID="combined-model-selector"
-          chevron={toolbar?.showCaret === false ? null : undefined}
-        >
-          {selectedProvider.trim().length > 0 ? (
-            <View style={toolbar?.glyphSize === 20 ? styles.toolbarGlyph20 : styles.toolbarGlyph16}>
-              <ModelProviderGlyph
-                provider={selectedProvider}
-                serverId={serverId}
-                size={toolbar?.glyphSize ?? ICON_SIZE.md}
-              />
-            </View>
-          ) : null}
-          <Text style={styles.triggerText} numberOfLines={1} ellipsizeMode="tail">
-            {browser.triggerLabel}
-          </Text>
-        </ComboboxTrigger>
+          triggerLabel={browser.triggerLabel}
+          selectedProvider={selectedProvider}
+          serverId={serverId}
+        />
       )}
       <Combobox
         options={EMPTY_COMBOBOX_OPTIONS}

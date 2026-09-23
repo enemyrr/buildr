@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { UserComposerAttachment } from "@/attachments/types";
 import {
-  appendWorkspaceFileAttachment,
   createWorkspaceFileAttachment,
+  formatWorkspaceFileMention,
   getWorkspaceFileAttachmentKey,
   getWorkspaceFileAttachmentSubtitle,
+  insertWorkspaceFileMention,
   workspaceFileAttachmentToAgentAttachment,
 } from "./workspace-file";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
@@ -29,26 +29,26 @@ describe("workspace file attachments", () => {
     expect(getWorkspaceFileAttachmentSubtitle(lineRange)).toBe("src/app.ts · 12-24");
   });
 
-  it("deduplicates only identical paths and selections", () => {
-    const image = {
-      kind: "image" as const,
-      metadata: {
-        id: "image-1",
-        mimeType: "image/png",
-        storageType: "web-indexeddb" as const,
-        storageKey: "image-1",
-        createdAt: 1,
-      },
-    };
+  it("formats inline mentions and pads them against surrounding text", () => {
     const wholeFile = createWorkspaceFileAttachment({ path: "src/app.ts" });
     const range = createWorkspaceFileAttachment({
       path: "src/app.ts",
       selection: { kind: "line_range", startLine: 1, endLine: 5 },
     });
-    const current: UserComposerAttachment[] = [image, wholeFile];
 
-    expect(appendWorkspaceFileAttachment(current, wholeFile)).toBe(current);
-    expect(appendWorkspaceFileAttachment(current, range)).toEqual([image, wholeFile, range]);
+    expect(formatWorkspaceFileMention(wholeFile)).toBe('"src/app.ts"');
+    expect(formatWorkspaceFileMention(range)).toBe('"src/app.ts" (lines 1-5)');
+    expect(insertWorkspaceFileMention({ text: "", attachment: wholeFile })).toEqual({
+      text: '"src/app.ts" ',
+      cursor: 13,
+    });
+    expect(insertWorkspaceFileMention({ text: "look at", attachment: wholeFile })).toEqual({
+      text: 'look at "src/app.ts" ',
+      cursor: 21,
+    });
+    expect(
+      insertWorkspaceFileMention({ text: "fix  please", attachment: wholeFile, at: 4 }),
+    ).toEqual({ text: 'fix "src/app.ts" please', cursor: 16 });
   });
 
   it("submits a path reference without uploading or inserting prompt text", () => {

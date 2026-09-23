@@ -36,6 +36,7 @@ type HostSection =
   | "connections"
   | "pair-device"
   | "agents"
+  | "models"
   | "metadata"
   | "workspaces"
   | "providers"

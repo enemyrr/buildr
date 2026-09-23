@@ -73,6 +73,8 @@ import { useRevealedText } from "@/hooks/use-revealed-text";
 import { colorMarkdownLinkChildren } from "@/components/markdown/link-children";
 import { createAssistantMarkdownParser } from "@/utils/assistant-markdown-parser";
 import { formatDuration, formatMessageTimestamp } from "@/utils/time";
+import { openExternalUrl } from "@/utils/open-external-url";
+import { splitTextLinks } from "@/utils/text-links";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
@@ -333,7 +335,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
   content: {
     alignItems: "flex-end",
-    maxWidth: "100%",
+    maxWidth: { xs: "90%", md: "80%" },
     cursor: "auto",
   },
   containerSpacing: {
@@ -347,10 +349,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
   bubble: {
     backgroundColor: theme.colors.surface3,
-    borderRadius: theme.borderRadius["2xl"],
-    borderTopRightRadius: theme.borderRadius.sm,
+    borderRadius: theme.borderRadius.lg,
     paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[4],
+    paddingVertical: theme.spacing[3],
     minWidth: 0,
     flexShrink: 1,
   },
@@ -363,6 +364,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
           overflowWrap: "anywhere" as const,
         }
       : {}),
+  },
+  link: {
+    color: theme.colors.accentBright,
   },
   imagePreviewContainer: {
     flexDirection: "row",
@@ -422,6 +426,26 @@ function UserMessageImagePill({ image, onOpen, accessibilityLabel }: UserMessage
 }
 
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
+
+function TextLink({ url, style }: { url: string; style: StyleProp<TextStyle> }) {
+  const handlePress = useCallback(() => void openExternalUrl(url), [url]);
+  return (
+    <Text accessibilityRole="link" style={style} onPress={handlePress}>
+      {url}
+    </Text>
+  );
+}
+
+function LinkedText({ text, linkStyle }: { text: string; linkStyle: StyleProp<TextStyle> }) {
+  const segments = useMemo(() => splitTextLinks(text), [text]);
+  return segments.map((segment) =>
+    segment.kind === "link" ? (
+      <TextLink key={segment.start} url={segment.text} style={linkStyle} />
+    ) : (
+      segment.text
+    ),
+  );
+}
 
 export const UserMessage = memo(function UserMessage({
   serverId,
@@ -543,7 +567,7 @@ export const UserMessage = memo(function UserMessage({
           ) : null}
           {hasText ? (
             <Text selectable style={userMessageStylesheet.text} dataSet={MESSAGE_TEXT_DATASET}>
-              {message}
+              <LinkedText text={message} linkStyle={userMessageStylesheet.link} />
             </Text>
           ) : null}
         </View>

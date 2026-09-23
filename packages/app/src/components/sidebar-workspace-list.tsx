@@ -239,6 +239,7 @@ interface SidebarWorkspaceListProps {
 }
 
 interface ProjectHeaderRowProps {
+  workspaceCount?: number | null;
   project: SidebarProjectEntry;
   displayName: string;
   iconDataUri: string | null;
@@ -847,7 +848,17 @@ function NewWorkspaceGhostRow({
   );
 }
 
+function ProjectWorkspaceCount({ count }: { count: number | null }) {
+  if (count === null || count === 0) return null;
+  return (
+    <Text style={styles.projectWorkspaceCount} accessibilityLabel={`${count} workspaces`}>
+      {count}
+    </Text>
+  );
+}
+
 function ProjectHeaderRow({
+  workspaceCount = null,
   project,
   displayName,
   iconDataUri,
@@ -958,6 +969,7 @@ function ProjectHeaderRow({
           <Text style={styles.projectTitle} numberOfLines={1}>
             {displayName}
           </Text>
+          <ProjectWorkspaceCount count={workspaceCount} />
         </View>
       </View>
       <ProjectRowTrailingActions
@@ -1607,6 +1619,8 @@ function ProjectBlock({
     [collapsed, project, supportsMultiplicityByServerId],
   );
 
+  const workspaceCount = collapsed ? project.workspaces.length : null;
+
   // Collapsed rows hide their workspace rows, so the project row carries the most urgent
   // status among them; expanded rows leave the signal to the child rows themselves.
   const aggregateStatusBucket = useSidebarProjectStatusBucket({
@@ -1794,6 +1808,7 @@ function ProjectBlock({
       style={projectChildren ? styles.projectBlockExpanded : undefined}
     >
       <ProjectHeaderRow
+        workspaceCount={workspaceCount}
         project={project}
         displayName={displayName}
         iconDataUri={iconDataUri}
@@ -2527,9 +2542,9 @@ const styles = StyleSheet.create((theme) => ({
   // the step in reads as belonging to that project. Padding rather than margin, so the hover and
   // pressed fills stay the same box as every other row in the sidebar.
   newWorkspaceGhostRow: {
-    minHeight: 36,
+    minHeight: 30,
     marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
     paddingLeft: theme.spacing[4],
     paddingRight: theme.spacing[3],
     borderRadius: theme.borderRadius.lg,
@@ -2567,8 +2582,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectRow: {
     position: "relative",
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
+    minHeight: 30,
+    paddingVertical: theme.spacing[1.5],
     paddingHorizontal: theme.spacing[2],
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing[1],
@@ -2598,6 +2613,12 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
     flex: 1,
     minWidth: 0,
+  },
+  projectWorkspaceCount: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.sm,
+    marginLeft: theme.spacing[1],
+    fontVariant: ["tabular-nums"],
   },
   projectTitleGroup: {
     flexDirection: "row",
@@ -2685,13 +2706,13 @@ const styles = StyleSheet.create((theme) => ({
   projectActionTooltipShortcut: {},
   projectShortcutBadgeOverlay: {
     position: "absolute",
-    top: theme.spacing[2] + 1,
+    top: theme.spacing[1.5] + 1,
     right: theme.spacing[2],
   },
   workspaceRow: {
-    minHeight: 36,
+    minHeight: 30,
     marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
     paddingLeft: theme.spacing[2],
     paddingRight: theme.spacing[3],
     borderRadius: theme.borderRadius.lg,

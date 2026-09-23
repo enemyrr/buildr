@@ -3,6 +3,7 @@ import type { ProviderAvailability } from "../../agent/agent-manager.js";
 import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
 import { getPidLockInfo } from "../../pid-lock.js";
 import { generateLocalPairingOffer } from "../../pairing-offer.js";
+import { sampleProcessTree } from "../../process-resources.js";
 import {
   collectDaemonDiagnostics,
   type DaemonWebSocketRuntimeDiagnosticSnapshot,
@@ -207,6 +208,34 @@ export class DaemonSession {
           listen: null,
           relay: null,
           providers: [],
+        },
+      });
+    }
+  }
+
+  async handleGetResourcesRequest(
+    msg: Extract<SessionInboundMessage, { type: "daemon.get_resources.request" }>,
+  ): Promise<void> {
+    try {
+      const processes = await sampleProcessTree(process.pid);
+      this.host.emit({
+        type: "daemon.get_resources.response",
+        payload: {
+          requestId: msg.requestId,
+          sampledAt: new Date().toISOString(),
+          rootPid: process.pid,
+          processes,
+        },
+      });
+    } catch (error) {
+      this.logger.error({ err: error }, "Failed to sample daemon resources");
+      this.host.emit({
+        type: "rpc_error",
+        payload: {
+          requestId: msg.requestId,
+          requestType: msg.type,
+          error: "Failed to sample daemon resources",
+          code: "daemon_resources_failed",
         },
       });
     }

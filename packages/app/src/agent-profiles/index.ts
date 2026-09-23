@@ -19,6 +19,12 @@ export type { AgentProfileSeed } from "./internal/profile-form-model";
 export { useAgentProfileEditor, type AgentProfileEditorControls } from "./agent-profile-editor";
 export { useAgentProfiles } from "./internal/use-agent-profiles";
 export {
+  useModelLoadout,
+  MODEL_LOADOUT_SIZE,
+  type ModelLoadout,
+  type ModelLoadoutEntry,
+} from "./internal/use-model-loadout";
+export {
   useAgentProfilePicker,
   type AgentProfileApplyTarget,
   type AgentProfilePicker,

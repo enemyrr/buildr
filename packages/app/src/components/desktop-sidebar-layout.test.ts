@@ -80,7 +80,7 @@ describe("desktop sidebar layout", () => {
 
   it("yields app navigation when settings needs the shell width", () => {
     const settingsMinimum = resolveDesktopAppContentMinimum({ isSettingsRoute: true });
-    expect(settingsMinimum).toBe(720);
+    expect(settingsMinimum).toBe(672);
     expect(
       canDesktopAppSidebarShare({
         contentMinimumWidth: settingsMinimum,

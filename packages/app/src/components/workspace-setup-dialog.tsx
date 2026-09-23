@@ -87,13 +87,11 @@ async function callWorkspaceCreation({
   creationMethod,
   connectedClient,
   creationId,
-  worktreeSlug,
   input,
 }: {
   creationMethod: "create_worktree" | "open_project";
   connectedClient: DaemonClient;
   creationId: string;
-  worktreeSlug: string;
   input: { cwd: string; agent?: CreateWorkspaceRequestOptions["agent"] };
 }) {
   return connectedClient.createWorkspace({
@@ -101,7 +99,7 @@ async function callWorkspaceCreation({
     agent: input.agent,
     source:
       creationMethod === "create_worktree"
-        ? { kind: "worktree", cwd: input.cwd, worktreeSlug }
+        ? { kind: "worktree", cwd: input.cwd }
         : { kind: "directory", path: input.cwd },
   });
 }
@@ -271,7 +269,6 @@ export function WorkspaceSetupDialog() {
       const payload = await callWorkspaceCreation({
         creationMethod: pendingWorkspaceSetup.creationMethod,
         creationId: pendingWorkspaceSetup.creationId,
-        worktreeSlug: pendingWorkspaceSetup.worktreeSlug,
         connectedClient,
         input,
       });

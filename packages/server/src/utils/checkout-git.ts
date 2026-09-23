@@ -4173,13 +4173,32 @@ async function getPullRequestStatusUncached(
         reason: options?.reason,
       });
     }
-    return buildPullRequestStatusResult(status, "authenticated");
+    return buildPullRequestStatusResult(
+      await dropFinishedPullRequestOutsideWorktree(cwd, status, context),
+      "authenticated",
+    );
   } catch (error) {
     if (isForgeAuthError(error)) {
       return buildPullRequestStatusResult(null, forgeAuthStateFromError(error));
     }
     throw error;
   }
+}
+
+// A local checkout on a long-lived branch (e.g. `dev`) can sit exactly on the head of an old
+// merged PR. Only Paseo worktrees own their branch, so only they surface finished PRs.
+async function dropFinishedPullRequestOutsideWorktree(
+  cwd: string,
+  status: CurrentPullRequestStatus | null,
+  context?: CheckoutContext,
+): Promise<CurrentPullRequestStatus | null> {
+  if (!status || status.state === "open") {
+    return status;
+  }
+  const isPaseoWorktree = context?.facts?.isGit
+    ? context.facts.paseoWorktree.isPaseoOwnedWorktree
+    : (await getPaseoWorktreeForCwd(cwd, { context })).isPaseoOwnedWorktree;
+  return isPaseoWorktree ? status : null;
 }
 
 function getUnavailablePullRequestStatus(

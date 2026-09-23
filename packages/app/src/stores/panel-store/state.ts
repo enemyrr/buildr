@@ -21,7 +21,9 @@ export interface DesktopSidebarState {
 
 export type SortOption = "name" | "modified" | "size";
 
-export const DEFAULT_SIDEBAR_WIDTH = 320;
+export const DEFAULT_SIDEBAR_WIDTH = 272;
+// v17 narrowed the default. Installs still on the old default move with it; a dragged width stays.
+const LEGACY_DEFAULT_SIDEBAR_WIDTH = 320;
 export const MIN_SIDEBAR_WIDTH = 200;
 export const MAX_SIDEBAR_WIDTH = 600;
 
@@ -224,6 +226,8 @@ export function migratePanelState(persistedState: unknown, version: number): Mig
     migratePanelDesktopFocusMode(state);
   }
   if (version < 6 || typeof state.sidebarWidth !== "number") {
+    state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+  } else if (version < 17 && state.sidebarWidth === LEGACY_DEFAULT_SIDEBAR_WIDTH) {
     state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
   }
   if (

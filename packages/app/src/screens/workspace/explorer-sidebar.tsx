@@ -33,6 +33,7 @@ interface ExplorerSidebarDockProps {
     tab: WorkspaceTabDescriptor;
   }) => WorkspacePaneContentModel;
   headerAction?: ReactNode;
+  statusStrip?: ReactNode;
 }
 
 /** A dock shell over the shared panel host. It owns no workspace-pane capabilities. */
@@ -52,6 +53,7 @@ export function ExplorerSidebarDock({
   onReorderTabsInPane,
   buildPaneContentModel,
   headerAction,
+  statusStrip,
 }: ExplorerSidebarDockProps) {
   const paneState = useMemo(() => deriveWorkspacePaneState({ pane, tabs: uiTabs }), [pane, uiTabs]);
   const tabs = useMemo(() => paneState.tabs.map((tab) => tab.descriptor), [paneState.tabs]);
@@ -86,6 +88,7 @@ export function ExplorerSidebarDock({
         <View style={styles.dock} testID="workspace-explorer-sidebar">
           <WindowChromeSafeArea placement="inline" style={styles.tabRail}>
             <TitlebarDragRegion />
+            {statusStrip}
             <ExplorerSidebarTabRail
               paneId={pane.id}
               tabs={tabItems}

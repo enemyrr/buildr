@@ -1,3 +1,4 @@
+import { checkProviderUpdate, updateProvider } from "../features/provider-updates.js";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
@@ -394,6 +395,8 @@ async function resolveRequestedReleaseChannel(
 export function createDaemonCommandHandlers(): Record<string, DesktopCommandHandler> {
   return {
     ...createDesktopSettingsCommandHandlers({ settingsStore: getDesktopSettingsStore() }),
+    check_provider_update: (args) => checkProviderUpdate(args?.provider),
+    update_provider: (args) => updateProvider(args?.provider),
     desktop_get_runtime_info: () => ({
       appVersion: resolveDesktopAppVersion(),
       runningUnderARM64Translation: isRunningUnderARM64Translation(),

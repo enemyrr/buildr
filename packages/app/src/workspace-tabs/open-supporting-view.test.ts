@@ -17,7 +17,6 @@ import {
 } from "@/stores/workspace-layout-store";
 import {
   autoOpenWorkspacePullRequest,
-  openComposerChanges,
   openWorkspaceChanges,
   openWorkspacePullRequest,
 } from "@/workspace-tabs/open-supporting-view";
@@ -51,66 +50,6 @@ describe("openWorkspaceChanges", () => {
 
     expect(usePanelStore.getState().mobilePanel.target).toBe("file-explorer");
     expect(usePanelStore.getState().explorerTab).toBe("changes");
-  });
-});
-
-describe("openComposerChanges", () => {
-  const input = {
-    isCompact: false,
-    supportsPaneSplits: true,
-    workspaceKey: WORKSPACE_KEY,
-    checkout: CHECKOUT,
-    preferences: DEFAULT_APP_SETTINGS.openInSidePane,
-  };
-
-  it("opens the desktop Explorer on Changes when it is closed", () => {
-    openComposerChanges(input);
-
-    const state = useWorkspaceLayoutStore.getState();
-    const explorerPaneId = state.explorerSidebarPaneIdByWorkspace[WORKSPACE_KEY];
-    const layout = state.layoutByWorkspace[WORKSPACE_KEY];
-    const explorerPane =
-      layout && explorerPaneId ? findPaneById(layout.root, explorerPaneId) : null;
-    const explorerTabKinds = layout
-      ? collectAllTabs(layout.root)
-          .filter((tab) => explorerPane?.tabIds.includes(tab.tabId))
-          .map((tab) => tab.target.kind)
-      : [];
-
-    expect(explorerPane?.hidden).not.toBe(true);
-    expect(explorerTabKinds).toContain("changes_tree");
-    expect(layout && collectAllTabs(layout.root).map((tab) => tab.target.kind)).not.toContain(
-      "working_diff",
-    );
-  });
-
-  it("opens the diff through Changes link routing when the desktop Explorer is open", () => {
-    openComposerChanges(input);
-    openComposerChanges({
-      ...input,
-      preferences: { ...input.preferences, diffs: true },
-    });
-
-    const state = useWorkspaceLayoutStore.getState();
-    const layout = state.layoutByWorkspace[WORKSPACE_KEY];
-    const sidePaneId = state.sidePaneIdByWorkspace[WORKSPACE_KEY];
-    const sidePane = layout && sidePaneId ? findPaneById(layout.root, sidePaneId) : null;
-    const sideTabKinds = layout
-      ? collectAllTabs(layout.root)
-          .filter((tab) => sidePane?.tabIds.includes(tab.tabId))
-          .map((tab) => tab.target.kind)
-      : [];
-
-    expect(sideTabKinds).toContain("working_diff");
-  });
-
-  it("keeps opening the compact Explorer on Changes", () => {
-    openComposerChanges({ ...input, isCompact: true });
-    openComposerChanges({ ...input, isCompact: true });
-
-    expect(usePanelStore.getState().mobilePanel.target).toBe("file-explorer");
-    expect(usePanelStore.getState().explorerTab).toBe("changes");
-    expect(useWorkspaceLayoutStore.getState().layoutByWorkspace[WORKSPACE_KEY]).toBeUndefined();
   });
 });
 

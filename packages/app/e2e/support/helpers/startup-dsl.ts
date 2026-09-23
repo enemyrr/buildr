@@ -162,8 +162,7 @@ class StartupAssertions {
     const hostRow = this.page.getByTestId(`sidebar-host-row-${input.serverId}`);
     await expect(hostRow).toBeVisible({ timeout: 15_000 });
     await expect(hostRow).toContainText(input.label);
-    await expect(this.page.getByTestId("sidebar-add-project")).toBeVisible();
-    await expect(this.page.getByTestId("sidebar-import-session")).toBeVisible();
+    await expect(this.page.getByTestId("sidebar-new-menu")).toBeVisible();
     await expect(this.page.getByTestId("sidebar-settings")).toBeVisible();
     await expect(this.page.getByTestId("welcome-screen")).toHaveCount(0);
     return this;

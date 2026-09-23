@@ -1,3 +1,4 @@
+import { ProviderUpdateSection } from "@/desktop/components/provider-update-section";
 import * as Clipboard from "expo-clipboard";
 import { AlertTriangle, Copy, FileText, Plus, RotateCw, Trash2 } from "lucide-react-native";
 import type { TFunction } from "i18next";
@@ -696,6 +697,7 @@ export function ProviderDiagnosticSheet({
         })}
         snapPoints={MAIN_SNAP_POINTS}
       >
+        <ProviderUpdateSection provider={provider} serverId={serverId} />
         <ProviderModalBody
           discoveredCount={discoveredModels.length}
           additionalCount={additionalModels.length}

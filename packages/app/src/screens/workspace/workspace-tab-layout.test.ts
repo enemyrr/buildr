@@ -10,6 +10,7 @@ const metrics = {
   rowPaddingHorizontal: 8,
   tabGap: 4,
   minTabWidth: 96,
+  preferredTabWidth: 96,
   maxTabWidth: 160,
   tabIconWidth: 14,
   tabContentGap: 4,
@@ -18,6 +19,24 @@ const metrics = {
 };
 
 describe("computeWorkspaceTabLayout", () => {
+  it("widens short tabs to the preferred width, then shrinks them toward the minimum", () => {
+    const preferred = { ...metrics, preferredTabWidth: 140 };
+    const roomy = computeWorkspaceTabLayout({
+      viewportWidth: 1200,
+      tabLabelWidths: [40, 40],
+      metrics: preferred,
+    });
+    const crowded = computeWorkspaceTabLayout({
+      viewportWidth: 360,
+      tabLabelWidths: [40, 40],
+      metrics: preferred,
+    });
+
+    expect(roomy.items.map((item) => item.width)).toEqual([140, 140]);
+    expect(crowded.requiresHorizontalScrollFallback).toBe(false);
+    expect(crowded.items.every((item) => item.width >= 96 && item.width < 140)).toBe(true);
+  });
+
   it("keeps each tab at its natural content width when space is available", () => {
     const result = computeWorkspaceTabLayout({
       viewportWidth: 1200,

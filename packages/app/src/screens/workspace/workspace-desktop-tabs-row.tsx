@@ -1,3 +1,4 @@
+import { useWorkspaceTabLaunchCatalog } from "@/workspace-tabs/launcher";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import React, {
   useCallback,
@@ -107,7 +108,8 @@ const TAB_CONTENT_GAP = 4;
 const TAB_DROP_INDICATOR_WIDTH = 4;
 const TAB_MODIFIED_DOT_SIZE = 8;
 const TAB_MIN_WIDTH = 96;
-const TAB_MAX_WIDTH = 160;
+const TAB_PREFERRED_WIDTH = 140;
+const TAB_MAX_WIDTH = 200;
 const TAB_CLOSE_BUTTON_RESERVED_WIDTH = 0;
 const TAB_LABEL_LAYOUT_ALLOWANCE = 4;
 const AGENT_TOOLTIP_TITLE_MAX_LENGTH = 80;
@@ -229,24 +231,32 @@ function WorkspaceNewTabButton({
 }: WorkspaceNewTabButtonProps) {
   const { t } = useTranslation();
   const tooltipText = t("workspace.tabs.actions.newTab");
+  const groups = useWorkspaceTabLaunchCatalog({ serverId, purpose: "primary", host: "main" });
+  const agentItem = groups.flatMap((group) => group.items).find((item) => item.id === "agent");
+  const openAgent = useCallback(
+    () => agentItem?.launch({ kind: "open", paneId }),
+    [agentItem, paneId],
+  );
   const menu = (
-    <DropdownMenu>
-      <ToolbarButton
-        kind="menu"
-        label={tooltipText}
-        shortcut={shortcutKeys}
-        testID="workspace-new-tab-button"
-        style={placement === "inline" ? styles.inlineNewTabButton : undefined}
-      >
-        <ThemedPlus size={14} uniProps={extraMutedColorMapping} />
-      </ToolbarButton>
+    <ContextMenu>
+      <ContextMenuTrigger contextOnly>
+        <ToolbarButton
+          label={tooltipText}
+          shortcut={shortcutKeys}
+          onPress={openAgent}
+          testID="workspace-new-tab-button"
+          style={placement === "inline" ? styles.inlineNewTabButton : undefined}
+        >
+          <ThemedPlus size={14} uniProps={extraMutedColorMapping} />
+        </ToolbarButton>
+      </ContextMenuTrigger>
       <WorkspaceNewTabMenuContent
         serverId={serverId}
         purpose="primary"
         host="main"
         paneId={paneId}
       />
-    </DropdownMenu>
+    </ContextMenu>
   );
 
   return placement === "inline" ? <View style={styles.inlineAddButton}>{menu}</View> : menu;
@@ -639,7 +649,7 @@ function useMiddleClickClose(onClose: () => void) {
   return ref;
 }
 
-/** The chip fill the running-status ring has to knock out of. Mirrors `styles.tab*` exactly. */
+/** The chip fill the trailing action scrim has to fade into. Mirrors `styles.tab*` exactly. */
 function resolveChipBackdrop({
   isActiveFocused,
   isFilled,
@@ -655,7 +665,6 @@ function TabHandleContent({
   presentation,
   isHighlighted,
   showLabel,
-  backdrop,
   tabLabelSkeletonStyle,
   tabLabelStyle,
   modifiedTestId,
@@ -663,7 +672,6 @@ function TabHandleContent({
   presentation: WorkspaceTabPresentation;
   isHighlighted: boolean;
   showLabel: boolean;
-  backdrop: SurfaceBackdrop;
   tabLabelSkeletonStyle: React.ComponentProps<typeof View>["style"];
   tabLabelStyle: React.ComponentProps<typeof Text>["style"];
   modifiedTestId: string;
@@ -677,7 +685,7 @@ function TabHandleContent({
   return (
     <View style={styles.tabHandle} dataSet={tabHandleDataSet}>
       <View style={styles.tabIcon}>
-        <WorkspaceTabIcon presentation={presentation} active={isHighlighted} backdrop={backdrop} />
+        <WorkspaceTabIcon presentation={presentation} active={isHighlighted} />
       </View>
       {showLabel && presentation.titleState === "loading" ? (
         <View style={tabLabelSkeletonStyle} />
@@ -852,7 +860,6 @@ function TabChip({
                 presentation={presentation}
                 isHighlighted={isHighlighted}
                 showLabel={showLabel}
-                backdrop={chipBackdrop}
                 tabLabelSkeletonStyle={tabLabelSkeletonStyle}
                 tabLabelStyle={tabLabelStyle}
                 modifiedTestId={`workspace-tab-modified-${testIdentity}`}
@@ -1056,6 +1063,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       rowPaddingHorizontal: TAB_ROW_PADDING_HORIZONTAL,
       tabGap: TAB_CHIP_GAP,
       minTabWidth: TAB_MIN_WIDTH,
+      preferredTabWidth: TAB_PREFERRED_WIDTH,
       maxTabWidth: TAB_MAX_WIDTH,
       tabIconWidth: TAB_ICON_WIDTH,
       tabContentGap: TAB_CONTENT_GAP,

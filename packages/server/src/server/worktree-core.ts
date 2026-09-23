@@ -1,4 +1,4 @@
-import { createNameId } from "mnemonic-id";
+import { reserveWorkspaceCityName } from "./worktree-city-name.js";
 
 import type { ForgeService } from "../services/forge-service.js";
 import {
@@ -64,7 +64,33 @@ async function createWorktreeCoreWithPriority(
     ? normalizeWorktreeSlug(input.worktreeSlug)
     : undefined;
   const requestedBranchName = input.branchName?.trim();
+  const city = requestedWorktreeSlug
+    ? null
+    : await reserveWorkspaceCityName({
+        cwd: repoRoot,
+        paseoHome: input.paseoHome,
+        worktreesRoot: input.worktreesRoot,
+      });
+  try {
+    return await createNamedWorktree(
+      input,
+      deps,
+      repoRoot,
+      requestedWorktreeSlug ?? city!.name,
+      requestedBranchName,
+    );
+  } finally {
+    city?.release();
+  }
+}
 
+async function createNamedWorktree(
+  input: CreateWorktreeCoreInput,
+  deps: CreateWorktreeCoreDeps,
+  repoRoot: string,
+  requestedWorktreeSlug: string,
+  requestedBranchName: string | undefined,
+): Promise<CreateWorktreeCoreResult> {
   let intentInput: ResolveWorktreeCreationIntentInput;
   if (input.action === "checkout") {
     intentInput = {
@@ -82,7 +108,7 @@ async function createWorktreeCoreWithPriority(
       worktreeSlug: requestedWorktreeSlug,
     };
   } else {
-    const worktreeSlug = requestedWorktreeSlug ?? normalizeWorktreeSlug(createNameId());
+    const worktreeSlug = requestedWorktreeSlug;
     intentInput = {
       action: "branch-off",
       refName: input.refName,
@@ -97,29 +123,11 @@ async function createWorktreeCoreWithPriority(
     forgeService: forge.service,
     resolveDefaultBranch: (root) => resolveDefaultBranch(root, deps),
   });
-  let normalizedSlug: string;
-
-  switch (intent.kind) {
-    case "branch-off": {
-      normalizedSlug = requestedWorktreeSlug ?? normalizeWorktreeSlug(intent.branchName);
-      break;
-    }
-    case "checkout-branch": {
-      normalizedSlug = requestedWorktreeSlug ?? normalizeWorktreeSlug(intent.branchName);
-      break;
-    }
-    case "checkout-change-request":
-    case "checkout-github-pr": {
-      normalizedSlug =
-        requestedWorktreeSlug ?? normalizeWorktreeSlug(intent.localBranchName ?? intent.headRef);
-      break;
-    }
-  }
 
   return {
     worktree: await createWorktree({
       cwd: repoRoot,
-      worktreeSlug: normalizedSlug,
+      worktreeSlug: requestedWorktreeSlug,
       source: intent,
       runSetup: input.runSetup ?? true,
       paseoHome: input.paseoHome,

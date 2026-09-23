@@ -37,7 +37,6 @@ import { workspaceTabTargetsEqual } from "@/workspace-tabs/identity";
 import type { PanelIconProps } from "@/panels/panel-registry";
 import { panelTargetSupportsHost } from "@/plugins/workspace-panels/locations";
 import type { Theme } from "@/styles/theme";
-import type { SurfaceBackdrop } from "@/styles/surface-backdrop";
 import {
   HorizontalScrollBoundaryShades,
   useHorizontalScrollBoundary,
@@ -65,10 +64,6 @@ interface ExplorerSidebarTabRailProps {
 
 function tabKey(item: WorkspaceDesktopTabRowItem): string {
   return `${item.tab.key}:${item.tab.kind}`;
-}
-
-function resolveExplorerSidebarTabBackdrop(): SurfaceBackdrop {
-  return "surfaceSidebar";
 }
 
 function ExplorerSidebarTab({
@@ -140,7 +135,6 @@ function ExplorerSidebarTab({
                 active={item.isActive}
                 size={iconButtonChromeGlyphSize("small")}
                 strokeWidth={1.5}
-                backdrop={resolveExplorerSidebarTabBackdrop()}
               />
               <Text
                 selectable={false}

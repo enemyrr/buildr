@@ -7,6 +7,7 @@ import {
   expectAgentProfileForm,
   expectAgentProfileOrder,
   expectAgentProfileTagsGone,
+  expectDefaultModelsLoadout,
   expectHostAgentProfiles,
   expectNoAgentProfiles,
   moveAgentProfileUp,
@@ -107,9 +108,11 @@ test.describe("Agent profiles settings", () => {
         await expectAgentProfileOrder(page, ["UI work", "Deep review"]);
       });
 
-      await test.step("reorder puts the second profile on top", async () => {
+      await test.step("reorder puts the second profile on top of the loadout too", async () => {
+        await expectDefaultModelsLoadout(page, ["UI work", "Deep review"]);
         await moveAgentProfileUp(page, "Deep review");
         await expectAgentProfileOrder(page, ["Deep review", "UI work"]);
+        await expectDefaultModelsLoadout(page, ["Deep review", "UI work"]);
       });
 
       await test.step("removing a profile confirms by name", async () => {

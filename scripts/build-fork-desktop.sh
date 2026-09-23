@@ -3,6 +3,12 @@
 # It has its own name, bundle ID, and state directory, starts its daemon on the
 # first free port from PASEO_FORK_LISTEN upward, and never installs official
 # updates. See packages/desktop/src/desktop-variant.ts.
+#
+# The bundle keeps productName "Paseo" so the executable, helper apps, and CLI
+# shim keep the names the runtime looks up. A renamed helper makes the daemon
+# and terminal workers fall back to the main executable, and each one appears
+# in the Dock. Electron finds its helper through CFBundleName, so only
+# CFBundleDisplayName carries the fork name.
 set -eu
 
 FORK_NAME="${PASEO_FORK_NAME:-Paseo Fork}"
@@ -14,10 +20,9 @@ npm run build:desktop -- --mac dir --arm64 \
   -c.mac.notarize=false \
   -c.mac.identity=null \
   -c.appId="$FORK_APP_ID" \
-  -c.productName="$FORK_NAME" \
-  -c.extraMetadata.productName="$FORK_NAME" \
+  -c.mac.extendInfo.CFBundleDisplayName="$FORK_NAME" \
   -c.extraMetadata.paseoVariant.name="$FORK_NAME" \
   -c.extraMetadata.paseoVariant.home="$FORK_HOME" \
   -c.extraMetadata.paseoVariant.listen="$FORK_LISTEN"
 
-echo "Built packages/desktop/release/mac-arm64/$FORK_NAME.app"
+echo "Built packages/desktop/release/mac-arm64/Paseo.app. Install it as /Applications/$FORK_NAME.app."

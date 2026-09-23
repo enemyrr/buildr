@@ -19,7 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -38,6 +38,7 @@ import {
 import { SplitContainer } from "@/components/split-container";
 import { RetainedPanel } from "@/components/retained-panel";
 import { WorkspaceActions } from "@/git/workspace-actions";
+import { PrStatusStrip } from "@/git/pr-status-strip";
 import { WorkspaceOpenInEditorButton } from "@/workspace/open-in-editor/button";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
 import { ImportSessionSheet } from "@/components/import-session-sheet";
@@ -188,8 +189,8 @@ import {
 } from "@/panels/panel-instance-attributes";
 import { findAdjacentPane } from "@/utils/split-navigation";
 import { supportsDesktopPaneSplits, useIsCompactFormFactor } from "@/constants/layout";
+import { useKeyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher-context";
 import { getIsElectron, isNative, isWeb } from "@/constants/platform";
-import type { SurfaceBackdrop } from "@/styles/surface-backdrop";
 import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
 import type { TerminalProfile } from "@getpaseo/protocol/messages";
@@ -247,8 +248,10 @@ function buildWorkspaceFileLocation(
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedChevronRight = withUnistyles(ChevronRight);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const extraMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
 
 const GATED_WORKSPACE_HEADER_LEFT = <SidebarMenuToggle />;
 
@@ -426,12 +429,10 @@ function MobileActiveTabTrigger({
   activeTab,
   normalizedServerId,
   normalizedWorkspaceId,
-  backdrop,
 }: {
   activeTab: WorkspaceTabDescriptor | null;
   normalizedServerId: string;
   normalizedWorkspaceId: string;
-  backdrop: SurfaceBackdrop;
 }) {
   if (!activeTab) {
     return null;
@@ -442,7 +443,6 @@ function MobileActiveTabTrigger({
       activeTab={activeTab}
       normalizedServerId={normalizedServerId}
       normalizedWorkspaceId={normalizedWorkspaceId}
-      backdrop={backdrop}
     />
   );
 }
@@ -451,12 +451,10 @@ function ResolvedMobileActiveTabTrigger({
   activeTab,
   normalizedServerId,
   normalizedWorkspaceId,
-  backdrop,
 }: {
   activeTab: WorkspaceTabDescriptor;
   normalizedServerId: string;
   normalizedWorkspaceId: string;
-  backdrop: SurfaceBackdrop;
 }) {
   const { t } = useTranslation();
   return (
@@ -468,7 +466,7 @@ function ResolvedMobileActiveTabTrigger({
       {(presentation) => (
         <>
           <View style={styles.switcherTriggerIcon} testID="workspace-active-tab-icon">
-            <WorkspaceTabIcon presentation={presentation} active backdrop={backdrop} />
+            <WorkspaceTabIcon presentation={presentation} active />
           </View>
 
           <Text style={styles.switcherTriggerText} numberOfLines={1}>
@@ -744,19 +742,14 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
         style={switcherTriggerStyle}
         onPress={handleOpenSwitcher}
       >
-        {({ pressed }) => (
-          <>
-            <View style={styles.switcherTriggerLeft}>
-              <MobileActiveTabTrigger
-                activeTab={activeTab}
-                normalizedServerId={normalizedServerId}
-                normalizedWorkspaceId={normalizedWorkspaceId}
-                backdrop={pressed ? "surface1" : "surface0"}
-              />
-            </View>
-            <ThemedChevronDown size={14} uniProps={mutedColorMapping} />
-          </>
-        )}
+        <View style={styles.switcherTriggerLeft}>
+          <MobileActiveTabTrigger
+            activeTab={activeTab}
+            normalizedServerId={normalizedServerId}
+            normalizedWorkspaceId={normalizedWorkspaceId}
+          />
+        </View>
+        <ThemedChevronDown size={14} uniProps={mutedColorMapping} />
       </Pressable>
 
       <Combobox
@@ -903,43 +896,35 @@ function useCloseTabs(): UseCloseTabsResult {
 }
 
 /**
- * Which project the workspace belongs to, and which machine it runs on.
- *
- * Compact gets both, on their own line under the workspace name: this header is the only thing on
- * screen that says where the workspace lives, because the sidebar that normally carries the host
- * badge is closed. It still follows the host's own badge setting, so a purely local setup stays
- * quiet. A project name that only repeats the workspace name is dropped on wide, where the two sit
- * side by side, and kept on compact, where the line exists for the host anyway.
+ * Compact only: which project the workspace belongs to, and which machine it runs on, on their own
+ * line under the workspace name. This header is the only thing on screen that says where the
+ * workspace lives, because the sidebar that normally carries the host badge is closed. It still
+ * follows the host's own badge setting, so a purely local setup stays quiet.
  */
-function WorkspaceHeaderProjectRow({
-  subtitle,
-  isSubtitleDistinct,
-  serverId,
-}: {
-  subtitle: string;
-  isSubtitleDistinct: boolean;
-  serverId: string;
-}) {
-  const isCompact = useIsCompactFormFactor();
-  const hostBadge = useHostBadges({ enabled: isCompact }).get(serverId) ?? null;
-  const showProject = isSubtitleDistinct || isCompact;
-  if (!showProject && !hostBadge) {
-    return null;
-  }
+function WorkspaceHeaderProjectRow({ subtitle, serverId }: { subtitle: string; serverId: string }) {
+  const hostBadge = useHostBadges({ enabled: true }).get(serverId) ?? null;
   return (
     <View style={styles.headerProjectRow}>
-      {showProject ? (
-        <Text
-          testID="workspace-header-subtitle"
-          style={styles.headerProjectTitle}
-          numberOfLines={1}
-        >
-          {subtitle}
-        </Text>
-      ) : null}
-      {showProject && hostBadge ? <Text style={styles.headerProjectSeparator}>·</Text> : null}
+      <Text testID="workspace-header-subtitle" style={styles.headerProjectTitle} numberOfLines={1}>
+        {subtitle}
+      </Text>
+      {hostBadge ? <Text style={styles.headerProjectSeparator}>·</Text> : null}
       {hostBadge ? <HostBadge badge={hostBadge} /> : null}
     </View>
+  );
+}
+
+/**
+ * Wide: `project › workspace`. A project name that only repeats the workspace name is dropped.
+ */
+function WorkspaceHeaderBreadcrumbProject({ subtitle }: { subtitle: string }) {
+  return (
+    <>
+      <Text testID="workspace-header-subtitle" style={styles.headerProjectTitle} numberOfLines={1}>
+        {subtitle}
+      </Text>
+      <ThemedChevronRight size={14} uniProps={extraMutedColorMapping} />
+    </>
   );
 }
 
@@ -1000,6 +985,11 @@ function WorkspaceHeaderTitleBar({
   onViewScriptTerminal,
   onOpenUrlInBrowserTab,
 }: WorkspaceHeaderTitleBarProps) {
+  const { t } = useTranslation();
+  const keyboardActionDispatcher = useKeyboardActionDispatcher();
+  const handleRename = useCallback(() => {
+    keyboardActionDispatcher.dispatch({ id: "workspace.rename", scope: "workspace" });
+  }, [keyboardActionDispatcher]);
   return (
     <View style={styles.headerTitleContainer}>
       {isLoading ? (
@@ -1008,12 +998,21 @@ function WorkspaceHeaderTitleBar({
         </View>
       ) : (
         <View style={styles.headerTitleTextGroup}>
-          <ScreenTitle testID="workspace-header-title">{title}</ScreenTitle>
-          <WorkspaceHeaderProjectRow
-            subtitle={subtitle}
-            isSubtitleDistinct={isSubtitleDistinct}
-            serverId={normalizedServerId}
-          />
+          {!isMobile && isSubtitleDistinct ? (
+            <WorkspaceHeaderBreadcrumbProject subtitle={subtitle} />
+          ) : null}
+          <Pressable
+            testID="workspace-header-title-button"
+            accessibilityRole="button"
+            accessibilityLabel={t("sidebar.workspace.actions.rename")}
+            style={styles.headerTitleButton}
+            onPress={handleRename}
+          >
+            <ScreenTitle testID="workspace-header-title">{title}</ScreenTitle>
+          </Pressable>
+          {isMobile ? (
+            <WorkspaceHeaderProjectRow subtitle={subtitle} serverId={normalizedServerId} />
+          ) : null}
         </View>
       )}
       <View style={styles.compactHeaderMenuCluster}>
@@ -1034,6 +1033,7 @@ function WorkspaceHeaderTitleBar({
             onCopyWorkspacePath={onCopyWorkspacePath}
             onCopyBranchName={onCopyBranchName}
             onOpenSetupTab={onOpenSetupTab}
+            onRename={handleRename}
           />
         ) : (
           <WorkspaceHeaderMenuDesktop
@@ -1045,6 +1045,7 @@ function WorkspaceHeaderTitleBar({
             onCopyWorkspacePath={onCopyWorkspacePath}
             onCopyBranchName={onCopyBranchName}
             onOpenSetupTab={onOpenSetupTab}
+            onRename={handleRename}
           />
         )}
         {isMobile && workspaceScripts.length > 0 ? (
@@ -3781,7 +3782,12 @@ function WorkspaceScreenContent({
         ) : null}
         {!isMobile && workspaceDirectory ? (
           <>
-            <WorkspaceActions serverId={normalizedServerId} cwd={workspaceDirectory} />
+            <WorkspaceActions
+              serverId={normalizedServerId}
+              cwd={workspaceDirectory}
+              agentId={focusedPaneAgentId}
+              prStripVisible={isExplorerSidebarShowing}
+            />
             <WorkspaceHeaderExplorerToggle
               owner={explorerToggleOwner}
               onPress={handleToggleExplorerSidebar}
@@ -3806,6 +3812,8 @@ function WorkspaceScreenContent({
       </View>
     ),
     [
+      focusedPaneAgentId,
+      isExplorerSidebarShowing,
       isMobile,
       workspaceDescriptor,
       normalizedServerId,
@@ -3846,6 +3854,17 @@ function WorkspaceScreenContent({
       handleToggleExplorerSidebar,
       t,
     ],
+  );
+  const renderExplorerSidebarStatus = useCallback(
+    () =>
+      workspaceDirectory ? (
+        <PrStatusStrip
+          serverId={normalizedServerId}
+          cwd={workspaceDirectory}
+          agentId={focusedPaneAgentId}
+        />
+      ) : null,
+    [focusedPaneAgentId, normalizedServerId, workspaceDirectory],
   );
   const createTerminalDisabled = useMemo(
     () => createTerminalMutation.isPending || pendingTerminalCreateInput !== null,
@@ -3958,6 +3977,7 @@ function WorkspaceScreenContent({
         layout={workspaceLayout}
         renderMainHeader={renderWorkspaceScreenHeader}
         renderExplorerSidebarHeaderAction={renderExplorerSidebarHeaderAction}
+        renderExplorerSidebarStatus={renderExplorerSidebarStatus}
         focusModeEnabled={desktopFocusModeEnabled}
         onExitFocusMode={toggleFocusMode}
         workspaceKey={persistenceKey}
@@ -3995,6 +4015,7 @@ function WorkspaceScreenContent({
     workspaceLayout,
     renderWorkspaceScreenHeader,
     renderExplorerSidebarHeaderAction,
+    renderExplorerSidebarStatus,
     persistenceKey,
     desktopFocusModeEnabled,
     toggleFocusMode,
@@ -4213,6 +4234,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundExtraMuted,
     fontSize: theme.fontSize.sm,
     flexShrink: 0,
+  },
+  headerTitleButton: {
+    flexShrink: 1,
+    minWidth: 0,
   },
   headerTitleSkeleton: {
     width: 220,

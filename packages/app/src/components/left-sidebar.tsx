@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { FolderPlus, GitBranch, Import, Server, Settings, X } from "lucide-react-native";
+import { GitBranch, Server, Settings, X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -8,7 +8,6 @@ import {
   Text,
   useWindowDimensions,
   View,
-  type PressableStateCallbackType,
 } from "react-native";
 import { Gesture } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
@@ -24,7 +23,8 @@ import {
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
-import { SidebarHelpMenu } from "@/components/sidebar/sidebar-help-menu";
+import { SidebarNewMenu } from "@/components/sidebar/sidebar-new-menu";
+import { SidebarResourcesMenu } from "@/components/sidebar/sidebar-resources-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -278,7 +278,7 @@ function FooterIconButton({
   onPress: () => void;
   testID: string;
   label: string;
-  icon: typeof FolderPlus;
+  icon: typeof Settings;
   iconSize?: number;
   shortcutKeys?: ReturnType<typeof useShortcutKeys>;
   theme: SidebarTheme;
@@ -304,64 +304,6 @@ function FooterIconButton({
               color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
             />
           )}
-        </Pressable>
-      </TooltipTrigger>
-      <TooltipContent side="top" align="center" offset={8}>
-        <IconTooltipContent label={label} shortcutKeys={shortcutKeys} />
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function footerAddProjectButtonStyle({
-  hovered,
-}: PressableStateCallbackType & { hovered?: boolean }) {
-  return [styles.footerAddProjectButton, Boolean(hovered) && styles.footerAddProjectButtonHovered];
-}
-
-function FooterAddProjectButton({
-  onPress,
-  label,
-  shortcutKeys,
-  theme,
-}: {
-  onPress: () => void;
-  label: string;
-  shortcutKeys: ReturnType<typeof useShortcutKeys>;
-  theme: SidebarTheme;
-}) {
-  return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <Pressable
-          style={footerAddProjectButtonStyle}
-          testID="sidebar-add-project"
-          nativeID="sidebar-add-project"
-          accessible
-          accessibilityLabel={label}
-          accessibilityRole="button"
-          onPress={onPress}
-        >
-          {({ hovered }) => {
-            const isHovered = Boolean(hovered);
-            return (
-              <>
-                <FolderPlus
-                  size={theme.iconSize.sm}
-                  color={isHovered ? theme.colors.foreground : theme.colors.foregroundMuted}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.footerAddProjectLabel,
-                    isHovered && styles.footerAddProjectLabelHovered,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </>
-            );
-          }}
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
@@ -443,38 +385,25 @@ function IconTooltipContent({
 
 function SidebarFooter({
   theme,
-  handleOpenProject,
-  handleImportSession,
   handleSettings,
   labels,
   handleAddHost,
   handleOpenHostSettings,
 }: {
   theme: SidebarTheme;
-  handleOpenProject: () => void;
-  handleImportSession: () => void;
   handleSettings: () => void;
   labels: {
-    addProject: string;
     hosts: string;
-    importSession: string;
     settings: string;
-    searchHosts: string;
   };
   handleAddHost: () => void;
   handleOpenHostSettings: (serverId: string) => void;
 }) {
-  const newAgentKeys = useShortcutKeys("new-agent");
   const settingsKeys = useShortcutKeys("toggle-settings");
 
   return (
     <View style={styles.sidebarFooter}>
-      <FooterAddProjectButton
-        onPress={handleOpenProject}
-        label={labels.addProject}
-        shortcutKeys={newAgentKeys}
-        theme={theme}
-      />
+      <SidebarResourcesMenu />
       <View style={styles.footerIconRow}>
         <SidebarHostPicker
           theme={theme}
@@ -482,14 +411,6 @@ function SidebarFooter({
           onAddHost={handleAddHost}
           onOpenHostSettings={handleOpenHostSettings}
         />
-        <FooterIconButton
-          onPress={handleImportSession}
-          testID="sidebar-import-session"
-          label={labels.importSession}
-          icon={Import}
-          theme={theme}
-        />
-        <SidebarHelpMenu />
         <FooterIconButton
           onPress={handleSettings}
           testID="sidebar-settings"
@@ -531,6 +452,15 @@ function MobileSidebar({
   insetsBottom,
   closeSidebar,
 }: MobileSidebarProps) {
+  const workspacesSectionHeader = useMemo(
+    () => (
+      <WorkspacesSectionHeader
+        onAddProject={handleOpenProject}
+        onImportSession={handleImportSession}
+      />
+    ),
+    [handleImportSession, handleOpenProject],
+  );
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const { gesture: closeGesture, gestureRef: closeGestureRef } = useCloseAgentListGesture();
 
@@ -598,14 +528,12 @@ function MobileSidebar({
             onImportSession={handleImportSession}
             parentGestureRef={closeGestureRef}
             dragGestureHostActive={active}
-            listHeaderComponent={workspacesSectionHeaderElement}
+            listHeaderComponent={workspacesSectionHeader}
           />
         )}
 
         <SidebarFooter
           theme={theme}
-          handleOpenProject={handleOpenProject}
-          handleImportSession={handleImportSession}
           handleSettings={handleSettings}
           labels={labels}
           handleAddHost={handleAddHost}
@@ -642,6 +570,15 @@ function DesktopSidebar({
   insetsTop,
   active,
 }: DesktopSidebarProps) {
+  const workspacesSectionHeader = useMemo(
+    () => (
+      <WorkspacesSectionHeader
+        onAddProject={handleOpenProject}
+        onImportSession={handleImportSession}
+      />
+    ),
+    [handleImportSession, handleOpenProject],
+  );
   const ownsTopLeft = useOwnsWindowChromeCorner("top-left");
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
@@ -773,7 +710,7 @@ function DesktopSidebar({
             onRefresh={handleRefresh}
             onAddProject={handleOpenProject}
             onImportSession={handleImportSession}
-            listHeaderComponent={workspacesSectionHeaderElement}
+            listHeaderComponent={workspacesSectionHeader}
           />
         )}
 
@@ -781,8 +718,6 @@ function DesktopSidebar({
 
         <SidebarFooter
           theme={theme}
-          handleOpenProject={handleOpenProject}
-          handleImportSession={handleImportSession}
           handleSettings={handleSettings}
           labels={labels}
           handleAddHost={handleAddHost}
@@ -800,11 +735,18 @@ function DesktopSidebar({
   );
 }
 
-function WorkspacesSectionHeader() {
+const WorkspacesSectionHeader = memo(function WorkspacesSectionHeader({
+  onAddProject,
+  onImportSession,
+}: {
+  onAddProject: () => void;
+  onImportSession: () => void;
+}) {
   return (
     <View style={styles.workspacesSectionHeader}>
       <Text style={styles.workspacesSectionTitle}>Workspaces</Text>
       <View style={styles.workspacesSectionActions}>
+        <SidebarNewMenu onAddProject={onAddProject} onImportSession={onImportSession} />
         <Tooltip delayDuration={300}>
           <TooltipTrigger asChild>
             <View>
@@ -818,11 +760,7 @@ function WorkspacesSectionHeader() {
       </View>
     </View>
   );
-}
-
-// Stable element so the sidebar list's listHeaderComponent prop keeps identity across
-// renders (WorkspacesSectionHeader takes no props).
-const workspacesSectionHeaderElement = <WorkspacesSectionHeader />;
+});
 
 // Static styles for Animated.Views — must NOT use Unistyles dynamic theme to
 // avoid the "Unable to find node on an unmounted component" crash when Unistyles
@@ -932,6 +870,7 @@ const styles = StyleSheet.create((theme) => ({
   sidebarFooter: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
     paddingVertical: theme.spacing[3],
@@ -943,30 +882,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
     flexShrink: 0,
-  },
-  footerAddProjectButton: {
-    minWidth: 0,
-    minHeight: 32,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    paddingVertical: theme.spacing[1.5],
-    paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
-  },
-  footerAddProjectButtonHovered: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
-  },
-  footerAddProjectLabel: {
-    minWidth: 0,
-    flexShrink: 1,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.normal,
-    color: theme.colors.foregroundMuted,
-  },
-  footerAddProjectLabelHovered: {
-    color: theme.colors.foreground,
   },
   footerIconButton: {
     width: 28,

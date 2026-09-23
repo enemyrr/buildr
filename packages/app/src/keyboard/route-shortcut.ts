@@ -85,6 +85,8 @@ const MESSAGE_INPUT_DISPATCH: Record<
   "voice-toggle": { id: "message-input.voice-toggle", scope: "message-input" },
   "voice-mute-toggle": { id: "message-input.voice-mute-toggle", scope: "message-input" },
   "mode-cycle": { id: "message-input.mode-cycle", scope: "message-input" },
+  "effort-cycle": { id: "message-input.effort-cycle", scope: "message-input" },
+  "fast-toggle": { id: "message-input.fast-toggle", scope: "message-input" },
 };
 
 function hasPayloadKey<K extends "index" | "delta" | "kind">(
@@ -161,6 +163,11 @@ function routeMessageInputAction(payload: KeyboardShortcutPayload): ShortcutActi
   return dispatch(action);
 }
 
+function routeMessageInputModelSlot(payload: KeyboardShortcutPayload): ShortcutAction {
+  if (!hasPayloadKey(payload, "index")) return NONE;
+  return dispatch({ id: "message-input.model-slot", scope: "message-input", index: payload.index });
+}
+
 function routeSettingsToggle(ctx: ShortcutRoutingContext): ShortcutAction {
   if (!ctx.pathname.startsWith("/settings")) {
     return { kind: "router-push", route: buildSettingsRoute() };
@@ -203,6 +210,8 @@ export function routeKeyboardShortcut(
       return routeWorkspaceNavigateRelative(input.payload, ctx);
     case "message-input.action":
       return routeMessageInputAction(input.payload);
+    case "message-input.model-slot":
+      return routeMessageInputModelSlot(input.payload);
     case "agent.new":
       return { kind: "open-project-picker" };
     case "settings.toggle":

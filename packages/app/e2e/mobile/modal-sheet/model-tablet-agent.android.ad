@@ -1,4 +1,4 @@
-# Idle existing agent in a narrow composer on a wide Android device (AdaptiveModalSheet).
+# Idle existing agent in a narrow composer on a wide Android device.
 # AGENT_URL=paseo://h/<serverId>/agent/<agentId>; AGENT_TITLE identifies the loaded route.
 context platform=android timeout=60000 retries=0
 env APP_ID=sh.paseo.debug
@@ -8,16 +8,18 @@ open "${APP_ID}" "${AGENT_URL}"
 wait "label=\"${AGENT_TITLE}\"" 20000
 wait "id=\"combined-model-selector\"" 10000
 press "id=\"combined-model-selector\""
-wait "id=\"model-provider-${PROVIDER_ID}\"" 10000
-press "id=\"model-provider-${PROVIDER_ID}\""
-wait "id=\"compact-model-list\"" 3000
+wait "id=\"model-loadout-menu\"" 10000
+press "id=\"browse-all-models\""
+wait "id=\"model-search-all-input\"" 10000
+fill "id=\"model-search-all-input\"" "${MODEL_LABEL}"
+wait "id=\"model-row-${PROVIDER_ID}-${MODEL_ID}\"" 3000
 press "id=\"model-row-${PROVIDER_ID}-${MODEL_ID}\""
 wait "id=\"combined-model-selector\" label=\"Select model (${MODEL_LABEL})\"" 3000
 
 press "id=\"combined-model-selector\""
-wait "id=\"model-provider-${PROVIDER_ID}\"" 10000
-press "id=\"model-provider-${PROVIDER_ID}\""
-wait "id=\"model-row-${PROVIDER_ID}-${MODEL_ID}\"" 3000
+wait "id=\"model-loadout-menu\"" 10000
+press "id=\"browse-all-models\""
+wait "id=\"model-search-all-input\"" 10000
 back
 wait "id=\"combined-model-selector\" label=\"Select model (${MODEL_LABEL})\"" 3000
 close

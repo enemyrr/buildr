@@ -56,6 +56,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { useComposerKeyboardScope } from "@/composer/keyboard-scope";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useComposerHeight } from "./height";
+import { ComposerLinkOverlay } from "./link-overlay";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
 import {
@@ -629,6 +630,7 @@ interface ComposerTextSurfaceProps {
   readOnly: boolean;
   value: string;
   textInputRef: React.Ref<ComposerTextInputHandle>;
+  getTextArea: () => HTMLTextAreaElement | null;
   textInputStyle: EditingTextInputProps["style"];
   readOnlyTextStyle: React.ComponentProps<typeof Text>["style"];
   placeholder: string;
@@ -684,6 +686,7 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
         onPasteError={props.onPasteError}
         autoFocus={props.autoFocus}
       />
+      <ComposerLinkOverlay getTextArea={props.getTextArea} value={props.value} />
       <FocusHint
         visible={props.focusHintVisible}
         focusInputKeys={props.focusInputKeys}
@@ -792,8 +795,6 @@ function SendButtonTooltip({
   );
 }
 
-type PrimaryActionKind = "send" | "active" | "none";
-
 function hasSendableComposerContent(input: {
   hasText: boolean;
   attachments: readonly ComposerAttachment[];
@@ -802,29 +803,20 @@ function hasSendableComposerContent(input: {
   return input.hasText || input.attachments.length > 0 || input.hasExternalContent;
 }
 
-function resolvePrimaryActionKind(input: {
-  hasSendableContent: boolean;
-  allowEmptySubmit: boolean;
-  isAgentRunning: boolean;
-  isSubmitLoading: boolean;
-}): PrimaryActionKind {
-  if (input.hasSendableContent || input.allowEmptySubmit) return "send";
-  if (input.isAgentRunning) return "active";
-  if (input.isSubmitLoading) return "send";
-  return "none";
-}
-
+// One slot: the running turn's cancel control while the draft is empty,
+// otherwise the send button, disabled on an empty draft instead of hidden.
 function PrimaryAction({
-  kind,
+  isAgentRunning,
+  hasSendableContent,
   activeActionContent,
   ...sendButtonProps
 }: {
-  kind: PrimaryActionKind;
+  isAgentRunning: boolean;
+  hasSendableContent: boolean;
   activeActionContent: React.ReactNode;
 } & React.ComponentProps<typeof SendButtonTooltip>) {
-  if (kind === "active") return activeActionContent;
-  if (kind === "send") return <SendButtonTooltip {...sendButtonProps} />;
-  return null;
+  if (isAgentRunning && !hasSendableContent && activeActionContent) return activeActionContent;
+  return <SendButtonTooltip {...sendButtonProps} />;
 }
 interface ToggleRealtimeVoiceContext {
   voice:
@@ -1018,6 +1010,8 @@ function getComposerInputSnapshot(
 interface SendButtonStateInput {
   disabled: boolean;
   isSubmitDisabled: boolean;
+  hasSendableContent: boolean;
+  allowEmptySubmit: boolean;
   isSubmitLoading: boolean;
   onSubmitLoadingPress: (() => void) | undefined;
   defaultSendBehavior: "interrupt" | "steer" | "queue";
@@ -1031,10 +1025,12 @@ interface SendButtonStateOutput {
 }
 
 function computeSendButtonState(input: SendButtonStateInput): SendButtonStateOutput {
+  const isEmpty = !input.hasSendableContent && !input.allowEmptySubmit;
   const canPressLoadingButton =
     input.isSubmitLoading && typeof input.onSubmitLoadingPress === "function";
   const isSendButtonDisabled =
-    input.disabled || (!canPressLoadingButton && (input.isSubmitDisabled || input.isSubmitLoading));
+    input.disabled ||
+    (!canPressLoadingButton && (input.isSubmitDisabled || isEmpty || input.isSubmitLoading));
   const defaultActionQueues = input.defaultSendBehavior === "queue" && input.isAgentRunning;
   return { canPressLoadingButton, isSendButtonDisabled, defaultActionQueues };
 }
@@ -1191,7 +1187,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const isCompact = useIsCompactFormFactor();
     const { height: windowHeight } = useWindowDimensions();
     const maxInputHeight = resolveMaxInputHeight(windowHeight);
-    const buttonIconSize = isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
+    const buttonIconSize = isWeb ? ICON_SIZE.sm : ICON_SIZE.md;
     const toast = useToast();
     const voice = useVoiceOptional();
     const voiceMuteToggleKeys = useShortcutKeys("voice-mute-toggle");
@@ -1616,20 +1612,17 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       });
     }
 
-    const primaryActionKind = resolvePrimaryActionKind({
-      hasSendableContent: hasSendableComposerContent({
-        hasText: hasLiveText,
-        attachments,
-        hasExternalContent,
-      }),
-      allowEmptySubmit,
-      isAgentRunning,
-      isSubmitLoading,
+    const hasSendableContent = hasSendableComposerContent({
+      hasText: hasLiveText,
+      attachments,
+      hasExternalContent,
     });
     const { canPressLoadingButton, isSendButtonDisabled, defaultActionQueues } =
       computeSendButtonState({
         disabled,
         isSubmitDisabled,
+        hasSendableContent,
+        allowEmptySubmit,
         isSubmitLoading,
         onSubmitLoadingPress,
         defaultSendBehavior,
@@ -1734,6 +1727,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     // `.css-textinput-*` class and loses on source order — so a themed
     // `fontFamily` here is silently dropped while every other property lands.
     // An inline style outranks both classes. See docs/unistyles.md.
+    const getTextArea = useCallback(() => {
+      if (!isWeb) return null;
+      const element = getTextInputNativeElement(textInputRef.current);
+      return element instanceof HTMLTextAreaElement ? element : null;
+    }, []);
     const textInputStyle = useMemo(
       () => [styles.textInput, mode.isMonospace && styles.textInputMonospace, composerHeightStyle],
       [composerHeightStyle, mode.isMonospace],
@@ -1805,6 +1803,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               readOnly={readOnly}
               value={value}
               textInputRef={textInputRef}
+              getTextArea={getTextArea}
               textInputStyle={textInputStyle}
               readOnlyTextStyle={readOnlyTextStyle}
               placeholder={placeholder ?? t("composer.placeholders.fallback")}
@@ -1830,7 +1829,10 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           {/* Button row */}
           <View style={styles.buttonRow}>
             {/* Toolbar left: attachment button + agent controls */}
-            <View style={styles.leftButtonGroup}>
+            <View style={styles.leftButtonGroup}>{leftContent}</View>
+
+            {/* Right: voice button, contextual button (realtime/send/cancel) */}
+            <View style={styles.rightButtonGroup}>
               <AttachmentDropdown
                 visible={mode.showAttachments}
                 isConnected={isConnected}
@@ -1840,11 +1842,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
                 attachmentMenuItems={attachmentMenuItems}
                 addAttachmentLabel={t("composer.input.addAttachment")}
               />
-              {leftContent}
-            </View>
-
-            {/* Right: voice button, contextual button (realtime/send/cancel) */}
-            <View style={styles.rightButtonGroup}>
               {beforeVoiceContent}
               <VoiceButtonTooltip
                 visible={mode.showVoice}
@@ -1860,7 +1857,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               />
               {rightContent}
               <PrimaryAction
-                kind={primaryActionKind}
+                isAgentRunning={isAgentRunning}
+                hasSendableContent={hasSendableContent}
                 activeActionContent={activeActionContent}
                 shouldShow
                 canPressLoadingButton={canPressLoadingButton}
@@ -1920,10 +1918,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.surface1,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.borderAccent,
-    borderRadius: theme.borderRadius["2xl"],
+    borderRadius: 12,
     paddingVertical: {
       xs: theme.spacing[2],
-      md: theme.spacing[4],
+      md: theme.spacing[3],
     },
     paddingHorizontal: {
       xs: theme.spacing[3],
@@ -1945,6 +1943,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   textInputScrollWrapper: {
     flexShrink: 1,
     position: "relative",
+    minHeight: { xs: 44, md: 72 },
   },
   focusHintText: {
     position: "absolute",
@@ -2005,7 +2004,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   attachButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2018,7 +2017,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   voiceButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2028,7 +2027,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   sendButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.accent,
     alignItems: "center",
     justifyContent: "center",
@@ -2038,7 +2037,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: "auto",
     minWidth: 28,
     paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
   },
   sendButtonLabel: {
     fontSize: theme.fontSize.base,

@@ -305,12 +305,26 @@ describe("routeKeyboardShortcut — message-input.action", () => {
     ["voice-toggle", "message-input.voice-toggle"],
     ["voice-mute-toggle", "message-input.voice-mute-toggle"],
     ["mode-cycle", "message-input.mode-cycle"],
+    ["effort-cycle", "message-input.effort-cycle"],
+    ["fast-toggle", "message-input.fast-toggle"],
   ] as const)("kind=%s → dispatch %s", (kind, id) => {
     expect(
       routeKeyboardShortcut({ action: "message-input.action", payload: { kind } }, makeCtx()),
     ).toEqual<ShortcutAction>({
       kind: "dispatch",
       action: { id, scope: "message-input" },
+    });
+  });
+
+  it("routes a model slot with its index", () => {
+    expect(
+      routeKeyboardShortcut(
+        { action: "message-input.model-slot", payload: { index: 3 } },
+        makeCtx(),
+      ),
+    ).toEqual<ShortcutAction>({
+      kind: "dispatch",
+      action: { id: "message-input.model-slot", scope: "message-input", index: 3 },
     });
   });
 

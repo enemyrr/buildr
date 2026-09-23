@@ -8,16 +8,17 @@ import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { ReactElement, ReactNode, RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { router } from "expo-router";
 import type { TFunction } from "i18next";
 import { Pressable, Text, View } from "react-native";
 import type { PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
-import { createNameId } from "mnemonic-id";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Folder, FolderPlus, GitBranch, GitPullRequest } from "lucide-react-native";
 import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
+import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import {
   resolveComposerAttachmentSubmitFormat,
   splitComposerAttachmentsForSubmit,
@@ -34,6 +35,7 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { ScreenHeader } from "@/components/headers/screen-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
@@ -711,12 +713,12 @@ function useWorkspaceIsolation(input: {
   worktreeSupport: "supported" | "unsupported" | "unknown";
 }): WorkspaceIsolationState {
   const { supportsMultiplicity, worktreeSupport } = input;
-  // The last isolation choice is remembered alongside the other New Workspace
-  // form preferences (provider, model, mode). A manual in-screen pick overrides
-  // the remembered default until the screen remounts.
+  // New workspaces default to their own worktree. The last isolation choice is remembered
+  // alongside the other New Workspace form preferences (provider, model, mode). A manual
+  // in-screen pick overrides the remembered default until the screen remounts.
   const { preferences, updatePreferences } = useFormPreferences();
   const [manualIsolation, setManualIsolation] = useState<"local" | "worktree" | null>(null);
-  const isolation = manualIsolation ?? preferences.isolation ?? "local";
+  const isolation = manualIsolation ?? preferences.isolation ?? "worktree";
   const canCreateWorktree = supportsMultiplicity && worktreeSupport !== "unsupported";
   const isWorktree = isolation === "worktree" && canCreateWorktree;
 
@@ -802,7 +804,6 @@ interface WorkspaceCreationResult {
 
 async function createMultiplicityWorkspace(input: {
   idempotencyKey: string;
-  worktreeSlug: string;
   client: NonNullable<ReturnType<typeof useHostRuntimeClient>>;
   isolation: "local" | "worktree";
   project: HostProjectListItem;
@@ -836,7 +837,6 @@ async function createMultiplicityWorkspace(input: {
           kind: "worktree",
           cwd: input.sourceDirectory,
           projectId,
-          worktreeSlug: input.worktreeSlug,
           ...input.checkoutRequest,
         }
       : {
@@ -1377,6 +1377,7 @@ interface FormPickerControl {
 
 interface NewWorkspaceFormStackInput {
   isCompact: boolean;
+  isDialog: boolean;
   isPending: boolean;
   project: FormPickerControl & {
     options: ComboboxOptionType[];
@@ -1424,7 +1425,7 @@ interface NewWorkspaceFormStackInput {
 function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactElement {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
-  const { isCompact, isPending, project, host, isolation, base, launch } = input;
+  const { isCompact, isDialog, isPending, project, host, isolation, base, launch } = input;
 
   const selectedHostLabel =
     host.allHosts.find((h) => h.serverId === host.selectedServerId)?.label ?? "Host";
@@ -1611,7 +1612,7 @@ function useNewWorkspaceFormStack(input: NewWorkspaceFormStackInput): ReactEleme
   ) : (
     <View
       testID="new-workspace-ref-picker-row"
-      style={styles.formStackDesktop}
+      style={isDialog ? styles.formStackDialog : styles.formStackDesktop}
       pointerEvents="box-none"
     >
       {projectControl}
@@ -1635,6 +1636,8 @@ export function NewWorkspaceScreen({
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
+  const isDialog = useIsNewWorkspaceDialog();
+  const composerSurface = newWorkspaceComposerSurface(isDialog, t("newWorkspace.create"));
   const toast = useToast();
   const mergeWorkspaces = useCallback(
     (targetServerId: string, workspaces: Iterable<WorkspaceDescriptor>) => {
@@ -1664,7 +1667,6 @@ export function NewWorkspaceScreen({
   const supportsForgeSearch = useHostFeature(selectedServerId, "forgeSearch");
   const [creationIdentity] = useState(() => ({
     draftId: draftId ?? generateDraftId(),
-    worktreeSlug: createNameId(),
   }));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [creationResult, setCreationResult] = useState<
@@ -2079,7 +2081,6 @@ export function NewWorkspaceScreen({
         : undefined;
       const normalizedWorkspace = await createMultiplicityWorkspace({
         idempotencyKey: creationIdentity.draftId,
-        worktreeSlug: creationIdentity.worktreeSlug,
         client: connectedClient,
         isolation: createsWorktree ? "worktree" : "local",
         project: selectedProject,
@@ -2318,6 +2319,7 @@ export function NewWorkspaceScreen({
 
   const formStack = useNewWorkspaceFormStack({
     isCompact,
+    isDialog,
     isPending,
     project: {
       anchorRef: projectPickerAnchorRef,
@@ -2406,6 +2408,7 @@ export function NewWorkspaceScreen({
       clearDraft={noopClearDraft}
       autoFocus={terminalTakesPrompt}
       autoFocusKey={launchFocusKey}
+      inputWrapperStyle={composerSurface.inputWrapperStyle}
     />
   ) : (
     <Composer
@@ -2436,23 +2439,108 @@ export function NewWorkspaceScreen({
       autoFocusKey={launchFocusKey}
       commandDraftConfig={composerState?.commandDraftConfig}
       agentControls={agentControlsWithDisabled}
+      inputWrapperStyle={composerSurface.inputWrapperStyle}
+      submitLabel={composerSurface.submitLabel}
     />
   );
+
+  return (
+    <NewWorkspaceFrame
+      isDialog={isDialog}
+      isCompact={isCompact}
+      title={t("newWorkspace.title")}
+      formStack={formStack}
+      errorMessage={errorMessage}
+      headerLeft={screenHeaderLeft}
+    >
+      {composer}
+    </NewWorkspaceFrame>
+  );
+}
+
+function NewWorkspaceFrame({
+  isDialog,
+  isCompact,
+  title,
+  formStack,
+  errorMessage,
+  headerLeft,
+  children,
+}: {
+  isDialog: boolean;
+  isCompact: boolean;
+  title: string;
+  formStack: ReactNode;
+  errorMessage: string | null;
+  headerLeft: ReactNode;
+  children: ReactNode;
+}) {
+  if (isDialog) {
+    return (
+      <NewWorkspaceDialog title={title} formStack={formStack}>
+        {children}
+        {errorMessage ? <Text style={styles.dialogErrorText}>{errorMessage}</Text> : null}
+      </NewWorkspaceDialog>
+    );
+  }
   return (
     <FileDropZone style={styles.container}>
-      <ScreenHeader left={screenHeaderLeft} borderless />
+      <ScreenHeader left={headerLeft} borderless />
       <View style={styles.content}>
         <TitlebarDragRegion />
-        <NewWorkspaceLayout
-          isCompact={isCompact}
-          title={t("newWorkspace.title")}
-          formStack={formStack}
-        >
-          {composer}
+        <NewWorkspaceLayout isCompact={isCompact} title={title} formStack={formStack}>
+          {children}
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         </NewWorkspaceLayout>
       </View>
     </FileDropZone>
+  );
+}
+
+function useIsNewWorkspaceDialog(): boolean {
+  const isCompact = useIsCompactFormFactor();
+  return isWeb && !isCompact;
+}
+
+function newWorkspaceComposerSurface(isDialog: boolean, createLabel: string) {
+  return isDialog
+    ? { inputWrapperStyle: styles.dialogComposerInput, submitLabel: createLabel }
+    : { inputWrapperStyle: undefined, submitLabel: undefined };
+}
+
+function closeNewWorkspaceDialog() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+  router.replace("/");
+}
+
+function NewWorkspaceDialog({
+  title,
+  formStack,
+  children,
+}: {
+  title: string;
+  formStack: ReactNode;
+  children: ReactNode;
+}) {
+  const header = useMemo<SheetHeader>(() => ({ title }), [title]);
+  return (
+    <AdaptiveModalSheet
+      header={header}
+      visible={true}
+      onClose={closeNewWorkspaceDialog}
+      testID="new-workspace-dialog"
+      desktopMaxWidth={760}
+      scrollable={false}
+      contentStyle={styles.dialogContent}
+    >
+      <FileDropZone style={styles.dialogBody}>
+        {formStack}
+        {children}
+      </FileDropZone>
+    </AdaptiveModalSheet>
   );
 }
 
@@ -2523,6 +2611,40 @@ const styles = StyleSheet.create((theme) => ({
     paddingLeft: theme.spacing[4],
     paddingRight: theme.spacing[4],
     gap: theme.spacing[2],
+  },
+  // The badge adds its own left padding; this inset lands the first chip's icon
+  // on the sheet title's rail.
+  formStackDialog: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing[4],
+    gap: theme.spacing[2],
+  },
+  dialogContent: {
+    paddingHorizontal: 0,
+    paddingTop: theme.spacing[3],
+    paddingBottom: 0,
+  },
+  dialogBody: {
+    gap: theme.spacing[2],
+  },
+  dialogErrorText: {
+    fontSize: theme.fontSize.base,
+    color: theme.colors.destructive,
+    lineHeight: 20,
+    paddingHorizontal: theme.spacing[6],
+    paddingBottom: theme.spacing[4],
+  },
+  // The card is the composer surface. The composer's own gutter plus this
+  // inset puts the text on the same rail as the title and chips.
+  dialogComposerInput: {
+    minHeight: 200,
+    justifyContent: "space-between",
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[1],
+    paddingBottom: theme.spacing[1],
   },
   desktopControl: {
     minWidth: 0,

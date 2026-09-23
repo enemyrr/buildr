@@ -2,11 +2,11 @@ import { expect, test, type Page } from "../support/fixtures";
 import path from "node:path";
 import type { FormPreferences } from "@/create-agent-preferences/preferences";
 import {
-  applyProfileFromPicker,
-  drillIntoProvider,
+  applyLoadoutSlot,
   openModelPicker,
   seedAgentProfiles,
   seedModelProvider,
+  selectModelFromBrowser,
 } from "../support/helpers/agent-profiles";
 import { gotoAppShell } from "../support/helpers/app";
 import { captureWorkspaceAgentRequest } from "../support/helpers/creation";
@@ -108,7 +108,7 @@ test.describe("Agent profiles repair modeless provider preferences", () => {
       });
 
       await openModelPicker(page);
-      await applyProfileFromPicker(page, "Approval work");
+      await applyLoadoutSlot(page, "Approval work");
 
       await expect
         .poll(() => readProviderModePreference(page, MODELESS_PROVIDER), { timeout: 10_000 })
@@ -117,9 +117,10 @@ test.describe("Agent profiles repair modeless provider preferences", () => {
         .poll(() => readProviderModePreference(page, "mock"), { timeout: 10_000 })
         .toBe("approval-test");
 
-      await openModelPicker(page);
-      await drillIntoProvider(page, MODELESS_PROVIDER);
-      await page.getByRole("button", { name: /Pi profile model/ }).click();
+      await selectModelFromBrowser(page, {
+        provider: MODELESS_PROVIDER,
+        label: "Pi profile model",
+      });
 
       await submitNewWorkspacePrompt(page, "Create a Pi agent after repairing preferences.");
       const createAgentRequest = await createAgentRecorder.waitForRequest();
@@ -171,7 +172,7 @@ test.describe("Agent profiles repair modeless provider preferences", () => {
       });
 
       await openModelPicker(page);
-      await applyProfileFromPicker(page, "Fast profile");
+      await applyLoadoutSlot(page, "Fast profile");
       await expect
         .poll(() => readProviderFeaturePreferences(page, featureProviderId), { timeout: 10_000 })
         .toEqual({ fast_mode: true });

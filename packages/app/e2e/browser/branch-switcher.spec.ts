@@ -21,11 +21,7 @@ async function renameWorkspaceViaSidebar(
   const serverId = getServerId();
   const row = page.getByTestId(`sidebar-workspace-row-${serverId}:${input.workspaceId}`);
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await row.hover();
-
-  const kebab = page.getByTestId(`sidebar-workspace-kebab-${serverId}:${input.workspaceId}`);
-  await expect(kebab).toBeVisible({ timeout: 10_000 });
-  await kebab.click();
+  await row.click({ button: "right" });
 
   const renameItem = page.getByTestId(
     `sidebar-workspace-menu-rename-${serverId}:${input.workspaceId}`,

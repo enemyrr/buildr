@@ -25,11 +25,8 @@ export const settingsStyles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
+  // Flat rows on the page background, separated by dividers (no card chrome).
   card: {
-    backgroundColor: theme.colors.surface1,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
     overflow: "hidden",
   },
   row: {
@@ -37,7 +34,7 @@ export const settingsStyles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: theme.spacing[4],
-    paddingHorizontal: theme.spacing[4],
+    paddingHorizontal: theme.spacing[1],
   },
   rowBorder: {
     borderTopWidth: 1,

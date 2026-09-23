@@ -25,7 +25,7 @@ import {
   STATUS_INDICATOR_FILLED_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
-import { StatusRing } from "@/components/status-ring";
+import { PixelLoader } from "@/components/pixel-loader";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
 import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
@@ -37,6 +37,8 @@ const needsInputColorMapping = (theme: Theme) => ({
 });
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
+const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const ThemedMonitor = withUnistyles(Monitor);
 const ThemedFolder = withUnistyles(Folder);
 const ThemedFolderGit2 = withUnistyles(FolderGit2);
@@ -146,12 +148,14 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
             statusBucket={workspace.statusBucket}
             backdrop={backdrop}
             loading={isLoading}
+            busyLoaderSeed={workspace.workspaceKey}
             testID={`sidebar-row-project-icon-${workspace.workspaceKey}`}
           />
         ) : (
           <WorkspaceStatusIndicator
             bucket={workspace.statusBucket}
             workspaceKind={workspace.workspaceKind}
+            seed={workspace.workspaceKey}
             loading={isLoading}
             reserveIdleSpace={reserveIdleStatusIndicatorSpace}
           />
@@ -185,30 +189,25 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
 function WorkspaceStatusIndicator({
   bucket,
   workspaceKind,
+  seed,
   loading = false,
   reserveIdleSpace = true,
 }: {
   bucket: SidebarWorkspaceEntry["statusBucket"];
   workspaceKind: SidebarWorkspaceEntry["workspaceKind"];
+  seed: string;
   loading?: boolean;
   reserveIdleSpace?: boolean;
 }) {
-  // Busy is the only status that moves, and it is the ring rather than a dot for the same
-  // reason it is a dot elsewhere: every status in the sidebar sits in this one slot, so busy
-  // has to fill it without displacing anything. A row starting up and a row working are both
-  // busy, so they share the ring and differ only in testID.
-  if (loading) {
+  // Busy is the only status that moves. A row starting up and a row working are both busy, so
+  // they share the pixel loader and differ only in testID.
+  if (loading || shouldRenderSyncedStatusLoader({ bucket })) {
     return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-loading">
-        <StatusRing />
-      </View>
-    );
-  }
-
-  if (shouldRenderSyncedStatusLoader({ bucket })) {
-    return (
-      <View style={styles.workspaceStatusDot} testID="workspace-status-indicator-running">
-        <StatusRing />
+      <View
+        style={styles.workspaceStatusDot}
+        testID={`workspace-status-indicator-${loading ? "loading" : "running"}`}
+      >
+        <ThemedPixelLoader size={14} seed={seed} uniProps={foregroundColorMapping} />
       </View>
     );
   }

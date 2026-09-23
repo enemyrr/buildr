@@ -8,7 +8,7 @@ function visibleComposer(page: Page) {
   return page.locator("textarea[data-composer-input]").filter({ visible: true }).first();
 }
 
-test("adds a changed file to the focused chat without replacing its composer draft", async ({
+test("mentions a changed file inline in the focused chat without replacing its draft", async ({
   page,
 }) => {
   const workspace = await seedMockAgentWorkspace({
@@ -38,10 +38,8 @@ test("adds a changed file to the focused chat without replacing its composer dra
     await page.getByTestId("diff-file-0-toggle").click({ button: "right" });
     await page.getByTestId("diff-file-0-add-to-chat").click();
 
-    const attachment = page.getByTestId("composer-workspace-file-attachment-pill");
-    await expect(attachment).toContainText("changed file.ts");
-    await expect(attachment).toContainText(relativePath);
-    await expect(agentComposer).toHaveValue("Preserve this thought");
+    await expect(agentComposer).toHaveValue(`Preserve this thought "${relativePath}" `);
+    await expect(page.getByTestId("composer-workspace-file-attachment-pill")).toHaveCount(0);
     await expect(agentComposer).toBeFocused();
   } finally {
     await workspace.cleanup();

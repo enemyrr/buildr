@@ -95,6 +95,7 @@ import type {
   ProviderDiagnosticResponseMessage,
   ProviderUsageListResponseMessage,
   DaemonGetStatusResponse,
+  DaemonGetResourcesResponse,
   DaemonGetPairingOfferResponse,
   DaemonConfigReloadResponse,
   DiagnosticsResponse,
@@ -496,6 +497,7 @@ type RefreshProvidersSnapshotPayload = RefreshProvidersSnapshotResponseMessage["
 type ProviderDiagnosticPayload = ProviderDiagnosticResponseMessage["payload"];
 type ProviderUsageListPayload = ProviderUsageListResponseMessage["payload"];
 type DaemonStatusPayload = DaemonGetStatusResponse["payload"];
+type DaemonResourcesPayload = DaemonGetResourcesResponse["payload"];
 type DaemonPairingOfferPayload = DaemonGetPairingOfferResponse["payload"];
 type DiagnosticsPayload = DiagnosticsResponse["payload"];
 type ReadProjectConfigPayload = Extract<
@@ -5148,6 +5150,15 @@ export class DaemonClient {
       },
       responseType: "provider_diagnostic_response",
       timeout: 180000,
+    });
+  }
+
+  async getDaemonResources(options?: { requestId?: string }): Promise<DaemonResourcesPayload> {
+    return this.sendNamespacedCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "daemon.get_resources.request",
+      },
     });
   }
 

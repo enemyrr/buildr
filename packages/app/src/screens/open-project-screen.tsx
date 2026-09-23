@@ -2,11 +2,12 @@ import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, Pressable } from "react-native";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
+import Animated, { FadeIn, FadeOut, useReducedMotion } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { FolderOpen, Inbox, Plug, Smartphone } from "lucide-react-native";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
-import { CommunityLinks } from "@/components/community-links";
+import { HelloLettering } from "@/components/hello-lettering";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
 import { useImportSession } from "@/hooks/use-import-session";
@@ -63,9 +64,7 @@ export function OpenProjectScreen() {
       <MenuHeader borderless />
       <View style={styles.content}>
         <TitlebarDragRegion />
-        <View style={styles.logo}>
-          <PaseoLogo size={52} />
-        </View>
+        <HomeLogo />
         {hosts.map((host) => (
           <HostError key={host.serverId} serverId={host.serverId} label={host.label} />
         ))}
@@ -103,9 +102,6 @@ export function OpenProjectScreen() {
           ) : null}
         </View>
       </View>
-      <View style={styles.communityRow}>
-        <CommunityLinks />
-      </View>
       <PairDeviceModal
         serverId={localServerId ?? ""}
         visible={isPairDeviceOpen}
@@ -113,6 +109,44 @@ export function OpenProjectScreen() {
         testID="open-project-pair-device-modal"
       />
       {importSession.sheet}
+    </View>
+  );
+}
+
+const LOGO_SIZE = 52;
+
+const ThemedHelloLettering = withUnistyles(HelloLettering, (theme) => ({
+  color: theme.colors.foreground,
+}));
+
+// The greeting plays once per app session, then hands off to the logo.
+let hasPlayedHello = false;
+
+function HomeLogo() {
+  const reduceMotion = useReducedMotion();
+  const [playsHello] = useState(() => !hasPlayedHello && !reduceMotion);
+  const [showHello, setShowHello] = useState(playsHello);
+
+  const handleHelloComplete = useCallback(() => {
+    hasPlayedHello = true;
+    setShowHello(false);
+  }, []);
+
+  return (
+    <View style={styles.logo}>
+      {showHello ? (
+        <Animated.View key="hello" exiting={FadeOut.duration(300)} style={styles.logoLayer}>
+          <ThemedHelloLettering height={LOGO_SIZE} onComplete={handleHelloComplete} />
+        </Animated.View>
+      ) : (
+        <Animated.View
+          key="logo"
+          entering={playsHello ? FadeIn.delay(200).duration(300) : undefined}
+          style={styles.logoLayer}
+        >
+          <PaseoLogo size={LOGO_SIZE} />
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -190,7 +224,14 @@ const styles = StyleSheet.create((theme) => ({
     },
   },
   logo: {
+    height: LOGO_SIZE,
+    alignSelf: "stretch",
     marginBottom: theme.spacing[8],
+  },
+  logoLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
   },
   hostError: {
     color: theme.colors.destructive,
@@ -236,18 +277,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
     lineHeight: 18,
-  },
-  communityRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: {
-      xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[2],
-      md: HEADER_INNER_HEIGHT + theme.spacing[2],
-    },
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 0,
   },
 }));

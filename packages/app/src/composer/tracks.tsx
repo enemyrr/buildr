@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   MenuRoot,
   MenuSeparator,
@@ -9,13 +9,13 @@ import {
   useMenuContext,
   type MenuTriggerState,
 } from "@/components/ui/menu";
-import { StatusRing } from "@/components/status-ring";
-import { STATUS_RING_HALO_INSET } from "@/components/status-ring/geometry";
+import { PixelLoader } from "@/components/pixel-loader";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geometry";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import type { Theme } from "@/styles/theme";
 import { COMPOSER_PILL_CLEARANCE, composerPillStyles } from "./pill-styles";
 
 /**
@@ -69,6 +69,9 @@ export interface ComposerTrackPillProps {
  * task's active form — and there is nothing above the composer competing for the space. The
  * surface still shrinks to its content and clamps to the viewport.
  */
+const ThemedPixelLoader = withUnistyles(PixelLoader);
+const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+
 const PANEL_MIN_WIDTH = 280;
 const PANEL_MAX_WIDTH = 620;
 const PANEL_MAX_HEIGHT = 440;
@@ -152,7 +155,7 @@ function ComposerTrackPillTrigger({
             style={styles.segment}
             testID={`${testID}-segment-${index}`}
           >
-            <ComposerTrackMark bucket={segment.bucket} />
+            <ComposerTrackMark bucket={segment.bucket} seed={testID} />
             <Text style={labelStyle} numberOfLines={1}>
               {segment.text}
             </Text>
@@ -266,26 +269,26 @@ export function ComposerTrackRow({
 }
 
 /**
- * A segment's state mark. Running is the ring every other running indicator in the app uses; the
- * rest are the dot it grows from.
+ * A segment's state mark. Running is the pixel loader every other running indicator in the app
+ * uses; the rest are status dots.
  *
  * Each one is sized to the glyph you can see rather than to a slot wide enough for the largest of
  * them. The mark leads the pill, so a box wider than its glyph is padding on both sides at once:
  * it holds the dot off the pill's leading edge while the label runs flush to the trailing one, and
- * it opens a gap to its own label as wide as the gap to the next segment. The ring's halo is
- * knockout for marks that sit on top of an icon, and nothing sits under this one, so it comes off
- * too — leaving every mark's visible edge on the same rail whatever state it is in.
+ * it opens a gap to its own label as wide as the gap to the next segment.
  */
-function ComposerTrackMark({ bucket }: { bucket: SidebarStateBucket | null }): ReactElement | null {
+function ComposerTrackMark({
+  bucket,
+  seed,
+}: {
+  bucket: SidebarStateBucket | null;
+  seed: string;
+}): ReactElement | null {
   if (!bucket) {
     return null;
   }
   if (bucket === "running") {
-    return (
-      <View style={styles.ringMark}>
-        <StatusRing />
-      </View>
-    );
+    return <ThemedPixelLoader size={11} seed={seed} uniProps={foregroundColorMapping} />;
   }
   return <View style={dotColorStyle(bucket)} />;
 }
@@ -373,9 +376,6 @@ const styles = StyleSheet.create((theme) => {
       gap: theme.spacing[2],
     },
     // Trims the ring's halo so the circle you can see is the box, like the dot's box is the dot.
-    ringMark: {
-      margin: -STATUS_RING_HALO_INSET,
-    },
     dotNeedsInput: statusDot("needs_input"),
     dotFailed: statusDot("failed"),
     dotAttention: statusDot("attention"),

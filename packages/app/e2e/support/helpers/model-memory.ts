@@ -1,34 +1,18 @@
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { expect, type Page } from "../fixtures";
-import { drillIntoProvider, openModelPicker } from "./agent-profiles";
+import { selectModelFromBrowser } from "./agent-profiles";
 
 export async function startWithoutRememberedModel(page: Page) {
   await page.addInitScript(() => localStorage.removeItem("@paseo:create-agent-preferences"));
 }
 
 export async function chooseModel(page: Page, provider: string, label: string) {
-  await openModelPicker(page);
-  await expect(
-    page.getByRole("dialog").getByRole("button", { name: "Back", exact: true }),
-  ).toHaveCount(0);
-  await selectProviderModel(page, provider, label);
+  await selectModelFromBrowser(page, { provider, label });
 }
 
 export async function reselectModel(page: Page, provider: string, label: string) {
   await expectRememberedModel(page, label);
-  await openModelPicker(page);
-  await page.getByRole("dialog").getByRole("button", { name: "Back", exact: true }).click();
-  await selectProviderModel(page, provider, label);
-}
-
-async function selectProviderModel(page: Page, provider: string, label: string) {
-  await drillIntoProvider(page, provider);
-  await page.getByTestId("combobox-desktop-container").getByText(label, { exact: true }).click();
-  await expect(
-    page
-      .getByRole("button", { name: `Select model (${label})`, exact: true })
-      .filter({ visible: true }),
-  ).toBeVisible();
+  await selectModelFromBrowser(page, { provider, label });
 }
 
 export async function expectSavedSelection(page: Page, provider: string, model: string) {

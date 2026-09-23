@@ -8,8 +8,7 @@ import {
   expectModelPickerHeight,
   expectModelPickerWidth,
   expectModelSearchResult,
-  expectPinnedProfilesHidden,
-  openModelPicker,
+  openModelBrowser,
   readModelPickerHeight,
   readModelPickerWidth,
   searchAllModels,
@@ -34,8 +33,8 @@ const STUDIO = {
   ],
 };
 
-// The cross-provider search lives on the picker's root view, and a profile is
-// what keeps the picker opening there.
+// Cross-provider search lives in the catalog behind "More models…". A loadout
+// slot keeps that row in browse mode, so nothing here writes to the loadout.
 const ROOT_VIEW_PROFILE = {
   id: "agent_profile_e2e_search_root",
   name: "Search anchor",
@@ -54,7 +53,7 @@ const LARGE_CATALOG = {
 };
 
 test.describe("Cross-provider model search", () => {
-  test("one query over the picker root reaches every provider and names each result's provider", async ({
+  test("one catalog query reaches every provider and names each result's provider", async ({
     page,
   }) => {
     const provider = await seedModelProvider(STUDIO);
@@ -66,7 +65,7 @@ test.describe("Cross-provider model search", () => {
         await gotoWorkspace(page, workspace.workspaceId);
         await clickNewChat(page);
         await expectComposerVisible(page);
-        await openModelPicker(page);
+        await openModelBrowser(page);
       });
       const restingWidth = await readModelPickerWidth(page);
 
@@ -97,10 +96,6 @@ test.describe("Cross-provider model search", () => {
         });
       });
 
-      await test.step("results replace the pinned profiles", async () => {
-        await expectPinnedProfilesHidden(page);
-      });
-
       // Search falls back to subsequence matching, so "no matches" needs letters
       // that cannot be picked out of a model label or description in order.
       await test.step("a query with no matches repeats the query back", async () => {
@@ -127,7 +122,7 @@ test.describe("Cross-provider model search", () => {
         await gotoWorkspace(page, workspace.workspaceId);
         await clickNewChat(page);
         await expectComposerVisible(page);
-        await openModelPicker(page);
+        await openModelBrowser(page);
       });
 
       const restingHeight = await readModelPickerHeight(page);
@@ -198,8 +193,7 @@ async function reloadSavedDraft(page: Page) {
   await expectComposerVisible(page);
 }
 async function expectOneCatalogChoice(page: Page, label: string) {
-  await openModelPicker(page);
-  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await openModelBrowser(page);
   await searchAllModels(page, label);
   await expect(page.getByTestId("model-row-gemini-gemini-3.5-flash")).toHaveCount(1);
   await closeModelPicker(page);

@@ -110,10 +110,11 @@ function SidebarHeaderRowLabel({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    height: {
+    minHeight: {
       xs: HEADER_INNER_HEIGHT_MOBILE,
       md: HEADER_INNER_HEIGHT,
     },
+    paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[2],
     justifyContent: "center",
     borderBottomWidth: 1,

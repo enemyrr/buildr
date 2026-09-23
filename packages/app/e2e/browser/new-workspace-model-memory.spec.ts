@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { test, expect } from "../support/fixtures";
-import { seedModelProvider } from "../support/helpers/agent-profiles";
+import { seedAgentProfiles, seedModelProvider } from "../support/helpers/agent-profiles";
 import { connectDaemonClient } from "../support/helpers/daemon-client-loader";
 import { gotoWorkspace } from "../support/helpers/launcher";
 import {
@@ -26,6 +26,13 @@ import {
 const PROVIDER = "model-memory-diagnostic";
 const MODEL = "pi-profile-model";
 const LABEL = "Pi profile model";
+// A non-empty loadout keeps "More models…" in browse mode, so picks don't write to it.
+const LOADOUT_ANCHOR = {
+  id: "agent_profile_e2e_model_memory_anchor",
+  name: "Loadout anchor",
+  provider: "mock",
+  model: "ten-second-stream",
+};
 
 async function expectProviderStatus(client: DaemonClient, cwd: string | undefined, status: string) {
   await expect
@@ -73,6 +80,7 @@ for (const hostStatus of ["ready", "unavailable"] as const) {
       command: [executable, path.resolve("e2e/fixtures/fake-pi-rpc.mjs")],
       models: [{ id: MODEL, label: LABEL, description: "Remembered selection diagnostic" }],
     });
+    const loadout = await seedAgentProfiles([LOADOUT_ANCHOR]);
     const client = await connectDaemonClient<DaemonClient>({ clientIdPrefix: "model-memory" });
     try {
       await prepareCatalogState(client, executable, workspace.repoPath, hostStatus);
@@ -101,6 +109,7 @@ for (const hostStatus of ["ready", "unavailable"] as const) {
       await expectRememberedModel(page, LABEL);
     } finally {
       await client.close();
+      await loadout.restore();
       await provider.restore();
       await workspace.cleanup();
       await rm(binDir, { recursive: true, force: true });

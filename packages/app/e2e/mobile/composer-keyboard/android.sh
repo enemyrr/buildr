@@ -486,9 +486,10 @@ run_host_overlays() {
     done
     prepare_composer "${mode}"
     press_composer_control combined-model-selector
-    ad wait 'id="compact-provider-list"' 10000
+    ad wait 'id="model-loadout-menu-content"' 10000
     capture_screen "${ARTIFACTS_DIR}/${host}-model-${mode}.png"
-    ad press 'label="Close"' --settle
+    adb shell input tap 540 400
+    ad wait 'id="combined-model-selector"' 10000
     echo "PASS host=${host}: model selector keyboard=${mode}"
     prepare_composer "${mode}"
     press_composer_control message-input-attach-button
@@ -513,12 +514,14 @@ run_host_scroll() {
   fi
   # Submit through each real host; draft/workspace creation then mounts its chat.
   # A selectable mock model keeps this test independent of provider credentials.
+  # The catalog sits behind the loadout's "More models…" row, and a pick closes it.
+  # On an empty loadout that row reads "Add models…" and the pick joins the loadout.
   press_composer_control combined-model-selector
+  ad press 'id="browse-all-models"' --settle
   ad wait 'id="model-search-all-input"' 10000
   ad fill 'id="model-search-all-input"' 'Ten second stream'
   ad wait 'id="model-row-mock-ten-second-stream"' 10000
   ad press 'id="model-row-mock-ten-second-stream"' --settle
-  ad press 'label="Close"' --settle
   adb shell ime set "${HELPER_IME}" >/dev/null
   wait_for_ime false
   local scroll_message

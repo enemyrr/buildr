@@ -18,8 +18,10 @@ agent-device test packages/app/e2e/mobile/modal-sheet/model.android.ad \
 
 The plugin journey checks body dismissal, reopening, expansion and last-row reachability with SDK
 ScrollView and FlatList, programmatic scrolling after expansion, downward list scrolling, and
-horizontal tab selection. The model journey checks body dismissal and the nested sheet's return to
-its parent without selecting a model or submitting a prompt. It does not assert catalog contents.
+horizontal tab selection. The model journey checks body dismissal of the loadout sheet, the Mode
+page's return to the loadout root, and body dismissal of the catalog sheet opened from **More
+models…**. It doesn't select a model or submit a prompt, and it doesn't assert catalog contents. The
+selected provider must expose modes.
 
 These scripts live outside the default mobile suite because they require the installed example and
 an explicit connected host. See [mobile testing](../../../../../docs/mobile-testing.md) for device setup.
@@ -39,7 +41,7 @@ Current surface: Bottom sheet handle, Bottom Sheet, Close, Row 1.
 
 Fixed dismissal regression: 1 passed (6.47s)
 Full plugin gesture journey: 1 passed (44.3s)
-Model sheet dismissal/reopen journey: 1 passed (13.7s)
+Model sheet dismissal/reopen journey (pre-loadout picker): 1 passed (13.7s)
 Browser plugin-modal-body.spec.ts: 1 passed (33.4s)
 Root typecheck, lint and format: passed
 ```
@@ -50,11 +52,13 @@ was not. iOS and Electron were not exercised.
 
 ## Tablet model selection
 
-`model-tablet.android.ad` exercises the New workspace popover. `model-tablet-agent.android.ad`
-exercises the modal used by an existing agent's narrow composer on a wide device. Both drill into
-a populated provider, select a real model, assert the updated trigger, reopen, and dismiss with
-Android Back. New workspace also pans beyond the short list viewport and flings back without
-selecting a row or dismissing the popover. They do not submit a prompt.
+`model-tablet.android.ad` exercises the New workspace composer. `model-tablet-agent.android.ad`
+exercises an existing agent's narrow composer on a wide device. Both open the loadout popover, open
+the catalog through **More models…**, search for a real model, select it, assert the updated
+trigger, reopen the catalog, and dismiss it with Android Back. New workspace also pans beyond the
+catalog viewport and flings back without selecting a row or dismissing the popover. They don't
+submit a prompt. On a host with an empty loadout the row reads **Add models…**, and the selection
+is also added to the loadout.
 
 Use an English-language Android tablet at 1600×2560, density 320 (800dp), with this checkout's
 JavaScript and a connected isolated daemon. On a Pixel Tablet AVD, rotate to portrait explicitly;
@@ -69,9 +73,9 @@ adb -s "$ANDROID_SERIAL" shell wm density 320
 Prepare an idle agent through the daemon's public `createAgent` API with a real provider/model and
 no initial prompt. Set `MODEL_QA_AGENT_ID` and `MODEL_QA_AGENT_TITLE` to that agent. In New workspace,
 remember a model first (the phone layout works on the broken baseline), then close the picker.
-Choose a model visible on the provider's first page and set its catalog ID and displayed label.
-Set `MODEL_QA_LAST_MODEL_ID` to its initially offscreen last model; use a short overflowing catalog
-(six rows during this verification) for the coordinate-based pan/fling regression:
+Choose a model and set its catalog ID and displayed label. Set `MODEL_QA_LAST_MODEL_ID` to a model
+that is offscreen when the catalog opens and that one pan reveals; the catalog lists every
+provider's models in one list:
 
 ```sh
 agent-device test packages/app/e2e/mobile/modal-sheet/model-tablet.android.ad \

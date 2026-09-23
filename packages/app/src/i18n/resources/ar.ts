@@ -78,6 +78,8 @@ export const ar: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "تبديل الشريط الجانبي",
+      back: "رجوع",
+      forward: "تقدم",
       open: "فتح القائمة",
       close: "إغلاق القائمة",
     },
@@ -113,6 +115,7 @@ export const ar: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "أرسل رسالة إلى الوكيل أو ضع علامة على @files أو استخدم /commands و /skills",
       mobile: "الرسالة، @files ، /commands",
@@ -195,35 +198,12 @@ export const ar: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "مزود",
-      select: "حدد مزود الوكيل",
-    },
     thinking: {
-      title: "التفكير",
       unknown: "مجهول",
       extraHigh: "ارتفاع إضافي",
-      select: "حدد خيار التفكير",
-      selectWithValue: "حدد خيار التفكير ({{value}})",
     },
     model: {
       unknown: "نموذج غير معروف",
-    },
-    features: {
-      title: "سمات",
-      open: "ميزات الوكيل المفتوح",
-      on: "على",
-      off: "عن",
-    },
-    mode: {
-      title: "وضع",
-      searchPlaceholder: "أوضاع البحث...",
-      selectWithValue: "حدد وضع الوكيل ({{value}})",
-    },
-    hints: {
-      thinking: "وضع التفكير",
-      model: "تغيير النموذج",
-      mode: "تغيير الوضع",
     },
   },
   agentStream: {
@@ -1156,6 +1136,21 @@ export const ar: TranslationResources = {
       whatsNew: "ما الجديد",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "الموارد والاستخدام",
+      title: "الموارد",
+      cpu: "المعالج",
+      memory: "الذاكرة",
+      memoryShort: "الذاكرة",
+      name: "الاسم",
+      showAll: "عرض الكل ({{count}})",
+      showLess: "عرض أقل",
+      context: "السياق",
+      noContext: "لا يوجد وكيل مفتوح يبلّغ عن استخدام السياق بعد.",
+      untitledAgent: "وكيل بلا عنوان",
+      limits: "حدود الخطة",
+      updateHost: "حدّث المضيف لرؤية استخدام المعالج والذاكرة.",
+    },
     sections: {
       sessions: "السجل",
       search: "بحث",
@@ -1562,8 +1557,6 @@ export const ar: TranslationResources = {
     error: "خطأ",
     defaultModel: "تقصير",
     profiles: "الملفات الشخصية",
-    providers: "المزودون",
-    model: "النموذج",
     editProfiles: "تحرير",
     editProfilesLabel: "تحرير ملفات الوكيل",
     createProfile: "إنشاء ملف شخصي",
@@ -1928,6 +1921,7 @@ export const ar: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "إعدادات",
     loading: "جارٍ تحميل الإعدادات...",
     groups: {

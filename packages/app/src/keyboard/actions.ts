@@ -14,7 +14,9 @@ export type MessageInputKeyboardActionKind =
   | "dictation-confirm"
   | "voice-toggle"
   | "voice-mute-toggle"
-  | "mode-cycle";
+  | "mode-cycle"
+  | "effort-cycle"
+  | "fast-toggle";
 
 export type KeyboardActionId =
   | "agent.interrupt"
@@ -55,7 +57,8 @@ export type KeyboardActionId =
   | "workspace.pin"
   | "view.toggle.focus"
   | "theme.cycle"
-  | "message-input.action";
+  | "message-input.action"
+  | "message-input.model-slot";
 
 export type KeyboardShortcutPayload =
   | { index: number }

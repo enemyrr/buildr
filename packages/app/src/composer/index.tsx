@@ -153,9 +153,9 @@ import { normalizeNativePastedImages, type NativePastedFile } from "./native-pas
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import {
-  appendWorkspaceFileAttachment,
   getWorkspaceFileAttachmentKey,
   getWorkspaceFileAttachmentSubtitle,
+  insertWorkspaceFileMention,
 } from "@/attachments/workspace-file";
 import {
   resolveWorkspaceFileDrop,
@@ -183,7 +183,7 @@ function noop() {}
 const noopCallback = () => {};
 
 function resolveComposerButtonIconSize(): number {
-  return isWeb ? ICON_SIZE.md : ICON_SIZE.lg;
+  return isWeb ? ICON_SIZE.sm : ICON_SIZE.md;
 }
 
 function resolveIsComposerLocked(
@@ -247,8 +247,12 @@ function resolveCheckoutRemoteUrl(
   return checkoutStatus?.remoteUrl ?? null;
 }
 
-function buildCancelButtonStyle(isConnected: boolean, isCancellingAgent: boolean): object[] {
-  const disabled = !isConnected || isCancellingAgent ? styles.buttonDisabled : undefined;
+function buildCancelButtonStyle(input: {
+  isConnected: boolean;
+  isCancellingAgent: boolean;
+}): object[] {
+  const disabled =
+    !input.isConnected || input.isCancellingAgent ? styles.buttonDisabled : undefined;
   return [styles.cancelButton, disabled].filter((value): value is object => Boolean(value));
 }
 
@@ -1095,7 +1099,6 @@ function ComposerForgeBinding({
 
 interface ComposerCancelButtonProps {
   buttonIconSize: number;
-  cancelButtonStyle: (object | undefined)[];
   handleCancelAgent: () => void;
   isConnected: boolean;
   isCancellingAgent: boolean;
@@ -1103,23 +1106,22 @@ interface ComposerCancelButtonProps {
   t: TFunction;
 }
 
+// Takes the send button's slot while a turn runs.
 function ComposerCancelButton({
   buttonIconSize,
-  cancelButtonStyle,
   handleCancelAgent,
   isConnected,
   isCancellingAgent,
   agentInterruptKeys,
   t,
 }: ComposerCancelButtonProps) {
+  const buttonStyle = useMemo(
+    () => buildCancelButtonStyle({ isConnected, isCancellingAgent }),
+    [isConnected, isCancellingAgent],
+  );
   const accessibilityLabel = isCancellingAgent
     ? t("composer.cancel.cancelingAgent")
     : t("composer.cancel.stopAgent");
-  const icon = isCancellingAgent ? (
-    <LoadingSpinner size="small" color="white" />
-  ) : (
-    <Square size={buttonIconSize} color="white" fill="white" />
-  );
   const shortcutNode = agentInterruptKeys ? <Shortcut chord={agentInterruptKeys} /> : null;
   return (
     <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
@@ -1128,9 +1130,9 @@ function ComposerCancelButton({
         disabled={!isConnected || isCancellingAgent}
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
-        style={cancelButtonStyle}
+        style={buttonStyle}
       >
-        {icon}
+        <ThemedSquare size={buttonIconSize - 2} uniProps={iconSquareMapping} />
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipRow}>
@@ -1524,10 +1526,16 @@ function ComposerContentImpl({
       if (!attachment) {
         return;
       }
-      setSelectedAttachments((current) => appendWorkspaceFileAttachment(current, attachment));
+      const input = messageInputRef.current?.getInputSnapshot();
+      const next = insertWorkspaceFileMention({
+        text: input?.text ?? textSource.getSnapshot(),
+        attachment,
+        at: input?.selection.end,
+      });
+      replaceUserInput(next.text, { start: next.cursor, end: next.cursor });
       focusInput();
     },
-    [focusInput, serverId, setSelectedAttachments, workspaceId],
+    [focusInput, replaceUserInput, serverId, textSource, workspaceId],
   );
 
   useEffect(() => {
@@ -1999,11 +2007,6 @@ function ComposerContentImpl({
     [],
   );
 
-  const cancelButtonStyle = useMemo(
-    () => buildCancelButtonStyle(isConnected, isCancellingAgent),
-    [isConnected, isCancellingAgent],
-  );
-
   const isVoiceSwitching = voice?.isVoiceSwitching ?? false;
   const voiceButtonDisabled = !isConnected || isVoiceSwitching;
   const realtimeVoiceButtonStyle = useCallback(
@@ -2016,7 +2019,6 @@ function ComposerContentImpl({
     () => (
       <ComposerCancelButton
         buttonIconSize={buttonIconSize}
-        cancelButtonStyle={cancelButtonStyle}
         handleCancelAgent={handleCancelAgent}
         isConnected={isConnected}
         isCancellingAgent={isCancellingAgent}
@@ -2024,15 +2026,7 @@ function ComposerContentImpl({
         t={t}
       />
     ),
-    [
-      agentInterruptKeys,
-      buttonIconSize,
-      cancelButtonStyle,
-      handleCancelAgent,
-      isCancellingAgent,
-      isConnected,
-      t,
-    ],
+    [agentInterruptKeys, buttonIconSize, handleCancelAgent, isCancellingAgent, isConnected, t],
   );
 
   const rightContent = useMemo(
@@ -2554,11 +2548,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     width: "100%",
     gap: theme.spacing[3],
   },
+  // Same box as the send button, so the swap doesn't move anything.
   cancelButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.palette.red[600],
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.foreground,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: theme.spacing[1],
@@ -2578,7 +2574,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   realtimeVoiceButton: {
     width: 28,
     height: 28,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2638,7 +2634,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   queueActionButton: {
     width: 32,
     height: 32,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.surface2,
@@ -2658,11 +2654,16 @@ const ThemedArrowUp = withUnistyles(ArrowUp);
 const ThemedGitPullRequest = withUnistyles(GitPullRequest);
 const ThemedCircleDot = withUnistyles(CircleDot);
 const ThemedAudioLines = withUnistyles(AudioLines);
+const ThemedSquare = withUnistyles(Square);
 const ThemedPaperclip = withUnistyles(Paperclip);
 const ThemedImageIcon = withUnistyles(ImageIcon);
 const ThemedClipboardPaste = withUnistyles(ClipboardPaste);
 const ThemedFileText = withUnistyles(FileText);
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const iconSquareMapping = (theme: Theme) => ({
+  color: theme.colors.foreground,
+  fill: theme.colors.foreground,
+});
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });
 

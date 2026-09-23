@@ -17,6 +17,7 @@ import {
   STATUS_INDICATOR_FILLED_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { StatusRing } from "@/components/status-ring";
+import { PixelLoader } from "@/components/pixel-loader";
 import { getStatusRingOffset } from "@/components/status-ring/geometry";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 
@@ -40,6 +41,9 @@ const LEADING_SLOT_HEIGHT = 20;
 
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator);
 const ThemedCircleAlert = withUnistyles(CircleAlert);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
+
+const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 
 const foregroundMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundMuted,
@@ -113,6 +117,7 @@ export function ProjectStatusIndicator({
   statusBucket,
   backdrop,
   loading = false,
+  busyLoaderSeed,
   testID,
 }: {
   iconDataUri: string | null;
@@ -122,6 +127,11 @@ export function ProjectStatusIndicator({
   /** The row's current background, so the status badge can knock out of it. */
   backdrop: SidebarSurfaceBackdrop;
   loading?: boolean;
+  /**
+   * Set on workspace rows: a busy workspace swaps its icon for the pixel loader instead of
+   * badging it. Project headers leave it unset so the icon keeps identifying the project.
+   */
+  busyLoaderSeed?: string;
   testID?: string;
 }) {
   const placeholderInitial = projectIconPlaceholderLabelFromDisplayName(displayName)
@@ -132,6 +142,17 @@ export function ProjectStatusIndicator({
   // and they share one badge.
   const badgeBucket = loading ? "running" : statusBucket;
   const badgeContent = getProjectStatusBadgeContent(badgeBucket);
+
+  if (busyLoaderSeed !== undefined && badgeBucket === "running") {
+    return (
+      <View
+        style={styles.projectLeadingVisualSlot}
+        testID={testID ?? "project-status-indicator-running"}
+      >
+        <ThemedPixelLoader size={14} seed={busyLoaderSeed} uniProps={foregroundColorMapping} />
+      </View>
+    );
+  }
 
   return (
     <View

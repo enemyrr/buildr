@@ -22,7 +22,7 @@ export function useAddFileToChat(input: { serverId: string; workspaceId?: string
       if (!focusedChat || !workspaceKey) {
         return;
       }
-      await useDraftStore.getState().attachWorkspaceFile({
+      await useDraftStore.getState().mentionWorkspaceFile({
         draftKey: focusedChat.draftKey,
         attachment: createWorkspaceFileAttachment({ path: filePath }),
       });

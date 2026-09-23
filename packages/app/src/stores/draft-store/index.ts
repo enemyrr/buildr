@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { AttachmentMetadata, WorkspaceFileComposerAttachment } from "@/attachments/types";
-import { appendWorkspaceFileAttachment } from "@/attachments/workspace-file";
+import { insertWorkspaceFileMention } from "@/attachments/workspace-file";
 import {
   garbageCollectAttachments,
   persistAttachmentFromDataUrl,
@@ -49,7 +49,7 @@ interface DraftStoreActions {
     draftKey: string;
     lifecycle?: Exclude<DraftLifecycleState, "active">;
   }) => void;
-  attachWorkspaceFile: (input: {
+  mentionWorkspaceFile: (input: {
     draftKey: string;
     attachment: WorkspaceFileComposerAttachment;
   }) => Promise<void>;
@@ -59,7 +59,7 @@ interface DraftStoreActions {
 }
 
 interface DraftStoreRuntimeState {
-  attachmentFocusRequestByDraftKey: Record<string, number>;
+  fileMentionRequestByDraftKey: Record<string, number>;
 }
 
 type DraftStore = DraftStoreState & DraftStoreRuntimeState & DraftStoreActions;
@@ -255,7 +255,7 @@ export const useDraftStore = create<DraftStore>()(
     (set, get) => ({
       drafts: {},
       createModalDraft: null,
-      attachmentFocusRequestByDraftKey: {},
+      fileMentionRequestByDraftKey: {},
 
       getDraftInput: (draftKey) => {
         const record = get().drafts[draftKey];
@@ -374,7 +374,7 @@ export const useDraftStore = create<DraftStore>()(
         scheduleAttachmentGc();
       },
 
-      attachWorkspaceFile: async ({ draftKey, attachment }) => {
+      mentionWorkspaceFile: async ({ draftKey, attachment }) => {
         await get().hydrateDraftInput({ draftKey });
         set((state) => {
           const existing = state.drafts[draftKey];
@@ -385,19 +385,18 @@ export const useDraftStore = create<DraftStore>()(
               [draftKey]: createDraftRecord({
                 draft: {
                   ...draft,
-                  attachments: appendWorkspaceFileAttachment(draft.attachments, attachment),
+                  text: insertWorkspaceFileMention({ text: draft.text, attachment }).text,
                 },
                 lifecycle: "active",
                 previousVersion: existing?.version,
               }),
             },
-            attachmentFocusRequestByDraftKey: {
-              ...state.attachmentFocusRequestByDraftKey,
-              [draftKey]: (state.attachmentFocusRequestByDraftKey[draftKey] ?? 0) + 1,
+            fileMentionRequestByDraftKey: {
+              ...state.fileMentionRequestByDraftKey,
+              [draftKey]: (state.fileMentionRequestByDraftKey[draftKey] ?? 0) + 1,
             },
           };
         });
-        scheduleAttachmentGc();
       },
 
       getCreateModalDraft: () => {

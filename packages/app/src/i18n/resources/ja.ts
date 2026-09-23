@@ -79,6 +79,8 @@ export const ja: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "サイドバーを切り替え",
+      back: "戻る",
+      forward: "進む",
       open: "メニューを開く",
       close: "メニューを閉じる",
     },
@@ -114,6 +116,7 @@ export const ja: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "エージェントにメッセージ、@ファイル、/コマンドや/スキルを入力",
       mobile: "メッセージ、@ファイル、/コマンド",
@@ -197,35 +200,12 @@ export const ja: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "プロバイダー",
-      select: "エージェントプロバイダーを選択",
-    },
     thinking: {
-      title: "思考",
       unknown: "不明",
       extraHigh: "非常に高い",
-      select: "思考オプションを選択",
-      selectWithValue: "思考オプションを選択（{{value}}）",
     },
     model: {
       unknown: "不明なモデル",
-    },
-    features: {
-      title: "機能",
-      open: "エージェント機能を開く",
-      on: "オン",
-      off: "オフ",
-    },
-    mode: {
-      title: "モード",
-      searchPlaceholder: "モードを検索...",
-      selectWithValue: "エージェントモードを選択（{{value}}）",
-    },
-    hints: {
-      thinking: "思考モード",
-      model: "モデルを変更",
-      mode: "権限モードを変更",
     },
   },
   agentStream: {
@@ -1170,6 +1150,21 @@ export const ja: TranslationResources = {
       whatsNew: "新着情報",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "リソースと使用量",
+      title: "リソース",
+      cpu: "CPU",
+      memory: "メモリ",
+      memoryShort: "メモリ",
+      name: "名前",
+      showAll: "すべて表示（{{count}}）",
+      showLess: "表示を減らす",
+      context: "コンテキスト",
+      noContext: "コンテキスト使用量を報告している開いているエージェントはまだありません。",
+      untitledAgent: "無題のエージェント",
+      limits: "プランの上限",
+      updateHost: "CPU とメモリの使用量を見るにはホストを更新してください。",
+    },
     sections: {
       sessions: "履歴",
       search: "検索",
@@ -1579,8 +1574,6 @@ export const ja: TranslationResources = {
     error: "エラー",
     defaultModel: "デフォルト",
     profiles: "プロファイル",
-    providers: "プロバイダー",
-    model: "モデル",
     editProfiles: "編集",
     editProfilesLabel: "エージェントプロファイルを編集",
     createProfile: "プロファイルを作成",
@@ -1948,6 +1941,7 @@ export const ja: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "設定",
     loading: "設定を読み込み中...",
     groups: {

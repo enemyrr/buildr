@@ -7,6 +7,7 @@ import {
 import {
   buildOpenFileExplorerPatch,
   buildToggleFileExplorerPatch,
+  DEFAULT_SIDEBAR_WIDTH,
   DEFAULT_TREE_RAIL_WIDTH,
   migratePanelState,
   selectIsAgentListOpen,
@@ -142,6 +143,11 @@ describe("panel-store migration", () => {
     expect(migratePanelState({ treeRailWidth: 320 }, 15).treeRailWidth).toBe(
       DEFAULT_TREE_RAIL_WIDTH,
     );
+  });
+
+  it("narrows a sidebar on the old default and keeps a dragged width", () => {
+    expect(migratePanelState({ sidebarWidth: 320 }, 16).sidebarWidth).toBe(DEFAULT_SIDEBAR_WIDTH);
+    expect(migratePanelState({ sidebarWidth: 400 }, 16).sidebarWidth).toBe(400);
   });
 
   it("defaults the file panel tree to open and keeps it closed once closed", () => {

@@ -1,3 +1,4 @@
+import { sendPrRequest } from "@/git/pr-instructions";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentAttachment, ForgeSearchItem } from "@getpaseo/protocol/messages";
 import type {
@@ -1122,4 +1123,65 @@ describe("file upload preparation", () => {
       expect(sends).toBe(0);
     },
   );
+});
+
+describe("PR requests", () => {
+  it.each([false, true])("attaches instructions and queues only while busy (%s)", async (busy) => {
+    const client = createFakeSendClient();
+    let instructions = "";
+    const file = {
+      type: "uploaded_file" as const,
+      id: "pr-instructions",
+      fileName: "PR instructions.md",
+      mimeType: "text/markdown",
+      size: 100,
+      path: "/uploads/pr.md",
+    };
+    client.uploadFile = async (upload) => {
+      instructions = new TextDecoder().decode(upload.bytes);
+      return { requestId: "upload", file, error: null };
+    };
+    const queue = createFakeQueue();
+    const outcome = await sendPrRequest({
+      client,
+      agentId: "agent",
+      submission: createFakeStream(),
+      queue,
+      isActive: () => busy,
+      branch: "feature/theme",
+      baseRef: "origin/main",
+      draft: true,
+    });
+    expect(instructions).toContain("feature/theme");
+    expect(instructions).toContain("origin/main");
+    expect(instructions).toContain("gh pr create --draft");
+    expect(instructions).not.toContain("mcp__conductor");
+    expect(outcome).toBe(busy ? "queued" : "sent");
+    expect(client.calls).toHaveLength(busy ? 0 : 1);
+    expect(queue.read("agent")).toHaveLength(busy ? 1 : 0);
+    const attachments = busy
+      ? queue.read("agent")[0]!.attachments
+      : client.calls[0]!.options.attachments;
+    expect(JSON.stringify(attachments)).toContain("/uploads/pr.md");
+  });
+
+  it("does not send or queue when the instructions upload fails", async () => {
+    const client = createFakeSendClient();
+    client.uploadFile = async () => ({ requestId: "upload", file: null, error: "Upload failed" });
+    const queue = createFakeQueue();
+    await expect(
+      sendPrRequest({
+        client,
+        agentId: "agent",
+        submission: createFakeStream(),
+        queue,
+        isActive: () => true,
+        branch: null,
+        baseRef: null,
+        draft: false,
+      }),
+    ).rejects.toThrow("Upload failed");
+    expect(client.calls).toEqual([]);
+    expect(queue.read("agent")).toEqual([]);
+  });
 });

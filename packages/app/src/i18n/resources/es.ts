@@ -79,6 +79,8 @@ export const es: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "Alternar barra lateral",
+      back: "Atrás",
+      forward: "Adelante",
       open: "abrir menú",
       close: "Cerrar menú",
     },
@@ -114,6 +116,7 @@ export const es: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "Envíe un mensaje al agente, etiquete@fileso use/commandsy/skills",
       mobile: "Mensaje,@files,/commands",
@@ -197,35 +200,12 @@ export const es: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "Proveedor",
-      select: "Seleccionar proveedor de agente",
-    },
     thinking: {
-      title: "Pensamiento",
       unknown: "Desconocido",
       extraHigh: "extra alto",
-      select: "Seleccione la opción de pensamiento",
-      selectWithValue: "Seleccione la opción de pensamiento ({{value}})",
     },
     model: {
       unknown: "Modelo desconocido",
-    },
-    features: {
-      title: "Características",
-      open: "Funciones de agente abierto",
-      on: "En",
-      off: "Apagado",
-    },
-    mode: {
-      title: "Modo",
-      searchPlaceholder: "Modos de búsqueda...",
-      selectWithValue: "Seleccione el modo de agente ({{value}})",
-    },
-    hints: {
-      thinking: "Modo de pensamiento",
-      model: "Cambiar modelo",
-      mode: "Cambiar modo",
     },
   },
   agentStream: {
@@ -1192,6 +1172,21 @@ export const es: TranslationResources = {
       whatsNew: "Novedades",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "Recursos y uso",
+      title: "Recursos",
+      cpu: "CPU",
+      memory: "Memoria",
+      memoryShort: "Mem.",
+      name: "Nombre",
+      showAll: "Mostrar todo ({{count}})",
+      showLess: "Mostrar menos",
+      context: "Contexto",
+      noContext: "Ningún agente abierto informa aún su contexto.",
+      untitledAgent: "Agente sin título",
+      limits: "Límites del plan",
+      updateHost: "Actualiza el host para ver el uso de CPU y memoria.",
+    },
     sections: {
       sessions: "Historial",
       search: "Buscar",
@@ -1608,8 +1603,6 @@ export const es: TranslationResources = {
     error: "Error",
     defaultModel: "Por defecto",
     profiles: "Perfiles",
-    providers: "Proveedores",
-    model: "Modelo",
     editProfiles: "Editar",
     editProfilesLabel: "Editar perfiles de agente",
     createProfile: "Crear perfil",
@@ -1976,6 +1969,7 @@ export const es: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "Ajustes",
     loading: "Cargando configuración...",
     groups: {

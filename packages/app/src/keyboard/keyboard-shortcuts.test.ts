@@ -1196,3 +1196,38 @@ describe("direct new-tab target shortcuts", () => {
     ).toEqual([["ctrl", "shift", "H"]]);
   });
 });
+
+describe("model loadout shortcuts", () => {
+  it("applies a loadout slot with Ctrl+Cmd+digit on mac", () => {
+    expectShortcutResolution({
+      event: { key: "3", code: "Digit3", metaKey: true, ctrlKey: true },
+      context: { isMac: true, isDesktop: true, focusScope: "message-input" },
+      action: "message-input.model-slot",
+      payload: { index: 3 },
+    });
+  });
+
+  it("cycles effort with Cmd+Shift+/ on mac", () => {
+    expectShortcutResolution({
+      event: { key: "?", code: "Slash", metaKey: true, shiftKey: true },
+      context: { isMac: true, isDesktop: true, focusScope: "message-input" },
+      action: "message-input.action",
+      payload: { kind: "effort-cycle" },
+    });
+  });
+
+  it("toggles fast with Cmd+Shift+E only while the message input is focused", () => {
+    const event = { key: "e", code: "KeyE", metaKey: true, shiftKey: true };
+    expectShortcutResolution({
+      event,
+      context: { isMac: true, isDesktop: true, focusScope: "message-input" },
+      action: "message-input.action",
+      payload: { kind: "fast-toggle" },
+    });
+    expectShortcutResolution({
+      event,
+      context: { isMac: true, isDesktop: true, focusScope: "other" },
+      action: "workspace.tab.target.files",
+    });
+  });
+});

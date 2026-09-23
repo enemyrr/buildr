@@ -78,6 +78,8 @@ export const zhCN: TranslationResources = {
   shell: {
     menu: {
       toggleSidebar: "切换侧边栏",
+      back: "后退",
+      forward: "前进",
       open: "打开菜单",
       close: "关闭菜单",
     },
@@ -113,6 +115,7 @@ export const zhCN: TranslationResources = {
     },
   },
   composer: {
+    loadout: en.composer.loadout,
     placeholders: {
       desktop: "给 Agent 发消息，标记 @files，或使用 /commands 和 /skills",
       mobile: "发消息，@files，/commands",
@@ -195,35 +198,12 @@ export const zhCN: TranslationResources = {
     },
   },
   agentControls: {
-    provider: {
-      fallback: "Provider",
-      select: "选择 Agent Provider",
-    },
     thinking: {
-      title: "Thinking",
       unknown: "未知",
       extraHigh: "Extra high",
-      select: "选择 thinking 选项",
-      selectWithValue: "选择 thinking 选项（{{value}}）",
     },
     model: {
       unknown: "未知 Model",
-    },
-    features: {
-      title: "Features",
-      open: "打开 Agent features",
-      on: "开启",
-      off: "关闭",
-    },
-    mode: {
-      title: "Mode",
-      searchPlaceholder: "搜索 modes...",
-      selectWithValue: "选择 Agent mode（{{value}}）",
-    },
-    hints: {
-      thinking: "Thinking mode",
-      model: "切换 Model",
-      mode: "更改模式",
     },
   },
   agentStream: {
@@ -1148,6 +1128,21 @@ export const zhCN: TranslationResources = {
       whatsNew: "新功能",
       appName: "Paseo",
     },
+    resources: {
+      trigger: "资源与用量",
+      title: "资源",
+      cpu: "CPU",
+      memory: "内存",
+      memoryShort: "内存",
+      name: "名称",
+      showAll: "显示全部（{{count}}）",
+      showLess: "收起",
+      context: "上下文",
+      noContext: "还没有打开的代理报告上下文用量。",
+      untitledAgent: "未命名代理",
+      limits: "套餐限额",
+      updateHost: "更新主机以查看 CPU 和内存用量。",
+    },
     sections: {
       sessions: "历史",
       search: "搜索",
@@ -1545,8 +1540,6 @@ export const zhCN: TranslationResources = {
     error: "错误",
     defaultModel: "默认",
     profiles: "配置文件",
-    providers: "提供方",
-    model: "模型",
     editProfiles: "编辑",
     editProfilesLabel: "编辑智能体配置文件",
     createProfile: "创建配置文件",
@@ -1907,6 +1900,7 @@ export const zhCN: TranslationResources = {
     },
   },
   settings: {
+    defaultModels: en.settings.defaultModels,
     title: "设置",
     loading: "正在加载设置...",
     groups: {

@@ -11,6 +11,10 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { useHasWindowChromeObstruction, useOwnsWindowChromeCorner } from "@/utils/desktop-window";
 import { iconButtonChromeGlyphSize } from "@/components/ui/icon-button-chrome";
+import {
+  NavigationHistoryButtons,
+  NavigationHistoryButtonsPlaceholder,
+} from "./navigation-history-buttons";
 
 interface MenuHeaderProps {
   title?: string;
@@ -118,15 +122,27 @@ export function SidebarMenuToggle({ style, ...props }: SidebarMenuToggleProps = 
     return null;
   }
 
-  if (!isMobile && hasTopLeftWindowControls) {
+  if (isMobile) {
+    return <SidebarMenuToggleButton {...props} isMobile resolvedStyle={resolvedStyle} />;
+  }
+
+  if (hasTopLeftWindowControls) {
     return (
-      <View pointerEvents="none" style={placeholderStyle}>
-        <View style={styles.desktopMenuIconSpace} />
+      <View style={styles.desktopControls}>
+        <View pointerEvents="none" style={placeholderStyle}>
+          <View style={styles.desktopMenuIconSpace} />
+        </View>
+        <NavigationHistoryButtonsPlaceholder />
       </View>
     );
   }
 
-  return <SidebarMenuToggleButton {...props} isMobile={isMobile} resolvedStyle={resolvedStyle} />;
+  return (
+    <View style={styles.desktopControls}>
+      <SidebarMenuToggleButton {...props} isMobile={false} resolvedStyle={resolvedStyle} />
+      <NavigationHistoryButtons />
+    </View>
+  );
 }
 
 export function WindowSidebarMenuToggle({ style, ...props }: SidebarMenuToggleProps = {}) {
@@ -166,6 +182,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   left: {
     gap: theme.spacing[2],
+  },
+  desktopControls: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   mobileMenuIcon: {
     width: MOBILE_MENU_LINE_WIDTH,

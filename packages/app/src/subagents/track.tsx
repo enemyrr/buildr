@@ -206,7 +206,7 @@ function SubagentsTrackRow({
   const renderRow = useCallback(
     ({ active }: { active: boolean }) => (
       <>
-        <WorkspaceTabIcon presentation={presentation} backdrop={active ? "surface2" : "surface1"} />
+        <WorkspaceTabIcon presentation={presentation} />
         <Text style={styles.rowLabel} numberOfLines={1}>
           {displayLabel}
         </Text>

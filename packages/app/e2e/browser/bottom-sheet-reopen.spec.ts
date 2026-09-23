@@ -1,8 +1,15 @@
 import { expect, test, type Page } from "../support/fixtures";
+import { seedAgentProfiles } from "../support/helpers/agent-profiles";
 import { expectComposerVisible } from "../support/helpers/composer";
 import { openAgentRoute, seedMockAgentWorkspace } from "../support/helpers/mock-agent";
 
 const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const LOADOUT_ANCHOR = {
+  id: "agent_profile_e2e_bottom_sheet_anchor",
+  name: "Loadout anchor",
+  provider: "mock",
+  model: "ten-second-stream",
+};
 
 async function openMockAgentAtMobileBreakpoint(page: Page) {
   await page.setViewportSize(MOBILE_VIEWPORT);
@@ -81,7 +88,7 @@ async function openTabSwitcher(page: Page) {
 async function openModelSelector(page: Page) {
   await page.getByRole("button", { name: /Select model/ }).click();
   await expectBottomSheetOpen(page);
-  await expect(page.getByTestId("agent-controls-settings-list")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("model-loadout-menu-content")).toBeVisible({ timeout: 10_000 });
 }
 
 async function openAndCloseTabSwitcherTwice(page: Page) {
@@ -99,7 +106,10 @@ async function openAndCloseModelSelectorTwice(page: Page) {
 }
 
 test.describe("mobile bottom sheet reopen", () => {
-  test("sheets reopen and model search returns to configuration", async ({ page }) => {
+  test("sheets reopen and the model picker returns to the composer", async ({ page }) => {
+    // A non-empty loadout keeps "More models…" in browse mode, so the pick below
+    // changes the agent's model without writing to the loadout.
+    const loadout = await seedAgentProfiles([LOADOUT_ANCHOR]);
     const session = await openMockAgentAtMobileBreakpoint(page);
     try {
       await test.step("tab switcher opens, closes, and reopens", async () => {
@@ -110,25 +120,40 @@ test.describe("mobile bottom sheet reopen", () => {
         await openAndCloseModelSelectorTwice(page);
       });
 
-      await test.step("model search returns to configuration", async () => {
+      await test.step("a submenu page returns to the loadout root", async () => {
         await openModelSelector(page);
-        const sheet = page.getByTestId("agent-controls-model-sheet");
+        const sheet = page.getByTestId("model-loadout-menu-content");
+        await sheet.getByTestId("mode-control").click();
+        await expect(sheet.getByTestId("model-loadout-mode-approval-test")).toBeVisible({
+          timeout: 10_000,
+        });
+        await sheet.getByTestId("menu-sheet-back").click();
+        await expect(sheet.getByTestId("browse-all-models")).toBeVisible();
+        await closeBottomSheetWithBackdrop(page);
+      });
 
-        await page.getByTestId("model-search-all-input").click();
-        const model = page.getByRole("button", { name: /^Ten second stream/ });
-        await expect(model).toBeVisible({
+      await test.step("a model picked in the catalog sheet lands in the composer", async () => {
+        await openModelSelector(page);
+        await page.getByTestId("browse-all-models").click();
+        await expect(page.getByTestId("model-loadout-menu-content")).toHaveCount(0, {
           timeout: 10_000,
         });
 
+        await page.getByTestId("model-search-all-input").click();
+        const model = page.getByRole("button", { name: /^One minute stream/ });
+        await expect(model).toBeVisible({ timeout: 10_000 });
         await model.click();
 
-        await expect(sheet).toBeVisible();
-        await expect(page.getByTestId("agent-controls-settings-list")).toBeVisible();
-        await expect(page.getByTestId("agent-controls-model")).toContainText("Ten second stream");
-        await expect(page.getByTestId("agent-controls-model-browser-sheet")).not.toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Select model (One minute stream)" }),
+        ).toBeVisible({
+          timeout: 10_000,
+        });
+        await expect(bottomSheetBackdrop(page)).not.toBeVisible({ timeout: 10_000 });
       });
     } finally {
       await session.cleanup();
+      await loadout.restore();
     }
   });
 });
