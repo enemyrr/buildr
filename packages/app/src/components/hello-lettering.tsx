@@ -30,14 +30,19 @@ const AnimatedPath = createAnimatedComponent(Path);
 interface HelloLetteringProps {
   height: number;
   color: string;
+  /** Renders the lettering fully drawn, without animating. */
+  drawn?: boolean;
   onComplete?: () => void;
 }
 
-export function HelloLettering({ height, color, onComplete }: HelloLetteringProps) {
-  const h1Progress = useSharedValue(0);
-  const elloProgress = useSharedValue(0);
+export function HelloLettering({ height, color, drawn = false, onComplete }: HelloLetteringProps) {
+  const h1Progress = useSharedValue(drawn ? 1 : 0);
+  const elloProgress = useSharedValue(drawn ? 1 : 0);
 
   useEffect(() => {
+    if (drawn) {
+      return;
+    }
     h1Progress.value = withTiming(1, { duration: 800, easing: EASE_IN_OUT });
     elloProgress.value = withDelay(
       700,
@@ -51,7 +56,7 @@ export function HelloLettering({ height, color, onComplete }: HelloLetteringProp
       cancelAnimation(h1Progress);
       cancelAnimation(elloProgress);
     };
-  }, [h1Progress, elloProgress, onComplete]);
+  }, [drawn, h1Progress, elloProgress, onComplete]);
 
   const h1Props = useAnimatedProps(() => ({
     strokeDashoffset: H1_LENGTH * (1 - h1Progress.value),

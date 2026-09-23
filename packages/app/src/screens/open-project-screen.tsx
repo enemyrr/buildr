@@ -3,10 +3,9 @@ import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
-import Animated, { FadeIn, FadeOut, useReducedMotion } from "react-native-reanimated";
+import { useReducedMotion } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { FolderOpen, Inbox, Plug, Smartphone } from "lucide-react-native";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { HelloLettering } from "@/components/hello-lettering";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
@@ -119,34 +118,22 @@ const ThemedHelloLettering = withUnistyles(HelloLettering, (theme) => ({
   color: theme.colors.foreground,
 }));
 
-// The greeting plays once per app session, then hands off to the logo.
+// The greeting animates once per app session and stays drawn afterward.
 let hasPlayedHello = false;
 
 function HomeLogo() {
   const reduceMotion = useReducedMotion();
-  const [playsHello] = useState(() => !hasPlayedHello && !reduceMotion);
-  const [showHello, setShowHello] = useState(playsHello);
+  const [drawn] = useState(() => hasPlayedHello || reduceMotion);
 
   const handleHelloComplete = useCallback(() => {
     hasPlayedHello = true;
-    setShowHello(false);
   }, []);
 
   return (
     <View style={styles.logo}>
-      {showHello ? (
-        <Animated.View key="hello" exiting={FadeOut.duration(300)} style={styles.logoLayer}>
-          <ThemedHelloLettering height={LOGO_SIZE} onComplete={handleHelloComplete} />
-        </Animated.View>
-      ) : (
-        <Animated.View
-          key="logo"
-          entering={playsHello ? FadeIn.delay(200).duration(300) : undefined}
-          style={styles.logoLayer}
-        >
-          <PaseoLogo size={LOGO_SIZE} />
-        </Animated.View>
-      )}
+      <View style={styles.logoLayer}>
+        <ThemedHelloLettering height={LOGO_SIZE} drawn={drawn} onComplete={handleHelloComplete} />
+      </View>
     </View>
   );
 }
