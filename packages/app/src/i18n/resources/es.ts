@@ -258,6 +258,14 @@ export const es: TranslationResources = {
       unarchive: "Desarchivar",
     },
   },
+  home: {
+    title: "Inicio",
+    searchPlaceholder: "Buscar",
+    createWorkspace: "Crear espacio de trabajo",
+    daysAgo: "Hace {{count}} días",
+    empty: "Aún no hay espacios de trabajo",
+    noMatches: "Ningún espacio de trabajo coincide",
+  },
   dashboard: {
     title: "Panel",
     allProjects: "Todos los proyectos",
@@ -1313,6 +1321,7 @@ export const es: TranslationResources = {
     },
     sections: {
       dashboard: "Panel",
+      home: "Inicio",
       sessions: "Historial",
       search: "Buscar",
       schedules: "Horarios",

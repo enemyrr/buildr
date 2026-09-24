@@ -253,6 +253,14 @@ export const ar: TranslationResources = {
       unarchive: "إلغاء الأرشفة",
     },
   },
+  home: {
+    title: "الرئيسية",
+    searchPlaceholder: "بحث",
+    createWorkspace: "إنشاء مساحة عمل",
+    daysAgo: "قبل {{count}} أيام",
+    empty: "لا توجد مساحات عمل بعد",
+    noMatches: "لا توجد مساحات عمل مطابقة",
+  },
   dashboard: {
     title: "لوحة التحكم",
     allProjects: "كل المشاريع",
@@ -1274,6 +1282,7 @@ export const ar: TranslationResources = {
     },
     sections: {
       dashboard: "لوحة التحكم",
+      home: "الرئيسية",
       sessions: "السجل",
       search: "بحث",
       schedules: "الجداول",

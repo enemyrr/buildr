@@ -253,6 +253,14 @@ export const zhCN: TranslationResources = {
       unarchive: "取消归档",
     },
   },
+  home: {
+    title: "主页",
+    searchPlaceholder: "搜索",
+    createWorkspace: "创建工作区",
+    daysAgo: "{{count}} 天前",
+    empty: "还没有工作区",
+    noMatches: "没有匹配的工作区",
+  },
   dashboard: {
     title: "看板",
     allProjects: "所有项目",
@@ -1266,6 +1274,7 @@ export const zhCN: TranslationResources = {
     },
     sections: {
       dashboard: "看板",
+      home: "主页",
       sessions: "历史",
       search: "搜索",
       schedules: "计划",

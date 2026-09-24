@@ -408,7 +408,7 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
   },
   checksTextRunning: {
-    color: theme.colors.statusWarning,
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 16,
     flexShrink: 0,

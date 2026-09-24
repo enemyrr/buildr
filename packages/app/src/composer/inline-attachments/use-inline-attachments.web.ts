@@ -66,9 +66,9 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
 
   // Reconcile only after attachments commit. Text changes are synchronous, so
   // reconciling on them would see cleared text next to not-yet-cleared
-  // attachments and put the tokens back. Read the input's live text: on web the
-  // draft store gets typed text a frame late, and reconciling that stale text
-  // would write the text a submit just cleared back into the input.
+  // attachments and put the tokens back. Read the live input: on web the draft
+  // store publishes text after paint, so its snapshot can still hold the text a
+  // submit just cleared.
   useEffect(() => {
     if (!enabled) return;
     const current = inputRef.current;

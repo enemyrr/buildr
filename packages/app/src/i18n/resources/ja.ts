@@ -258,6 +258,14 @@ export const ja: TranslationResources = {
       unarchive: "アーカイブ解除",
     },
   },
+  home: {
+    title: "ホーム",
+    searchPlaceholder: "検索",
+    createWorkspace: "ワークスペースを作成",
+    daysAgo: "{{count}}日前",
+    empty: "ワークスペースはまだありません",
+    noMatches: "一致するワークスペースはありません",
+  },
   dashboard: {
     title: "ダッシュボード",
     allProjects: "すべてのプロジェクト",
@@ -1290,6 +1298,7 @@ export const ja: TranslationResources = {
     },
     sections: {
       dashboard: "ダッシュボード",
+      home: "ホーム",
       sessions: "履歴",
       search: "検索",
       schedules: "スケジュール",

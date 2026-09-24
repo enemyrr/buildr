@@ -254,6 +254,14 @@ export const ko: TranslationResources = {
       unarchive: "보관 해제",
     },
   },
+  home: {
+    title: "홈",
+    searchPlaceholder: "검색",
+    createWorkspace: "워크스페이스 만들기",
+    daysAgo: "{{count}}일 전",
+    empty: "아직 워크스페이스가 없습니다",
+    noMatches: "일치하는 워크스페이스가 없습니다",
+  },
   dashboard: {
     title: "대시보드",
     allProjects: "모든 프로젝트",
@@ -1282,6 +1290,7 @@ export const ko: TranslationResources = {
     },
     sections: {
       dashboard: "대시보드",
+      home: "홈",
       sessions: "기록",
       search: "검색",
       schedules: "일정",
