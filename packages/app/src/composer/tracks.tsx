@@ -9,7 +9,7 @@ import {
   useMenuContext,
   type MenuTriggerState,
 } from "@/components/ui/menu";
-import { DotSpinner } from "@/components/dot-spinner";
+import { PixelLoader } from "@/components/pixel-loader";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { getStatusDotColor } from "@/utils/status-dot-color";
@@ -69,7 +69,7 @@ export interface ComposerTrackPillProps {
  * task's active form — and there is nothing above the composer competing for the space. The
  * surface still shrinks to its content and clamps to the viewport.
  */
-const ThemedDotSpinner = withUnistyles(DotSpinner);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const PANEL_MIN_WIDTH = 280;
@@ -155,7 +155,7 @@ function ComposerTrackPillTrigger({
             style={styles.segment}
             testID={`${testID}-segment-${index}`}
           >
-            <ComposerTrackMark bucket={segment.bucket} />
+            <ComposerTrackMark bucket={segment.bucket} seed={testID} />
             <Text style={labelStyle} numberOfLines={1}>
               {segment.text}
             </Text>
@@ -277,12 +277,18 @@ export function ComposerTrackRow({
  * it holds the dot off the pill's leading edge while the label runs flush to the trailing one, and
  * it opens a gap to its own label as wide as the gap to the next segment.
  */
-function ComposerTrackMark({ bucket }: { bucket: SidebarStateBucket | null }): ReactElement | null {
+function ComposerTrackMark({
+  bucket,
+  seed,
+}: {
+  bucket: SidebarStateBucket | null;
+  seed: string;
+}): ReactElement | null {
   if (!bucket) {
     return null;
   }
   if (bucket === "running") {
-    return <ThemedDotSpinner size={11} uniProps={mutedColorMapping} />;
+    return <ThemedPixelLoader size={11} seed={seed} uniProps={mutedColorMapping} />;
   }
   return <View style={dotColorStyle(bucket)} />;
 }
