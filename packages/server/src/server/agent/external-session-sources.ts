@@ -23,7 +23,7 @@ export function externalSessionKey(provider: string, providerHandleId: string): 
 
 const PASEO_HOMES = [
   { dir: ".paseo", label: "Paseo" },
-  { dir: ".paseo-fork", label: "Buildr" },
+  { dir: ".buildr", label: "Buildr" },
 ];
 
 const CONDUCTOR_DB_PATH = join(
