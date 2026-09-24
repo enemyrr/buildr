@@ -333,6 +333,7 @@ function useAgentPanelDescriptor(
       const agent =
         session?.agents?.get(target.agentId) ?? session?.agentDetails?.get(target.agentId) ?? null;
       return {
+        isLoaded: agent !== null,
         provider: agent?.provider ?? "codex",
         title: agent?.title ?? null,
         status: agent?.status ?? null,
@@ -344,14 +345,16 @@ function useAgentPanelDescriptor(
     }),
   );
   const provider = descriptorState.provider;
-  const label = resolveWorkspaceAgentTabLabel(descriptorState.title);
+  const { t } = useTranslation();
+  // Only a missing agent record counts as loading; an untitled agent matches its draft tab.
+  const label = resolveWorkspaceAgentTabLabel(descriptorState.title) ?? t("panels.draft.untitled");
   const icon = getProviderIcon(provider, context.serverId);
 
   return {
-    label: label ?? "",
+    label,
     subtitle: `${formatProviderLabel(provider)} agent`,
-    tooltip: label ?? `${formatProviderLabel(provider)} agent`,
-    titleState: label ? "ready" : "loading",
+    tooltip: label,
+    titleState: descriptorState.isLoaded ? "ready" : "loading",
     icon,
     statusBucket: descriptorState.status
       ? deriveSidebarStateBucket({

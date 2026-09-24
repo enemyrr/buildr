@@ -53,11 +53,13 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
 
   // Reconcile only after attachments commit. Text changes are synchronous, so
   // reconciling on them would see cleared text next to not-yet-cleared
-  // attachments and put the tokens back.
+  // attachments and put the tokens back. Read the live input: on web the draft
+  // store publishes text after paint, so its snapshot can still hold the text a
+  // submit just cleared.
   useEffect(() => {
     if (!enabled) return;
     const current = inputRef.current;
-    const text = current.textSource.getSnapshot();
+    const text = current.getText();
     const result = reconcileInlineTokens({
       text,
       items: inlineAttachments,
@@ -125,7 +127,7 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
 
   const removeChip = useCallback((attachment: UserComposerAttachment) => {
     const current = inputRef.current;
-    const text = current.textSource.getSnapshot();
+    const text = current.getText();
     const tokens = parseInlineTokens(text);
     const paired = pairInlineTokens(tokens, inlineAttachmentsRef.current, (entry) => entry.label);
     const token = tokens[paired.findIndex((entry) => entry?.item === attachment)];

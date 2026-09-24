@@ -268,6 +268,14 @@ export const en = {
       unarchive: "Unarchive",
     },
   },
+  home: {
+    title: "Home",
+    searchPlaceholder: "Search",
+    createWorkspace: "Create workspace",
+    daysAgo: "{{count}} days ago",
+    empty: "No workspaces yet",
+    noMatches: "No workspaces match",
+  },
   dashboard: {
     title: "Dashboard",
     allProjects: "All projects",
@@ -1302,6 +1310,7 @@ export const en = {
     },
     sections: {
       dashboard: "Dashboard",
+      home: "Home",
       sessions: "History",
       search: "Search",
       schedules: "Schedules",
