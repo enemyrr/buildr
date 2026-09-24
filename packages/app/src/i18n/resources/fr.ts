@@ -259,6 +259,14 @@ export const fr: TranslationResources = {
       unarchive: "Désarchiver",
     },
   },
+  home: {
+    title: "Accueil",
+    searchPlaceholder: "Rechercher",
+    createWorkspace: "Créer un espace de travail",
+    daysAgo: "Il y a {{count}} jours",
+    empty: "Aucun espace de travail pour l’instant",
+    noMatches: "Aucun espace de travail ne correspond",
+  },
   dashboard: {
     title: "Tableau de bord",
     allProjects: "Tous les projets",
@@ -1314,6 +1322,7 @@ export const fr: TranslationResources = {
     },
     sections: {
       dashboard: "Tableau de bord",
+      home: "Accueil",
       sessions: "Historique",
       search: "Rechercher",
       schedules: "Planifications",

@@ -257,6 +257,14 @@ export const ptBR: TranslationResources = {
       unarchive: "Desarquivar",
     },
   },
+  home: {
+    title: "Início",
+    searchPlaceholder: "Pesquisar",
+    createWorkspace: "Criar workspace",
+    daysAgo: "Há {{count}} dias",
+    empty: "Nenhum workspace ainda",
+    noMatches: "Nenhum workspace corresponde",
+  },
   dashboard: {
     title: "Painel",
     allProjects: "Todos os projetos",
@@ -1304,6 +1312,7 @@ export const ptBR: TranslationResources = {
     },
     sections: {
       dashboard: "Painel",
+      home: "Início",
       sessions: "Histórico",
       search: "Buscar",
       schedules: "Agendamentos",

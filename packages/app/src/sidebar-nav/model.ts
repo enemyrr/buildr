@@ -2,6 +2,7 @@ import type { PluginSidebarGroup } from "@/plugins/sidebar-groups";
 
 export const BUILTIN_SIDEBAR_NAV_IDS = [
   "dashboard",
+  "home",
   "history",
   "new-workspace",
   "search",
@@ -33,6 +34,7 @@ export type SidebarNavItem = BuiltinSidebarNavItem | PluginSidebarNavItem;
 
 const BUILTIN_LABEL_KEYS: Record<BuiltinSidebarNavId, string> = {
   dashboard: "sidebar.sections.dashboard",
+  home: "sidebar.sections.home",
   "new-workspace": "sidebar.actions.newWorkspace",
   history: "sidebar.sections.sessions",
   search: "sidebar.sections.search",
@@ -50,6 +52,7 @@ export function builtinSidebarNavLabelKey(id: BuiltinSidebarNavId): string {
  */
 const BUILTIN_SHORTCUT_ACTIONS: Record<BuiltinSidebarNavId, string | null> = {
   dashboard: null,
+  home: null,
   "new-workspace": "new-workspace",
   history: null,
   search: "toggle-command-center",
@@ -100,8 +103,11 @@ export function resolveSidebarNavItems(input: {
   for (const id of BUILTIN_SIDEBAR_NAV_IDS) {
     if (placed.has(id)) continue;
     const item: BuiltinSidebarNavItem = { kind: "builtin", key: id, id, visible: true };
-    // Dashboard shipped after users had saved an order; it still leads until they move it.
+    // Dashboard and Home shipped after users had saved an order; they lead, in that order,
+    // until the user moves them.
     if (id === "dashboard") items.unshift(item);
+    else if (id === "home")
+      items.splice(items.findIndex((i) => i.key === "dashboard") + 1, 0, item);
     else items.push(item);
   }
   for (const [key, group] of groupsByKey) {
