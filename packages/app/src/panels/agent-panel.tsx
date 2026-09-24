@@ -58,6 +58,7 @@ import { useContainerWidthBelow } from "@/hooks/use-container-width";
 import { reconcileMissingAgentStateWithPresentAgent } from "@/panels/agent-panel-load-state";
 import { TimelineSyncStatus } from "@/timeline/sync-status";
 import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
+import { useHostFeature } from "@/runtime/host-features";
 import { definePanel, type PanelDescriptor } from "@/panels/panel-registry";
 import { RenderProfile } from "@/utils/render-profiler";
 import { useHasPluginComposerPills } from "@/plugins";
@@ -1546,6 +1547,9 @@ function ActiveAgentComposer({
   const paneContext = usePaneContext();
   const openInSidePane = useSettings((settings) => settings.openInSidePane);
   const { workspaceId, tabId, retargetCurrentTab, openFileInWorkspace } = paneContext;
+  const client = useHostRuntimeClient(serverId);
+  const supportsShellRun = useHostFeature(serverId, "agentShellRun");
+  const { t } = useTranslation();
   const { archiveAgent } = useArchiveAgent();
   const closeWorkspaceTab = useWorkspaceLayoutStore((state) => state.closeTab);
   const hideWorkspaceAgent = useWorkspaceLayoutStore((state) => state.hideAgent);
@@ -1612,6 +1616,22 @@ function ActiveAgentComposer({
     ],
   );
 
+  const handleShellCommand = useCallback(
+    async (command: string) => {
+      if (!supportsShellRun) {
+        throw new Error(t("composer.errors.shellCommandUnsupported"));
+      }
+      if (!client) {
+        throw new Error(t("composer.errors.hostDisconnected"));
+      }
+      const { error } = await client.runAgentShellCommand(agentId, command);
+      if (error) {
+        throw new Error(error);
+      }
+    },
+    [agentId, client, supportsShellRun, t],
+  );
+
   return (
     <View style={animatedStaticStyles.inputAreaWrapper} onLayout={onInputAreaLayout}>
       <Composer
@@ -1638,6 +1658,7 @@ function ActiveAgentComposer({
         onComposerHeightChange={onComposerHeightChange}
         onMessageSent={onMessageSent}
         onClientSlashCommand={handleClientSlashCommand}
+        onShellCommand={handleShellCommand}
         isCompactLayout={isCompactComposerLayout}
       />
     </View>

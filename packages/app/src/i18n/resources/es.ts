@@ -185,6 +185,8 @@ export const es: TranslationResources = {
       noClipboardImage:
         "No hay ninguna imagen en el portapapeles actual. Prueba a pegar desde el teclado.",
       pasteImageFailed: "No se pudo pegar la imagen",
+      shellCommandUnsupported: "Actualiza el host para ejecutar comandos de shell desde el chat",
+      hostDisconnected: "El host no está conectado",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -2072,6 +2074,8 @@ export const es: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "Compartir con el agente",
+    stopCommand: "Detener",
     error: "Error",
     empty: "No hay detalles adicionales disponibles",
     subAgentActivity: "Actividad de subagente",

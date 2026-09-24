@@ -183,6 +183,8 @@ export const ar: TranslationResources = {
       uploadFailed: "Failed to upload file",
       noClipboardImage: "لا توجد صورة في الحافظة الحالية. جرّب اللصق من لوحة المفاتيح.",
       pasteImageFailed: "تعذر لصق الصورة",
+      shellCommandUnsupported: "حدّث المضيف لتشغيل أوامر shell من المحادثة",
+      hostDisconnected: "المضيف غير متصل",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -2021,6 +2023,8 @@ export const ar: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "مشاركة مع الوكيل",
+    stopCommand: "إيقاف",
     error: "خطأ",
     empty: "لا توجد تفاصيل إضافية متاحة",
     subAgentActivity: "نشاط الوكيل الفرعي",

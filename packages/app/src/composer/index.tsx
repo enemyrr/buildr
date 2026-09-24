@@ -155,7 +155,11 @@ import { readClipboardImage } from "./clipboard-image";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
-import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
+import {
+  resolveClientSlashCommand,
+  resolveShellCommand,
+  type ClientSlashCommand,
+} from "@/client-slash-commands";
 import {
   getWorkspaceFileAttachmentKey,
   getWorkspaceFileAttachmentLabel,
@@ -945,6 +949,8 @@ interface ComposerProps {
   isPaneFocused: boolean;
   onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
   onClientSlashCommand?: (command: ClientSlashCommand) => Promise<void>;
+  /** Runs a `!`-prefixed message as a shell command. Without it, the text goes to the agent. */
+  onShellCommand?: (command: string) => Promise<void>;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
   /** When true, the composer can submit even with no text or attachments. */
@@ -1246,6 +1252,7 @@ function ComposerContentImpl({
   workspaceId,
   onSubmitMessage,
   onClientSlashCommand,
+  onShellCommand,
   hasExternalContent = false,
   allowEmptySubmit = false,
   submitButtonAccessibilityLabel,
@@ -1477,6 +1484,23 @@ function ComposerContentImpl({
       return true;
     },
     [blurOnSubmit, clearDraft, replaceUserInput, resetSuppression, setSelectedAttachments],
+  );
+
+  const runShellCommand = useCallback(
+    (command: string): boolean => {
+      if (!onShellCommand) return false;
+      if (blurOnSubmit) messageInputRef.current?.blur();
+      clearDraft("sent");
+      replaceUserInput("");
+      resetSuppression();
+      setSendError(null);
+      void onShellCommand(command).catch((error) => {
+        console.error("[Composer] Failed to run shell command:", error);
+        toastErrorRef.current(error instanceof Error ? error.message : String(error));
+      });
+      return true;
+    },
+    [blurOnSubmit, clearDraft, onShellCommand, replaceUserInput, resetSuppression],
   );
 
   const { pickImages } = useImageAttachmentPicker();
@@ -1732,6 +1756,11 @@ function ComposerContentImpl({
     (payload: MessagePayload) => {
       const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
+      const shellCommand = resolveShellCommand({
+        text,
+        hasAttachments: outgoingAttachments.length > 0,
+      });
+      if (shellCommand && runShellCommand(shellCommand)) return;
       const clientSlashCommand = resolveClientSlashCommand({
         text,
         hasAttachments: outgoingAttachments.length > 0,
@@ -1758,6 +1787,7 @@ function ComposerContentImpl({
       runClientSlashCommand,
       pluginClientSlashCommands,
       runPluginClientSlashCommand,
+      runShellCommand,
       sendMessageWithContent,
       serializeInlineText,
     ],
@@ -1988,6 +2018,11 @@ function ComposerContentImpl({
     (payload: MessagePayload) => {
       const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
+      const shellCommand = resolveShellCommand({
+        text,
+        hasAttachments: outgoingAttachments.length > 0,
+      });
+      if (shellCommand && runShellCommand(shellCommand)) return;
       const clientSlashCommand = resolveClientSlashCommand({
         text,
         hasAttachments: outgoingAttachments.length > 0,
@@ -2010,6 +2045,7 @@ function ComposerContentImpl({
       queueMessage,
       runClientSlashCommand,
       runPluginClientSlashCommand,
+      runShellCommand,
       serializeInlineText,
     ],
   );

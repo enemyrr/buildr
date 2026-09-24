@@ -2672,6 +2672,27 @@ export class DaemonClient {
     });
   }
 
+  async runAgentShellCommand(
+    agentId: string,
+    command: string,
+    requestId?: string,
+  ): Promise<Extract<SessionOutboundMessage, { type: "agent.shell.run.response" }>["payload"]> {
+    return this.sendNamespacedCorrelatedSessionRequest<"agent.shell.run.response">({
+      requestId,
+      message: { type: "agent.shell.run.request", agentId, command },
+    });
+  }
+
+  async stopAgentShellCommand(
+    callId: string,
+    requestId?: string,
+  ): Promise<Extract<SessionOutboundMessage, { type: "agent.shell.stop.response" }>["payload"]> {
+    return this.sendNamespacedCorrelatedSessionRequest<"agent.shell.stop.response">({
+      requestId,
+      message: { type: "agent.shell.stop.request", callId },
+    });
+  }
+
   async fetchAgent(options: FetchAgentOptions): Promise<FetchAgentResult | null>;
   async fetchAgent(agentId: string, requestId?: string): Promise<FetchAgentResult | null>;
   async fetchAgent(

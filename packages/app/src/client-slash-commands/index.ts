@@ -64,6 +64,21 @@ export function resolveClientSlashCommand(input: {
   return COMMAND_BY_NAME.get(commandName) ?? null;
 }
 
+// `!cmd` runs `cmd` in the agent's cwd instead of sending it to the agent.
+export function resolveShellCommand(input: {
+  text: string;
+  hasAttachments: boolean;
+}): string | null {
+  if (input.hasAttachments) {
+    return null;
+  }
+  const trimmed = input.text.trim();
+  if (!trimmed.startsWith("!")) {
+    return null;
+  }
+  return trimmed.slice(1).trim() || null;
+}
+
 export function buildDraftAgentSetup(agent: Agent): WorkspaceDraftTabSetup {
   const featureValues: Record<string, unknown> = {};
   for (const feature of agent.features ?? []) {

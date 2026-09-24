@@ -2528,6 +2528,19 @@ export const WorkspaceSetupStatusRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentShellRunRequestSchema = z.object({
+  type: z.literal("agent.shell.run.request"),
+  agentId: z.string(),
+  command: z.string(),
+  requestId: z.string(),
+});
+
+export const AgentShellStopRequestSchema = z.object({
+  type: z.literal("agent.shell.stop.request"),
+  callId: z.string(),
+  requestId: z.string(),
+});
+
 export const WorkspaceSetupRunRequestSchema = z.object({
   type: z.literal("workspace.setup.run.request"),
   workspaceId: z.string(),
@@ -3305,6 +3318,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CreatePaseoWorktreeRequestSchema,
   WorkspaceSetupStatusRequestSchema,
   WorkspaceSetupRunRequestSchema,
+  AgentShellRunRequestSchema,
+  AgentShellStopRequestSchema,
   LegacyListAvailableEditorsRequestSchema,
   LegacyOpenInEditorRequestSchema,
   OpenProjectRequestSchema,
@@ -3556,6 +3571,8 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceLabels: z.boolean().optional(),
         // COMPAT(workspaceSetupRun): added in v0.8.0, remove gate after 2027-09-02.
         workspaceSetupRun: z.boolean().optional(),
+        // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
+        agentShellRun: z.boolean().optional(),
         // COMPAT(workspaceTerminals): added in v0.8.0, remove gate after 2027-09-05.
         workspaceTerminals: z.boolean().optional(),
         // COMPAT(checkoutForgeSetAutoMerge): added in v0.2.0-beta.1. Remove the
@@ -4382,6 +4399,23 @@ export const WorkspaceSetupSnapshotSchema = z.object({
       headRepository: z.string(),
     })
     .optional(),
+});
+
+export const AgentShellRunResponseMessageSchema = z.object({
+  type: z.literal("agent.shell.run.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentShellStopResponseMessageSchema = z.object({
+  type: z.literal("agent.shell.stop.response"),
+  payload: z.object({
+    requestId: z.string(),
+    stopped: z.boolean(),
+  }),
 });
 
 export const WorkspaceSetupRunResponseMessageSchema = z.object({
@@ -6836,6 +6870,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   WorkspaceSetupProgressMessageSchema,
   WorkspaceSetupStatusResponseMessageSchema,
   WorkspaceSetupRunResponseMessageSchema,
+  AgentShellRunResponseMessageSchema,
+  AgentShellStopResponseMessageSchema,
   AgentStreamMessageSchema,
   AgentStatusMessageSchema,
   FetchAgentsResponseMessageSchema,

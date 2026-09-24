@@ -197,6 +197,8 @@ export const en = {
       uploadFailed: "Failed to upload file",
       noClipboardImage: "No image in the current clipboard. Try pasting from your keyboard.",
       pasteImageFailed: "Failed to paste image",
+      shellCommandUnsupported: "Update the host to run shell commands from chat",
+      hostDisconnected: "Host is not connected",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -2066,6 +2068,8 @@ export const en = {
     },
   },
   toolCallDetails: {
+    shareOutput: "Share with agent",
+    stopCommand: "Stop",
     error: "Error",
     empty: "No additional details available",
     subAgentActivity: "Sub-agent activity",
