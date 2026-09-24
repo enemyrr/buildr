@@ -467,78 +467,37 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     [toast],
   );
 
-  const toastActionSuccess = useCallback(
-    (message: string) => {
-      toast.show(message, { variant: "success" });
-    },
-    [toast],
-  );
-
   // Handlers
   const handleCommit = useCallback(() => {
-    void runCommit({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.commit.success"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedCommit"));
-      });
-  }, [cwd, runCommit, serverId, t, toastActionError, toastActionSuccess]);
+    void runCommit({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedCommit"));
+    });
+  }, [cwd, runCommit, serverId, t, toastActionError]);
 
   const handlePull = useCallback(() => {
-    void runPull({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.pull.success"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedPull"));
-      });
-  }, [cwd, runPull, serverId, t, toastActionError, toastActionSuccess]);
+    void runPull({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedPull"));
+    });
+  }, [cwd, runPull, serverId, t, toastActionError]);
 
   const handlePush = useCallback(() => {
-    void runPush({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.push.success"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedPush"));
-      });
-  }, [cwd, runPush, serverId, t, toastActionError, toastActionSuccess]);
+    void runPush({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedPush"));
+    });
+  }, [cwd, runPush, serverId, t, toastActionError]);
 
   const handlePullAndPush = useCallback(() => {
-    void runPullAndPush({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.pullAndPush.success"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedPullAndPush"));
-      });
-  }, [cwd, runPullAndPush, serverId, t, toastActionError, toastActionSuccess]);
+    void runPullAndPush({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedPullAndPush"));
+    });
+  }, [cwd, runPullAndPush, serverId, t, toastActionError]);
 
   const handleCreatePr = useCallback(() => {
     void persistShipDefault("pr");
-    void runCreatePr({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.createPr.success", forgeVocabulary(forge)));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedCreatePr"));
-      });
-  }, [
-    cwd,
-    forge,
-    persistShipDefault,
-    runCreatePr,
-    serverId,
-    t,
-    toastActionError,
-    toastActionSuccess,
-  ]);
+    void runCreatePr({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedCreatePr"));
+    });
+  }, [cwd, persistShipDefault, runCreatePr, serverId, t, toastActionError]);
 
   const handleMergePr = useCallback(
     (method: CheckoutPrMergeMethod) => {
@@ -546,49 +505,30 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       void runMergePr({ serverId, cwd, method })
         .then(() => {
           setPostShipArchiveSuggested(true);
-          toastActionSuccess(t("workspace.git.actions.mergePr.success", forgeVocabulary(forge)));
           return;
         })
         .catch((err) => {
           toastActionError(err, t("workspace.git.actions.toasts.failedMergePr"));
         });
     },
-    [cwd, forge, persistShipDefault, runMergePr, serverId, t, toastActionError, toastActionSuccess],
+    [cwd, persistShipDefault, runMergePr, serverId, t, toastActionError],
   );
 
   const handleEnablePrAutoMerge = useCallback(
     (method: CheckoutPrMergeMethod) => {
       void persistShipDefault("pr");
-      void runEnablePrAutoMerge({ serverId, cwd, method })
-        .then(() => {
-          toastActionSuccess(t("workspace.git.actions.autoMerge.enabled"));
-          return;
-        })
-        .catch((err) => {
-          toastActionError(err, t("workspace.git.actions.toasts.failedEnableAutoMerge"));
-        });
+      void runEnablePrAutoMerge({ serverId, cwd, method }).catch((err) => {
+        toastActionError(err, t("workspace.git.actions.toasts.failedEnableAutoMerge"));
+      });
     },
-    [
-      cwd,
-      persistShipDefault,
-      runEnablePrAutoMerge,
-      serverId,
-      t,
-      toastActionError,
-      toastActionSuccess,
-    ],
+    [cwd, persistShipDefault, runEnablePrAutoMerge, serverId, t, toastActionError],
   );
 
   const handleDisablePrAutoMerge = useCallback(() => {
-    void runDisablePrAutoMerge({ serverId, cwd })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.autoMerge.disabled"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedDisableAutoMerge"));
-      });
-  }, [cwd, runDisablePrAutoMerge, serverId, t, toastActionError, toastActionSuccess]);
+    void runDisablePrAutoMerge({ serverId, cwd }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedDisableAutoMerge"));
+    });
+  }, [cwd, runDisablePrAutoMerge, serverId, t, toastActionError]);
 
   const handleMergeBranch = useCallback(() => {
     if (!baseRef) {
@@ -599,38 +539,22 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     void runMergeBranch({ serverId, cwd, baseRef })
       .then(() => {
         setPostShipArchiveSuggested(true);
-        toastActionSuccess(t("workspace.git.actions.mergeBranch.success"));
         return;
       })
       .catch((err) => {
         toastActionError(err, t("workspace.git.actions.toasts.failedMerge"));
       });
-  }, [
-    baseRef,
-    cwd,
-    persistShipDefault,
-    runMergeBranch,
-    serverId,
-    t,
-    toast,
-    toastActionError,
-    toastActionSuccess,
-  ]);
+  }, [baseRef, cwd, persistShipDefault, runMergeBranch, serverId, t, toast, toastActionError]);
 
   const handleMergeFromBase = useCallback(() => {
     if (!baseRef) {
       toast.error(t("workspace.git.actions.toasts.baseRefUnavailable"));
       return;
     }
-    void runMergeFromBase({ serverId, cwd, baseRef })
-      .then(() => {
-        toastActionSuccess(t("workspace.git.actions.mergeFromBase.success"));
-        return;
-      })
-      .catch((err) => {
-        toastActionError(err, t("workspace.git.actions.toasts.failedMergeFromBase"));
-      });
-  }, [baseRef, cwd, runMergeFromBase, serverId, t, toast, toastActionError, toastActionSuccess]);
+    void runMergeFromBase({ serverId, cwd, baseRef }).catch((err) => {
+      toastActionError(err, t("workspace.git.actions.toasts.failedMergeFromBase"));
+    });
+  }, [baseRef, cwd, runMergeFromBase, serverId, t, toast, toastActionError]);
 
   const archiveController = useWorkspaceScreenArchiveController({
     serverId,
