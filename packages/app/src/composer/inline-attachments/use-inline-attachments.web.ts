@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { ComposerAttachment, UserComposerAttachment } from "@/attachments/types";
+import {
+  isPickerOwnedAttachment,
+  type ComposerAttachment,
+  type UserComposerAttachment,
+} from "@/attachments/types";
 import { isWorkspaceAttachment } from "@/attachments/workspace-attachment-utils";
 import type { InlineChip } from "@/composer/input/text-overlay.types";
 import { buildInlineAttachments } from "./attachments";
@@ -47,21 +51,33 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
   inputRef.current = input;
   const selectionRef = useRef<TextSelection>({ start: 0, end: 0 });
 
-  const inlineAttachments = useMemo(() => buildInlineAttachments(attachments), [attachments]);
+  // The new-workspace header shows its picked PR, so it gets no chip and its
+  // pasted URL is removed from the text.
+  const inlineAttachments = useMemo(
+    () => buildInlineAttachments(attachments.filter((a) => !isPickerOwnedAttachment(a))),
+    [attachments],
+  );
+  const consumedUrls = useMemo(
+    () => attachments.filter(isPickerOwnedAttachment).map((attachment) => attachment.item.url),
+    [attachments],
+  );
   const inlineAttachmentsRef = useRef(inlineAttachments);
   inlineAttachmentsRef.current = inlineAttachments;
 
   // Reconcile only after attachments commit. Text changes are synchronous, so
   // reconciling on them would see cleared text next to not-yet-cleared
-  // attachments and put the tokens back.
+  // attachments and put the tokens back. Read the input's live text: on web the
+  // draft store gets typed text a frame late, and reconciling that stale text
+  // would write the text a submit just cleared back into the input.
   useEffect(() => {
     if (!enabled) return;
     const current = inputRef.current;
-    const text = current.textSource.getSnapshot();
+    const text = current.getText();
     const result = reconcileInlineTokens({
       text,
       items: inlineAttachments,
       insertAt: current.getSelection().end,
+      consumedUrls,
     });
     if (result.text !== text) {
       current.replaceText(
@@ -76,7 +92,7 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
     if (order.some((attachment, index) => attachment !== attachments[index])) {
       current.setAttachments(order);
     }
-  }, [attachments, enabled, inlineAttachments]);
+  }, [attachments, consumedUrls, enabled, inlineAttachments]);
 
   const handleChangeText = useCallback(
     (next: string) => {
@@ -125,7 +141,7 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
 
   const removeChip = useCallback((attachment: UserComposerAttachment) => {
     const current = inputRef.current;
-    const text = current.textSource.getSnapshot();
+    const text = current.getText();
     const tokens = parseInlineTokens(text);
     const paired = pairInlineTokens(tokens, inlineAttachmentsRef.current, (entry) => entry.label);
     const token = tokens[paired.findIndex((entry) => entry?.item === attachment)];

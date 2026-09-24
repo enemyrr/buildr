@@ -47,6 +47,15 @@ export function stripInlineTokens(text: string): string {
   return text.replace(TOKEN_PATTERN, (_, label: string) => readInlineLabel(label));
 }
 
+/**
+ * Trims the text like `String.prototype.trim`, but keeps token padding: figure
+ * and narrow no-break spaces count as whitespace, so a plain trim breaks a
+ * token at either end of the text.
+ */
+export function trimInlineText(text: string): string {
+  return text.replace(/^[^\S\u2007\u202f]+|[^\S\u2007\u202f]+$/g, "");
+}
+
 export function parseInlineTokens(text: string): InlineToken[] {
   if (!text.includes(TOKEN_START)) return [];
   const tokens: InlineToken[] = [];
@@ -188,12 +197,16 @@ export interface InlineAttachmentItem<T> {
   label: string;
   /** Plain-text reference that replaces the token in the sent message. */
   reference: string;
+  /** Web URL of the attachment; a pasted copy of it becomes the token. */
+  url?: string;
 }
 
 export interface ReconcileInlineTokensInput<T> {
   text: string;
   items: readonly InlineAttachmentItem<T>[];
   insertAt: number;
+  /** URLs of attachments shown outside the text; pasted copies are removed. */
+  consumedUrls?: readonly string[];
 }
 
 export interface ReconcileInlineTokensResult<T> {
@@ -214,6 +227,7 @@ export function reconcileInlineTokens<T>({
   text,
   items,
   insertAt,
+  consumedUrls = [],
 }: ReconcileInlineTokensInput<T>): ReconcileInlineTokensResult<T> {
   let nextText = text;
   let caret = insertAt;
@@ -243,16 +257,54 @@ export function reconcileInlineTokens<T>({
       replace(referenceAt, referenceAt + entry.reference.length, token);
       continue;
     }
+    const urlRange = entry.url ? findUrlRange(nextText, entry.url) : null;
+    if (urlRange) {
+      replace(urlRange.start, urlRange.end, token);
+      cursor = caret;
+      continue;
+    }
     const insertion = insertInlineToken(nextText, token, caret);
     nextText = insertion.text;
     caret = insertion.cursor;
     cursor = insertion.cursor;
   }
 
+  for (const url of consumedUrls) {
+    const range = findUrlRange(nextText, url);
+    if (!range) continue;
+    // Take one adjacent space too, so no double space is left.
+    const end = nextText[range.end] === " " ? range.end + 1 : range.end;
+    const start =
+      end === range.end && nextText[range.start - 1] === " " ? range.start - 1 : range.start;
+    replace(start, end, "");
+    cursor = caret;
+  }
+
   const finalTokens = parseInlineTokens(nextText);
   const finalPairs = pairInlineTokens(finalTokens, items, (entry) => entry.label);
   const order = finalPairs.flatMap((entry) => (entry ? [entry.item] : []));
   return { text: nextText, cursor, order };
+}
+
+/**
+ * Finds a pasted copy of `url`, including a trailing subpath, query, or hash
+ * (`.../pull/3/files`), but not a longer id (`.../pull/30`).
+ */
+function findUrlRange(text: string, url: string): { start: number; end: number } | null {
+  const base = url.replace(/\/+$/, "");
+  const lowerText = text.toLowerCase();
+  const lowerBase = base.toLowerCase();
+  for (let start = lowerText.indexOf(lowerBase); start >= 0; ) {
+    const next = text[start + base.length];
+    if (next === undefined || /[\s/?#]/.test(next)) {
+      let end = start + base.length;
+      while (end < text.length && !/\s/.test(text[end] ?? "")) end++;
+      while (end > start + base.length && /[.,;:!)\]]/.test(text[end - 1] ?? "")) end--;
+      return { start, end };
+    }
+    start = lowerText.indexOf(lowerBase, start + 1);
+  }
+  return null;
 }
 
 /** Replaces each token with its attachment's reference, for the message the agent reads. */
