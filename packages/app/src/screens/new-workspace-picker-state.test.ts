@@ -4,6 +4,8 @@ import {
   clearPickerPrAttachmentForTargetChange,
   initialPickerSelectionState,
   reducePickerSelection,
+  selectPickerIssue,
+  syncPickerIssueAttachment,
   syncPickerPrAttachment,
 } from "./new-workspace-picker-state";
 import type { ForgeSearchItem } from "@getpaseo/protocol/messages";
@@ -100,22 +102,23 @@ describe("syncPickerPrAttachment", () => {
     expect(result).toEqual([issue]);
   });
 
-  it("does not duplicate a PR that was already manually attached by the user", () => {
+  it("takes over a PR that was already attached by the user", () => {
     const pr = makePrItem(202, "Refactor picker");
     const result = syncPickerPrAttachment({
       attachments: [prAttachment(pr)],
       item: { kind: "github-pr", item: pr },
     });
-    expect(result).toEqual([prAttachment(pr)]);
+    expect(result).toEqual([prAttachment(pr, "new-workspace-picker")]);
   });
 
-  it("does not duplicate a generalized PR attachment", () => {
+  it("takes over a generalized PR attachment", () => {
     const pr = makePrItem(202, "Refactor picker");
+    const issue = issueAttachment(44);
     const result = syncPickerPrAttachment({
-      attachments: [forgePrAttachment(pr)],
+      attachments: [issue, forgePrAttachment(pr)],
       item: { kind: "github-pr", item: pr },
     });
-    expect(result).toEqual([forgePrAttachment(pr)]);
+    expect(result).toEqual([issue, prAttachment(pr, "new-workspace-picker")]);
   });
 
   it("clears a persisted picker selection without removing user-added attachments", () => {
@@ -233,5 +236,34 @@ describe("reducePickerSelection", () => {
     expect(reducePickerSelection(detected, { type: "pr-added", item: pr }).selectedItem).toEqual(
       pr,
     );
+  });
+});
+
+describe("syncPickerIssueAttachment", () => {
+  it("takes over a matching issue and keeps the picker PR", () => {
+    const issue = makeIssueItem(44);
+    const pickerPr = prAttachment(makePrItem(202, "Picker PR"), "new-workspace-picker");
+    const result = syncPickerIssueAttachment({
+      attachments: [pickerPr, issueAttachment(44)],
+      issue,
+    });
+    expect(result).toEqual([
+      pickerPr,
+      { kind: "github_issue", item: issue, owner: "new-workspace-picker" },
+    ]);
+    expect(selectPickerIssue(result)).toEqual(issue);
+  });
+
+  it("clears only the picker issue", () => {
+    const manual = issueAttachment(55);
+    const result = syncPickerIssueAttachment({
+      attachments: [
+        manual,
+        { kind: "github_issue", item: makeIssueItem(44), owner: "new-workspace-picker" },
+      ],
+      issue: null,
+    });
+    expect(result).toEqual([manual]);
+    expect(selectPickerIssue(result)).toBeNull();
   });
 });

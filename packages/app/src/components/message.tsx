@@ -74,13 +74,12 @@ import { useRevealedText } from "@/hooks/use-revealed-text";
 import { colorMarkdownLinkChildren } from "@/components/markdown/link-children";
 import { createAssistantMarkdownParser } from "@/utils/assistant-markdown-parser";
 import { formatDuration, formatMessageTimestamp } from "@/utils/time";
-import { openExternalUrl } from "@/utils/open-external-url";
-import { splitTextLinks } from "@/utils/text-links";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
 import { isRenderProfileEnabled } from "@/utils/render-profiler";
 import { getAgentAttachmentPillContent } from "@/attachments/attachment-pill-content";
+import { UserMessageText } from "./user-message-text";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
 import { ToolCallDetailsContent } from "./tool-call-details";
@@ -449,26 +448,6 @@ function UserMessageAttachmentPill({ attachment, onOpenFile }: UserMessageAttach
 const MESSAGE_TEXT_DATASET = { messageText: "true" };
 const EMPTY_AGENT_ATTACHMENTS: AgentAttachment[] = [];
 
-function TextLink({ url, style }: { url: string; style: StyleProp<TextStyle> }) {
-  const handlePress = useCallback(() => void openExternalUrl(url), [url]);
-  return (
-    <Text accessibilityRole="link" style={style} onPress={handlePress}>
-      {url}
-    </Text>
-  );
-}
-
-function LinkedText({ text, linkStyle }: { text: string; linkStyle: StyleProp<TextStyle> }) {
-  const segments = useMemo(() => splitTextLinks(text), [text]);
-  return segments.map((segment) =>
-    segment.kind === "link" ? (
-      <TextLink key={segment.start} url={segment.text} style={linkStyle} />
-    ) : (
-      segment.text
-    ),
-  );
-}
-
 export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
@@ -555,7 +534,13 @@ export const UserMessage = memo(function UserMessage({
         <View style={userMessageStylesheet.bubble}>
           {hasText ? (
             <Text selectable style={userMessageStylesheet.text} dataSet={MESSAGE_TEXT_DATASET}>
-              <LinkedText text={message} linkStyle={userMessageStylesheet.link} />
+              <UserMessageText
+                text={message}
+                images={images}
+                attachments={attachments}
+                linkStyle={userMessageStylesheet.link}
+                onOpenImage={handleOpenImage}
+              />
             </Text>
           ) : null}
           {images.map((image) => (

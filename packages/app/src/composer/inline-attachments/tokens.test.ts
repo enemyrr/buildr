@@ -8,6 +8,7 @@ import {
   reconcileInlineTokens,
   serializeInlineTokens,
   snapSelectionToTokens,
+  trimInlineText,
   type InlineAttachmentItem,
 } from "./tokens";
 
@@ -166,5 +167,54 @@ describe("serializeInlineTokens", () => {
       item("pr", PR, "[#936 Dev]"),
     ];
     expect(serializeInlineTokens(text, items)).toBe("[Image #1] vs [Image #2] and [#936 Dev]");
+  });
+});
+
+describe("trimInlineText", () => {
+  it("keeps tokens at either end of the text whole", () => {
+    const text = `${imageToken} ${createInlineToken(IMAGE)} ${createInlineToken(IMAGE)} sleeker ${prToken}`;
+    const trimmed = trimInlineText(`\n ${text} \n`);
+    expect(trimmed).toBe(text);
+    const items = [
+      item("a", IMAGE, "[Image #1]"),
+      item("b", IMAGE, "[Image #2]"),
+      item("c", IMAGE, "[Image #3]"),
+      item("pr", PR, "[#936 Dev]"),
+    ];
+    expect(serializeInlineTokens(trimmed, items)).toBe(
+      "[Image #1] [Image #2] [Image #3] sleeker [#936 Dev]",
+    );
+  });
+
+  it("trims whitespace like String.prototype.trim otherwise", () => {
+    expect(trimInlineText("\t hello world \n")).toBe("hello world");
+  });
+});
+
+describe("reconcileInlineTokens with pasted URLs", () => {
+  const url = "https://github.com/acme/paseo/pull/936";
+  const pr = { ...item("pr", PR, "[#936 Dev]"), url };
+
+  it("replaces a pasted URL with the attachment's token", () => {
+    const text = `Review ${url}/files please`;
+    const result = reconcileInlineTokens({ text, items: [pr], insertAt: text.length });
+    expect(result.text).toBe(`Review ${prToken} please`);
+  });
+
+  it("leaves a URL for a longer id alone", () => {
+    const text = `See ${url}0`;
+    const result = reconcileInlineTokens({ text, items: [pr], insertAt: text.length });
+    expect(result.text).toBe(`See ${url}0 ${prToken} `);
+  });
+
+  it("removes the URL of an attachment shown outside the text", () => {
+    const text = `Fix ${url} now`;
+    const result = reconcileInlineTokens({
+      text,
+      items: [],
+      insertAt: text.length,
+      consumedUrls: [url],
+    });
+    expect(result.text).toBe("Fix now");
   });
 });

@@ -14,7 +14,7 @@ import { Pressable, Text, View } from "react-native";
 import type { PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Folder, FolderPlus, GitBranch, GitPullRequest } from "lucide-react-native";
+import { ChevronDown, Folder, FolderPlus, GitBranch, X } from "lucide-react-native";
 import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
@@ -27,7 +27,11 @@ import { HostStatusDot } from "@/components/host-status-dot";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
-import type { ComboboxOption as ComboboxOptionType, ComboboxProps } from "@/components/ui/combobox";
+import type {
+  ComboboxDesktopPlacement,
+  ComboboxOption as ComboboxOptionType,
+  ComboboxProps,
+} from "@/components/ui/combobox";
 import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -38,6 +42,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
+import { getForgePresentation } from "@/git/forge";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { ensureCheckoutStatus } from "@/git/checkout-status-cache";
@@ -90,7 +95,7 @@ import {
 } from "@/projects/host-projects";
 import { useProjectIcons } from "@/projects/icons";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
-import type { ComposerAttachment } from "@/attachments/types";
+import { isPickerOwnedAttachment, type ComposerAttachment } from "@/attachments/types";
 import { useDraftWorkspaceAttachmentScopeKey } from "@/attachments/workspace-attachments-store";
 import type { MessagePayload } from "@/composer/types";
 import type { UserComposerAttachment } from "@/attachments/types";
@@ -107,6 +112,7 @@ import {
   buildPickerOptionData,
   createFromTabForItem,
   defaultBasePickerItem,
+  issuePickerOptionId,
   pickerItemLabel,
   pickerItemToCheckoutRequest,
   type BranchPickerDetail,
@@ -119,6 +125,8 @@ import {
   clearPickerPrAttachmentForTargetChange,
   initialPickerSelectionState,
   reducePickerSelection,
+  selectPickerIssue,
+  syncPickerIssueAttachment,
   syncPickerPrAttachment,
 } from "./new-workspace-picker-state";
 import {
@@ -207,7 +215,9 @@ function noopClearDraft() {}
 
 const PROJECT_ICON_FALLBACK_FONT_SIZE = 10;
 const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedX = withUnistyles(X);
 const chevronExtraMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
+const chevronMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 // Every picker chip on this screen shares one chevron so they stay a single
 // visual family. Extra-muted: the chevron is an affordance, not information,
@@ -239,14 +249,26 @@ function RefPickerBadgeContent({
   iconColor: string;
   iconSize: number;
 }) {
+  const { t } = useTranslation();
+  if (selectedItem && selectedItem.kind !== "branch") {
+    const { item } = selectedItem;
+    return (
+      <>
+        <View style={styles.prNumberBadge}>
+          <Text style={styles.prNumberText} numberOfLines={1}>
+            {forgeItemBadgeLabel(selectedItem, t)}
+          </Text>
+        </View>
+        <Text style={styles.badgeText} numberOfLines={1}>
+          {item.title}
+        </Text>
+      </>
+    );
+  }
   return (
     <>
       <View style={styles.badgeIconBox}>
-        {selectedItem?.kind === "github-pr" ? (
-          <GitPullRequest size={iconSize} color={iconColor} />
-        ) : (
-          <GitBranch size={iconSize} color={iconColor} />
-        )}
+        <GitBranch size={iconSize} color={iconColor} />
       </View>
       <Text style={styles.badgeText} numberOfLines={1}>
         {triggerLabel}
@@ -255,9 +277,45 @@ function RefPickerBadgeContent({
   );
 }
 
+function forgeItemBadgeLabel(item: Exclude<PickerItem, { kind: "branch" }>, t: TFunction): string {
+  const presentation = getForgePresentation(item.item.forge ?? "github");
+  return item.kind === "issue"
+    ? t("newWorkspace.refPicker.issueBadge", {
+        number: `${presentation.issueNumberPrefix}${item.item.number}`,
+      })
+    : `${presentation.changeRequestAbbrev} ${presentation.numberPrefix}${item.item.number}`;
+}
+
+// The dialog's ref picker sits at the header's trailing edge, so it opens leftward.
+function refPickerPlacement(isDialog: boolean): ComboboxDesktopPlacement {
+  return isDialog ? "bottom-end" : "bottom-start";
+}
+
+function RefPickerClearButton({ onPress }: { onPress: () => void }): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={t("newWorkspace.refPicker.clearSelection")}
+      testID="new-workspace-ref-picker-clear"
+      style={styles.clearButton}
+    >
+      {({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => (
+        <ThemedX
+          size={ICON_SIZE.sm}
+          uniProps={hovered ? chevronMutedMapping : chevronExtraMutedMapping}
+        />
+      )}
+    </Pressable>
+  );
+}
+
 function RefPickerTrigger({
   pickerAnchorRef,
   onPress,
+  onClear,
   disabled,
   badgePressableStyle,
   selectedItem,
@@ -269,6 +327,7 @@ function RefPickerTrigger({
 }: {
   pickerAnchorRef: React.RefObject<View | null>;
   onPress: () => void;
+  onClear: () => void;
   disabled: boolean;
   badgePressableStyle: React.ComponentProps<typeof Pressable>["style"];
   selectedItem: PickerItem | null;
@@ -278,11 +337,17 @@ function RefPickerTrigger({
   iconColor: string;
   iconSize: number;
 }) {
+  // A picked PR ends in a clear button instead of the chevron, like a removable chip.
+  const isClearable = Boolean(selectedItem) && selectedItem?.kind !== "branch" && !disabled;
+  const trailing = useMemo(
+    () => (isClearable ? <RefPickerClearButton onPress={onClear} /> : metaChevron),
+    [isClearable, onClear],
+  );
   return (
     <Tooltip>
       <TooltipTrigger asChild triggerRefProp="ref">
         <ComboboxTrigger
-          chevron={metaChevron}
+          chevron={trailing}
           ref={pickerAnchorRef}
           testID="new-workspace-ref-picker-trigger"
           onPress={onPress}
@@ -1316,11 +1381,14 @@ interface NewWorkspaceFormStackInput {
   base: FormPickerControl & {
     selectedSourceDirectory: string | null;
     selectedItem: PickerItem | null;
+    /** What the header pill shows: the picked issue, else the picked ref. */
+    displayItem: PickerItem | null;
     /** The resolved ref the workspace starts from, including the default base. */
     triggerLabel: string;
     /** What the target-branch row reads: the PR's base when a PR is picked. */
     targetBranchLabel: string;
     openTargetBranch: () => void;
+    onClear: () => void;
     showRefPicker: boolean;
     picker: Omit<CreateFromPickerProps, "anchorRef" | "open" | "onOpenChange">;
   };
@@ -1519,9 +1587,10 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
       <RefPickerTrigger
         pickerAnchorRef={base.anchorRef}
         onPress={base.open}
+        onClear={base.onClear}
         disabled={isPending || !base.selectedSourceDirectory}
         badgePressableStyle={badgePressableStyle}
-        selectedItem={base.selectedItem}
+        selectedItem={base.displayItem}
         triggerLabel={base.triggerLabel}
         accessibilityLabel={t("newWorkspace.refPicker.startingRef")}
         tooltipLabel={t("newWorkspace.tooltips.startingRef")}
@@ -1530,6 +1599,7 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
       />
       <CreateFromPicker
         {...base.picker}
+        desktopPlacement={refPickerPlacement(isDialog)}
         anchorRef={base.anchorRef}
         open={base.openState}
         onOpenChange={base.onOpenChange}
@@ -1556,7 +1626,6 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
           <View style={styles.cardHeaderLeading} testID="new-workspace-ref-picker-row">
             {projectControl}
             {hostControl}
-            {baseControl}
             <CardHeaderOptionsMenu
               isPending={isPending}
               badgePressableStyle={badgePressableStyle}
@@ -1565,7 +1634,12 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
             />
           </View>
         ),
-        actions: launchControl,
+        actions: (
+          <View style={styles.cardHeaderActions}>
+            {baseControl}
+            {launchControl}
+          </View>
+        ),
       },
     };
   }
@@ -1596,6 +1670,34 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
     </View>
   );
   return { formStack, cardHeader: null };
+}
+
+function isPickerOwnedPr(attachment: UserComposerAttachment): boolean {
+  return isPickerOwnedAttachment(attachment) && attachment.kind === "github_pr";
+}
+
+// A restored draft can carry the picker's PR without the selection that shows
+// it, so hand it back to the composer instead of hiding it.
+function useReleaseOrphanedPickerPr(input: {
+  selectedItem: PickerItem | null;
+  attachments: readonly UserComposerAttachment[];
+  setAttachments: (
+    updater: (attachments: UserComposerAttachment[]) => UserComposerAttachment[],
+  ) => void;
+}): void {
+  const { setAttachments } = input;
+  const isOrphaned =
+    input.selectedItem?.kind !== "github-pr" && input.attachments.some(isPickerOwnedPr);
+  useEffect(() => {
+    if (!isOrphaned) return;
+    setAttachments((attachments) =>
+      attachments.map((attachment) =>
+        isPickerOwnedPr(attachment) && attachment.kind === "github_pr"
+          ? { kind: "github_pr", item: attachment.item }
+          : attachment,
+      ),
+    );
+  }, [isOrphaned, setAttachments]);
 }
 
 export function NewWorkspaceScreen({
@@ -1759,17 +1861,49 @@ export function NewWorkspaceScreen({
     initialPickerSelectionState,
   );
   const selectedItem = pickerSelection.selectedItem;
+  // Mirrors the reducer so a pasted PR can tell, in the same tick, whether it
+  // becomes the selection and so takes over its attachment.
+  const pickerSelectionRef = useRef(pickerSelection);
+  pickerSelectionRef.current = pickerSelection;
+  const { setAttachments: setChatAttachments } = chatDraft;
+  const selectedIssue = useMemo(
+    () => selectPickerIssue(chatDraft.attachments),
+    [chatDraft.attachments],
+  );
+  useReleaseOrphanedPickerPr({
+    selectedItem,
+    attachments: chatDraft.attachments,
+    setAttachments: setChatAttachments,
+  });
+  // The target-branch row opens the same picker; a branch picked there keeps the issue.
+  const [pickerPurpose, setPickerPurpose] = useState<"create-from" | "target-branch">(
+    "create-from",
+  );
 
   const handleForgeChangeRequestDetected = useCallback(() => {
+    pickerSelectionRef.current = reducePickerSelection(pickerSelectionRef.current, {
+      type: "pr-detected",
+    });
     dispatchPickerSelection({ type: "pr-detected" });
   }, []);
 
-  const handleForgeChangeRequestAutoAttach = useCallback((item: ForgeSearchItem) => {
-    dispatchPickerSelection({
-      type: "pr-added",
-      item: { kind: "github-pr", item },
-    });
-  }, []);
+  const handleForgeChangeRequestAutoAttach = useCallback(
+    (item: ForgeSearchItem) => {
+      const event = { type: "pr-added", item: { kind: "github-pr", item } } as const;
+      const next = reducePickerSelection(pickerSelectionRef.current, event);
+      pickerSelectionRef.current = next;
+      dispatchPickerSelection(event);
+      if (next.selectedItem === event.item) {
+        setChatAttachments((attachments) =>
+          syncPickerIssueAttachment({
+            attachments: syncPickerPrAttachment({ attachments, item: event.item }),
+            issue: null,
+          }),
+        );
+      }
+    },
+    [setChatAttachments],
+  );
 
   const withConnectedClient = useCallback(() => {
     const connectedClient = getHostRuntimeStore().getClient(selectedServerId);
@@ -1832,7 +1966,7 @@ export function NewWorkspaceScreen({
     serverId: selectedServerId,
     cwd: selectedSourceDirectory ?? "",
     query: debouncedPickerSearchQuery,
-    kinds: ["change_request"],
+    kinds: ["change_request", "issue"],
     supportsForgeSearch,
     enabled: pickerQueryEnabled,
   });
@@ -1843,9 +1977,12 @@ export function NewWorkspaceScreen({
   );
   const forgeSearchAuthenticated =
     !githubPrSearchQuery.data || githubPrSearchQuery.data.authState === "authenticated";
-  const prItems: ForgeSearchItem[] = useMemo(() => {
-    if (!forgeSearchAuthenticated) return [];
-    return githubPrSearchQuery.data?.items ?? [];
+  const { prItems, issueItems } = useMemo(() => {
+    const items = forgeSearchAuthenticated ? (githubPrSearchQuery.data?.items ?? []) : [];
+    return {
+      prItems: items.filter((item) => item.kind === "change_request"),
+      issueItems: items.filter((item) => item.kind === "issue"),
+    };
   }, [forgeSearchAuthenticated, githubPrSearchQuery.data?.items]);
 
   const baseItem = useMemo(
@@ -1859,9 +1996,10 @@ export function NewWorkspaceScreen({
       buildPickerOptionData({
         branchDetails,
         prItems,
+        issueItems,
         baseItem,
       }),
-    [baseItem, branchDetails, prItems],
+    [baseItem, branchDetails, issueItems, prItems],
   );
   const triggerLabel = useMemo(() => {
     const displayItem = itemById.get(selectedOptionId);
@@ -1869,17 +2007,39 @@ export function NewWorkspaceScreen({
   }, [itemById, selectedOptionId]);
   const selectPickerItem = useCallback(
     (item: PickerItem) => {
-      const nextAttachments = syncPickerPrAttachment({
-        attachments: chatDraft.attachments,
-        item,
-      });
-
-      dispatchPickerSelection({ type: "picker-selected", item });
-      chatDraft.setAttachments(nextAttachments);
+      if (item.kind === "issue") {
+        // An issue is context on top of a branch, so it replaces a picked PR only.
+        if (pickerSelectionRef.current.selectedItem?.kind === "github-pr") {
+          dispatchPickerSelection({ type: "cleared" });
+        }
+        setChatAttachments((attachments) =>
+          syncPickerIssueAttachment({
+            attachments: syncPickerPrAttachment({ attachments, item: null }),
+            issue: item.item,
+          }),
+        );
+      } else {
+        // Choosing the target branch keeps the issue; choosing what to create from replaces it.
+        const keepsIssue = pickerPurpose === "target-branch" && item.kind === "branch";
+        dispatchPickerSelection({ type: "picker-selected", item });
+        setChatAttachments((attachments) => {
+          const next = syncPickerPrAttachment({ attachments, item });
+          return keepsIssue ? next : syncPickerIssueAttachment({ attachments: next, issue: null });
+        });
+      }
       setPickerOpen(false);
     },
-    [chatDraft],
+    [pickerPurpose, setChatAttachments],
   );
+
+  const clearPickerSelection = useCallback(() => {
+    if (selectedIssue) {
+      setChatAttachments((attachments) => syncPickerIssueAttachment({ attachments, issue: null }));
+      return;
+    }
+    dispatchPickerSelection({ type: "cleared" });
+    setChatAttachments((attachments) => syncPickerPrAttachment({ attachments, item: null }));
+  }, [selectedIssue, setChatAttachments]);
 
   const handleSelectOption = useCallback(
     (id: string) => {
@@ -1930,11 +2090,13 @@ export function NewWorkspaceScreen({
   }, [openAddProjectPicker, selectedServerId]);
 
   const openPicker = useCallback(() => {
-    setPickerTab(createFromTabForItem(selectedItem));
+    setPickerPurpose("create-from");
+    setPickerTab(selectedIssue ? "issues" : createFromTabForItem(selectedItem));
     setPickerOpen(true);
-  }, [selectedItem]);
+  }, [selectedIssue, selectedItem]);
 
   const openTargetBranchPicker = useCallback(() => {
+    setPickerPurpose("target-branch");
     setPickerTab("branches");
     setPickerOpen(true);
   }, []);
@@ -2297,6 +2459,19 @@ export function NewWorkspaceScreen({
     [composerState, isPending],
   );
 
+  // The header shows the picked issue in place of the ref it builds on.
+  const pickerDisplayItem = useMemo<PickerItem | null>(
+    () => (selectedIssue ? { kind: "issue", item: selectedIssue } : selectedItem),
+    [selectedIssue, selectedItem],
+  );
+  const pickerSelectedOptionId = useMemo(
+    () =>
+      pickerTab === "issues" && selectedIssue
+        ? issuePickerOptionId(selectedIssue.number)
+        : selectedOptionId,
+    [pickerTab, selectedIssue, selectedOptionId],
+  );
+
   const isPickerSearching = [branchSuggestionsQuery, githubPrSearchQuery].some(
     (query) => query.isFetching,
   );
@@ -2345,19 +2520,21 @@ export function NewWorkspaceScreen({
       open: openPicker,
       selectedSourceDirectory,
       selectedItem,
+      displayItem: pickerDisplayItem,
       triggerLabel,
       targetBranchLabel: resolveTargetBranchLabel(selectedItem, triggerLabel),
       openTargetBranch: openTargetBranchPicker,
+      onClear: clearPickerSelection,
       openState: pickerOpen,
       onOpenChange: handlePickerOpenChange,
       showRefPicker,
       picker: {
         tab: pickerTab,
         onTabChange: setPickerTab,
-        showPullRequests: [supportsForgeSearch, forgeSearchAuthenticated].every(Boolean),
+        showForgeTabs: [supportsForgeSearch, forgeSearchAuthenticated].every(Boolean),
         options,
         itemById,
-        selectedOptionId,
+        selectedOptionId: pickerSelectedOptionId,
         onSelect: handleSelectOption,
         onSearchQueryChange: setPickerSearchQuery,
         isSearching: isPickerSearching,
@@ -2618,6 +2795,13 @@ const styles = StyleSheet.create((theme) => ({
   // on the sheet title's rail.
   // The badge carries its own left padding; pulling the row back by it lands the project avatar
   // on the sheet header's rail.
+  cardHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    minWidth: 0,
+    flexShrink: 1,
+  },
   cardHeaderLeading: {
     flexDirection: "row",
     alignItems: "center",
@@ -2676,7 +2860,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     height: BADGE_HEIGHT,
-    maxWidth: 240,
+    maxWidth: 300,
     overflow: "hidden",
     paddingHorizontal: theme.spacing[2],
     borderRadius: theme.borderRadius["2xl"],
@@ -2713,6 +2897,26 @@ const styles = StyleSheet.create((theme) => ({
   chevronContainer: {
     flexShrink: 0,
     transform: [{ translateY: 1 }],
+  },
+  prNumberBadge: {
+    flexShrink: 0,
+    paddingHorizontal: theme.spacing[1],
+    paddingVertical: 1,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+  },
+  prNumberText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+    fontVariant: ["tabular-nums"],
+  },
+  clearButton: {
+    width: theme.iconSize.md,
+    height: theme.iconSize.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   badgeIconBox: {
     width: theme.iconSize.md,

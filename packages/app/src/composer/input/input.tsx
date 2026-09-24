@@ -60,6 +60,7 @@ import { ComposerTextOverlay } from "./text-overlay";
 import type { InlineChip } from "./text-overlay.types";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
+import { trimInlineText } from "@/composer/inline-attachments/tokens";
 import {
   EditingTextInput,
   type EditingTextInputHandle as ComposerTextInputHandle,
@@ -870,7 +871,7 @@ interface SendMessageContext {
 }
 
 function sendMessageImpl(ctx: SendMessageContext): void {
-  const trimmed = ctx.value.trim();
+  const trimmed = trimInlineText(ctx.value);
   if (
     !trimmed &&
     ctx.attachments.length === 0 &&
@@ -903,7 +904,7 @@ interface QueueMessageContext {
 
 function queueMessageImpl(ctx: QueueMessageContext): void {
   if (!ctx.onQueue) return;
-  const trimmed = ctx.value.trim();
+  const trimmed = trimInlineText(ctx.value);
   if (!trimmed && ctx.attachments.length === 0) return;
   ctx.onQueue({ text: trimmed, attachments: ctx.attachments, cwd: ctx.cwd });
   ctx.replaceText("");
