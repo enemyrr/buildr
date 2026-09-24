@@ -24,9 +24,8 @@ import {
   STATUS_INDICATOR_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
-import { DotSpinner } from "@/components/dot-spinner";
+import { PixelLoader } from "@/components/pixel-loader";
 import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sidebar-workspace-title";
-import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { WorkspaceTitleEditor } from "@/components/workspace-title-editor";
 
@@ -37,7 +36,7 @@ const needsInputColorMapping = (theme: Theme) => ({
 });
 
 const ThemedCircleAlert = withUnistyles(CircleAlert);
-const ThemedDotSpinner = withUnistyles(DotSpinner);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const foregroundExtraMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundExtraMuted,
@@ -218,7 +217,7 @@ function WorkspaceStatusIndicator({
         style={styles.workspaceStatusDot}
         testID={`workspace-status-indicator-${loading ? "loading" : "running"}`}
       >
-        <ThemedDotSpinner size={12} uniProps={mutedColorMapping} />
+        <ThemedPixelLoader size={12} seed={workspace.workspaceKey} uniProps={mutedColorMapping} />
       </View>
     );
   }
@@ -346,9 +345,8 @@ export type SidebarWorkspaceTrailingPresentation = "visible" | "hidden" | "absen
  * into each of them and immediately drifted — one call site kept hiding the diff after the
  * others stopped.
  *
- * The trailing content survives the kebab on hover and fades under the scrim instead of
- * blinking out. Touch has no hover, so its permanent kebab still hides the content outright
- * rather than scrimming an unhovered row whose background doesn't match the gradient.
+ * The trailing content keeps its width while the kebab covers it on hover, so the title never
+ * shifts. Touch has no hover, so its permanent kebab replaces the content outright.
  */
 export function resolveTrailingActionVisibility({
   workspace,
@@ -367,7 +365,6 @@ export function resolveTrailingActionVisibility({
 }): {
   trailingPresentation: SidebarWorkspaceTrailingPresentation;
   showKebab: boolean;
-  showScrim: boolean;
   renderSlot: boolean;
   reserveSlotWidth: boolean;
 } {
@@ -381,14 +378,10 @@ export function resolveTrailingActionVisibility({
   return {
     trailingPresentation,
     showKebab,
-    // The scrim paints the row's own hover background, so it can only be drawn on a hovered
-    // row — over an unhovered one the gradient fades to the wrong color. That is also why
-    // touch, which shows the kebab without ever hovering, never gets one.
-    showScrim: showKebab && isHovered,
     renderSlot: hasArchiveAction || hasTrailing,
     // The slot only holds width for something that permanently sits in it. Trailing content
     // does; the kebab only does on touch, where there is no hover for it to appear on and so
-    // no scrim to let it overlay the title. Everywhere else the width goes back to the title
+    // nothing to let it overlay the title. Everywhere else the width goes back to the title
     // and the kebab fades in over its tail.
     reserveSlotWidth: hasContent || (hasArchiveAction && isTouchPlatform),
   };
@@ -416,14 +409,19 @@ export function SidebarWorkspaceTrailingActionSlot({
 
 export function SidebarWorkspaceTrailingActionBase({
   presentation,
+  concealed = false,
   children,
 }: {
   presentation: SidebarWorkspaceTrailingPresentation;
+  /** Hides the content under the kebab while keeping its width. */
+  concealed?: boolean;
   children: ReactNode;
 }) {
   if (presentation === "absent") return null;
   return (
-    <View style={presentation === "hidden" ? sidebarWorkspaceRowStyles.hidden : undefined}>
+    <View
+      style={presentation === "hidden" || concealed ? sidebarWorkspaceRowStyles.hidden : undefined}
+    >
       {children}
     </View>
   );
@@ -431,23 +429,13 @@ export function SidebarWorkspaceTrailingActionBase({
 
 export function SidebarWorkspaceTrailingActionOverlay({
   visible,
-  scrimBackdrop,
   children,
 }: {
   visible: boolean;
-  /** Fade the row into the kebab when something (the diff stat) is still rendered behind it. */
-  scrimBackdrop?: SidebarSurfaceBackdrop;
   children: ReactNode;
 }) {
   if (!visible || !children) return null;
-  return (
-    <>
-      {scrimBackdrop ? (
-        <TrailingActionScrim backdrop={scrimBackdrop} testID="sidebar-workspace-trailing-scrim" />
-      ) : null}
-      <View style={sidebarWorkspaceRowStyles.trailingActionOverlay}>{children}</View>
-    </>
-  );
+  return <View style={sidebarWorkspaceRowStyles.trailingActionOverlay}>{children}</View>;
 }
 
 const styles = StyleSheet.create((theme) => ({

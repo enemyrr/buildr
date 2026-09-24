@@ -17,7 +17,7 @@ import {
   STATUS_INDICATOR_FILLED_DOT_SIZE,
 } from "@/utils/status-indicator-geometry";
 import { StatusRing } from "@/components/status-ring";
-import { DotSpinner } from "@/components/dot-spinner";
+import { PixelLoader } from "@/components/pixel-loader";
 import { getStatusRingOffset } from "@/components/status-ring/geometry";
 import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 
@@ -41,7 +41,7 @@ const LEADING_SLOT_HEIGHT = 20;
 
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator);
 const ThemedCircleAlert = withUnistyles(CircleAlert);
-const ThemedDotSpinner = withUnistyles(DotSpinner);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -144,7 +144,7 @@ export function ProjectStatusIndicator({
         style={styles.projectLeadingVisualSlot}
         testID={testID ?? "project-status-indicator-running"}
       >
-        <ThemedDotSpinner size={12} uniProps={mutedColorMapping} />
+        <ThemedPixelLoader size={12} seed={busyLoaderSeed} uniProps={mutedColorMapping} />
       </View>
     );
   }
