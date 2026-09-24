@@ -239,6 +239,13 @@ const appUpdateService = createAppUpdateService({
   },
 });
 
+// A variant build updates only from its own release feed, which the release
+// build points `publish` at. Other variant builds would install official Paseo.
+function canUpdateItself(): boolean {
+  const variant = getDesktopVariant();
+  return !variant || variant.updates;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -252,8 +259,7 @@ export async function checkForAppUpdate({
   releaseChannel: AppReleaseChannel;
   intent: AppUpdateCheckIntent;
 }): Promise<AppUpdateCheckResult> {
-  if (getDesktopVariant()) {
-    // Official releases would replace a variant build, so it never updates itself.
+  if (!canUpdateItself()) {
     return {
       hasUpdate: false,
       readyToInstall: false,
@@ -308,7 +314,7 @@ export async function installAppUpdateOnQuit({
   signal: AbortSignal;
 }): Promise<boolean> {
   if (
-    getDesktopVariant() ||
+    !canUpdateItself() ||
     !shouldInstallAppUpdateOnQuit({
       platform: process.platform,
       isAppImage: Boolean(process.env.APPIMAGE),

@@ -16,6 +16,9 @@ export interface DesktopVariant {
   home: string;
   // Preferred daemon address. The first free port from here upward is used.
   listen: string;
+  // Only signed release builds update themselves, from the variant's own feed.
+  // Squirrel.Mac rejects updates for an ad-hoc signed local build.
+  updates: boolean;
 }
 
 const PORT_SEARCH_SPAN = 100;
@@ -24,7 +27,7 @@ const OFFICIAL_DAEMON_PORT = 6767;
 
 function parseDesktopVariant(value: unknown): DesktopVariant | null {
   if (typeof value !== "object" || value === null) return null;
-  const { name, displayName, home, listen } = value as Record<string, unknown>;
+  const { name, displayName, home, listen, updates } = value as Record<string, unknown>;
   if (typeof name !== "string" || typeof home !== "string" || typeof listen !== "string") {
     return null;
   }
@@ -33,6 +36,7 @@ function parseDesktopVariant(value: unknown): DesktopVariant | null {
     displayName: typeof displayName === "string" && displayName ? displayName : name,
     home: home.replace(/^~(?=$|\/)/, homedir()),
     listen,
+    updates: updates === true,
   };
 }
 
