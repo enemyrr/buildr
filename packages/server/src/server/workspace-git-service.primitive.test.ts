@@ -801,7 +801,7 @@ describe("WorkspaceGitServiceImpl primitive refresh entrypoint", () => {
     service.dispose();
   });
 
-  test("a forced GitHub-inclusive call during an in-flight forced git refresh queues a GitHub refresh", async () => {
+  test("a forced forge-inclusive call during an in-flight forced git refresh joins its forced forge load", async () => {
     const forcedGitRefresh = createDeferred<CheckoutStatusGit>();
     const getCheckoutStatus = vi
       .fn<() => Promise<CheckoutStatusGit>>()
@@ -846,12 +846,12 @@ describe("WorkspaceGitServiceImpl primitive refresh entrypoint", () => {
     );
     await gitRefresh;
 
-    expect(getCheckoutStatus).toHaveBeenCalledTimes(2);
+    expect(getCheckoutStatus).toHaveBeenCalledTimes(1);
     expect(getPullRequestStatus).toHaveBeenCalledTimes(1);
     expect(getPullRequestStatus).toHaveBeenCalledWith(
       REPO_CWD,
       expect.anything(),
-      { force: true, reason: "merge-pr-validation" },
+      { force: true, reason: "watch" },
       expect.anything(),
     );
 
@@ -1355,7 +1355,7 @@ describe("WorkspaceGitServiceImpl primitive refresh entrypoint", () => {
     }
   });
 
-  test("generic forge poll refreshes immediately when checkout HEAD changes", async () => {
+  test("generic forge poll keeps the PR and refreshes immediately when checkout HEAD changes", async () => {
     let nowMs = 0;
     let headSha = "1111111111111111111111111111111111111111";
     const forge = {
@@ -1394,7 +1394,7 @@ describe("WorkspaceGitServiceImpl primitive refresh entrypoint", () => {
       nowMs = 3_000;
       await service.refresh(REPO_CWD);
 
-      expect(service.peekSnapshot(REPO_CWD)?.forge.pullRequest).toBeNull();
+      expect(service.peekSnapshot(REPO_CWD)?.forge.pullRequest?.title).toBe("Visible PR");
       expect(forge.getCurrentPullRequestStatus).not.toHaveBeenCalled();
 
       await vi.advanceTimersByTimeAsync(0);
@@ -1402,6 +1402,182 @@ describe("WorkspaceGitServiceImpl primitive refresh entrypoint", () => {
 
       expect(forge.getCurrentPullRequestStatus).toHaveBeenCalledTimes(1);
       expect(service.peekSnapshot(REPO_CWD)?.forge.pullRequest?.title).toBe("MR self-healed");
+      subscription.unsubscribe();
+    } finally {
+      service.dispose();
+      unregister();
+    }
+  });
+
+  test("git-only getSnapshot resolves before the forge phase and listeners wait for forge", async () => {
+    const forgeLookup = createDeferred<PullRequestStatusResult>();
+    const getPullRequestStatus = vi.fn(async () => forgeLookup.promise);
+    const service = createService({ getPullRequestStatus });
+    const listener = vi.fn();
+    const subscription = service.registerWorkspace({ cwd: REPO_CWD }, listener);
+
+    const gitOnly = await service.getSnapshot(REPO_CWD, { includeForge: false });
+    await flushPromises();
+
+    expect(gitOnly.git).toEqual(createSnapshot(REPO_CWD).git);
+    expect(getPullRequestStatus).toHaveBeenCalledTimes(1);
+    expect(listener).not.toHaveBeenCalled();
+    expect(service.peekSnapshot(REPO_CWD)).toBeNull();
+
+    const withForge = service.getSnapshot(REPO_CWD);
+    forgeLookup.resolve(createPullRequestStatusResult());
+
+    await expect(withForge).resolves.toEqual(createSnapshot(REPO_CWD));
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(createSnapshot(REPO_CWD));
+    expect(getPullRequestStatus).toHaveBeenCalledTimes(1);
+
+    subscription.unsubscribe();
+    service.dispose();
+  });
+
+  test("a forge result for the previous branch is discarded and reloaded", async () => {
+    let nowMs = 0;
+    let branch = "main";
+    const mainLookup = createDeferred<PullRequestStatusResult>();
+    const getPullRequestStatus = vi
+      .fn<() => Promise<PullRequestStatusResult>>()
+      .mockImplementationOnce(async () => mainLookup.promise)
+      .mockImplementation(async () => createPullRequestStatusResult("Feature PR"));
+    const service = createService({
+      now: () => new Date(nowMs),
+      getCheckoutSnapshotFacts: vi.fn(async (cwd: string) =>
+        createCheckoutFacts(cwd, {
+          currentBranch: branch,
+          pullRequestLookupTarget: { headRef: branch },
+        }),
+      ),
+      getCheckoutStatus: vi.fn(async (cwd: string) =>
+        createCheckoutStatus(cwd, { currentBranch: branch }),
+      ),
+      getPullRequestStatus,
+    });
+
+    const snapshot = service.getSnapshot(REPO_CWD);
+    await vi.waitFor(() => {
+      expect(getPullRequestStatus).toHaveBeenCalledTimes(1);
+    });
+    branch = "feature";
+    nowMs = 3_000;
+    await service.getSnapshot(REPO_CWD, {
+      force: true,
+      includeForge: false,
+      reason: "test-branch-switch",
+    });
+    mainLookup.resolve(createPullRequestStatusResult("Main PR"));
+
+    await expect(snapshot).resolves.toEqual(
+      createSnapshot(REPO_CWD, {
+        git: { currentBranch: "feature" },
+        forge: {
+          pullRequest: {
+            ...createPullRequestStatusResult("Feature PR").status,
+          },
+        },
+      }),
+    );
+    expect(getPullRequestStatus).toHaveBeenCalledTimes(2);
+
+    service.dispose();
+  });
+
+  test("generic forge poll drops a finished PR outside a Paseo worktree", async () => {
+    const forge = {
+      ...createGitHubServiceStub(),
+      retainCurrentPullRequestStatusPoll: undefined,
+      getCurrentPullRequestStatus: vi.fn(async () =>
+        createCurrentPullRequestStatus({ state: "merged", isMerged: true }),
+      ),
+    };
+    const unregister = defaultForgeRegistry.register("forge-finished-test", {
+      createService: () => forge,
+      matchesHost: (host) => host === "forge-finished.test",
+    });
+    const noPullRequest = { ...createPullRequestStatusResult(), status: null };
+    const service = createService({
+      getCheckoutSnapshotFacts: vi.fn(async (cwd: string) =>
+        createCheckoutFacts(cwd, {
+          currentBranch: "dev",
+          remoteUrl: "https://forge-finished.test/acme/repo.git",
+          pullRequestLookupTarget: { headRef: "dev" },
+        }),
+      ),
+      getCheckoutStatus: vi.fn(async (cwd: string) =>
+        createCheckoutStatus(cwd, {
+          currentBranch: "dev",
+          remoteUrl: "https://forge-finished.test/acme/repo.git",
+        }),
+      ),
+      getPullRequestStatus: vi.fn(async () => noPullRequest),
+    });
+    const listener = vi.fn();
+
+    try {
+      const subscription = service.registerWorkspace({ cwd: REPO_CWD }, listener);
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(120_000);
+      await flushPromises();
+
+      expect(forge.getCurrentPullRequestStatus).toHaveBeenCalledTimes(1);
+      expect(service.peekSnapshot(REPO_CWD)?.forge.pullRequest).toBeNull();
+      expect(listener).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          forge: expect.objectContaining({ pullRequest: expect.anything() }),
+        }),
+      );
+      subscription.unsubscribe();
+    } finally {
+      service.dispose();
+      unregister();
+    }
+  });
+
+  test("generic forge self-heal uses the fast poll window while GitLab auto-merge is armed", async () => {
+    const autoMergeFacts = { forge: "gitlab", mergeWhenPipelineSucceeds: true };
+    const forge = {
+      ...createGitHubServiceStub(),
+      retainCurrentPullRequestStatusPoll: undefined,
+      getCurrentPullRequestStatus: vi.fn(async () =>
+        createCurrentPullRequestStatus({ forgeSpecific: autoMergeFacts }),
+      ),
+    };
+    const unregister = defaultForgeRegistry.register("forge-auto-merge-test", {
+      createService: () => forge,
+      matchesHost: (host) => host === "forge-auto-merge.test",
+    });
+    const autoMergeResult = createPullRequestStatusResult();
+    if (autoMergeResult.status) {
+      autoMergeResult.status.forgeSpecific = autoMergeFacts;
+    }
+    const service = createService({
+      getCheckoutSnapshotFacts: vi.fn(async (cwd: string) =>
+        createCheckoutFacts(cwd, {
+          currentBranch: "feature",
+          remoteUrl: "https://forge-auto-merge.test/acme/repo.git",
+          pullRequestLookupTarget: { headRef: "feature" },
+        }),
+      ),
+      getCheckoutStatus: vi.fn(async (cwd: string) =>
+        createCheckoutStatus(cwd, {
+          currentBranch: "feature",
+          remoteUrl: "https://forge-auto-merge.test/acme/repo.git",
+        }),
+      ),
+      getPullRequestStatus: vi.fn(async () => autoMergeResult),
+    });
+
+    try {
+      const subscription = service.registerWorkspace({ cwd: REPO_CWD }, vi.fn());
+      await flushPromises();
+      await vi.advanceTimersByTimeAsync(20_000);
+      await flushPromises();
+
+      expect(forge.getCurrentPullRequestStatus).toHaveBeenCalledTimes(1);
       subscription.unsubscribe();
     } finally {
       service.dispose();

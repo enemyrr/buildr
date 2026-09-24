@@ -19,6 +19,21 @@ export interface AggregatedAgentsResult {
   refreshAll: () => void;
 }
 
+function useHostServerIds(): string[] {
+  const daemons = useHosts();
+  return useMemo(() => daemons.map((daemon) => daemon.serverId), [daemons]);
+}
+
+export function useAgentDirectoryDemand(demand: boolean): void {
+  const runtime = getHostRuntimeStore();
+  const serverIds = useHostServerIds();
+  useEffect(() => {
+    if (!demand) return;
+    const releases = serverIds.map((serverId) => runtime.acquireDirectoryDemand(serverId));
+    return () => releases.forEach((release) => release());
+  }, [demand, runtime, serverIds]);
+}
+
 export function useAggregatedAgents(options?: {
   includeArchived?: boolean;
   demand?: boolean;
@@ -27,12 +42,8 @@ export function useAggregatedAgents(options?: {
   const runtime = getHostRuntimeStore();
   const includeArchived = options?.includeArchived ?? false;
   const demand = options?.demand ?? true;
-  const serverIds = useMemo(() => daemons.map((daemon) => daemon.serverId), [daemons]);
-  useEffect(() => {
-    if (!demand) return;
-    const releases = serverIds.map((serverId) => runtime.acquireDirectoryDemand(serverId));
-    return () => releases.forEach((release) => release());
-  }, [demand, runtime, serverIds]);
+  const serverIds = useHostServerIds();
+  useAgentDirectoryDemand(demand);
   const runtimeVersion = useSyncExternalStore(
     (onStoreChange) => runtime.subscribeAll(onStoreChange),
     () => runtime.getVersion(),

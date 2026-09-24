@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Agent } from "@/stores/session-store";
 import {
   buildWorkspaceTabSnapshot,
+  createWorkspaceAgentVisibilitySelector,
   deriveWorkspaceAgentVisibility,
   shouldPruneWorkspaceAgentTab,
   workspaceAgentVisibilityEqual,
@@ -334,6 +335,17 @@ describe("workspace agent visibility", () => {
       hasActivePendingTerminalCreate: false,
       hasActivePendingDraftCreate: false,
     });
+  });
+
+  it("reuses the selected visibility while the agent maps are unchanged", () => {
+    const select = createWorkspaceAgentVisibilitySelector();
+    const sessionAgents = new Map([
+      ["agent-1", makeAgent({ id: "agent-1", cwd: "/repo", workspaceId: "ws-1" })],
+    ]);
+    const first = select({ sessionAgents, workspaceId: "ws-1" });
+
+    expect(select({ sessionAgents, workspaceId: "ws-1" })).toBe(first);
+    expect(select({ sessionAgents: new Map(sessionAgents), workspaceId: "ws-1" })).not.toBe(first);
   });
 
   describe("workspaceAgentVisibilityEqual", () => {

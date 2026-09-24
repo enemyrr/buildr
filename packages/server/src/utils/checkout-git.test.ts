@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { execFileSync, execSync, spawnSync } from "child_process";
 import {
   existsSync,
@@ -18,10 +18,10 @@ import { base64EncryptedWireByteLength } from "@getpaseo/relay";
 import {
   __resetCheckoutShortstatCacheForTests,
   __resetPullRequestStatusCacheForTests,
-  __setPullRequestStatusCacheTtlForTests,
   commitAll,
   discardChanges,
   CHECKOUT_DIFF_MAX_STRUCTURED_BYTES,
+  forgeAuthStateFromError,
   createPullRequest,
   getCachedCheckoutShortstat,
   getCheckoutSnapshotFacts,
@@ -3272,7 +3272,7 @@ const x = 1;
     expect(status.status?.state).toBe("closed");
   });
 
-  it("caches PR status results for duplicate lookups", async () => {
+  it("leaves settled PR status caching to the forge adapter", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
     execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
       cwd: repoDir,
@@ -3288,7 +3288,7 @@ const x = 1;
     const second = await getPullRequestStatus(repoDir, github);
     expect(first).toEqual(second);
     expect(first.status?.url).toContain("/pull/123");
-    expect(callCount).toBe(1);
+    expect(callCount).toBe(2);
   });
 
   it("does not reuse a PR status cache entry after HEAD changes on the same branch", async () => {
@@ -3342,73 +3342,36 @@ const x = 1;
     expect(requested).toEqual([{ force: true, reason: "merge-pr-validation" }]);
   });
 
-  it("expires cached PR status after the TTL", async () => {
-    execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
-      cwd: repoDir,
-    });
-
-    __setPullRequestStatusCacheTtlForTests(50);
-    try {
-      let callCount = 0;
-      const github = createGitHubServiceForStatus(null, {
-        onStatus: () => {
-          callCount += 1;
-        },
-      });
-      github.getCurrentPullRequestStatus = async () => {
-        callCount += 1;
-        return createPullRequestStatus({
-          url: `https://github.com/getpaseo/paseo/pull/${callCount}`,
-        });
-      };
-      const first = await getPullRequestStatus(repoDir, github);
-      await sleep(80);
-      const second = await getPullRequestStatus(repoDir, github);
-      expect(first.status?.url).toContain("/pull/1");
-      expect(second.status?.url).toContain("/pull/2");
-      expect(callCount).toBe(2);
-    } finally {
-      __resetPullRequestStatusCacheForTests();
-    }
-  });
-
   it("keeps stale PR status when a refresh hits a transient GitHub error", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
     execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
       cwd: repoDir,
     });
 
-    __setPullRequestStatusCacheTtlForTests(50);
-    try {
-      let callCount = 0;
-      const github = createGitHubServiceForStatus(null);
-      github.getCurrentPullRequestStatus = async () => {
-        callCount += 1;
-        if (callCount === 1) {
-          return createPullRequestStatus({
-            url: "https://github.com/getpaseo/paseo/pull/123",
-          });
-        }
-        throw new GitHubCommandError({
-          args: ["pr", "view"],
-          cwd: repoDir,
-          exitCode: 1,
-          stderr: "could not resolve host: github.com",
+    let callCount = 0;
+    const github = createGitHubServiceForStatus(null);
+    github.getCurrentPullRequestStatus = async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return createPullRequestStatus({
+          url: "https://github.com/getpaseo/paseo/pull/123",
         });
-      };
+      }
+      throw new GitHubCommandError({
+        args: ["pr", "view"],
+        cwd: repoDir,
+        exitCode: 1,
+        stderr: "could not resolve host: github.com",
+      });
+    };
 
-      const fresh = await getPullRequestStatus(repoDir, github);
-      await sleep(80);
-      const stale = await getPullRequestStatus(repoDir, github);
+    const fresh = await getPullRequestStatus(repoDir, github);
+    const stale = await getPullRequestStatus(repoDir, github);
 
-      expect(stale).toEqual(fresh);
-      expect(stale.githubFeaturesEnabled).toBe(true);
-      expect(stale.status?.url).toContain("/pull/123");
-      expect(callCount).toBe(2);
-    } finally {
-      __resetPullRequestStatusCacheForTests();
-    }
+    expect(stale).toEqual(fresh);
+    expect(stale.githubFeaturesEnabled).toBe(true);
+    expect(stale.status?.url).toContain("/pull/123");
+    expect(callCount).toBe(2);
   });
 
   it("keeps stale PR status when a Gitea-family refresh hits a transient command error", async () => {
@@ -3417,33 +3380,78 @@ const x = 1;
       cwd: repoDir,
     });
 
-    __setPullRequestStatusCacheTtlForTests(50);
+    let callCount = 0;
+    const service = createGitHubServiceForStatus(null);
+    service.getCurrentPullRequestStatus = async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return createPullRequestStatus({ url: "https://gitea.example.com/acme/repo/pulls/7" });
+      }
+      throw new TeaCommandError({
+        args: ["pr", "list"],
+        cwd: repoDir,
+        exitCode: 1,
+        stderr: "request timed out",
+      });
+    };
+
+    const fresh = await getPullRequestStatus(repoDir, service);
+    const stale = await getPullRequestStatus(repoDir, service);
+
+    expect(stale).toEqual(fresh);
+    expect(stale.status?.url).toContain("/pulls/7");
+    expect(callCount).toBe(2);
+  });
+
+  it("stops serving stale PR status after the maximum stale age", async () => {
+    execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+      cwd: repoDir,
+    });
+
+    vi.useFakeTimers({ toFake: ["Date"] });
     try {
-      let callCount = 0;
-      const service = createGitHubServiceForStatus(null);
-      service.getCurrentPullRequestStatus = async () => {
-        callCount += 1;
-        if (callCount === 1) {
-          return createPullRequestStatus({ url: "https://gitea.example.com/acme/repo/pulls/7" });
-        }
-        throw new TeaCommandError({
-          args: ["pr", "list"],
-          cwd: repoDir,
-          exitCode: 1,
-          stderr: "request timed out",
-        });
+      vi.setSystemTime(new Date("2026-04-12T00:00:00.000Z"));
+      const error = new GitHubCommandError({
+        args: ["pr", "view"],
+        cwd: repoDir,
+        exitCode: 1,
+        stderr: "could not resolve host: github.com",
+      });
+      const github = createGitHubServiceForStatus(null);
+      github.getCurrentPullRequestStatus = async () =>
+        createPullRequestStatus({ url: "https://github.com/getpaseo/paseo/pull/123" });
+      await getPullRequestStatus(repoDir, github);
+      github.getCurrentPullRequestStatus = async () => {
+        throw error;
       };
 
-      const fresh = await getPullRequestStatus(repoDir, service);
-      await sleep(80);
-      const stale = await getPullRequestStatus(repoDir, service);
+      vi.setSystemTime(new Date("2026-04-12T00:04:59.000Z"));
+      const stale = await getPullRequestStatus(repoDir, github);
+      expect(stale.status?.url).toContain("/pull/123");
 
-      expect(stale).toEqual(fresh);
-      expect(stale.status?.url).toContain("/pulls/7");
-      expect(callCount).toBe(2);
+      vi.setSystemTime(new Date("2026-04-12T00:05:01.000Z"));
+      await expect(getPullRequestStatus(repoDir, github)).rejects.toBe(error);
     } finally {
-      __resetPullRequestStatusCacheForTests();
+      vi.useRealTimers();
     }
+  });
+
+  it("maps only forge auth failures to sign-in auth states", () => {
+    expect(forgeAuthStateFromError(new GitHubCliMissingError())).toBe("cli_missing");
+    expect(forgeAuthStateFromError(new TeaAuthenticationError({ stderr: "401" }))).toBe(
+      "unauthenticated",
+    );
+    expect(
+      forgeAuthStateFromError(
+        new GitHubCommandError({
+          args: ["auth", "status"],
+          cwd: repoDir,
+          exitCode: 1,
+          stderr: "connect ETIMEDOUT",
+        }),
+      ),
+    ).toBe("error");
   });
 
   it("does not use stale PR status fallback for forced GitHub errors", async () => {
@@ -3485,34 +3493,28 @@ const x = 1;
       cwd: repoDir,
     });
 
-    __setPullRequestStatusCacheTtlForTests(50);
-    try {
-      let callCount = 0;
-      const github = createGitHubServiceForStatus(null);
-      github.getCurrentPullRequestStatus = async () => {
-        callCount += 1;
-        if (callCount === 1) {
-          return createPullRequestStatus({
-            url: "https://github.com/getpaseo/paseo/pull/123",
-          });
-        }
-        return null;
-      };
+    let callCount = 0;
+    const github = createGitHubServiceForStatus(null);
+    github.getCurrentPullRequestStatus = async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return createPullRequestStatus({
+          url: "https://github.com/getpaseo/paseo/pull/123",
+        });
+      }
+      return null;
+    };
 
-      const fresh = await getPullRequestStatus(repoDir, github);
-      await sleep(80);
-      const cleared = await getPullRequestStatus(repoDir, github);
+    const fresh = await getPullRequestStatus(repoDir, github);
+    const cleared = await getPullRequestStatus(repoDir, github);
 
-      expect(fresh.status?.url).toContain("/pull/123");
-      expect(cleared).toEqual({
-        githubFeaturesEnabled: true,
-        authState: "authenticated",
-        status: null,
-      });
-      expect(callCount).toBe(2);
-    } finally {
-      __resetPullRequestStatusCacheForTests();
-    }
+    expect(fresh.status?.url).toContain("/pull/123");
+    expect(cleared).toEqual({
+      githubFeaturesEnabled: true,
+      authState: "authenticated",
+      status: null,
+    });
+    expect(callCount).toBe(2);
   });
 
   it("maps missing Gitea CLI PR status lookups to cli_missing auth state", async () => {

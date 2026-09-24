@@ -216,6 +216,29 @@ describe("agent timeline state", () => {
     });
   });
 
+  it("commits stream state and cursors for several agents in one notification", () => {
+    initializeTestSession();
+    let notifications = 0;
+    const unsubscribe = useSessionStore.subscribe(() => {
+      notifications += 1;
+    });
+    const range = { epoch: "epoch", startSeq: 1, endSeq: 2 };
+    const patches = new Map([
+      ["agent-1", { tail: [submittedMessage("one")], cursor: range }],
+      ["agent-2", { head: [submittedMessage("two")] }],
+    ]);
+
+    useSessionStore.getState().setAgentStreamStates("test-server", patches);
+    useSessionStore.getState().setAgentStreamStates("test-server", patches);
+    unsubscribe();
+
+    const session = useSessionStore.getState().sessions["test-server"];
+    expect(notifications).toBe(1);
+    expect(session?.agentStreamTail.get("agent-1")).toBe(patches.get("agent-1")?.tail);
+    expect(session?.agentStreamHead.get("agent-2")).toBe(patches.get("agent-2")?.head);
+    expect(session?.agentTimelineCursor.get("agent-1")).toBe(range);
+  });
+
   it("represents an empty authoritative timeline without inventing a range", () => {
     initializeTestSession();
     useSessionStore.getState().applyAgentTimelineResponseState("test-server", "agent-1", {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createWorktree as createWorktreePrimitive,
   deriveWorktreeProjectHash,
@@ -15,13 +15,14 @@ import { execFileSync } from "child_process";
 import {
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   rmSync,
   existsSync,
   realpathSync,
   symlinkSync,
   writeFileSync,
 } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
 import { tmpdir } from "os";
 import { createRealpathAwarePathMatcher } from "./path";
 
@@ -52,6 +53,10 @@ function createLegacyWorktreeForTest(
     runSetup: options.runSetup ?? true,
     paseoHome: options.paseoHome,
   });
+}
+
+function listTrashEntries(dir: string): string[] {
+  return readdirSync(dir).filter((name) => name.includes(".trash-"));
 }
 
 describe("paseo worktree manager", () => {
@@ -217,6 +222,26 @@ describe("paseo worktree manager", () => {
     });
 
     expect(existsSync(created.worktreePath)).toBe(false);
+  });
+
+  it("unregisters the worktree immediately and removes its files in the background", async () => {
+    const created = await createLegacyWorktreeForTest({
+      branchName: "background-delete-branch",
+      cwd: repoDir,
+      baseBranch: "main",
+      worktreeSlug: "background-delete",
+      paseoHome,
+    });
+    const projectWorktreesDir = dirname(created.worktreePath);
+
+    await deletePaseoWorktree({ cwd: repoDir, worktreePath: created.worktreePath, paseoHome });
+
+    expect(existsSync(created.worktreePath)).toBe(false);
+    const worktreeList = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: repoDir,
+    }).toString();
+    expect(worktreeList).not.toContain("background-delete");
+    await vi.waitFor(() => expect(listTrashEntries(projectWorktreesDir)).toEqual([]));
   });
 
   it("is idempotent: deleting an already-absent worktree succeeds", async () => {

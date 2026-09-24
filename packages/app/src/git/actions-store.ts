@@ -30,6 +30,9 @@ export type CheckoutGitAsyncActionId =
 
 type CheckoutKey = string;
 type StatusMap = Partial<Record<CheckoutGitAsyncActionId, CheckoutGitActionStatus>>;
+export type CheckoutGitActionStatuses = StatusMap;
+
+const IDLE_STATUSES: StatusMap = {};
 
 function checkoutKey(serverId: string, cwd: string): CheckoutKey {
   return `${serverId}::${cwd}`;
@@ -92,6 +95,21 @@ const inFlight = new Map<string, Promise<unknown>>();
 
 function inFlightKey(key: CheckoutKey, actionId: CheckoutGitAsyncActionId): string {
   return `${key}::${actionId}`;
+}
+
+const MERGE_PR_ACTION_IDS = [
+  "merge-pr-squash",
+  "merge-pr-merge",
+  "merge-pr-rebase",
+] as const satisfies readonly CheckoutGitAsyncActionId[];
+
+/** A PR merges once, whichever method is asked for, so every method shares one in-flight slot. */
+function findInFlightMergePr(key: CheckoutKey): Promise<unknown> | null {
+  for (const actionId of MERGE_PR_ACTION_IDS) {
+    const existing = inFlight.get(inFlightKey(key, actionId));
+    if (existing) return existing;
+  }
+  return null;
 }
 
 interface CheckoutGitActionsStoreState {
@@ -298,6 +316,11 @@ export const useCheckoutGitActionsStore = create<CheckoutGitActionsStoreState>()
   },
 
   mergePr: async ({ serverId, cwd, method }) => {
+    const pending = findInFlightMergePr(checkoutKey(serverId, cwd));
+    if (pending) {
+      await pending;
+      return;
+    }
     await runCheckoutAction({
       serverId,
       cwd,
@@ -410,6 +433,19 @@ export const useCheckoutGitActionsStore = create<CheckoutGitActionsStoreState>()
     });
   },
 }));
+
+/** Every action status for one checkout in a single subscription; a missing entry is idle. */
+export function useCheckoutGitActionStatuses({
+  serverId,
+  cwd,
+}: {
+  serverId: string;
+  cwd: string;
+}): CheckoutGitActionStatuses {
+  return useCheckoutGitActionsStore(
+    (state) => state.statusByCheckout[checkoutKey(serverId, cwd)] ?? IDLE_STATUSES,
+  );
+}
 
 export function __resetCheckoutGitActionsStoreForTests() {
   for (const timer of successTimers.values()) {

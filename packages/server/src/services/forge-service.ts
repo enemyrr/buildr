@@ -195,6 +195,8 @@ export interface PullRequestCreateResult {
 export type PullRequestMergeMethod = "merge" | "squash" | "rebase";
 
 export interface PullRequestCommandStatus {
+  repoOwner?: string;
+  repoName?: string;
   mergeable?: PullRequestMergeable;
   forgeSpecific?: ForgeSpecificStatusFacts;
 }

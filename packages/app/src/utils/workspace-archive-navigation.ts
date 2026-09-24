@@ -1,13 +1,11 @@
 import type { WorkspaceStructureProject } from "@/projects/workspace-structure";
 import type { ActiveWorkspaceSelection } from "@/stores/last-workspace-selection";
-import type { Agent, WorkspaceDescriptor } from "@/stores/session-store";
+import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { normalizeWorkspaceOpaqueId } from "@/utils/workspace-identity";
 
 export interface ArchiveNeighborCandidate {
   serverId: string;
   workspaceId: string;
-  /** Epoch ms of the workspace's latest activity, or null when unknown. */
-  lastActivityAt: number | null;
   /** Already being archived; never a redirect target. */
   archiving: boolean;
 }
@@ -18,13 +16,12 @@ export type WorkspaceArchiveRedirectTarget =
 
 interface ArchiveNeighborSession {
   workspaces: Map<string, WorkspaceDescriptor>;
-  agents: Map<string, Pick<Agent, "workspaceId" | "archivedAt" | "lastActivityAt">>;
 }
 
 /**
  * Picks where to go after archiving the viewed workspace: the next workspace below it in its
- * project, else the one above it, else the most recently active workspace anywhere, else home.
- * `projects` lists each project's workspaces in sidebar order.
+ * project, else the one above it, else home. Jumping into another project would switch context
+ * the user did not ask for. `projects` lists each project's workspaces in sidebar order.
  */
 export function resolveWorkspaceArchiveRedirectTarget(input: {
   archived: ActiveWorkspaceSelection;
@@ -44,17 +41,7 @@ export function resolveWorkspaceArchiveRedirectTarget(input: {
     if (neighbor) return toWorkspaceTarget(neighbor);
     break;
   }
-
-  let mostRecent: ArchiveNeighborCandidate | null = null;
-  for (const workspaces of input.projects) {
-    for (const candidate of workspaces) {
-      if (!isTarget(candidate)) continue;
-      if (!mostRecent || (candidate.lastActivityAt ?? -1) > (mostRecent.lastActivityAt ?? -1)) {
-        mostRecent = candidate;
-      }
-    }
-  }
-  return mostRecent ? toWorkspaceTarget(mostRecent) : { kind: "home" };
+  return { kind: "home" };
 }
 
 /** Turns sidebar-ordered projects into neighbor candidates. */
@@ -65,23 +52,10 @@ export function collectArchiveNeighborCandidates(input: {
   const candidateByKey = new Map<string, ArchiveNeighborCandidate>();
   for (const [serverId, session] of Object.entries(input.sessions)) {
     if (!session) continue;
-    const lastActivityByWorkspaceId = new Map<string, number>();
-    for (const agent of session.agents.values()) {
-      const workspaceId = normalizeWorkspaceOpaqueId(agent.workspaceId);
-      if (!workspaceId || agent.archivedAt) continue;
-      const activityAt = agent.lastActivityAt.getTime();
-      if (activityAt > (lastActivityByWorkspaceId.get(workspaceId) ?? -1)) {
-        lastActivityByWorkspaceId.set(workspaceId, activityAt);
-      }
-    }
     for (const workspace of session.workspaces.values()) {
       candidateByKey.set(`${serverId}:${workspace.id}`, {
         serverId,
         workspaceId: workspace.id,
-        lastActivityAt:
-          lastActivityByWorkspaceId.get(workspace.id) ??
-          workspace.statusEnteredAt?.getTime() ??
-          null,
         archiving: workspace.archivingAt !== null,
       });
     }

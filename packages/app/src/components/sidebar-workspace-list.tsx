@@ -62,8 +62,8 @@ import {
   parseHostWorkspaceRouteFromPathname,
 } from "@/utils/host-routes";
 import {
+  deriveProjectStatusBucket,
   shouldShowSidebarHostLabels,
-  useSidebarProjectStatusBucket,
   type SidebarProjectEntry,
   type SidebarWorkspaceEntry,
   type SidebarWorkspacePlacement,
@@ -1318,6 +1318,7 @@ function WorkspaceRowWithMenu({
     useWorkspaceReadState({
       serverId: workspace.serverId,
       workspaceId: workspace.workspaceId,
+      status: workspace.statusBucket,
     });
   const handleMarkAsRead = useCallback(() => {
     void clearAttention().catch((error) => {
@@ -1615,10 +1616,13 @@ function ProjectBlock({
 
   // Collapsed rows hide their workspace rows, so the project row carries the most urgent
   // status among them; expanded rows leave the signal to the child rows themselves.
-  const aggregateStatusBucket = useSidebarProjectStatusBucket({
-    workspaces: project.workspaces,
-    enabled: collapsed,
-  });
+  const aggregateStatusBucket = useMemo(
+    () =>
+      collapsed
+        ? deriveProjectStatusBucket({ workspaces: project.workspaces, workspaceEntriesByKey })
+        : null,
+    [collapsed, project.workspaces, workspaceEntriesByKey],
+  );
 
   const active = isProjectSelectedByRoute({
     selection: activeWorkspaceSelection,
@@ -1826,7 +1830,7 @@ type ProjectBlockProps = Parameters<typeof ProjectBlock>[0];
 function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlockProps): boolean {
   return (
     previous.project === next.project &&
-    previous.workspaceEntriesByKey === next.workspaceEntriesByKey &&
+    areProjectWorkspaceEntriesEqual(previous, next) &&
     previous.collapsed === next.collapsed &&
     previous.displayName === next.displayName &&
     previous.iconDataUri === next.iconDataUri &&
@@ -1849,6 +1853,19 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
     previous.dragGestureHostActive === next.dragGestureHostActive &&
     previous.creatingWorkspaceIds === next.creatingWorkspaceIds &&
     areProjectBlockSelectionsEqual(previous, next)
+  );
+}
+
+// The entries map is sidebar-wide; only this project's rows decide whether it re-renders.
+function areProjectWorkspaceEntriesEqual(
+  previous: ProjectBlockProps,
+  next: ProjectBlockProps,
+): boolean {
+  if (previous.workspaceEntriesByKey === next.workspaceEntriesByKey) return true;
+  return next.project.workspaces.every(
+    ({ workspaceKey }) =>
+      previous.workspaceEntriesByKey.get(workspaceKey) ===
+      next.workspaceEntriesByKey.get(workspaceKey),
   );
 }
 

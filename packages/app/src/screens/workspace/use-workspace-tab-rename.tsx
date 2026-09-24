@@ -17,7 +17,6 @@ interface UseWorkspaceTabRenameInput {
   client: DaemonClient | null;
   normalizedServerId: string;
   queryClient: QueryClient;
-  terminalsData: ListTerminalsResponse["payload"] | undefined;
   terminalsQueryKey: readonly unknown[];
 }
 
@@ -31,7 +30,7 @@ interface UseWorkspaceTabRenameResult {
 export function useWorkspaceTabRename(
   input: UseWorkspaceTabRenameInput,
 ): UseWorkspaceTabRenameResult {
-  const { client, normalizedServerId, queryClient, terminalsData, terminalsQueryKey } = input;
+  const { client, normalizedServerId, queryClient, terminalsQueryKey } = input;
   const { t } = useTranslation();
   const [renamingTab, setRenamingTab] = useState<RenamingTabState | null>(null);
 
@@ -39,6 +38,8 @@ export function useWorkspaceTabRename(
     (tab: WorkspaceTabDescriptor) => {
       if (tab.target.kind === "terminal") {
         const { terminalId } = tab.target;
+        const terminalsData =
+          queryClient.getQueryData<ListTerminalsResponse["payload"]>(terminalsQueryKey);
         const terminal = terminalsData?.terminals.find((entry) => entry.id === terminalId) ?? null;
         const currentTitle = terminal?.title ?? terminal?.name ?? "";
         setRenamingTab({ kind: "terminal", id: terminalId, currentTitle });
@@ -52,7 +53,7 @@ export function useWorkspaceTabRename(
         setRenamingTab({ kind: "agent", id: agentId, currentTitle });
       }
     },
-    [normalizedServerId, terminalsData],
+    [normalizedServerId, queryClient, terminalsQueryKey],
   );
 
   const handleRenameModalSubmit = useCallback(

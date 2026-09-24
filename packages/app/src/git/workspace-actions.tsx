@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ import { buildReviewRequest } from "@/git/review-instructions";
 import { useGitActionRunner, type GitAction } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { usePrFlow, type PrFlow } from "@/git/use-pr-flow";
+import { usePrStatusFreshness } from "@/git/use-pr-status-freshness";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
 
 const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
@@ -54,6 +55,7 @@ export function WorkspaceActions({ serverId, cwd, onOpenPullRequest }: Workspace
   const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
   const commitAndPushItem = useCommitAndPushItem(flow);
+  usePrStatusFreshness({ serverId, cwd });
 
   if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
   if (!prUrl) return <CreatePrSplitButton flow={flow} />;
@@ -62,6 +64,7 @@ export function WorkspaceActions({ serverId, cwd, onOpenPullRequest }: Workspace
       <PrStatusStrip
         serverId={serverId}
         cwd={cwd}
+        gitActions={flow.gitActions}
         variant="inline"
         onOpenPullRequest={onOpenPullRequest}
       />
@@ -104,25 +107,36 @@ interface ExplorerGitProps {
 }
 
 /** The Explorer's top row: the PR lifecycle strip, or Create PR before a PR exists. */
-export function ExplorerGitBar({
+export const ExplorerGitBar = memo(function ExplorerGitBar({
   serverId,
   cwd,
   onOpenPullRequest,
 }: ExplorerGitProps & { onOpenPullRequest?: () => void }) {
   const flow = usePrFlow({ serverId, cwd });
+  usePrStatusFreshness({ serverId, cwd });
   if (!flow.isGit) return null;
   if (flow.prStatus?.url) {
-    return <PrStatusStrip serverId={serverId} cwd={cwd} onOpenPullRequest={onOpenPullRequest} />;
+    return (
+      <PrStatusStrip
+        serverId={serverId}
+        cwd={cwd}
+        gitActions={flow.gitActions}
+        onOpenPullRequest={onOpenPullRequest}
+      />
+    );
   }
   return (
     <View style={styles.bar} testID="workspace-explorer-git-bar">
       <CreatePrSplitButton flow={flow} />
     </View>
   );
-}
+});
 
 /** The Explorer tab rail's trailing tools: Review and the git menu. */
-export function ExplorerGitToolbar({ serverId, cwd }: ExplorerGitProps) {
+export const ExplorerGitToolbar = memo(function ExplorerGitToolbar({
+  serverId,
+  cwd,
+}: ExplorerGitProps) {
   const flow = usePrFlow({ serverId, cwd });
   const commitAndPushItem = useCommitAndPushItem(flow);
   if (!flow.isGit) return null;
@@ -144,7 +158,7 @@ export function ExplorerGitToolbar({ serverId, cwd }: ExplorerGitProps) {
       />
     </View>
   );
-}
+});
 
 function ReviewButton({
   serverId,

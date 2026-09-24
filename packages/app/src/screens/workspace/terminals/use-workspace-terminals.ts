@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TerminalProfile } from "@getpaseo/protocol/messages";
@@ -6,6 +6,7 @@ import { resolveTerminalProfileLaunch } from "@getpaseo/protocol/terminal-profil
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useTranslation } from "react-i18next";
 import { useReplicaQuery } from "@/data/query";
+import { useStableEvent } from "@/hooks/use-stable-event";
 import { workspaceTerminalsPushRoute } from "@/data/push-router";
 import {
   buildTerminalsQueryKey,
@@ -13,6 +14,7 @@ import {
   collectKnownTerminalIds,
   collectScriptTerminalIds,
   collectStandaloneTerminalIds,
+  hasSameTerminalIds,
   reconcilePendingScriptTerminals,
   removeTerminalFromPayload,
   type ListTerminalsPayload,
@@ -45,6 +47,16 @@ interface UseWorkspaceTerminalsInput {
   onWorkspacePathUnavailable: () => void;
   onTerminalCreateQueued: () => void;
   onTerminalCreateFailed: (reason: string) => void;
+}
+
+// `terminals_changed` pushes arrive on every title or activity change; keep id lists
+// referentially stable so memoized consumers only re-render when membership changes.
+function useStableTerminalIds(terminalIds: string[]): string[] {
+  const stableRef = useRef(terminalIds);
+  if (!hasSameTerminalIds(stableRef.current, terminalIds)) {
+    stableRef.current = terminalIds;
+  }
+  return stableRef.current;
 }
 
 export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
@@ -103,7 +115,9 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     },
   });
   const terminals = useMemo(() => query.data?.terminals ?? [], [query.data]);
-  const liveTerminalIds = useMemo(() => terminals.map((terminal) => terminal.id), [terminals]);
+  const liveTerminalIds = useStableTerminalIds(
+    useMemo(() => terminals.map((terminal) => terminal.id), [terminals]),
+  );
   const [pendingScriptTerminalIds, setPendingScriptTerminalIds] = useState<Map<string, number>>(
     () => new Map(),
   );
@@ -117,17 +131,21 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     setPendingScriptTerminalIds(reconcilePendingScriptTerminals(liveTerminalIds, dataUpdatedAt));
   }, [liveTerminalIds, dataUpdatedAt]);
 
-  const knownTerminalIds = useMemo(
-    () => collectKnownTerminalIds({ liveTerminalIds, pendingScriptTerminalIds }),
-    [liveTerminalIds, pendingScriptTerminalIds],
+  const knownTerminalIds = useStableTerminalIds(
+    useMemo(
+      () => collectKnownTerminalIds({ liveTerminalIds, pendingScriptTerminalIds }),
+      [liveTerminalIds, pendingScriptTerminalIds],
+    ),
   );
   const scriptTerminalIds = useMemo(
     () => collectScriptTerminalIds({ pendingScriptTerminalIds, scripts: workspaceScripts }),
     [pendingScriptTerminalIds, workspaceScripts],
   );
-  const standaloneTerminalIds = useMemo(
-    () => collectStandaloneTerminalIds({ terminals, scriptTerminalIds }),
-    [scriptTerminalIds, terminals],
+  const standaloneTerminalIds = useStableTerminalIds(
+    useMemo(
+      () => collectStandaloneTerminalIds({ terminals, scriptTerminalIds }),
+      [scriptTerminalIds, terminals],
+    ),
   );
 
   const createMutation = useMutation({
@@ -246,20 +264,17 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
   );
 
   // Tracks a started script's terminal until the terminal list reports it.
-  const trackScriptTerminal = useCallback(
-    (terminalId: string) => {
-      setPendingScriptTerminalIds((pendingTerminalIds) => {
-        if (pendingTerminalIds.get(terminalId) === query.dataUpdatedAt) {
-          return pendingTerminalIds;
-        }
-        const nextTerminalIds = new Map(pendingTerminalIds);
-        nextTerminalIds.set(terminalId, query.dataUpdatedAt);
-        return nextTerminalIds;
-      });
-      void queryClient.invalidateQueries({ queryKey });
-    },
-    [query.dataUpdatedAt, queryClient, queryKey],
-  );
+  const trackScriptTerminal = useStableEvent(function trackScriptTerminal(terminalId: string) {
+    setPendingScriptTerminalIds((pendingTerminalIds) => {
+      if (pendingTerminalIds.get(terminalId) === dataUpdatedAt) {
+        return pendingTerminalIds;
+      }
+      const nextTerminalIds = new Map(pendingTerminalIds);
+      nextTerminalIds.set(terminalId, dataUpdatedAt);
+      return nextTerminalIds;
+    });
+    void queryClient.invalidateQueries({ queryKey });
+  });
 
   const handleScriptTerminalStarted = useCallback(
     (terminalId: string) => {

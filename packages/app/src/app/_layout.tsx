@@ -6,6 +6,7 @@ import * as Notifications from "expo-notifications";
 import { Stack, useNavigationContainerRef, usePathname, useRouter } from "expo-router";
 import {
   createContext,
+  memo,
   type ReactNode,
   useCallback,
   useContext,
@@ -631,7 +632,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
   return <CommandCenterProvider>{content}</CommandCenterProvider>;
 }
 
-function SidebarChrome({
+const SidebarChrome = memo(function SidebarChrome({
   mounted,
   visible,
   keyboardShortcutsEnabled,
@@ -650,7 +651,7 @@ function SidebarChrome({
       <WorkspaceShortcutTargetsSubscriber enabled={keyboardShortcutsEnabled} />
     </SidebarModelProvider>
   );
-}
+});
 
 function MobileGestureWrapper({
   children,

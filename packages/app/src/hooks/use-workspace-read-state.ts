@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { i18n } from "@/i18n/i18next";
 import { useHostFeature } from "@/runtime/host-features";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import { useWorkspaceFields } from "@/stores/session-store-hooks";
+import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { markWorkspaceUnread } from "@/workspace/mark-unread";
 
 export interface WorkspaceReadStateController {
@@ -12,14 +12,16 @@ export interface WorkspaceReadStateController {
   markUnread: () => Promise<void>;
 }
 
+// Callers pass the status they already render, so rows don't each subscribe to the session store.
 export function useWorkspaceReadState({
   serverId,
   workspaceId,
+  status,
 }: {
   serverId: string;
   workspaceId: string;
+  status: WorkspaceDescriptor["status"];
 }): WorkspaceReadStateController {
-  const status = useWorkspaceFields(serverId, workspaceId, (workspace) => workspace.status);
   const supportsMarkUnread = useHostFeature(serverId, "workspaceMarkUnread");
   const hasClearableAttention = status === "attention" || status === "failed";
   const canMarkUnread = supportsMarkUnread && status === "done";

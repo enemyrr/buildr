@@ -6022,7 +6022,7 @@ test("archive_workspace_request archives a worktree-kind workspace and removes t
     });
 
     expect(workspace.archivedAt).toBeTruthy();
-    expect(existsSync(worktree.worktreePath)).toBe(false);
+    await vi.waitFor(() => expect(existsSync(worktree.worktreePath)).toBe(false));
     const response = emitted.find((message) => message.type === "archive_workspace_response") as
       | { payload: Record<string, unknown> }
       | undefined;

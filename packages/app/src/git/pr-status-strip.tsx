@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/contexts/toast-context";
-import { GIT_ACTION_ICONS } from "@/git/action-icons";
 import { useCheckoutGitActionsStore } from "@/git/actions-store";
 import { getForgePresentation } from "@/git/forge";
 import { deriveMergeCapability } from "@/git/merge-capability";
@@ -42,7 +41,7 @@ import {
   type PrStripLabel,
   type PrStripTone,
 } from "@/git/pr-status-strip-state";
-import { useGitActionRunner, useGitActions, type GitAction } from "@/git/use-actions";
+import { useGitActionRunner, type GitAction, type GitActions } from "@/git/use-actions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
@@ -56,6 +55,8 @@ import { openExternalUrl } from "@/utils/open-external-url";
 interface PrStatusStripProps {
   serverId: string;
   cwd: string;
+  /** The parent's git actions, so the strip doesn't build a second set. */
+  gitActions: GitActions;
   /** `bar` spans the Explorer above its tabs; `inline` sits among the header actions. */
   variant?: "bar" | "inline";
   /** Opens the in-app pull request view. Without it, the number opens the browser too. */
@@ -70,6 +71,7 @@ interface PrStatusStripProps {
 export function PrStatusStrip({
   serverId,
   cwd,
+  gitActions,
   variant = "bar",
   onOpenPullRequest,
 }: PrStatusStripProps) {
@@ -79,7 +81,6 @@ export function PrStatusStrip({
     serverId,
     cwd,
   });
-  const { gitActions } = useGitActions({ serverId, cwd, icons: GIT_ACTION_ICONS });
   const requests = useInstructionRequests({ serverId, cwd });
   const runGitAction = useGitActionRunner();
   const toast = useToast();
@@ -108,6 +109,7 @@ export function PrStatusStrip({
   const runAction = useCallback(
     (action: PrStripAction) => {
       if (action.kind === "git") return runGitAction(action.action);
+      if (action.kind === "archive-unavailable") return;
       if (action.kind === "continue" && directContinue) {
         void continueBranch({ serverId, cwd }).then(
           (branch) => toast.show(`Continued on ${branch}.`),
@@ -296,6 +298,7 @@ function stripActionState(
       disabled: action.action.disabled || Boolean(action.blocked),
     };
   }
+  if (action.kind === "archive-unavailable") return { pending: false, disabled: true };
   if (action.kind === "continue" && sources.direct) {
     return { pending: sources.direct.pending, disabled: sources.direct.pending };
   }
@@ -304,6 +307,7 @@ function stripActionState(
 
 function actionIcon(action: PrStripAction): LucideIcon {
   if (action.kind === "commit-and-push") return GitCommitHorizontal;
+  if (action.kind === "archive-unavailable") return Archive;
   if (action.kind !== "git") return action.kind === "continue" ? FastForward : Wrench;
   return action.action.id === "archive-workspace" ? Archive : GitMerge;
 }

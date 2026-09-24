@@ -4340,7 +4340,8 @@ describe("createAgentStreamReducerQueue", () => {
         currentHead,
         currentCursor: undefined,
       }),
-      commit: (agentId, result) => {
+      commit: (batch) => {
+        const [{ agentId, result }] = batch;
         currentTail = result.tail;
         currentHead = result.head;
         commits.push({
@@ -4372,6 +4373,30 @@ describe("createAgentStreamReducerQueue", () => {
     expect(scheduler.size).toBe(0);
   });
 
+  it("commits every agent flushed in one frame together", () => {
+    const scheduler = createManualScheduler();
+    const batches: string[][] = [];
+    const queue = createAgentStreamReducerQueue({
+      getSnapshot: () => ({
+        currentTail: [],
+        currentHead: [],
+        currentCursor: undefined,
+      }),
+      commit: (batch) => {
+        batches.push(batch.map(({ agentId }) => agentId));
+      },
+      handleSideEffects: () => {},
+      scheduleFlush: scheduler.schedule,
+      cancelFlush: scheduler.cancel,
+    });
+
+    queue.enqueue("agent-1", makeStreamReducerEvent(makeTimelineEvent("one"), 1));
+    queue.enqueue("agent-2", makeStreamReducerEvent(makeTimelineEvent("two"), 1));
+    scheduler.flushOne();
+
+    expect(batches).toEqual([["agent-1", "agent-2"]]);
+  });
+
   it("flushes queued events synchronously for one agent before canonical history is applied", () => {
     const scheduler = createManualScheduler();
     const commits: string[] = [];
@@ -4381,10 +4406,12 @@ describe("createAgentStreamReducerQueue", () => {
         currentHead: [],
         currentCursor: undefined,
       }),
-      commit: (agentId, result) => {
-        commits.push(
-          `${agentId}:${result.head[0]?.kind === "assistant_message" ? result.head[0].text : ""}`,
-        );
+      commit: (batch) => {
+        for (const { agentId, result } of batch) {
+          commits.push(
+            `${agentId}:${result.head[0]?.kind === "assistant_message" ? result.head[0].text : ""}`,
+          );
+        }
       },
       handleSideEffects: () => {},
       scheduleFlush: scheduler.schedule,
@@ -4410,7 +4437,7 @@ describe("createAgentStreamReducerQueue", () => {
         currentHead,
         currentCursor,
       }),
-      commit: (_agentId, result) => {
+      commit: ([{ result }]) => {
         currentTail = result.tail;
         currentHead = result.head;
         currentCursor = result.cursor ?? undefined;
@@ -4459,10 +4486,12 @@ describe("createAgentStreamReducerQueue", () => {
         currentHead: [],
         currentCursor: undefined,
       }),
-      commit: (agentId, result) => {
-        commits.push(
-          `${agentId}:${result.head[0]?.kind === "assistant_message" ? result.head[0].text : ""}`,
-        );
+      commit: (batch) => {
+        for (const { agentId, result } of batch) {
+          commits.push(
+            `${agentId}:${result.head[0]?.kind === "assistant_message" ? result.head[0].text : ""}`,
+          );
+        }
       },
       handleSideEffects: () => {},
       scheduleFlush: scheduler.schedule,

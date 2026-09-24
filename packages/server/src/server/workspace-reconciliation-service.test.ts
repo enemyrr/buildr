@@ -301,6 +301,65 @@ describe("WorkspaceReconciliationService", () => {
     });
   });
 
+  test("keeps the worktree placement of a workspace archived and removed mid-scan", async () => {
+    const root = realpathSync(mkdtempSync(path.join(tmpdir(), "reconcile-archive-removal-")));
+    tempDirs.push(root);
+    const repoRoot = path.join(root, "repo");
+    const worktreeRoot = path.join(root, "worktree");
+    mkdirSync(repoRoot);
+    mkdirSync(worktreeRoot);
+    const { projects, workspaces, projectRegistry, workspaceRegistry } = createTestRegistries();
+    projects.set(
+      "p1",
+      createPersistedProjectRecord({
+        projectId: "p1",
+        rootPath: repoRoot,
+        kind: "git",
+        displayName: "archive-removal",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }),
+    );
+    workspaces.set(
+      "w1",
+      createPersistedWorkspaceRecord({
+        workspaceId: "w1",
+        projectId: "p1",
+        cwd: worktreeRoot,
+        kind: "worktree",
+        displayName: "feature",
+        branch: "feature",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }),
+    );
+    const readStarted = deferred();
+    const allowRead = deferred();
+    const service = new WorkspaceReconciliationService({
+      projectRegistry,
+      workspaceRegistry,
+      logger: createTestLogger(),
+      workspaceGitService: {
+        getCheckout: async (cwd) => {
+          if (cwd === repoRoot) {
+            return createCheckout(cwd, { isGit: true, currentBranch: "main", worktreeRoot: cwd });
+          }
+          readStarted.resolve();
+          await allowRead.promise;
+          return createCheckout(cwd);
+        },
+      },
+    });
+
+    const reconciliation = service.reconcileGitMetadata();
+    await readStarted.promise;
+    await workspaceRegistry.archive("w1", "2025-01-02T00:00:00.000Z");
+    allowRead.resolve();
+    await reconciliation;
+
+    expect(workspaces.get("w1")).toMatchObject({ kind: "worktree", branch: "feature" });
+  });
+
   test("metadata reconciliation leaves missing workspaces active while a full pass archives them", async () => {
     const projectRoot = realpathSync(mkdtempSync(path.join(tmpdir(), "reconcile-metadata-only-")));
     const missingWorkspace = path.join(projectRoot, "missing-workspace");

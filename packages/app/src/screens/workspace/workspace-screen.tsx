@@ -157,7 +157,7 @@ import { useWorkspaceRecovery } from "@/workspace-recovery/use-workspace-recover
 import type { WorkspaceRecoveryModel } from "@/workspace-recovery/model";
 import {
   buildWorkspaceTabSnapshot,
-  deriveWorkspaceAgentVisibility,
+  createWorkspaceAgentVisibilitySelector,
   workspaceAgentVisibilityEqual,
 } from "@/workspace-tabs/agent-visibility";
 import { deriveWorkspacePaneState } from "@/screens/workspace/workspace-pane-state";
@@ -218,6 +218,18 @@ function getWorkspaceScripts(
   workspaceDescriptor: WorkspaceDescriptor | null | undefined,
 ): WorkspaceDescriptor["scripts"] {
   return workspaceDescriptor?.scripts ?? EMPTY_WORKSPACE_SCRIPTS;
+}
+
+function getWorkspaceProjectId(
+  workspaceDescriptor: WorkspaceDescriptor | null | undefined,
+): string | null {
+  return workspaceDescriptor?.projectId || null;
+}
+
+function getWorkspaceProjectRootPath(
+  workspaceDescriptor: WorkspaceDescriptor | null | undefined,
+): string | null {
+  return workspaceDescriptor?.projectRootPath ?? null;
 }
 
 interface WorkspaceFileLocationFields {
@@ -1731,10 +1743,11 @@ function WorkspaceScreenContent({
     ),
   });
 
+  const [selectWorkspaceAgentVisibility] = useState(createWorkspaceAgentVisibilitySelector);
   const workspaceAgentVisibility = useStoreWithEqualityFn(
     useSessionStore,
     (state) =>
-      deriveWorkspaceAgentVisibility({
+      selectWorkspaceAgentVisibility({
         sessionAgents: state.sessions[normalizedServerId]?.agents,
         agentDetails: state.sessions[normalizedServerId]?.agentDetails,
         workspaceId: normalizedWorkspaceId,
@@ -1917,6 +1930,7 @@ function WorkspaceScreenContent({
     serverId: normalizedServerId,
     tabs: uiTabs,
     enabled: hasHydratedWorkspaceLayoutStore,
+    isRouteFocused,
   });
   useSyncWorkspaceActiveBrowser({
     workspaceLayout,
@@ -2380,7 +2394,6 @@ function WorkspaceScreenContent({
       client,
       normalizedServerId,
       queryClient,
-      terminalsData: terminalsQuery.data,
       terminalsQueryKey,
     });
 
@@ -2749,33 +2762,25 @@ function WorkspaceScreenContent({
     [normalizedServerId, normalizedWorkspaceId, t],
   );
 
-  const handleCloseTabById = useCallback(
-    async (tabId: string) => {
-      const tab = allTabDescriptorsById.get(tabId);
-      if (!tab) {
-        return;
-      }
-      if (!(await confirmDiscardModifiedTab(tabId))) {
-        return;
-      }
-      if (tab.target.kind === "terminal") {
-        await handleCloseTerminalTab({ tabId, terminalId: tab.target.terminalId });
-        return;
-      }
-      if (tab.target.kind === "agent") {
-        await handleCloseAgentTab({ tabId, agentId: tab.target.agentId });
-        return;
-      }
-      handleClosePassiveTab({ tabId, target: tab.target });
-    },
-    [
-      allTabDescriptorsById,
-      confirmDiscardModifiedTab,
-      handleCloseAgentTab,
-      handleClosePassiveTab,
-      handleCloseTerminalTab,
-    ],
-  );
+  // Stable so every mounted tab's content model survives tab-set changes.
+  const handleCloseTabById = useStableEvent(async function handleCloseTabById(tabId: string) {
+    const tab = allTabDescriptorsById.get(tabId);
+    if (!tab) {
+      return;
+    }
+    if (!(await confirmDiscardModifiedTab(tabId))) {
+      return;
+    }
+    if (tab.target.kind === "terminal") {
+      await handleCloseTerminalTab({ tabId, terminalId: tab.target.terminalId });
+      return;
+    }
+    if (tab.target.kind === "agent") {
+      await handleCloseAgentTab({ tabId, agentId: tab.target.agentId });
+      return;
+    }
+    handleClosePassiveTab({ tabId, target: tab.target });
+  });
 
   const handleCopyAgentId = useCallback(
     async (agentId: string) => {
@@ -3868,14 +3873,11 @@ function WorkspaceScreenContent({
       <View style={styles.headerRight}>
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {/* An open Explorer carries the scripts and git controls in its own chrome. */}
-        {!isMobile &&
-        !isExplorerSidebarShowing &&
-        workspaceDescriptor &&
-        workspaceDescriptor.scripts.length > 0 ? (
+        {!isMobile && !isExplorerSidebarShowing && workspaceScripts.length > 0 ? (
           <WorkspaceScriptsButton
             serverId={normalizedServerId}
             workspaceId={normalizedWorkspaceId}
-            scripts={workspaceDescriptor.scripts}
+            scripts={workspaceScripts}
             liveTerminalIds={liveTerminalIds}
             onScriptTerminalStarted={handleScriptTerminalStarted}
             onViewTerminal={handleViewScriptTerminal}
@@ -3926,7 +3928,7 @@ function WorkspaceScreenContent({
     [
       isExplorerSidebarShowing,
       isMobile,
-      workspaceDescriptor,
+      workspaceScripts,
       normalizedServerId,
       normalizedWorkspaceId,
       workspaceDirectory,
@@ -3957,17 +3959,20 @@ function WorkspaceScreenContent({
   const handleCreateUtilityTerminal = useStableEvent(() => {
     createTerminal({ destination: { kind: "utility" } });
   });
+  const workspaceProjectId = getWorkspaceProjectId(workspaceDescriptor);
+  const workspaceProjectRootPath = getWorkspaceProjectRootPath(workspaceDescriptor);
   const renderExplorerSidebarUtility = useCallback(
     () =>
-      workspaceDescriptor && workspaceDirectory && persistenceKey ? (
+      workspaceProjectRootPath !== null && workspaceDirectory && persistenceKey ? (
         <ExplorerUtilityPanel
           serverId={normalizedServerId}
           workspaceId={normalizedWorkspaceId}
           workspaceKey={persistenceKey}
           cwd={workspaceDirectory}
-          projectId={workspaceDescriptor.projectId || null}
-          projectRootPath={workspaceDescriptor.projectRootPath}
-          scripts={workspaceDescriptor.scripts}
+          projectId={workspaceProjectId}
+          projectRootPath={workspaceProjectRootPath}
+          scripts={workspaceScripts}
+          hasLoadedTerminals={terminalsQuery.isSuccess}
           liveTerminalIds={liveTerminalIds}
           isWorkspaceFocused={isRouteFocused}
           buildPaneContentModel={buildDesktopPaneContentModel}
@@ -3977,11 +3982,14 @@ function WorkspaceScreenContent({
         />
       ) : null,
     [
-      workspaceDescriptor,
       workspaceDirectory,
       persistenceKey,
       normalizedServerId,
       normalizedWorkspaceId,
+      workspaceProjectId,
+      workspaceProjectRootPath,
+      workspaceScripts,
+      terminalsQuery.isSuccess,
       liveTerminalIds,
       isRouteFocused,
       buildDesktopPaneContentModel,

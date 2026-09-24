@@ -3,6 +3,7 @@ import {
   collectKnownTerminalIds,
   collectScriptTerminalIds,
   collectStandaloneTerminalIds,
+  hasSameTerminalIds,
   reconcilePendingScriptTerminals,
   removeTerminalFromPayload,
   upsertCreatedTerminalPayload,
@@ -37,6 +38,12 @@ describe("workspace terminal state", () => {
     const reconciled = reconcilePendingScriptTerminals([], 20)(pending);
 
     expect(reconciled).toBe(pending);
+  });
+
+  it("compares terminal id lists by value and order", () => {
+    expect(hasSameTerminalIds(["a", "b"], ["a", "b"])).toBe(true);
+    expect(hasSameTerminalIds(["a", "b"], ["b", "a"])).toBe(false);
+    expect(hasSameTerminalIds(["a"], ["a", "b"])).toBe(false);
   });
 
   it("combines live and pending terminal ids without duplicating script terminals", () => {

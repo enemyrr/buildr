@@ -51,7 +51,9 @@ const GithubMergeFactsSchema = z
 
 type GithubMergeFacts = z.infer<typeof GithubMergeFactsSchema>;
 
-const GITHUB_DIRECT_MERGE_STATE_ALLOWLIST = new Set(["CLEAN", "HAS_HOOKS"]);
+// UNSTABLE is mergeable with non-required checks failing. UNKNOWN means GitHub is still computing
+// the state; the merge RPC lets GitHub decide rather than disabling Merge until the next poll.
+const GITHUB_DIRECT_MERGE_STATE_ALLOWLIST = new Set(["CLEAN", "HAS_HOOKS", "UNSTABLE", "UNKNOWN"]);
 
 function normalizeGithubMergeMethod(value: string | null): CheckoutPrMergeMethod | null {
   if (value === "SQUASH") return "squash";

@@ -4,11 +4,10 @@ import {
   type WorkspaceStructure,
   type WorkspaceStructureProject,
 } from "@/projects/workspace-structure";
-import type { DesktopBadgeWorkspaceStatus } from "@/utils/desktop-badge-state";
+import { isWorkspaceActionableForDesktopBadge } from "@/utils/desktop-badge-state";
 import { resolveWorkspaceMapKeyByIdentity } from "@/utils/workspace-identity";
 import type { ProjectDescriptor, WorkspaceDescriptor } from "../session-store";
 
-export type { DesktopBadgeWorkspaceStatus } from "@/utils/desktop-badge-state";
 export type { WorkspaceStructure, WorkspaceStructureProject } from "@/projects/workspace-structure";
 
 export interface SessionsSnapshot {
@@ -307,14 +306,21 @@ export function selectHasWorkspaces(state: SessionsSnapshot, serverId: string | 
   return (state.sessions[serverId]?.workspaces?.size ?? 0) > 0;
 }
 
-export function selectWorkspaceStatusesForBadges(
-  state: SessionsSnapshot,
-): DesktopBadgeWorkspaceStatus[] {
-  const statuses: DesktopBadgeWorkspaceStatus[] = [];
-  for (const session of Object.values(state.sessions)) {
-    for (const workspace of session.workspaces.values()) {
-      statuses.push(workspace.status);
+const actionableCountByWorkspaces = new WeakMap<Map<string, WorkspaceDescriptor>, number>();
+
+// Runs on every session-store commit; only a replaced workspaces Map is rescanned.
+export function selectActionableWorkspaceCount(state: SessionsSnapshot): number {
+  let total = 0;
+  for (const { workspaces } of Object.values(state.sessions)) {
+    let count = actionableCountByWorkspaces.get(workspaces);
+    if (count === undefined) {
+      count = 0;
+      for (const workspace of workspaces.values()) {
+        if (isWorkspaceActionableForDesktopBadge(workspace.status)) count += 1;
+      }
+      actionableCountByWorkspaces.set(workspaces, count);
     }
+    total += count;
   }
-  return statuses;
+  return total;
 }

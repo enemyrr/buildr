@@ -15,7 +15,7 @@ import {
   selectWorkspaceFields,
   selectWorkspaceKeys,
   selectWorkspaceOrderByScope,
-  selectWorkspaceStatusesForBadges,
+  selectActionableWorkspaceCount,
   selectWorkspaceStructureProjects,
   workspaceEqualityFns,
   type SidebarOrderSnapshot,
@@ -590,31 +590,29 @@ describe("selectHasWorkspaces", () => {
   });
 });
 
-describe("selectWorkspaceStatusesForBadges", () => {
-  it("tracks status changes without changing for no-ops or unrelated descriptor updates", () => {
+describe("selectActionableWorkspaceCount", () => {
+  it("counts actionable workspaces and only rescans a replaced workspaces Map", () => {
     const workspaceA = createWorkspace({ id: "workspace-a", status: "done" });
     const workspaceB = createWorkspace({ id: "workspace-b", status: "attention" });
     initializeWorkspaces([workspaceA, workspaceB]);
 
     const tracked = trackSelector(
       useSessionStore,
-      (state) => selectWorkspaceStatusesForBadges(state),
-      workspaceEqualityFns.deep,
+      (state) => selectActionableWorkspaceCount(state),
+      workspaceEqualityFns.identity,
     );
-    const before = tracked.current;
-    expect(before).toEqual(["done", "attention"]);
+    expect(tracked.current).toBe(1);
 
     useSessionStore
       .getState()
       .mergeWorkspaces(SERVER_ID, [{ ...workspaceA, scripts: [...workspaceA.scripts] }]);
-    expect(tracked.current).toBe(before);
-
-    useSessionStore.getState().mergeWorkspaces(SERVER_ID, [{ ...workspaceB, name: "Renamed" }]);
-    expect(tracked.current).toBe(before);
+    expect(tracked.current).toBe(1);
 
     useSessionStore.getState().mergeWorkspaces(SERVER_ID, [{ ...workspaceA, status: "failed" }]);
-    expect(tracked.current).not.toBe(before);
-    expect(tracked.current).toEqual(["failed", "attention"]);
+    expect(tracked.current).toBe(2);
+
+    useSessionStore.getState().mergeWorkspaces(SERVER_ID, [{ ...workspaceB, status: "done" }]);
+    expect(tracked.current).toBe(1);
 
     tracked.stop();
   });

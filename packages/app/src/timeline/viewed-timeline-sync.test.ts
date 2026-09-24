@@ -2,8 +2,12 @@ import { expect, test, vi } from "vitest";
 import { DaemonClient, type DaemonTransport } from "@getpaseo/client/internal/daemon-client";
 import type { SessionInboundMessage, SessionOutboundMessage } from "@getpaseo/protocol/messages";
 import type { ProjectedTimelineForwardFetchPlan } from "./timeline-sync-plan";
+import type { CachedTimeline } from "@/runtime/replica-cache";
+import { useSessionStore } from "@/stores/session-store";
+import type { StreamItem } from "@/types/stream";
 import {
   consumeForcedTimelineTailReplacement,
+  createTimelineReplica,
   createViewedTimelineSync,
   type TimelineResponsePayload,
   type ViewedTimelineStatus,
@@ -1172,4 +1176,39 @@ test("disposing a view releases its pending observation before bootstrap complet
   request.succeed();
   await Promise.resolve();
   world.expectNoPendingFetch();
+});
+
+test("commits the timeline replica only when the viewed timeline changed", () => {
+  const serverId = "replica-unchanged-timeline";
+  const store = useSessionStore.getState();
+  store.initializeSession(serverId, null as unknown as DaemonClient);
+  const commits: CachedTimeline[] = [];
+  const replica = createTimelineReplica({
+    serverId,
+    storage: {
+      readTimeline: async () => undefined,
+      commitTimeline: (_serverId, _agentId, timeline) => {
+        commits.push(timeline);
+      },
+    },
+    prepareAgent: async () => undefined,
+  });
+  const message = (id: string): StreamItem => ({
+    kind: "user_message",
+    id,
+    text: id,
+    timestamp: new Date(0),
+  });
+
+  store.setAgentStreamState(serverId, "agent", { tail: [message("tail")] });
+  replica.timelineUpdated("agent");
+  replica.timelineUpdated("agent");
+  store.setAgentStreamState(serverId, "agent", { head: [message("head")] });
+  replica.timelineUpdated("agent");
+
+  expect(commits.map((timeline) => timeline.items.map((item) => item.id))).toEqual([
+    ["tail"],
+    ["tail", "head"],
+  ]);
+  store.clearSession(serverId);
 });

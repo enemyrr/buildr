@@ -43,8 +43,10 @@ function createLastSelectionDeps(
   deps: NavigateToLastWorkspaceDeps;
   navigations: string[];
   remembered: ActiveWorkspaceSelection[];
+  forgotten: ActiveWorkspaceSelection[];
 } {
   let lastSelection = initial;
+  const forgotten: ActiveWorkspaceSelection[] = [];
   const base = createFakeDeps({
     rememberLastWorkspace: (selection) => {
       lastSelection = selection;
@@ -53,9 +55,17 @@ function createLastSelectionDeps(
     ...overrides,
   });
   return {
-    deps: { ...base.deps, getLastWorkspaceSelection: () => lastSelection },
+    deps: {
+      ...base.deps,
+      getLastWorkspaceSelection: () => lastSelection,
+      forgetLastWorkspace: (selection) => {
+        forgotten.push(selection);
+        lastSelection = null;
+      },
+    },
     navigations: base.navigations,
     remembered: base.remembered,
+    forgotten,
   };
 }
 
@@ -64,6 +74,17 @@ describe("workspace navigation", () => {
     const { deps } = createLastSelectionDeps(null);
 
     expect(navigateToLastWorkspace(deps)).toBe(false);
+  });
+
+  it("forgets a remembered workspace the loaded host no longer lists", () => {
+    const selection = { serverId: "server-1", workspaceId: "archived" };
+    const { deps, navigations, forgotten } = createLastSelectionDeps(selection, {
+      getSessionWorkspaces: () => new Map(),
+    });
+
+    expect(navigateToLastWorkspace(deps)).toBe(false);
+    expect(forgotten).toEqual([selection]);
+    expect(navigations).toEqual([]);
   });
 
   it("navigates to a workspace route and remembers the selection", () => {

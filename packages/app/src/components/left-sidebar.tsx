@@ -13,7 +13,7 @@ import { Gesture } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { resolveDesktopSidebarWidth } from "@/components/desktop-sidebar-layout";
 import { NavigationHistoryButtons } from "@/components/headers/navigation-history-buttons";
@@ -49,17 +49,28 @@ import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop
 import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
 import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
+import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { openHostOverview } from "@/navigation/settings-navigation";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
-type SidebarTheme = ReturnType<typeof useUnistyles>["theme"];
+const ThemedSettings = withUnistyles(Settings);
+const ThemedServer = withUnistyles(Server);
+const ThemedX = withUnistyles(X);
+const ThemedGitBranch = withUnistyles(GitBranch);
+
+type ThemedIcon = typeof ThemedSettings;
+
+const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
+const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const accentForegroundColorMapping = (theme: Theme) => ({
+  color: theme.colors.accentForeground,
+});
 
 const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
 
 interface SidebarSharedProps {
-  theme: SidebarTheme;
   workspaceGroups: SidebarWorkspaceGroup[];
   projectIconTargets: SidebarProjectIconTarget[];
   pinnedGroups: PinnedSidebarGroups;
@@ -105,7 +116,6 @@ interface DesktopSidebarProps extends SidebarSharedProps {
 }
 
 export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boolean }) {
-  const { theme } = useUnistyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const isCompactLayout = useIsCompactFormFactor();
@@ -202,7 +212,6 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
   );
 
   const sharedProps = {
-    theme,
     workspaceGroups,
     projectIconTargets,
     pinnedGroups,
@@ -272,17 +281,15 @@ function FooterIconButton({
   testID,
   label,
   icon: Icon,
-  iconSize,
+  iconSize = ICON_SIZE.md,
   shortcutKeys,
-  theme,
 }: {
   onPress: () => void;
   testID: string;
   label: string;
-  icon: typeof Settings;
+  icon: ThemedIcon;
   iconSize?: number;
   shortcutKeys?: ReturnType<typeof useShortcutKeys>;
-  theme: SidebarTheme;
   buttonRef?: RefObject<View | null>;
 }) {
   return (
@@ -301,8 +308,8 @@ function FooterIconButton({
         >
           {({ hovered }) => (
             <Icon
-              size={iconSize ?? theme.iconSize.md}
-              color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
+              size={iconSize}
+              uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
             />
           )}
         </Pressable>
@@ -315,12 +322,10 @@ function FooterIconButton({
 }
 
 function SidebarHostPicker({
-  theme,
   label,
   onAddHost,
   onOpenHostSettings,
 }: {
-  theme: SidebarTheme;
   label: string;
   onAddHost: () => void;
   onOpenHostSettings: (serverId: string) => void;
@@ -361,9 +366,8 @@ function SidebarHostPicker({
         onPress={handleOpen}
         testID="sidebar-hosts-trigger"
         label={label}
-        icon={Server}
-        iconSize={theme.iconSize.sm}
-        theme={theme}
+        icon={ThemedServer}
+        iconSize={ICON_SIZE.sm}
       />
     </HostPicker>
   );
@@ -384,14 +388,12 @@ function IconTooltipContent({
   );
 }
 
-function SidebarFooter({
-  theme,
+const SidebarFooter = memo(function SidebarFooter({
   handleSettings,
   labels,
   handleAddHost,
   handleOpenHostSettings,
 }: {
-  theme: SidebarTheme;
   handleSettings: () => void;
   labels: {
     hosts: string;
@@ -407,7 +409,6 @@ function SidebarFooter({
       <SidebarResourcesMenu />
       <View style={styles.footerIconRow}>
         <SidebarHostPicker
-          theme={theme}
           label={labels.hosts}
           onAddHost={handleAddHost}
           onOpenHostSettings={handleOpenHostSettings}
@@ -416,18 +417,16 @@ function SidebarFooter({
           onPress={handleSettings}
           testID="sidebar-settings"
           label={labels.settings}
-          icon={Settings}
+          icon={ThemedSettings}
           shortcutKeys={settingsKeys}
-          theme={theme}
         />
       </View>
     </View>
   );
-}
+});
 
 function MobileSidebar({
   active,
-  theme,
   workspaceGroups,
   projectIconTargets,
   pinnedGroups,
@@ -470,21 +469,18 @@ function MobileSidebar({
   }, [closeSidebar]);
 
   const mobileSidebarInsetStyle = useMemo(
-    () => ({
-      paddingTop: insetsTop,
-      paddingBottom: insetsBottom,
-      backgroundColor: theme.colors.surfaceSidebar,
-    }),
-    [insetsTop, insetsBottom, theme.colors.surfaceSidebar],
+    () => ({ paddingTop: insetsTop, paddingBottom: insetsBottom }),
+    [insetsTop, insetsBottom],
   );
 
+  // The themed surface lives on a plain View: the overlay panel is a Reanimated view, which
+  // Unistyles must not patch.
   return (
-    <MobilePanelOverlay
-      panel="agent-list"
-      closeGesture={closeGesture}
-      panelStyle={mobileSidebarInsetStyle}
-    >
-      <View style={styles.sidebarContent} pointerEvents="auto">
+    <MobilePanelOverlay panel="agent-list" closeGesture={closeGesture}>
+      <View
+        style={[styles.sidebarContent, styles.mobileSidebarSurface, mobileSidebarInsetStyle]}
+        pointerEvents="auto"
+      >
         <WindowChromeSafeArea placement="below" />
         <SidebarNavRows style={styles.sidebarHeaderGroup} onBeforeNavigate={closeSidebar} />
         <WindowChromeSafeArea placement="inline" style={styles.mobileCloseButtonRow}>
@@ -499,9 +495,9 @@ function MobileSidebar({
             hitSlop={8}
           >
             {({ hovered, pressed }) => (
-              <X
-                size={theme.iconSize.md}
-                color={hovered || pressed ? theme.colors.foreground : theme.colors.foregroundMuted}
+              <ThemedX
+                size={ICON_SIZE.md}
+                uniProps={hovered || pressed ? foregroundColorMapping : foregroundMutedColorMapping}
               />
             )}
           </Pressable>
@@ -534,7 +530,6 @@ function MobileSidebar({
         )}
 
         <SidebarFooter
-          theme={theme}
           handleSettings={handleSettings}
           labels={labels}
           handleAddHost={handleAddHost}
@@ -546,7 +541,6 @@ function MobileSidebar({
 }
 
 function DesktopSidebar({
-  theme,
   workspaceGroups,
   projectIconTargets,
   pinnedGroups,
@@ -679,7 +673,7 @@ function DesktopSidebar({
                   testID="dev-build-label"
                   accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
                 >
-                  <GitBranch size={12} color={theme.colors.accentForeground} />
+                  <ThemedGitBranch size={12} uniProps={accentForegroundColorMapping} />
                   <Text numberOfLines={1} ellipsizeMode="tail" style={styles.devBuildBadgeText}>
                     {DEV_BUILD_LABEL}
                   </Text>
@@ -719,7 +713,6 @@ function DesktopSidebar({
         <SidebarCalloutSlot />
 
         <SidebarFooter
-          theme={theme}
           handleSettings={handleSettings}
           labels={labels}
           handleAddHost={handleAddHost}
@@ -813,6 +806,9 @@ const styles = StyleSheet.create((theme) => ({
   sidebarContent: {
     flex: 1,
     minHeight: 0,
+  },
+  mobileSidebarSurface: {
+    backgroundColor: theme.colors.surfaceSidebar,
   },
   mobileCloseButtonRow: {
     position: "absolute",

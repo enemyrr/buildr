@@ -125,6 +125,10 @@ const GITHUB_ENV = {
 // (e.g. a stalled network call) fails the same way across every forge.
 const GITHUB_COMMAND_TIMEOUT_MS = 30_000;
 const REPO_HOST_NULL_TTL_MS = 60_000;
+// Remote-derived identity (host, origin slug, gh's base repo + fork parent) only changes
+// when remotes are edited outside Paseo, so it outlives forge invalidation and expires on
+// this TTL instead.
+const REPO_IDENTITY_TTL_MS = 5 * 60_000;
 const GIT_ORIGIN_URL_READ_TIMEOUT_MS = 5_000;
 
 const LabelSchema = z.object({
@@ -457,6 +461,8 @@ const GitHubRepoViewSchema = z.object({
     .nullable()
     .optional(),
 });
+
+type GitHubRepoView = z.infer<typeof GitHubRepoViewSchema>;
 
 const PullRequestCheckoutTargetSchema = z.object({
   data: z.object({
@@ -957,7 +963,9 @@ export type GitHubCommandRunner = (
   options: GitHubCommandRunnerOptions,
 ) => Promise<GitHubCommandResult>;
 
-const DIRECT_PULL_REQUEST_MERGE_STATE_ALLOWLIST = new Set(["CLEAN", "HAS_HOOKS"]);
+// UNKNOWN (mergeability recomputing) and UNSTABLE (non-required checks failing) still
+// merge, so only states GitHub always refuses are rejected up front; gh reports the rest.
+const DIRECT_PULL_REQUEST_MERGE_STATE_BLOCKLIST = new Set(["BEHIND", "BLOCKED", "DIRTY", "DRAFT"]);
 
 export interface GitHubRepositorySummary {
   id: string;
@@ -1113,8 +1121,8 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     resolveRepoHost: options.resolveRepoHost ?? resolveGitHubEnterpriseHost,
     resolveRepoSlug: options.resolveRepoSlug ?? resolveGitHubSlugFromOrigin,
   };
-  // A resolved enterprise host is cached permanently; a null resolution (no
-  // host, or the auth probe said no) expires so `gh auth login --hostname`
+  // A resolved enterprise host lives for REPO_IDENTITY_TTL_MS; a null resolution
+  // (no host, or the auth probe said no) expires sooner so `gh auth login --hostname`
   // run after the first probe is picked up without a daemon restart. The
   // `resolved` marker survives a TTL refresh so poll batching can keep using
   // the last known host synchronously while the refresh is in flight.
@@ -1126,10 +1134,10 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       resolved?: { value: string | null };
     }
   >();
-  // owner/name from the origin remote, cached until invalidate() (which fires
-  // on remote changes) so batched polls can group targets synchronously. Null
-  // resolutions expire like the host cache's so transient git failures don't
-  // permanently degrade a cwd to per-target polling.
+  // owner/name from the origin remote, cached for REPO_IDENTITY_TTL_MS so batched
+  // polls can group targets synchronously. Null resolutions expire like the host
+  // cache's so transient git failures don't permanently degrade a cwd to
+  // per-target polling.
   const repoSlugByCwd = new Map<
     string,
     {
@@ -1137,6 +1145,10 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       expiresAt: number | null;
       resolved?: { value: string | null };
     }
+  >();
+  const repoViewByCwd = new Map<
+    string,
+    { promise: Promise<GitHubRepoView | null>; expiresAt: number }
   >();
   const cache = new Map<string, CacheEntry>();
   const inFlight = new Map<string, InFlightCacheEntry>();
@@ -1217,9 +1229,8 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         const current = repoHostByCwd.get(cwd);
         if (current?.promise === pending) {
           current.resolved = { value: host };
-          if (host === null) {
-            current.expiresAt = deps.now() + REPO_HOST_NULL_TTL_MS;
-          }
+          current.expiresAt =
+            deps.now() + (host === null ? REPO_HOST_NULL_TTL_MS : REPO_IDENTITY_TTL_MS);
         }
         return host;
       })
@@ -1267,9 +1278,8 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         .then((slug) => {
           if (repoSlugByCwd.get(cwd) === entry) {
             entry.resolved = { value: slug };
-            if (slug === null) {
-              entry.expiresAt = deps.now() + REPO_HOST_NULL_TTL_MS;
-            }
+            entry.expiresAt =
+              deps.now() + (slug === null ? REPO_HOST_NULL_TTL_MS : REPO_IDENTITY_TTL_MS);
           }
           return slug;
         })
@@ -1285,6 +1295,29 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     };
     repoSlugByCwd.set(cwd, entry);
     return entry.promise;
+  }
+
+  function getRepoViewCached(cwd: string): Promise<GitHubRepoView | null> {
+    const cachedView = repoViewByCwd.get(cwd);
+    if (cachedView && deps.now() < cachedView.expiresAt) {
+      return cachedView.promise;
+    }
+    const pending = getGitHubRepoView({ cwd, run }).then(
+      (view) => {
+        if (view === null && repoViewByCwd.get(cwd)?.promise === pending) {
+          repoViewByCwd.delete(cwd);
+        }
+        return view;
+      },
+      (error: unknown) => {
+        if (repoViewByCwd.get(cwd)?.promise === pending) {
+          repoViewByCwd.delete(cwd);
+        }
+        throw error;
+      },
+    );
+    repoViewByCwd.set(cwd, { promise: pending, expiresAt: deps.now() + REPO_IDENTITY_TTL_MS });
+    return pending;
   }
 
   function peekRepoSlug(cwd: string): { settled: boolean; value: string | null } {
@@ -1773,8 +1806,9 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       : entry;
   }
 
+  // Per branch: sibling branches of one fork can have PRs in the fork and in the parent.
   function batchRepositoryRedirectKey(entry: GitHubBatchPollEntry): string {
-    return `${entry.host}\n${entry.originOwner}/${entry.originName}`;
+    return `${entry.host}\n${entry.originOwner}/${entry.originName}\n${entry.target.headRef}`;
   }
 
   function selectBatchPollNode(
@@ -2117,7 +2151,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
         args: { number: input.number },
         readOptions: input,
         load: async () => {
-          const repo = await getGitHubRepoView({ cwd: input.cwd, run });
+          const repo = await getRepoViewCached(input.cwd);
           const owner = repo?.owner?.login;
           const name = repo?.name;
           if (!owner || !name) {
@@ -2163,6 +2197,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
             headSha: input.headSha,
             headRepositoryOwner: input.headRepositoryOwner,
             run,
+            getRepoView: () => getRepoViewCached(input.cwd),
             resolveOriginSlug: () => resolveRepoSlugCached(input.cwd),
           });
           return addCurrentPullRequestGithubFacts({ cwd: input.cwd, status, run });
@@ -2479,7 +2514,7 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
       // (covering GitHub Enterprise Server) and survives a renamed repo.
       let slug = await resolveGitHubSlugFromOrigin(input.cwd);
       if (!slug) {
-        const repoView = await getGitHubRepoView({ cwd: input.cwd, run });
+        const repoView = await getRepoViewCached(input.cwd);
         slug =
           repoView?.owner?.login && repoView.name
             ? `${repoView.owner.login}/${repoView.name}`
@@ -2508,7 +2543,8 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
 
     async mergePullRequest(input) {
       assertDirectPullRequestMergeReady(input);
-      await run(["pr", "merge", String(input.prNumber), `--${input.mergeMethod}`], {
+      const repo = requirePullRequestRepo(input.status);
+      await run(["pr", "merge", String(input.prNumber), "--repo", repo, `--${input.mergeMethod}`], {
         cwd: input.cwd,
         envOverlay: { GH_PROMPT_DISABLED: "1" },
       });
@@ -2517,16 +2553,18 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
 
     async enablePullRequestAutoMerge(input) {
       assertPullRequestAutoMergeEnableReady(input);
-      await run(["pr", "merge", String(input.prNumber), "--auto", `--${input.mergeMethod}`], {
-        cwd: input.cwd,
-        envOverlay: { GH_PROMPT_DISABLED: "1" },
-      });
+      const repo = requirePullRequestRepo(input.status);
+      await run(
+        ["pr", "merge", String(input.prNumber), "--repo", repo, "--auto", `--${input.mergeMethod}`],
+        { cwd: input.cwd, envOverlay: { GH_PROMPT_DISABLED: "1" } },
+      );
       return { success: true };
     },
 
     async disablePullRequestAutoMerge(input) {
       assertPullRequestAutoMergeDisableReady(input);
-      await run(["pr", "merge", String(input.prNumber), "--disable-auto"], {
+      const repo = requirePullRequestRepo(input.status);
+      await run(["pr", "merge", String(input.prNumber), "--repo", repo, "--disable-auto"], {
         cwd: input.cwd,
         envOverlay: { GH_PROMPT_DISABLED: "1" },
       });
@@ -2621,20 +2659,19 @@ export function createGitHubService(options: CreateGitHubServiceOptions = {}): G
     invalidate(input) {
       // Local checkout mutations that can alter the current PR identity or PR status
       // must call this with the affected cwd before broadcasting fresh git state.
+      // Auth and remote identity don't change on a push or merge; they keep their TTLs
+      // so a forced refresh doesn't pay for a network auth check.
+      const authKey = buildCacheKey({ cwd: input.cwd, method: "isAuthenticated", args: {} });
       for (const [key, entry] of cache.entries()) {
-        if (entry.cwd === input.cwd) {
+        if (entry.cwd === input.cwd && key !== authKey) {
           cache.delete(key);
         }
       }
       for (const [key, entry] of inFlight.entries()) {
-        if (entry.cwd === input.cwd) {
+        if (entry.cwd === input.cwd && key !== authKey) {
           inFlight.delete(key);
         }
       }
-      // Drop the cached host and slug so a changed remote re-resolves GH_HOST
-      // and the batch-poll repository identity instead of reusing stale ones.
-      repoHostByCwd.delete(input.cwd);
-      repoSlugByCwd.delete(input.cwd);
     },
 
     dispose() {
@@ -2667,13 +2704,25 @@ function getGithubStatusFacts(
   return isGitHubPullRequestStatusFacts(forgeSpecific) ? forgeSpecific : null;
 }
 
+/**
+ * gh resolves a bare PR number against the `upstream` remote when one exists, so a
+ * number read from origin's PR would act on an unrelated upstream PR. GH_HOST (set by
+ * `run`) scopes the owner/name to the workspace's GitHub Enterprise host.
+ */
+function requirePullRequestRepo(status: PullRequestCommandStatus | null | undefined): string {
+  if (!status?.repoOwner || !status.repoName) {
+    throw new Error("Unable to determine the GitHub repository for this pull request");
+  }
+  return `${status.repoOwner}/${status.repoName}`;
+}
+
 function assertDirectPullRequestMergeReady(input: MergePullRequestOptions): void {
   const github = getGithubStatusFacts(input.status);
   if (!github) {
     throw new Error("GitHub merge facts are unavailable for this pull request");
   }
 
-  if (!DIRECT_PULL_REQUEST_MERGE_STATE_ALLOWLIST.has(github.mergeStateStatus ?? "")) {
+  if (DIRECT_PULL_REQUEST_MERGE_STATE_BLOCKLIST.has(github.mergeStateStatus ?? "")) {
     throw new Error("GitHub does not report this pull request as ready for direct merge");
   }
   if (github.isMergeQueueEnabled || github.isInMergeQueue) {
@@ -2771,7 +2820,14 @@ function isGitHubStatusPending(status: CurrentPullRequestStatus | null): boolean
   if (status.checksStatus === "pending") {
     return true;
   }
-  return status.checks.some((check) => check.status === "pending");
+  if (status.checks.some((check) => check.status === "pending")) {
+    return true;
+  }
+  const github = getGithubStatusFacts(status);
+  if (!github || status.isMerged) {
+    return false;
+  }
+  return github.mergeStateStatus === "UNKNOWN" || github.autoMergeRequest !== null;
 }
 
 async function resolveGhPath(): Promise<string | null> {
@@ -2957,6 +3013,7 @@ async function resolveCurrentPullRequestView(options: {
   headSha?: string;
   headRepositoryOwner?: string;
   run: (args: string[], options: GitHubCommandRunnerOptions) => Promise<string>;
+  getRepoView: () => Promise<GitHubRepoView | null>;
   resolveOriginSlug?: () => Promise<string | null>;
 }): Promise<CurrentPullRequestStatus | null> {
   const viewCandidate = await tryCurrentPullRequestView(options);
@@ -2978,7 +3035,7 @@ async function resolveCurrentPullRequestView(options: {
   let headRepositoryOwner = options.headRepositoryOwner;
 
   if (!headRepositoryOwner) {
-    const repo = await getGitHubRepoView(options);
+    const repo = await options.getRepoView();
     const forkOwner = repo?.owner?.login;
     const parentOwner = repo?.parent?.owner?.login;
     const parentName = repo?.parent?.name;
@@ -2993,6 +3050,9 @@ async function resolveCurrentPullRequestView(options: {
     searchedRepo = listRepo ?? (repo?.name ? `${forkOwner}/${repo.name}` : null);
   }
 
+  // The origin lookup runs alongside the default one; its result only counts on a miss.
+  const originMatch = findPullRequestInOriginRepo({ ...options, searchedRepo });
+  originMatch.catch(() => {});
   const candidates = await listCurrentPullRequestCandidates({
     cwd: options.cwd,
     headRef: listHeadRef,
@@ -3005,7 +3065,7 @@ async function resolveCurrentPullRequestView(options: {
     headSha: options.headSha,
     headRepositoryOwner,
   });
-  return match?.status ?? findPullRequestInOriginRepo({ ...options, searchedRepo });
+  return match?.status ?? originMatch;
 }
 
 /**
@@ -3088,8 +3148,11 @@ async function loadPullRequestGithubFacts(options: {
     "-F",
     `number=${options.number}`,
   ];
+  // A failed facts command rejects the whole status load: a status without facts would be
+  // cached and published as current, hiding merge controls until the next refresh. Only
+  // an unparseable response degrades to a status without facts.
+  const stdout = await options.run(args, { cwd: options.cwd });
   try {
-    const stdout = await options.run(args, { cwd: options.cwd });
     return parsePullRequestGithubFacts(stdout, { args, cwd: options.cwd });
   } catch (error) {
     if (error instanceof GitHubCommandError) {
@@ -3187,7 +3250,7 @@ async function resolveGitHubSlugFromOrigin(cwd: string): Promise<string | null> 
 async function getGitHubRepoView(options: {
   cwd: string;
   run: (args: string[], options: GitHubCommandRunnerOptions) => Promise<string>;
-}): Promise<z.infer<typeof GitHubRepoViewSchema> | null> {
+}): Promise<GitHubRepoView | null> {
   const args = ["repo", "view", "--json", "owner,name,parent"];
   try {
     const stdout = await options.run(args, {

@@ -113,6 +113,18 @@ import { useRetainedPanelActive } from "@/components/retained-panel";
 import { useStreamHistoryWindow } from "./use-stream-history-window";
 import { PluginTimelineItemView, useInstalledTimelineTransform } from "@/plugins/timeline";
 
+// History rows only render differently while expanded; a collapsed group stays in the map but
+// must not be re-cloned on every history change.
+function collectExpandedToolCallGroupIds(expansion: Map<string, boolean>): Set<string> {
+  const expandedIds = new Set<string>();
+  for (const [groupId, expanded] of expansion) {
+    if (expanded) {
+      expandedIds.add(groupId);
+    }
+  }
+  return expandedIds;
+}
+
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
   turnFooter: ReactNode;
@@ -1158,13 +1170,17 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const streamScrollEnabled =
       !streamRenderStrategy.shouldDisableParentScrollOnInlineDetailsExpansion() ||
       expandedInlineToolCallIds.size === 0;
+    const expandedToolCallGroupIds = useMemo(
+      () => collectExpandedToolCallGroupIds(toolCallGroupExpansion),
+      [toolCallGroupExpansion],
+    );
     const historyRowRevision = useMemo(
       () => ({
         contentById: presentation.historyGroupUpdatesByHostId,
-        displayStateById: toolCallGroupExpansion,
+        displayStateById: expandedToolCallGroupIds,
         globalDisplayState: isMobile,
       }),
-      [toolCallGroupExpansion, isMobile, presentation.historyGroupUpdatesByHostId],
+      [expandedToolCallGroupIds, isMobile, presentation.historyGroupUpdatesByHostId],
     );
 
     const findItems = useMemo(

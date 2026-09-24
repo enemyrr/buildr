@@ -52,6 +52,18 @@ describe("derivePrStripState", () => {
     });
   });
 
+  it("keeps Archive, disabled, before the git actions resolve", () => {
+    for (const status of [
+      { ...open, state: "MERGED", isMerged: true },
+      { ...open, state: "CLOSED" },
+    ]) {
+      expect(derivePrStripState(status, actions(null)).actions).toEqual([
+        { kind: "continue", label: "continue", emphasis: "outline" },
+        { kind: "archive-unavailable", label: "archive", emphasis: "filled" },
+      ]);
+    }
+  });
+
   it("reads Ready to merge with Merge when a direct merge is available", () => {
     const merge = action("merge-pr-squash");
     expect(summarize(open, actions(merge))).toEqual({

@@ -240,7 +240,10 @@ export class CheckoutSession {
     const resolvedCwd = expandTilde(cwd);
 
     try {
-      const snapshot = await this.workspaceGitService.getSnapshot(resolvedCwd);
+      // Checkout status is Git-only; PR state arrives through checkout_pr_status and pushed updates.
+      const snapshot = await this.workspaceGitService.getSnapshot(resolvedCwd, {
+        includeForge: false,
+      });
       this.host.emit({
         type: "checkout_status_response",
         payload: buildCheckoutStatusPayloadFromSnapshot({
@@ -1040,14 +1043,18 @@ export class CheckoutSession {
     msg: Extract<SessionInboundMessage, { type: "checkout_pr_merge_request" }>,
   ): Promise<void> {
     const { cwd, requestId } = msg;
+    let pullRequest: CurrentWorkspacePullRequest | null = null;
 
     try {
-      const pullRequest = await this.resolveCurrentPullRequest(cwd, "merge", {
-        force: true,
-        includeForge: true,
-        reason: "merge-pr-validation",
-      });
-      const { service } = await this.requireForgeService(cwd);
+      const [resolvedPullRequest, { service }] = await Promise.all([
+        this.resolveCurrentPullRequest(cwd, "merge", {
+          force: true,
+          includeForge: true,
+          reason: "merge-pr-validation",
+        }),
+        this.requireForgeService(cwd),
+      ]);
+      pullRequest = resolvedPullRequest;
       await service.mergePullRequest({
         cwd,
         prNumber: pullRequest.number,
@@ -1055,6 +1062,7 @@ export class CheckoutSession {
         status: pullRequest,
       });
       await this.gitMutation.notifyGitMutation(cwd, "merge-pr", { invalidateForge: true });
+      await this.assertPullRequestMerged(cwd, pullRequest.number);
 
       this.host.emit({
         type: "checkout_pr_merge_response",
@@ -1066,6 +1074,17 @@ export class CheckoutSession {
         },
       });
     } catch (error) {
+      this.logger.warn(
+        {
+          err: error,
+          cwd,
+          prNumber: pullRequest?.number ?? null,
+          repoOwner: pullRequest?.repoOwner ?? null,
+          repoName: pullRequest?.repoName ?? null,
+          mergeMethod: msg.mergeMethod,
+        },
+        "Failed to merge pull request",
+      );
       this.host.emit({
         type: "checkout_pr_merge_response",
         payload: {
@@ -1139,6 +1158,10 @@ export class CheckoutSession {
         },
       });
     } catch (error) {
+      this.logger.warn(
+        { err: error, cwd, enabled: msg.enabled, mergeMethod: msg.mergeMethod ?? null },
+        "Failed to update pull request auto-merge",
+      );
       this.host.emit({
         type: responseType,
         payload: {
@@ -1150,6 +1173,20 @@ export class CheckoutSession {
         },
       });
     }
+  }
+
+  // A merge command can exit 0 without merging (e.g. gh acting on another repo's PR),
+  // so success is reported only once the refreshed snapshot shows the PR merged.
+  private async assertPullRequestMerged(cwd: string, prNumber: number): Promise<void> {
+    const snapshot = await this.workspaceGitService.getSnapshot(cwd);
+    const pullRequest = snapshot.forge.pullRequest;
+    if (pullRequest?.number === prNumber && pullRequest.isMerged) {
+      return;
+    }
+    const state = pullRequest?.number === prNumber ? pullRequest.state : "unknown";
+    throw new Error(
+      `Could not confirm that pull request #${prNumber} merged. Its current state is ${state}.`,
+    );
   }
 
   private async resolveCurrentPullRequest(

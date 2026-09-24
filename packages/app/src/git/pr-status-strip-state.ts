@@ -56,7 +56,9 @@ export type PrStripAction =
       kind: "continue" | "fix-checks" | "resolve-conflicts" | "commit-and-push";
       label: PrStripActionLabel;
       emphasis: "filled" | "outline";
-    };
+    }
+  /** Archive before the git actions resolve; renders disabled so the strip doesn't reflow. */
+  | { kind: "archive-unavailable"; label: "archive"; emphasis: "filled" };
 
 export interface PrStripState {
   label: PrStripLabel;
@@ -92,19 +94,10 @@ function findAction(gitActions: GitActions, prefix: string): GitAction | null {
 /** A finished PR offers the same two ways on: a fresh branch in this workspace, or archive it. */
 function wrapUpActions(gitActions: GitActions): PrStripAction[] {
   const archive = findAction(gitActions, "archive-workspace");
-  return [
-    { kind: "continue", label: "continue", emphasis: "outline" },
-    ...(archive
-      ? [
-          {
-            kind: "git" as const,
-            action: archive,
-            label: "archive" as const,
-            emphasis: "filled" as const,
-          },
-        ]
-      : []),
-  ];
+  const archiveAction: PrStripAction = archive
+    ? { kind: "git", action: archive, label: "archive", emphasis: "filled" }
+    : { kind: "archive-unavailable", label: "archive", emphasis: "filled" };
+  return [{ kind: "continue", label: "continue", emphasis: "outline" }, archiveAction];
 }
 
 /**

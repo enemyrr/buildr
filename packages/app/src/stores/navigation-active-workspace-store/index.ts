@@ -67,6 +67,7 @@ export function navigateToLastWorkspace(): boolean {
   return navigateToLastWorkspacePure({
     ...navigateDeps(),
     getLastWorkspaceSelection: () => lastWorkspaceSelectionStore.getSelection(),
+    forgetLastWorkspace: (selection) => lastWorkspaceSelectionStore.forget(selection),
   });
 }
 

@@ -12,11 +12,15 @@ function agentBelongsToWorkspace(agent: Agent, workspaceId: string): boolean {
   return normalizeWorkspaceOpaqueId(agent.workspaceId) === workspaceId;
 }
 
-export function deriveWorkspaceAgentVisibility(input: {
+interface WorkspaceAgentVisibilityInput {
   sessionAgents: Map<string, Agent> | undefined;
   agentDetails?: Map<string, Agent> | undefined;
   workspaceId: string | null | undefined;
-}): WorkspaceAgentVisibility {
+}
+
+export function deriveWorkspaceAgentVisibility(
+  input: WorkspaceAgentVisibilityInput,
+): WorkspaceAgentVisibility {
   const { sessionAgents, agentDetails } = input;
   const workspaceId = normalizeWorkspaceOpaqueId(input.workspaceId);
   if ((!sessionAgents && !agentDetails) || !workspaceId) {
@@ -28,23 +32,45 @@ export function deriveWorkspaceAgentVisibility(input: {
 
   const activeAgentIds = new Set<string>();
   const autoOpenAgentIds = new Set<string>();
-  const agentsById = new Map<string, Agent>([
-    ...(agentDetails?.entries() ?? []),
-    ...(sessionAgents?.entries() ?? []),
-  ]);
   for (const agent of sessionAgents?.values() ?? []) {
     if (!agentBelongsToWorkspace(agent, workspaceId)) {
       continue;
     }
     if (!agent.archivedAt) {
       activeAgentIds.add(agent.id);
-      const parentAgent = agent.parentAgentId ? agentsById.get(agent.parentAgentId) : undefined;
+      const parentAgent = agent.parentAgentId
+        ? (sessionAgents?.get(agent.parentAgentId) ?? agentDetails?.get(agent.parentAgentId))
+        : undefined;
       if (isWorkspaceRootAgent(agent, parentAgent)) {
         autoOpenAgentIds.add(agent.id);
       }
     }
   }
   return { activeAgentIds, autoOpenAgentIds };
+}
+
+interface WorkspaceAgentVisibilityCache {
+  input: WorkspaceAgentVisibilityInput;
+  result: WorkspaceAgentVisibility;
+}
+
+// Store selectors run on every commit; reuse the last result while the agent maps are unchanged.
+export function createWorkspaceAgentVisibilitySelector() {
+  let cache: WorkspaceAgentVisibilityCache | null = null;
+  return function selectWorkspaceAgentVisibility(
+    input: WorkspaceAgentVisibilityInput,
+  ): WorkspaceAgentVisibility {
+    if (
+      cache &&
+      cache.input.sessionAgents === input.sessionAgents &&
+      cache.input.agentDetails === input.agentDetails &&
+      cache.input.workspaceId === input.workspaceId
+    ) {
+      return cache.result;
+    }
+    cache = { input, result: deriveWorkspaceAgentVisibility(input) };
+    return cache.result;
+  };
 }
 
 export function buildWorkspaceTabSnapshot(input: {

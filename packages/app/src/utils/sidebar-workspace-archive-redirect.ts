@@ -6,7 +6,7 @@ import {
   selectWorkspaceStructureProjects,
 } from "@/stores/session-store-hooks/selectors";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
-import { buildOpenProjectRoute } from "@/utils/host-routes";
+import { buildHomeRoute } from "@/utils/host-routes";
 import { collectArchiveNeighborCandidates } from "@/utils/workspace-archive-navigation";
 import {
   redirectIfArchivingActiveWorkspace as redirectIfArchivingActiveWorkspacePure,
@@ -32,6 +32,6 @@ export function redirectIfArchivingActiveWorkspace(
     navigateToWorkspace: (selection) => {
       navigateToWorkspace(selection);
     },
-    navigateToHome: () => router.replace(buildOpenProjectRoute()),
+    navigateToHome: () => router.replace(buildHomeRoute()),
   });
 }

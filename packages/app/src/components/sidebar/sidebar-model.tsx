@@ -45,6 +45,8 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   shortcutModel: SidebarShortcutModel;
 }
 
+const EMPTY_WORKSPACE_ENTRIES: ReadonlyMap<string, SidebarWorkspaceEntry> = new Map();
+
 const SidebarModelContext = createContext<SidebarModel | null>(null);
 
 export function SidebarModelProvider({
@@ -101,16 +103,23 @@ export function SidebarModelProvider({
     active !== false || needsWorkspaceEntries,
   );
   const filteredWorkspaceEntriesByKey = useMemo(() => {
+    if (!hasActiveProjectFilter && !hasActiveLabelFilter) return workspaceEntriesByKey;
     const byProject = filterWorkspacesByProjects({
       workspaces: [...workspaceEntriesByKey.values()],
       projectFilters: resolvedProjectFilters,
     });
     const filtered = filterWorkspacesByLabels({ workspaces: byProject, ...labelFilter });
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
-  }, [labelFilter, resolvedProjectFilters, workspaceEntriesByKey]);
+  }, [
+    hasActiveLabelFilter,
+    hasActiveProjectFilter,
+    labelFilter,
+    resolvedProjectFilters,
+    workspaceEntriesByKey,
+  ]);
   const visibleWorkspaceKeys = useMemo(
-    () => new Set(filteredWorkspaceEntriesByKey.keys()),
-    [filteredWorkspaceEntriesByKey],
+    () => (hasActiveLabelFilter ? new Set(filteredWorkspaceEntriesByKey.keys()) : null),
+    [filteredWorkspaceEntriesByKey, hasActiveLabelFilter],
   );
   // The two filters prune differently on purpose. The project filter is a membership test on the
   // project itself, so a project you filtered TO survives even with no workspaces — it still owns
@@ -122,7 +131,7 @@ export function SidebarModelProvider({
       const included = new Set(resolvedProjectFilters);
       projects = projects.filter((project) => included.has(project.viewKey));
     }
-    if (hasActiveLabelFilter) {
+    if (visibleWorkspaceKeys) {
       projects = projects.flatMap((project) => {
         const workspaces = project.workspaces.filter((workspace) =>
           visibleWorkspaceKeys.has(workspace.workspaceKey),
@@ -131,20 +140,18 @@ export function SidebarModelProvider({
       });
     }
     return projects;
-  }, [
-    hasActiveLabelFilter,
-    hasActiveProjectFilter,
-    resolvedProjectFilters,
-    list.projects,
-    visibleWorkspaceKeys,
-  ]);
+  }, [hasActiveProjectFilter, resolvedProjectFilters, list.projects, visibleWorkspaceKeys]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
+  // Project mode projects structure only; feeding it entries would rebuild the shortcut model and
+  // every group on each status tick.
+  const projectionEntriesByKey =
+    groupMode === "project" ? EMPTY_WORKSPACE_ENTRIES : filteredWorkspaceEntriesByKey;
   const projectionInput = useMemo(
     () => ({
       projects: filteredProjects,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      workspaceEntriesByKey: filteredWorkspaceEntriesByKey,
+      workspaceEntriesByKey: projectionEntriesByKey,
       projectNamesByViewKey: list.projectNamesByViewKey,
       groupMode,
       pinnedCollapsed,
@@ -160,7 +167,7 @@ export function SidebarModelProvider({
       pinnedCollapsed,
       pinnedKeys,
       pinnedWorkspaceOrder,
-      filteredWorkspaceEntriesByKey,
+      projectionEntriesByKey,
     ],
   );
   const projection = useMemo(() => buildSidebarProjection(projectionInput), [projectionInput]);

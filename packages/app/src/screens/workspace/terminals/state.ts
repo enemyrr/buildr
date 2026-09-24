@@ -45,6 +45,12 @@ export function reconcilePendingScriptTerminals(liveTerminalIds: string[], dataU
   };
 }
 
+export function hasSameTerminalIds(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length && left.every((terminalId, index) => terminalId === right[index])
+  );
+}
+
 export function collectKnownTerminalIds(input: {
   liveTerminalIds: string[];
   pendingScriptTerminalIds: Map<string, number>;

@@ -422,27 +422,7 @@ export function SplitContainer({
       }),
     [focusModeEnabled, layout.focusedPaneId, mainRoot],
   );
-  const storedExplorerSidebarWidth = useWorkspaceLayoutStore(
-    (state) => state.explorerSidebarWidthByWorkspace[workspaceKey],
-  );
-  const resizeExplorerSidebar = useWorkspaceLayoutStore((state) => state.resizeExplorerSidebar);
   const [workspaceShellWidth, setWorkspaceShellWidth] = useState(0);
-  const [previewExplorerSidebarWidth, setPreviewExplorerSidebarWidth] = useState<number | null>(
-    null,
-  );
-  const requestedExplorerSidebarWidth = previewExplorerSidebarWidth ?? storedExplorerSidebarWidth;
-  const explorerSidebarWidth = resolveExplorerSidebarWidth({
-    requestedWidth: requestedExplorerSidebarWidth,
-    containerWidth: workspaceShellWidth,
-  });
-  const explorerSidebarDockSizes = useMemo(
-    () =>
-      resolveExplorerSidebarDockSizes({
-        requestedWidth: requestedExplorerSidebarWidth,
-        containerWidth: workspaceShellWidth,
-      }),
-    [requestedExplorerSidebarWidth, workspaceShellWidth],
-  );
   const renderExplorerSidebarDock = Boolean(
     !focusModeEnabled && explorerSidebarPane && explorerSidebarPane.hidden !== true,
   );
@@ -450,43 +430,23 @@ export function SplitContainer({
     ? removeWindowChromeCorner(inheritedWindowChromeCorners, "top-right")
     : inheritedWindowChromeCorners;
   const mainColumnStyle = styles.mainColumn;
-  const explorerSidebarDockStyle = useMemo(
-    () => [styles.explorerSidebarDock, { width: explorerSidebarWidth }],
-    [explorerSidebarWidth],
-  );
   const handleWorkspaceShellLayout = useCallback((event: LayoutChangeEvent) => {
     const nextWidth = event.nativeEvent.layout.width;
     setWorkspaceShellWidth((current) => (current === nextWidth ? current : nextWidth));
   }, []);
-  const previewExplorerSidebarResize = useCallback(
-    (_groupId: string, sizes: number[]) => {
-      const nextRatio = sizes[1];
-      if (nextRatio !== undefined) {
-        setPreviewExplorerSidebarWidth(
-          resolveExplorerSidebarWidth({
-            requestedWidth: nextRatio * workspaceShellWidth,
-            containerWidth: workspaceShellWidth,
-          }),
-        );
-      }
-    },
-    [workspaceShellWidth],
+  // Render props are called once per identity change so unrelated renders keep their elements.
+  const mainHeader = useMemo(() => renderMainHeader?.(), [renderMainHeader]);
+  const explorerSidebarHeaderAction = useMemo(
+    () => renderExplorerSidebarHeaderAction?.(),
+    [renderExplorerSidebarHeaderAction],
   );
-  const commitExplorerSidebarResize = useCallback(
-    (_groupId: string, sizes: number[]) => {
-      setPreviewExplorerSidebarWidth(null);
-      const nextRatio = sizes[1];
-      if (nextRatio !== undefined) {
-        resizeExplorerSidebar(
-          workspaceKey,
-          resolveExplorerSidebarWidth({
-            requestedWidth: nextRatio * workspaceShellWidth,
-            containerWidth: workspaceShellWidth,
-          }),
-        );
-      }
-    },
-    [resizeExplorerSidebar, workspaceKey, workspaceShellWidth],
+  const explorerSidebarStatus = useMemo(
+    () => renderExplorerSidebarStatus?.(),
+    [renderExplorerSidebarStatus],
+  );
+  const explorerSidebarUtility = useMemo(
+    () => renderExplorerSidebarUtility?.(),
+    [renderExplorerSidebarUtility],
   );
   const renderRoot = useMemo(() => wrapRootPaneForStableMount(splitRoot.root), [splitRoot.root]);
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -660,7 +620,7 @@ export function SplitContainer({
         <View style={styles.workspaceShell} onLayout={handleWorkspaceShellLayout}>
           <WindowChromeRegion corners={mainColumnWindowChromeCorners}>
             <View style={mainColumnStyle}>
-              {renderMainHeader?.()}
+              {mainHeader}
               {splitRoot.usesFallbackStrip && <WindowChromeSafeArea placement="below" />}
               {renderRoot ? (
                 <SplitNodeView
@@ -707,40 +667,30 @@ export function SplitContainer({
             </View>
           </WindowChromeRegion>
           {renderExplorerSidebarDock && explorerSidebarPane ? (
-            <>
-              <ResizeHandle
-                testID="workspace-explorer-sidebar-resize-handle"
-                direction="horizontal"
-                hitAreaAlignment="end"
-                groupId={EXPLORER_SIDEBAR_RESIZE_GROUP_ID}
-                index={0}
-                sizes={explorerSidebarDockSizes}
-                containerSize={workspaceShellWidth}
-                onPreviewResizeSplit={previewExplorerSidebarResize}
-                onResizeSplit={commitExplorerSidebarResize}
+            <ExplorerSidebarDockFrame
+              workspaceKey={workspaceKey}
+              containerWidth={workspaceShellWidth}
+            >
+              <ExplorerSidebarDock
+                pane={explorerSidebarPane}
+                uiTabs={uiTabs}
+                normalizedServerId={normalizedServerId}
+                normalizedWorkspaceId={normalizedWorkspaceId}
+                isWorkspaceFocused={isWorkspaceFocused}
+                closingTabIds={closingTabIds}
+                onSelectTab={onSelectTabInPane}
+                onCloseTab={onCloseTab}
+                onCreateNewTab={handleCreateExplorerTab}
+                onMoveTabToMain={handleMoveExplorerTabToMain}
+                buildPaneContentModel={buildPaneContentModel}
+                onReorderTabsInPane={onReorderTabsInPane}
+                activeDragTabId={activeDragTabId}
+                tabDropPreview={tabDropPreview}
+                headerAction={explorerSidebarHeaderAction}
+                statusStrip={explorerSidebarStatus}
+                utilityPanel={explorerSidebarUtility}
               />
-              <View style={explorerSidebarDockStyle}>
-                <ExplorerSidebarDock
-                  pane={explorerSidebarPane}
-                  uiTabs={uiTabs}
-                  normalizedServerId={normalizedServerId}
-                  normalizedWorkspaceId={normalizedWorkspaceId}
-                  isWorkspaceFocused={isWorkspaceFocused}
-                  closingTabIds={closingTabIds}
-                  onSelectTab={onSelectTabInPane}
-                  onCloseTab={onCloseTab}
-                  onCreateNewTab={handleCreateExplorerTab}
-                  onMoveTabToMain={handleMoveExplorerTabToMain}
-                  buildPaneContentModel={buildPaneContentModel}
-                  onReorderTabsInPane={onReorderTabsInPane}
-                  activeDragTabId={activeDragTabId}
-                  tabDropPreview={tabDropPreview}
-                  headerAction={renderExplorerSidebarHeaderAction?.()}
-                  statusStrip={renderExplorerSidebarStatus?.()}
-                  utilityPanel={renderExplorerSidebarUtility?.()}
-                />
-              </View>
-            </>
+            </ExplorerSidebarDockFrame>
           ) : null}
         </View>
         <DragOverlay dropAnimation={null}>
@@ -755,6 +705,79 @@ export function SplitContainer({
         </DragOverlay>
       </DndContext>
     </RenderProfile>
+  );
+}
+
+interface ExplorerSidebarDockFrameProps {
+  workspaceKey: string;
+  containerWidth: number;
+  children: ReactNode;
+}
+
+// Owns the resize preview so pointer moves re-render only this frame; the dock child keeps its element.
+function ExplorerSidebarDockFrame({
+  workspaceKey,
+  containerWidth,
+  children,
+}: ExplorerSidebarDockFrameProps) {
+  const storedWidth = useWorkspaceLayoutStore(
+    (state) => state.explorerSidebarWidthByWorkspace[workspaceKey],
+  );
+  const resizeExplorerSidebar = useWorkspaceLayoutStore((state) => state.resizeExplorerSidebar);
+  const [previewWidth, setPreviewWidth] = useState<number | null>(null);
+  const requestedWidth = previewWidth ?? storedWidth;
+  const width = resolveExplorerSidebarWidth({ requestedWidth, containerWidth });
+  const sizes = useMemo(
+    () => resolveExplorerSidebarDockSizes({ requestedWidth, containerWidth }),
+    [requestedWidth, containerWidth],
+  );
+  const dockStyle = useMemo(() => [styles.explorerSidebarDock, { width }], [width]);
+  const previewResize = useCallback(
+    (_groupId: string, nextSizes: number[]) => {
+      const nextRatio = nextSizes[1];
+      if (nextRatio !== undefined) {
+        setPreviewWidth(
+          resolveExplorerSidebarWidth({
+            requestedWidth: nextRatio * containerWidth,
+            containerWidth,
+          }),
+        );
+      }
+    },
+    [containerWidth],
+  );
+  const commitResize = useCallback(
+    (_groupId: string, nextSizes: number[]) => {
+      setPreviewWidth(null);
+      const nextRatio = nextSizes[1];
+      if (nextRatio !== undefined) {
+        resizeExplorerSidebar(
+          workspaceKey,
+          resolveExplorerSidebarWidth({
+            requestedWidth: nextRatio * containerWidth,
+            containerWidth,
+          }),
+        );
+      }
+    },
+    [resizeExplorerSidebar, workspaceKey, containerWidth],
+  );
+
+  return (
+    <>
+      <ResizeHandle
+        testID="workspace-explorer-sidebar-resize-handle"
+        direction="horizontal"
+        hitAreaAlignment="end"
+        groupId={EXPLORER_SIDEBAR_RESIZE_GROUP_ID}
+        index={0}
+        sizes={sizes}
+        containerSize={containerWidth}
+        onPreviewResizeSplit={previewResize}
+        onResizeSplit={commitResize}
+      />
+      <View style={dockStyle}>{children}</View>
+    </>
   );
 }
 

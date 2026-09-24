@@ -17,6 +17,7 @@ import {
   type ArchiveDependencies,
   type ArchiveResult,
   resolveWorkspaceIdAtPath,
+  startArchiveByScope,
 } from "./workspace-archive-service.js";
 import { WorkspaceAutomationBlockedError } from "./workspace-automation-gate.js";
 
@@ -841,6 +842,86 @@ describe("archiveByScope", () => {
     expect(result.archivedWorkspaceIds).toHaveLength(3);
     expect(result.removedDirectory).toBe(true);
     expect(existsSync(worktree.worktreePath)).toBe(false);
+  });
+});
+
+describe("startArchiveByScope", () => {
+  test("resolves once the record is archived and tears down contents and disk afterwards", async () => {
+    const { tempDir, repoDir } = createGitRepo();
+    const paseoHome = path.join(tempDir, ".paseo");
+    const worktree = await createPaseoOwnedWorktree(repoDir, paseoHome, "background-cleanup");
+    const workspaceId = "ws-background-cleanup";
+    const deps = createArchiveDeps({
+      paseoHome,
+      activeWorkspaces: [{ workspaceId, cwd: worktree.worktreePath, kind: "worktree" }],
+    });
+    let releaseTerminals!: () => void;
+    const terminalsKilled = new Promise<void>((resolve) => {
+      releaseTerminals = resolve;
+    });
+    deps.killTerminalsForWorkspace = vi.fn(() => terminalsKilled);
+
+    const started = await startArchiveByScope(deps, {
+      scope: { kind: "workspace", workspaceId },
+      requestId: "req-background-cleanup",
+    });
+
+    expect(started.archivedWorkspaceIds).toEqual([workspaceId]);
+    expect(deps.activeWorkspaces).toEqual([]);
+    expect(existsSync(worktree.worktreePath)).toBe(true);
+
+    releaseTerminals();
+    await expect(started.cleanup).resolves.toEqual({
+      archivedAgentIds: [],
+      removedDirectory: true,
+    });
+    expect(existsSync(worktree.worktreePath)).toBe(false);
+  });
+
+  test("skips agent and terminal teardown when the record fails to archive", async () => {
+    const { tempDir, repoDir } = createGitRepo();
+    const paseoHome = path.join(tempDir, ".paseo");
+    const worktree = await createPaseoOwnedWorktree(repoDir, paseoHome, "record-failure");
+    const workspaceId = "ws-record-failure";
+    const deps = createArchiveDeps({
+      paseoHome,
+      activeWorkspaces: [{ workspaceId, cwd: worktree.worktreePath, kind: "worktree" }],
+    });
+    deps.archiveWorkspaceRecord = async () => {
+      throw new Error("registry write failed");
+    };
+
+    const started = await startArchiveByScope(deps, {
+      scope: { kind: "workspace", workspaceId },
+      requestId: "req-record-failure",
+    });
+    await started.cleanup;
+
+    expect(started.archivedWorkspaceIds).toEqual([]);
+    expect(deps.killTerminalsForWorkspace).not.toHaveBeenCalled();
+    expect(existsSync(worktree.worktreePath)).toBe(true);
+  });
+
+  test("keeps the archive when teardown gating throws unexpectedly", async () => {
+    const { tempDir, repoDir } = createGitRepo();
+    const paseoHome = path.join(tempDir, ".paseo");
+    const worktree = await createPaseoOwnedWorktree(repoDir, paseoHome, "gate-failure");
+    const workspaceId = "ws-gate-failure";
+    const deps = createArchiveDeps({
+      paseoHome,
+      activeWorkspaces: [{ workspaceId, cwd: worktree.worktreePath, kind: "worktree" }],
+    });
+    deps.assertWorkspaceAutomationAllowed = async () => {
+      throw new Error("registry read failed");
+    };
+
+    const result = await archiveByScope(deps, {
+      scope: { kind: "workspace", workspaceId },
+      requestId: "req-gate-failure",
+    });
+
+    assertArchiveResult(result, { archivedWorkspaceIds: [workspaceId], removedDirectory: false });
+    expect(existsSync(worktree.worktreePath)).toBe(true);
   });
 });
 

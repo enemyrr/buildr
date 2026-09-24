@@ -357,6 +357,70 @@ function updateAgentTasks(
   return next;
 }
 
+export interface AgentStreamStatePatch {
+  tail?: StreamItem[];
+  head?: StreamItem[];
+  acknowledgedClientMessageIds?: readonly string[];
+  taskSnapshot?: TodoEntry[];
+  cursor?: AgentTimelineCursorState;
+}
+
+function applyAgentStreamStatePatch(
+  session: SessionState,
+  agentId: string,
+  patch: AgentStreamStatePatch,
+): SessionState {
+  const { tail, head, cursor } = patch;
+  let agentStreamTail = session.agentStreamTail;
+  if (tail !== undefined && agentStreamTail.get(agentId) !== tail) {
+    agentStreamTail = new Map(agentStreamTail).set(agentId, tail);
+  }
+
+  let agentStreamHead = session.agentStreamHead;
+  if (head?.length === 0 && agentStreamHead.has(agentId)) {
+    agentStreamHead = new Map(agentStreamHead);
+    agentStreamHead.delete(agentId);
+  } else if (head?.length && agentStreamHead.get(agentId) !== head) {
+    agentStreamHead = new Map(agentStreamHead).set(agentId, head);
+  }
+
+  const currentSubmissions = session.messageSubmissions.get(agentId) ?? [];
+  const observedSubmissions = observeMessageSubmissionCanonical(
+    currentSubmissions,
+    patch.acknowledgedClientMessageIds ?? [],
+  );
+  let messageSubmissions = session.messageSubmissions;
+  if (observedSubmissions !== currentSubmissions) {
+    messageSubmissions = new Map(messageSubmissions);
+    if (observedSubmissions.length > 0) messageSubmissions.set(agentId, observedSubmissions);
+    else messageSubmissions.delete(agentId);
+  }
+
+  const agentTasks = updateAgentTasks(session.agentTasks, agentId, patch.taskSnapshot);
+  const agentTimelineCursor =
+    cursor && session.agentTimelineCursor.get(agentId) !== cursor
+      ? new Map(session.agentTimelineCursor).set(agentId, cursor)
+      : session.agentTimelineCursor;
+
+  if (
+    agentStreamTail === session.agentStreamTail &&
+    agentStreamHead === session.agentStreamHead &&
+    messageSubmissions === session.messageSubmissions &&
+    agentTasks === session.agentTasks &&
+    agentTimelineCursor === session.agentTimelineCursor
+  ) {
+    return session;
+  }
+  return {
+    ...session,
+    agentStreamTail,
+    agentStreamHead,
+    agentTasks,
+    messageSubmissions,
+    agentTimelineCursor,
+  };
+}
+
 export type WorkspaceRestoreStatus = "restoring" | "failed" | "needs-host-upgrade";
 
 // Per-session state
@@ -465,15 +529,10 @@ interface SessionStoreActions {
       | Map<string, StreamItem[]>
       | ((prev: Map<string, StreamItem[]>) => Map<string, StreamItem[]>),
   ) => void;
-  setAgentStreamState: (
+  setAgentStreamState: (serverId: string, agentId: string, state: AgentStreamStatePatch) => void;
+  setAgentStreamStates: (
     serverId: string,
-    agentId: string,
-    state: {
-      tail?: StreamItem[];
-      head?: StreamItem[];
-      acknowledgedClientMessageIds?: readonly string[];
-      taskSnapshot?: TodoEntry[];
-    },
+    patches: ReadonlyMap<string, AgentStreamStatePatch>,
   ) => void;
   beginAgentMessageSubmission: (
     serverId: string,
@@ -972,77 +1031,25 @@ export const useSessionStore = create<SessionStore>()(
       },
 
       setAgentStreamState: (serverId, agentId, state) => {
+        get().setAgentStreamStates(serverId, new Map([[agentId, state]]));
+      },
+
+      setAgentStreamStates: (serverId, patches) => {
         set((prev) => {
           const session = prev.sessions[serverId];
           if (!session) {
             return prev;
           }
-
-          let nextTail = session.agentStreamTail;
-          let nextHead = session.agentStreamHead;
-          let changedTail = false;
-          let changedHead = false;
-
-          if (state.tail !== undefined) {
-            const existingTail = session.agentStreamTail.get(agentId);
-            if (existingTail !== state.tail) {
-              nextTail = new Map(session.agentStreamTail);
-              nextTail.set(agentId, state.tail);
-              changedTail = true;
-            }
+          let next = session;
+          for (const [agentId, patch] of patches) {
+            next = applyAgentStreamStatePatch(next, agentId, patch);
           }
-
-          if (state.head !== undefined) {
-            const existingHead = session.agentStreamHead.get(agentId);
-            const shouldDeleteHead = state.head.length === 0;
-            if (shouldDeleteHead) {
-              if (session.agentStreamHead.has(agentId)) {
-                nextHead = new Map(session.agentStreamHead);
-                nextHead.delete(agentId);
-                changedHead = true;
-              }
-            } else if (existingHead !== state.head) {
-              nextHead = new Map(session.agentStreamHead);
-              nextHead.set(agentId, state.head);
-              changedHead = true;
-            }
-          }
-
-          const currentSubmissions = session.messageSubmissions.get(agentId) ?? [];
-          const observedSubmissions = observeMessageSubmissionCanonical(
-            currentSubmissions,
-            state.acknowledgedClientMessageIds ?? [],
-          );
-          const changedSubmissions = observedSubmissions !== currentSubmissions;
-          const agentTasks = updateAgentTasks(session.agentTasks, agentId, state.taskSnapshot);
-          const changedTasks = agentTasks !== session.agentTasks;
-
-          if (!changedTail && !changedHead && !changedSubmissions && !changedTasks) {
+          if (next === session) {
             return prev;
           }
-
-          let messageSubmissions = session.messageSubmissions;
-          if (changedSubmissions) {
-            messageSubmissions = new Map(session.messageSubmissions);
-            if (observedSubmissions.length > 0) {
-              messageSubmissions.set(agentId, observedSubmissions);
-            } else {
-              messageSubmissions.delete(agentId);
-            }
-          }
-
           return {
             ...prev,
-            sessions: {
-              ...prev.sessions,
-              [serverId]: {
-                ...session,
-                agentStreamTail: nextTail,
-                agentStreamHead: nextHead,
-                agentTasks,
-                messageSubmissions,
-              },
-            },
+            sessions: { ...prev.sessions, [serverId]: next },
           };
         });
       },
@@ -1634,8 +1641,7 @@ export const useSessionStore = create<SessionStore>()(
           if (!session || nextEntries.length === 0) {
             return prev;
           }
-          const next = new Map(session.workspaces);
-          let changed = false;
+          let nextWorkspaces: Map<string, WorkspaceDescriptor> | null = null;
           // A descriptor arriving is the success signal for a pending restore:
           // clear it at the source so every entry point converges to "ready".
           let nextRestoring: Map<string, WorkspaceRestoreStatus> | null = null;
@@ -1643,17 +1649,16 @@ export const useSessionStore = create<SessionStore>()(
             if (session.restoringWorkspaces.has(workspace.id)) {
               nextRestoring ??= new Map(session.restoringWorkspaces);
               nextRestoring.delete(workspace.id);
-              changed = true;
             }
-            const existing = next.get(workspace.id);
+            const existing = (nextWorkspaces ?? session.workspaces).get(workspace.id);
             const nextWorkspace = preserveWorkspaceDescriptorIdentity(workspace, existing);
             if (existing === nextWorkspace) {
               continue;
             }
-            next.set(workspace.id, nextWorkspace);
-            changed = true;
+            nextWorkspaces ??= new Map(session.workspaces);
+            nextWorkspaces.set(workspace.id, nextWorkspace);
           }
-          if (!changed) {
+          if (!nextWorkspaces && !nextRestoring) {
             return prev;
           }
           return {
@@ -1662,7 +1667,7 @@ export const useSessionStore = create<SessionStore>()(
               ...prev.sessions,
               [serverId]: {
                 ...session,
-                workspaces: next,
+                workspaces: nextWorkspaces ?? session.workspaces,
                 restoringWorkspaces: nextRestoring ?? session.restoringWorkspaces,
               },
             },

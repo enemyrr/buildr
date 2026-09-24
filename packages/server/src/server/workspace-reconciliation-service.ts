@@ -385,12 +385,15 @@ export class WorkspaceReconciliationService {
         });
         if (!update) return;
 
-        const updated = await this.workspaceRegistry.update(workspace.workspaceId, (current) => ({
-          ...current,
-          ...update.fields,
-          updatedAt: timestamp,
-        }));
-        if (!updated) return;
+        // Archive removes the directory in the background. A non-git checkout of a
+        // workspace archived mid-scan reflects that removal, and applying it would
+        // strip the worktree placement that restore depends on.
+        let removedMidScan = false;
+        const updated = await this.workspaceRegistry.update(workspace.workspaceId, (current) => {
+          removedMidScan = Boolean(current.archivedAt) && !wsGit.isGit;
+          return removedMidScan ? current : { ...current, ...update.fields, updatedAt: timestamp };
+        });
+        if (!updated || removedMidScan) return;
         changes.push({
           kind: "workspace_updated",
           workspaceId: workspace.workspaceId,

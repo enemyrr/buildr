@@ -13,7 +13,7 @@ import {
   deriveProjectStatusBucket,
   deriveSidebarLoadingState,
   shouldShowSidebarHostLabels,
-  type ProjectStatusSession,
+  type SidebarWorkspaceSession,
   type SidebarProjectEntry,
   type SidebarWorkspacePlacement,
 } from "./sidebar-workspaces-view-model";
@@ -451,6 +451,51 @@ describe("shared sidebar workspace model", () => {
     expect(nextEntries.get("srv:two")).not.toBe(previousEntries.get("srv:two"));
   });
 
+  it("returns the previous map when a re-normalized payload changes nothing", () => {
+    const model = buildSidebarWorkspacePlacementModel({
+      projects: [project({ projectKey: "project", workspaceKeys: ["srv:one"] })],
+    });
+    const payload = () => ({
+      ...workspace({
+        id: "one",
+        name: "one",
+        projectId: "project",
+        projectDisplayName: "project",
+        status: "running",
+        statusEnteredAt: new Date(1_000),
+      }),
+      labels: ["bug"],
+      diffStat: { additions: 1, deletions: 2 },
+      scripts: [
+        {
+          scriptName: "dev",
+          type: "service" as const,
+          hostname: "localhost",
+          port: 3000,
+          proxyUrl: null,
+          lifecycle: "running" as const,
+          health: null,
+          exitCode: null,
+          terminalId: null,
+        },
+      ],
+    });
+    const sessionsFor = (one: WorkspaceDescriptor) => [
+      { serverId: "srv", workspaceAgentActivity: new Map(), workspaces: new Map([["one", one]]) },
+    ];
+    const previousEntries = buildSidebarWorkspaceEntries({
+      placements: model.workspaces,
+      sessions: sessionsFor(payload()),
+    });
+    const nextEntries = buildSidebarWorkspaceEntries({
+      placements: model.workspaces,
+      sessions: sessionsFor(payload()),
+      previousEntries,
+    });
+
+    expect(nextEntries).toBe(previousEntries);
+  });
+
   it("keeps a structurally disambiguated project key in status entries", () => {
     const projectKey = "host:srv:project:prj_a";
     const model = buildSidebarWorkspacePlacementModel({
@@ -724,6 +769,25 @@ function agent(input: {
   };
 }
 
+type ProjectStatusSession = Omit<SidebarWorkspaceSession, "serverId">;
+
+function projectStatus(input: {
+  workspaces: SidebarWorkspacePlacement[];
+  sessions: Record<string, ProjectStatusSession>;
+}) {
+  return deriveProjectStatusBucket({
+    workspaces: input.workspaces,
+    workspaceEntriesByKey: buildSidebarWorkspaceEntries({
+      placements: input.workspaces,
+      sessions: Object.entries(input.sessions).map(([serverId, session]) => ({
+        serverId,
+        workspaces: session.workspaces,
+        workspaceAgentActivity: session.workspaceAgentActivity,
+      })),
+    }),
+  });
+}
+
 function sessionWith(input: {
   workspaces: WorkspaceDescriptor[];
   agents?: Agent[];
@@ -748,12 +812,12 @@ function projectWorkspace(id: string, status: WorkspaceDescriptor["status"]): Wo
 
 describe("deriveProjectStatusBucket", () => {
   it("is done when the project has no workspaces", () => {
-    expect(deriveProjectStatusBucket({ workspaces: [], sessions: {} })).toBe("done");
+    expect(projectStatus({ workspaces: [], sessions: {} })).toBe("done");
   });
 
   it("is done when every workspace is done", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -769,7 +833,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("surfaces the most urgent workspace status in the project", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -790,7 +854,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("keeps a working project on running when a finished workspace also awaits review", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -809,7 +873,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("surfaces needs_input over a concurrently running workspace", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -828,7 +892,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("surfaces failed over a concurrently running workspace", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -844,7 +908,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("keeps a project on attention when only one workspace awaits review", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ workspaceId: "ws-2" }),
@@ -860,7 +924,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("aggregates across the hosts a project spans", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ serverId: "srv", workspaceId: "ws-1" }),
           workspacePlacement({ serverId: "other", workspaceId: "ws-9" }),
@@ -875,7 +939,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("skips workspaces whose session has not hydrated yet", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [
           workspacePlacement({ workspaceId: "ws-1" }),
           workspacePlacement({ serverId: "offline", workspaceId: "ws-2" }),
@@ -889,7 +953,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("lifts a done workspace when one of its root agents is still working", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [workspacePlacement({ workspaceId: "ws-1" })],
         sessions: {
           srv: sessionWith({
@@ -903,7 +967,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("ignores archived agents and subagents", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [workspacePlacement({ workspaceId: "ws-1" })],
         sessions: {
           srv: sessionWith({
@@ -930,7 +994,7 @@ describe("deriveProjectStatusBucket", () => {
 
   it("ignores agents belonging to workspaces outside the project", () => {
     expect(
-      deriveProjectStatusBucket({
+      projectStatus({
         workspaces: [workspacePlacement({ workspaceId: "ws-1" })],
         sessions: {
           srv: sessionWith({

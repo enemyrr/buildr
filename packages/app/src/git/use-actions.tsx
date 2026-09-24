@@ -7,7 +7,12 @@ import { useTranslation } from "react-i18next";
 import type { Theme } from "@/styles/theme";
 import { getForgePresentation, type Forge } from "@/git/forge";
 import { ForgeBrandIcon, getForgeBrandColorMapping } from "@/git/forge-icon";
-import { type CheckoutGitActionStatus, useCheckoutGitActionsStore } from "@/git/actions-store";
+import {
+  type CheckoutGitActionStatus,
+  type CheckoutGitAsyncActionId,
+  useCheckoutGitActionStatuses,
+  useCheckoutGitActionsStore,
+} from "@/git/actions-store";
 import { type CheckoutStatusPayload, useCheckoutStatusQuery } from "@/git/use-status-query";
 import { type CheckoutPrStatusPayload, useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import {
@@ -245,9 +250,14 @@ function resolveWorkspaceArchiveRisk(
   workspace: WorkspaceDescriptor | null,
   gitStatus: CheckoutStatusPayload | null,
 ): { isDirty: boolean | null | undefined; aheadOfOrigin: number | null | undefined } {
+  // A live status wins even when a field is null: null aheadOfOrigin means no upstream, which is
+  // typical once the forge deletes a merged branch, and must not fall through to "unknown".
+  if (gitStatus) {
+    return { isDirty: gitStatus.isDirty, aheadOfOrigin: gitStatus.aheadOfOrigin };
+  }
   return {
-    isDirty: gitStatus?.isDirty ?? workspace?.gitRuntime?.isDirty,
-    aheadOfOrigin: gitStatus?.aheadOfOrigin ?? workspace?.gitRuntime?.aheadOfOrigin,
+    isDirty: workspace?.gitRuntime?.isDirty,
+    aheadOfOrigin: workspace?.gitRuntime?.aheadOfOrigin,
   };
 }
 
@@ -270,18 +280,26 @@ function useWorkspaceScreenArchiveController({
   gitStatus,
   t,
 }: UseWorkspaceScreenArchiveControllerInput) {
-  const sessionWorkspaces = useSessionStore((state) => state.sessions[serverId]?.workspaces);
-  const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
-  const workspaceDescriptor = useMemo(
-    () =>
-      resolveArchiveWorkspaceDescriptor({
-        workspaces: sessionWorkspaces,
-        activeWorkspaceSelection,
-        workspaceDirectory,
-      }),
-    [activeWorkspaceSelection, sessionWorkspaces, workspaceDirectory],
+  const workspaceDescriptor = useSessionStore((state) =>
+    resolveArchiveWorkspaceDescriptor({
+      workspaces: state.sessions[serverId]?.workspaces,
+      activeWorkspaceSelection,
+      workspaceDirectory,
+    }),
   );
+  const [isHidingWorkspace, setIsHidingWorkspace] = useState(false);
   const archiveRisk = resolveWorkspaceArchiveRisk(workspaceDescriptor, gitStatus);
+  const warningLabels = useMemo(() => getWorktreeArchiveWarningLabels(t), [t]);
+  const onArchiveStarted = useCallback(() => {
+    if (!activeWorkspaceSelection) {
+      return;
+    }
+    redirectIfArchivingActiveWorkspace({
+      serverId,
+      workspaceId: activeWorkspaceSelection.workspaceId,
+      activeWorkspaceSelection,
+    });
+  }, [activeWorkspaceSelection, serverId]);
 
   const controller = useWorkspaceArchive({
     serverId,
@@ -291,18 +309,9 @@ function useWorkspaceScreenArchiveController({
     isDirty: archiveRisk.isDirty,
     aheadOfOrigin: archiveRisk.aheadOfOrigin,
     diffStat: workspaceDescriptor?.diffStat ?? null,
-    warningLabels: getWorktreeArchiveWarningLabels(t),
+    warningLabels,
     onSetHiding: setIsHidingWorkspace,
-    onArchiveStarted: () => {
-      if (!activeWorkspaceSelection) {
-        return;
-      }
-      redirectIfArchivingActiveWorkspace({
-        serverId,
-        workspaceId: activeWorkspaceSelection.workspaceId,
-        activeWorkspaceSelection,
-      });
-    },
+    onArchiveStarted,
   });
 
   return {
@@ -312,10 +321,21 @@ function useWorkspaceScreenArchiveController({
   };
 }
 
+/** The route's selection, kept referentially stable so it doesn't bust memoized git actions. */
+function useStableWorkspaceSelection(): ActiveWorkspaceSelection | null {
+  const selection = useActiveWorkspaceSelection();
+  const serverId = selection?.serverId ?? null;
+  const workspaceId = selection?.workspaceId ?? null;
+  return useMemo(
+    () => (serverId && workspaceId ? { serverId, workspaceId } : null),
+    [serverId, workspaceId],
+  );
+}
+
 export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): UseGitActionsResult {
   const { t } = useTranslation();
   const toast = useToast();
-  const activeWorkspaceSelection = useActiveWorkspaceSelection();
+  const activeWorkspaceSelection = useStableWorkspaceSelection();
   const [postShipArchiveSuggested, setPostShipArchiveSuggested] = useState(false);
   const [shipDefault, setShipDefault] = useState<"merge" | "pr">("pr");
 
@@ -396,63 +416,43 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     setPostShipArchiveSuggested(false);
   }, [cwd]);
 
-  const commitStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "commit" }),
-  );
-  const pullStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "pull" }),
-  );
-  const pushStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "push" }),
-  );
-  const pullAndPushStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "pull-and-push" }),
-  );
-  const prCreateStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "create-pr" }),
-  );
+  const actionStatuses = useCheckoutGitActionStatuses({ serverId, cwd });
+  const statusOf = (actionId: CheckoutGitAsyncActionId): CheckoutGitActionStatus =>
+    actionStatuses[actionId] ?? "idle";
+  const commitStatus = statusOf("commit");
+  const pullStatus = statusOf("pull");
+  const pushStatus = statusOf("push");
+  const pullAndPushStatus = statusOf("pull-and-push");
+  const prCreateStatus = statusOf("create-pr");
   const mergePrStatuses: Record<CheckoutPrMergeMethod, CheckoutGitActionStatus> = {
-    squash: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "merge-pr-squash" }),
-    ),
-    merge: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "merge-pr-merge" }),
-    ),
-    rebase: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "merge-pr-rebase" }),
-    ),
+    squash: statusOf("merge-pr-squash"),
+    merge: statusOf("merge-pr-merge"),
+    rebase: statusOf("merge-pr-rebase"),
   };
+  // Merge methods race to the same PR; one pending merge disables them all.
+  const anyMergePrPending = Object.values(mergePrStatuses).includes("pending");
   const enablePrAutoMergeStatuses: Record<CheckoutPrMergeMethod, CheckoutGitActionStatus> = {
-    squash: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "enable-pr-auto-merge-squash" }),
-    ),
-    merge: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "enable-pr-auto-merge-merge" }),
-    ),
-    rebase: useCheckoutGitActionsStore((s) =>
-      s.getStatus({ serverId, cwd, actionId: "enable-pr-auto-merge-rebase" }),
-    ),
+    squash: statusOf("enable-pr-auto-merge-squash"),
+    merge: statusOf("enable-pr-auto-merge-merge"),
+    rebase: statusOf("enable-pr-auto-merge-rebase"),
   };
-  const disablePrAutoMergeStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "disable-pr-auto-merge" }),
-  );
-  const mergeStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "merge-branch" }),
-  );
-  const mergeFromBaseStatus = useCheckoutGitActionsStore((s) =>
-    s.getStatus({ serverId, cwd, actionId: "merge-from-base" }),
-  );
+  const disablePrAutoMergeStatus = statusOf("disable-pr-auto-merge");
+  const mergeStatus = statusOf("merge-branch");
+  const mergeFromBaseStatus = statusOf("merge-from-base");
 
-  const runCommit = useCheckoutGitActionsStore((s) => s.commit);
-  const runPull = useCheckoutGitActionsStore((s) => s.pull);
-  const runPush = useCheckoutGitActionsStore((s) => s.push);
-  const runPullAndPush = useCheckoutGitActionsStore((s) => s.pullAndPush);
-  const runCreatePr = useCheckoutGitActionsStore((s) => s.createPr);
-  const runMergePr = useCheckoutGitActionsStore((s) => s.mergePr);
-  const runEnablePrAutoMerge = useCheckoutGitActionsStore((s) => s.enablePrAutoMerge);
-  const runDisablePrAutoMerge = useCheckoutGitActionsStore((s) => s.disablePrAutoMerge);
-  const runMergeBranch = useCheckoutGitActionsStore((s) => s.mergeBranch);
-  const runMergeFromBase = useCheckoutGitActionsStore((s) => s.mergeFromBase);
+  // Store actions are stable; reading them once avoids a subscription per runner.
+  const {
+    commit: runCommit,
+    pull: runPull,
+    push: runPush,
+    pullAndPush: runPullAndPush,
+    createPr: runCreatePr,
+    mergePr: runMergePr,
+    enablePrAutoMerge: runEnablePrAutoMerge,
+    disablePrAutoMerge: runDisablePrAutoMerge,
+    mergeBranch: runMergeBranch,
+    mergeFromBase: runMergeFromBase,
+  } = useCheckoutGitActionsStore.getState();
   const githubAutoMergeActionsEnabled = useSessionStore(
     (s) =>
       s.sessions[serverId]?.serverInfo?.features?.checkoutForgeSetAutoMerge === true ||
@@ -641,9 +641,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     t,
   });
 
-  const handleArchiveWorkspace = useCallback(() => {
-    archiveController.archive();
-  }, [archiveController]);
+  const handleArchiveWorkspace = archiveController.archive;
 
   const derived = deriveGitActionsState({
     isGit,
@@ -667,6 +665,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     isOnBaseBranch,
     shouldPromoteArchive,
   } = derived;
+  const mergePrActionsDisabled = actionsDisabled || anyMergePrPending;
 
   const handlePrAction = useCallback(() => {
     if (prStatus?.url) {
@@ -736,19 +735,19 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
           handler: handlePrAction,
         },
         "merge-pr-squash": {
-          disabled: isActionDisabled(actionsDisabled, mergePrStatuses.squash),
+          disabled: isActionDisabled(mergePrActionsDisabled, mergePrStatuses.squash),
           status: mergePrStatuses.squash,
           icon: prIcon,
           handler: () => handleMergePr("squash"),
         },
         "merge-pr-merge": {
-          disabled: isActionDisabled(actionsDisabled, mergePrStatuses.merge),
+          disabled: isActionDisabled(mergePrActionsDisabled, mergePrStatuses.merge),
           status: mergePrStatuses.merge,
           icon: prIcon,
           handler: () => handleMergePr("merge"),
         },
         "merge-pr-rebase": {
-          disabled: isActionDisabled(actionsDisabled, mergePrStatuses.rebase),
+          disabled: isActionDisabled(mergePrActionsDisabled, mergePrStatuses.rebase),
           status: mergePrStatuses.rebase,
           icon: prIcon,
           handler: () => handleMergePr("rebase"),
@@ -822,6 +821,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     baseRefLabel,
     shouldPromoteArchive,
     actionsDisabled,
+    mergePrActionsDisabled,
     commitStatus,
     pullStatus,
     pushStatus,

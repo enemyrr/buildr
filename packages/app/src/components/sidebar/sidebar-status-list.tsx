@@ -640,6 +640,7 @@ function StatusWorkspaceRowWithMenu({
     useWorkspaceReadState({
       serverId: workspace.serverId,
       workspaceId: workspace.workspaceId,
+      status: workspace.statusBucket,
     });
   const handleMarkAsRead = useCallback(() => {
     void clearAttention().catch((error) => {

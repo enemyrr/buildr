@@ -109,17 +109,17 @@ describe("deriveMergeCapability", () => {
     ).toBeNull();
   });
 
-  it("marks direct merge ready only for the GitHub clean states", () => {
-    expect(deriveMergeCapability(facts({ mergeStateStatus: "CLEAN" }))?.directMergeReady).toBe(
-      true,
-    );
-    expect(deriveMergeCapability(facts({ mergeStateStatus: "HAS_HOOKS" }))?.directMergeReady).toBe(
-      true,
-    );
-    expect(deriveMergeCapability(facts({ mergeStateStatus: "BLOCKED" }))?.directMergeReady).toBe(
-      false,
-    );
-    expect(deriveMergeCapability(facts({ mergeStateStatus: null }))?.directMergeReady).toBe(false);
+  it.each([
+    ["CLEAN", true],
+    ["HAS_HOOKS", true],
+    ["UNSTABLE", true],
+    ["UNKNOWN", true],
+    ["BLOCKED", false],
+    ["BEHIND", false],
+    ["DIRTY", false],
+    [null, false],
+  ])("marks GitHub merge state %s direct-merge ready: %s", (mergeStateStatus, ready) => {
+    expect(deriveMergeCapability(facts({ mergeStateStatus }))?.directMergeReady).toBe(ready);
   });
 
   it("can enable auto-merge only when blocked, allowed, and the viewer may enable it", () => {
