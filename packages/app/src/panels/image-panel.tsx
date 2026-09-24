@@ -97,7 +97,12 @@ function AttachmentImagePane({ attachment }: { attachment: AttachmentMetadata })
           <Text style={styles.errorText}>{t("message.attachments.imageLoadFailed")}</Text>
         ) : null}
         {!errored && previewUrl ? (
-          <ZoomableImage uri={previewUrl} onError={handleError} testID="image-panel-preview" />
+          <ZoomableImage
+            uri={previewUrl}
+            onError={handleError}
+            style={styles.viewport}
+            testID="image-panel-preview"
+          />
         ) : null}
       </View>
     </View>
@@ -150,6 +155,10 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+  // The centering parent shrinks children to their content width, which is 0 for an image.
+  viewport: {
+    width: "100%",
   },
   errorText: {
     color: theme.colors.foregroundMuted,
