@@ -366,14 +366,14 @@ const styles = StyleSheet.create((theme) => {
       alignItems: "center",
       flexShrink: 1,
       minWidth: 0,
-      gap: theme.spacing[4],
+      gap: theme.spacing[3],
     },
     segment: {
       flexDirection: "row",
       alignItems: "center",
       flexShrink: 1,
       minWidth: 0,
-      gap: theme.spacing[2],
+      gap: theme.spacing[1.5],
     },
     // Trims the ring's halo so the circle you can see is the box, like the dot's box is the dot.
     dotNeedsInput: statusDot("needs_input"),
