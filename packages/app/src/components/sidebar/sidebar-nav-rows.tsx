@@ -39,7 +39,10 @@ interface SidebarNavRowsProps extends SidebarNavRowProps {
  * `sidebarNavItems` preference. Renders nothing — not even the bordered group
  * wrapper — when every item is hidden.
  */
-export function SidebarNavRows({ style, onBeforeNavigate }: SidebarNavRowsProps) {
+export const SidebarNavRows = memo(function SidebarNavRows({
+  style,
+  onBeforeNavigate,
+}: SidebarNavRowsProps) {
   const { items } = useSidebarNavItems();
   const visibleItems = useMemo(() => items.filter((item) => item.visible), [items]);
 
@@ -62,7 +65,7 @@ export function SidebarNavRows({ style, onBeforeNavigate }: SidebarNavRowsProps)
       })}
     </View>
   );
-}
+});
 
 const SidebarNewWorkspaceRow = memo(function SidebarNewWorkspaceRow({
   onBeforeNavigate,

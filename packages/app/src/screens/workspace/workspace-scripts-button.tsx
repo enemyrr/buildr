@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+  type ReactElement,
+} from "react";
 import type { GestureResponderEvent } from "react-native";
 import { Pressable, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
@@ -17,7 +24,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useSessionStore } from "@/stores/session-store";
-import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
+import { getHostRuntimeStore, type ActiveConnection } from "@/runtime/host-runtime";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -348,11 +355,7 @@ function ExitCodeBadge({ code }: { code: number }): ReactElement {
 interface ScriptRowProps {
   script: WorkspaceDescriptor["scripts"][number];
   liveTerminalIdSet: Set<string>;
-  activeConnection: ReturnType<typeof useHostRuntimeSnapshot> extends infer R
-    ? R extends { activeConnection: infer A }
-      ? A
-      : null
-    : null;
+  activeConnection: ActiveConnection | null;
   isStartPending: boolean;
   isStopPending: boolean;
   onStartScript: (scriptName: string) => void;
@@ -547,6 +550,20 @@ interface WorkspaceScriptControlsInput {
   onScriptTerminalStarted?: (terminalId: string) => void;
 }
 
+// The full host snapshot ticks every couple of seconds; script links only need the connection.
+function useActiveConnection(serverId: string): ActiveConnection | null {
+  const store = getHostRuntimeStore();
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => store.subscribe(serverId, onStoreChange),
+    [store, serverId],
+  );
+  const getActiveConnection = useCallback(
+    () => store.getSnapshot(serverId)?.activeConnection ?? null,
+    [store, serverId],
+  );
+  return useSyncExternalStore(subscribe, getActiveConnection, getActiveConnection);
+}
+
 /** Start, stop, and restart state for a workspace's scripts, shared by every script surface. */
 export function useWorkspaceScriptControls({
   serverId,
@@ -558,7 +575,7 @@ export function useWorkspaceScriptControls({
   const { t } = useTranslation();
   const toast = useToast();
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
-  const activeConnection = useHostRuntimeSnapshot(serverId)?.activeConnection ?? null;
+  const activeConnection = useActiveConnection(serverId);
   const preferredRouteKind = useWorkspaceServiceRoutePreferencesStore(
     (state) => state.byServerId[serverId] ?? null,
   );

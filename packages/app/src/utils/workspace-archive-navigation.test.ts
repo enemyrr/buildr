@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceStructureProject } from "@/projects/workspace-structure";
 import type { ActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
-import type { Agent, WorkspaceDescriptor } from "@/stores/session-store";
+import type { WorkspaceDescriptor } from "@/stores/session-store";
 import {
   collectArchiveNeighborCandidates,
   resolveWorkspaceArchiveRedirectTarget,
@@ -19,7 +19,6 @@ function candidate(
   return {
     serverId: "server-1",
     workspaceId,
-    lastActivityAt: null,
     archiving: false,
     ...overrides,
   };
@@ -53,22 +52,14 @@ describe("resolveWorkspaceArchiveRedirectTarget", () => {
     ).toEqual({ kind: "workspace", serverId: "server-1", workspaceId: "c" });
   });
 
-  it("falls back to the most recently active workspace in any project", () => {
-    expect(
-      resolve("a", [
-        [candidate("a", { lastActivityAt: 900 })],
-        [candidate("x", { lastActivityAt: 100 }), candidate("y", { lastActivityAt: 500 })],
-        [candidate("z", { serverId: "server-2" })],
-      ]),
-    ).toEqual({ kind: "workspace", serverId: "server-1", workspaceId: "y" });
+  it("returns home when the archived workspace's project has no other workspace", () => {
+    expect(resolve("a", [[candidate("a")], [candidate("x"), candidate("y")]])).toEqual({
+      kind: "home",
+    });
   });
 
-  it("falls back to the most recent workspace when the archived one is not listed", () => {
-    expect(resolve("gone", [[candidate("x"), candidate("y", { lastActivityAt: 1 })]])).toEqual({
-      kind: "workspace",
-      serverId: "server-1",
-      workspaceId: "y",
-    });
+  it("returns home when the archived workspace is not listed", () => {
+    expect(resolve("gone", [[candidate("x"), candidate("y")]])).toEqual({ kind: "home" });
   });
 
   it("does not confuse a same-id workspace on another host with the archived one", () => {
@@ -103,20 +94,8 @@ function workspace(id: string, overrides: Partial<WorkspaceDescriptor> = {}): Wo
   };
 }
 
-function agent(input: {
-  workspaceId: string;
-  lastActivityAt: number;
-  archivedAt?: Date;
-}): Pick<Agent, "workspaceId" | "archivedAt" | "lastActivityAt"> {
-  return {
-    workspaceId: input.workspaceId,
-    lastActivityAt: new Date(input.lastActivityAt),
-    archivedAt: input.archivedAt ?? null,
-  };
-}
-
 describe("collectArchiveNeighborCandidates", () => {
-  it("keeps sidebar order and derives recency from live agents", () => {
+  it("keeps sidebar order and flags workspaces already being archived", () => {
     const project: WorkspaceStructureProject = {
       viewKey: "project-1",
       projectKey: null,
@@ -132,13 +111,8 @@ describe("collectArchiveNeighborCandidates", () => {
       sessions: {
         "server-1": {
           workspaces: new Map([
-            ["a", workspace("a", { statusEnteredAt: new Date(50) })],
+            ["a", workspace("a")],
             ["b", workspace("b", { archivingAt: "2026-01-01T00:00:00.000Z" })],
-          ]),
-          agents: new Map([
-            ["1", agent({ workspaceId: "b", lastActivityAt: 200 })],
-            ["2", agent({ workspaceId: "b", lastActivityAt: 300 })],
-            ["3", agent({ workspaceId: "b", lastActivityAt: 900, archivedAt: new Date(1) })],
           ]),
         },
       },
@@ -146,8 +120,8 @@ describe("collectArchiveNeighborCandidates", () => {
 
     expect(candidates).toEqual([
       [
-        { serverId: "server-1", workspaceId: "b", lastActivityAt: 300, archiving: true },
-        { serverId: "server-1", workspaceId: "a", lastActivityAt: 50, archiving: false },
+        { serverId: "server-1", workspaceId: "b", archiving: true },
+        { serverId: "server-1", workspaceId: "a", archiving: false },
       ],
     ]);
   });

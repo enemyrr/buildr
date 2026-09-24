@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@react-native-async-storage/async-storage", () => {
   const storage = new Map<string, string>();
@@ -16,6 +16,7 @@ vi.mock("@react-native-async-storage/async-storage", () => {
 });
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { flushPendingWrites } from "@/storage/validated-persist-storage";
 import { createViewedTimelineSync } from "@/timeline/viewed-timeline-sync";
 import { buildWorkspaceTabPersistenceKey, type WorkspaceTab } from "@/workspace-tabs/model";
 import { defaultChangesState, type ChangesState } from "@/panels/changes/state";
@@ -74,6 +75,9 @@ function createDeterministicWorkspaceLayoutIds() {
 
 const workspaceLayoutIds = createDeterministicWorkspaceLayoutIds();
 const workspaceLayoutStore = createWorkspaceLayoutStore(workspaceLayoutIds);
+
+// Land each test's debounced writes before the next test seeds storage directly.
+afterEach(() => flushPendingWrites());
 
 it("observes open chats across unmounted workspaces until their tabs close", () => {
   const store = createWorkspaceLayoutStore(workspaceLayoutIds);
@@ -1136,7 +1140,7 @@ describe("workspace-layout-store actions", () => {
       treeWidth: 280,
     });
   });
-  beforeEach(() => {
+  beforeEach(async () => {
     workspaceLayoutIds.reset();
     workspaceLayoutStore.setState({
       layoutByWorkspace: {},
@@ -1146,6 +1150,7 @@ describe("workspace-layout-store actions", () => {
       focusRestorationByWorkspace: {},
       explorerSidebarPaneIdByWorkspace: {},
     });
+    await flushPendingWrites();
   });
 
   it("replaces a pane's sole New tab when real content opens", () => {

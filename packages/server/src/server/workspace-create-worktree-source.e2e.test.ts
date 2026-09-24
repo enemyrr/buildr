@@ -342,8 +342,8 @@ function createDivergentBases(repoDir: string): void {
 
 async function archiveAndRestoreWorkspace({ client, workspace, cwd }: RestorableWorkspace) {
   expect((await client.archiveWorkspace(workspace.id)).error).toBeNull();
-  expect(existsSync(cwd)).toBe(false);
   expect(await client.inspectWorkspaceRecovery(workspace.id)).toMatchObject({ action: "restore" });
+  expect(existsSync(cwd)).toBe(false);
   await client.restoreWorkspace(workspace.id);
 }
 

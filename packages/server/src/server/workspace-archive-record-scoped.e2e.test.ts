@@ -177,13 +177,18 @@ test("archiving one of two workspaces sharing a cwd spares the sibling and the d
   expect(remainingWorkspaces.has(workspaceA)).toBe(false);
   expect(remainingWorkspaces.has(workspaceB)).toBe(true);
 
-  // A's agent is archived; B's agent stays active.
+  // A's agent and terminal are torn down after the response; B's survive.
+  await expect
+    .poll(async () => (await archivedAgentIds()).has(agentA.id), { timeout: 10000, interval: 100 })
+    .toBe(true);
+  await expect
+    .poll(async () => (await terminalIdsForWorkspace(cwd, workspaceA)).has(terminalAId), {
+      timeout: 10000,
+      interval: 100,
+    })
+    .toBe(false);
   expect((await activeAgentIds()).has(agentA.id)).toBe(false);
-  expect(await archivedAgentIds()).toContain(agentA.id);
   expect((await activeAgentIds()).has(agentB.id)).toBe(true);
-
-  // A's terminal is killed; B's terminal survives.
-  expect((await terminalIdsForWorkspace(cwd, workspaceA)).has(terminalAId)).toBe(false);
   expect((await terminalIdsForWorkspace(cwd, workspaceB)).has(terminalBId)).toBe(true);
 
   // The shared directory is never deleted — a sibling still references it.
@@ -347,7 +352,9 @@ test.skipIf(process.platform === "win32")(
         retryError: null,
       });
       expect((await activeWorkspaceIds()).has(workspace.id)).toBe(false);
-      expect(existsSync(workspace.workspaceDirectory)).toBe(false);
+      await expect
+        .poll(() => existsSync(workspace.workspaceDirectory), { timeout: 10000, interval: 100 })
+        .toBe(false);
     } finally {
       writeFileSync(stopSetupPath, "stop\n");
     }
@@ -403,7 +410,9 @@ test.skipIf(process.platform === "win32")(
       const retry = await ctx.client.archiveWorkspace(workspace.id);
 
       expect(retry.error).toBeNull();
-      expect(existsSync(workspace.workspaceDirectory)).toBe(false);
+      await expect
+        .poll(() => existsSync(workspace.workspaceDirectory), { timeout: 10000, interval: 100 })
+        .toBe(false);
     } finally {
       writeFileSync(stopWriterPath, "stop\n");
       await writerExit;

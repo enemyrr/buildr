@@ -737,7 +737,13 @@ function serializeTimeline(timeline: CachedTimeline): StoredTimeline | null {
   const canonicalItems = timeline.items.filter(
     (item) => item.kind !== "user_message" || !isUnreconciledLocalUserMessage(item),
   );
-  const items = canonicalItems.map(serializeTimelineItem).filter((item) => item !== null);
+  const items: StoredTimelineItem[] = [];
+  for (let index = canonicalItems.length - 1; index >= 0; index -= 1) {
+    if (items.length === MAX_TIMELINE_ITEMS) break;
+    const item = serializeTimelineItem(canonicalItems[index]);
+    if (item) items.push(item);
+  }
+  items.reverse();
   const range = timeline.range;
   const canPersistCoverage =
     range !== null &&
@@ -754,7 +760,7 @@ function serializeTimeline(timeline: CachedTimeline): StoredTimeline | null {
     canonicalItems.some((item) => item.timelineCursor?.seq === range.endSeq);
   return {
     agentId: timeline.agentId,
-    items: items.slice(-MAX_TIMELINE_ITEMS),
+    items,
     range: canPersistCoverage
       ? { epoch: range.epoch, startSeq: range.startSeq, endSeq: range.endSeq }
       : null,

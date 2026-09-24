@@ -677,6 +677,65 @@ function createExplorerSidebarPane(
   return targetPaneId ? splitPaneEmpty(workspaceKey, { targetPaneId, position: "right" }) : null;
 }
 
+// persist partializes on every set(), including no-ops. Returning the previous snapshot when
+// its sources are unchanged lets the persist storage skip the write without serializing.
+type PersistedWorkspaceLayoutState = z.infer<typeof WorkspaceLayoutPersistedStateSchema>;
+
+interface PartializedLayoutSnapshot {
+  sources: readonly unknown[];
+  value: PersistedWorkspaceLayoutState;
+}
+
+function createLayoutPartializer() {
+  const persistedLayouts = new WeakMap<WorkspaceLayout, WorkspaceLayout>();
+  let previous: PartializedLayoutSnapshot | null = null;
+
+  function persistLayout(layout: WorkspaceLayout): WorkspaceLayout {
+    const cached = persistedLayouts.get(layout);
+    if (cached) return cached;
+    // Strip ephemeral (commit diff) tabs before persisting so they are
+    // dropped on reload rather than restored pointing at a rebased SHA.
+    const persisted = stripEphemeralTabsFromLayout(normalizeLayout(layout));
+    persistedLayouts.set(layout, persisted);
+    return persisted;
+  }
+
+  return (state: WorkspaceLayoutStore): PersistedWorkspaceLayoutState => {
+    const sources = [
+      state.layoutByWorkspace,
+      state.pinnedAgentIdsByWorkspace,
+      state.splitSizesByWorkspace,
+      state.explorerSidebarWidthByWorkspace,
+      state.explorerSidebarPaneIdByWorkspace,
+      state.sidePaneIdByWorkspace,
+      state.pullRequestTabAutoOpenedByWorkspace,
+    ];
+    if (previous?.sources.every((source, index) => source === sources[index])) {
+      return previous.value;
+    }
+    const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
+    for (const key in state.layoutByWorkspace) {
+      layoutByWorkspace[key] = persistLayout(state.layoutByWorkspace[key]);
+    }
+    const value = {
+      layoutByWorkspace,
+      pinnedAgentIdsByWorkspace: Object.fromEntries(
+        Object.entries(state.pinnedAgentIdsByWorkspace).map(([key, agentIds]) => [
+          key,
+          Array.from(agentIds),
+        ]),
+      ),
+      splitSizesByWorkspace: state.splitSizesByWorkspace,
+      explorerSidebarWidthByWorkspace: state.explorerSidebarWidthByWorkspace,
+      explorerPaneIdByWorkspace: state.explorerSidebarPaneIdByWorkspace,
+      sidePaneIdByWorkspace: state.sidePaneIdByWorkspace,
+      pullRequestTabAutoOpenedByWorkspace: state.pullRequestTabAutoOpenedByWorkspace,
+    };
+    previous = { sources, value };
+    return value;
+  };
+}
+
 export function createWorkspaceLayoutStore(
   ids: WorkspaceLayoutIdSource = defaultWorkspaceLayoutIds,
 ) {
@@ -1742,30 +1801,7 @@ export function createWorkspaceLayoutStore(
         storage: createValidatedPersistStorage(AsyncStorage, WorkspaceLayoutPersistedStateSchema),
         migrate: (persistedState, version) =>
           migrateWorkspaceLayoutPersistedState(persistedState, version, ids),
-        partialize: (state) => {
-          const layoutByWorkspace: Record<string, WorkspaceLayout> = {};
-          for (const key in state.layoutByWorkspace) {
-            // Strip ephemeral (commit diff) tabs before persisting so they are
-            // dropped on reload rather than restored pointing at a rebased SHA.
-            layoutByWorkspace[key] = stripEphemeralTabsFromLayout(
-              normalizeLayout(state.layoutByWorkspace[key]),
-            );
-          }
-          return {
-            layoutByWorkspace,
-            pinnedAgentIdsByWorkspace: Object.fromEntries(
-              Object.entries(state.pinnedAgentIdsByWorkspace).map(([key, agentIds]) => [
-                key,
-                Array.from(agentIds),
-              ]),
-            ),
-            splitSizesByWorkspace: state.splitSizesByWorkspace,
-            explorerSidebarWidthByWorkspace: state.explorerSidebarWidthByWorkspace,
-            explorerPaneIdByWorkspace: state.explorerSidebarPaneIdByWorkspace,
-            sidePaneIdByWorkspace: state.sidePaneIdByWorkspace,
-            pullRequestTabAutoOpenedByWorkspace: state.pullRequestTabAutoOpenedByWorkspace,
-          };
-        },
+        partialize: createLayoutPartializer(),
         merge: (persistedState, currentState) => {
           const result = WorkspaceLayoutPersistedStateSchema.safeParse(persistedState);
           if (!result.success) {

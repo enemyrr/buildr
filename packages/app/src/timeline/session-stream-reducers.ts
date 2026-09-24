@@ -1,6 +1,10 @@
 import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
 import type { AgentStreamEventPayload } from "@getpaseo/protocol/messages";
-import { selectAgentTimelineState, useSessionStore } from "@/stores/session-store";
+import {
+  selectAgentTimelineState,
+  useSessionStore,
+  type AgentStreamStatePatch,
+} from "@/stores/session-store";
 import type { AssistantMessageItem, StreamItem, TodoEntry } from "@/types/stream";
 import type { TurnLivenessTransition } from "@/timeline/turn-liveness";
 import {
@@ -1469,13 +1473,16 @@ export interface AgentStreamReducerQueue {
   dispose: (options?: { flush?: boolean }) => void;
 }
 
+export interface AgentStreamReducerCommit {
+  agentId: string;
+  result: ProcessAgentStreamEventOutput;
+  events: AgentStreamReducerEvent[];
+}
+
 export interface CreateAgentStreamReducerQueueInput {
   getSnapshot: (agentId: string) => AgentStreamReducerSnapshot;
-  commit: (
-    agentId: string,
-    result: ProcessAgentStreamEventOutput,
-    events: AgentStreamReducerEvent[],
-  ) => void;
+  // One call per flush, so a frame with several streaming agents lands as one store commit.
+  commit: (commits: readonly AgentStreamReducerCommit[]) => void;
   handleSideEffects: (agentId: string, sideEffects: AgentStreamReducerSideEffect[]) => void;
   scheduleFlush: (callback: () => void) => number;
   cancelFlush: (id: number) => void;
@@ -1727,33 +1734,38 @@ export function createAgentStreamReducerQueue(
     scheduledFlushId = null;
   };
 
-  const flushAgent = (agentId: string) => {
-    const events = pendingByAgentId.get(agentId);
-    if (!events || events.length === 0) {
-      return;
+  const flushAgents = (agentIds: readonly string[]) => {
+    const commits: AgentStreamReducerCommit[] = [];
+    for (const agentId of agentIds) {
+      const events = pendingByAgentId.get(agentId);
+      if (!events || events.length === 0) {
+        continue;
+      }
+      pendingByAgentId.delete(agentId);
+      const result = processAgentStreamEvents({
+        events,
+        ...input.getSnapshot(agentId),
+      });
+      commits.push({ agentId, result, events });
     }
-    pendingByAgentId.delete(agentId);
     if (pendingByAgentId.size === 0) {
       cancelScheduledFlush();
     }
+    if (commits.length === 0) {
+      return;
+    }
 
-    const result = processAgentStreamEvents({
-      events,
-      ...input.getSnapshot(agentId),
-    });
-
-    input.commit(agentId, result, events);
-    if (result.sideEffects.length > 0) {
-      input.handleSideEffects(agentId, result.sideEffects);
+    input.commit(commits);
+    for (const { agentId, result } of commits) {
+      if (result.sideEffects.length > 0) {
+        input.handleSideEffects(agentId, result.sideEffects);
+      }
     }
   };
 
-  const flush = () => {
-    const agentIds = Array.from(pendingByAgentId.keys());
-    for (const agentId of agentIds) {
-      flushAgent(agentId);
-    }
-  };
+  const flushAgent = (agentId: string) => flushAgents([agentId]);
+
+  const flush = () => flushAgents(Array.from(pendingByAgentId.keys()));
 
   const scheduleFlush = () => {
     if (scheduledFlushId !== null) {
@@ -1788,13 +1800,6 @@ export function createAgentStreamReducerQueue(
   };
 }
 
-interface StreamStatePatch {
-  tail?: StreamItem[];
-  head?: StreamItem[];
-  acknowledgedClientMessageIds?: readonly string[];
-  taskSnapshot?: TodoEntry[];
-}
-
 export function deriveAgentStreamTurnLiveness(
   events: readonly AgentStreamReducerEvent[],
 ): TurnLivenessTransition[] {
@@ -1818,10 +1823,9 @@ export function deriveAgentStreamTurnLiveness(
 
 export interface CreateSessionAgentStreamReducerQueueInput {
   serverId: string;
-  setAgentStreamState: (serverId: string, agentId: string, state: StreamStatePatch) => void;
-  setAgentTimelineCursor: (
+  setAgentStreamStates: (
     serverId: string,
-    state: (prev: Map<string, TimelineCursor>) => Map<string, TimelineCursor>,
+    patches: ReadonlyMap<string, AgentStreamStatePatch>,
   ) => void;
   recoverTimelineGap: (agentId: string, cursor: { epoch: string; endSeq: number }) => void;
   onCommitted?: (agentId: string) => void;
@@ -1875,11 +1879,50 @@ function cancelAgentStreamReducerFlush(id: number) {
   clearScheduledReducerFlush(handle);
 }
 
+function toStreamStatePatch(
+  result: ProcessAgentStreamEventOutput,
+  cursor: TimelineCursor | undefined,
+): AgentStreamStatePatch | null {
+  const hasAcknowledgements = result.acknowledgedClientMessageIds.length > 0;
+  const hasTasks = result.taskSnapshot !== undefined;
+  if (!result.changedTail && !result.changedHead && !cursor && !hasAcknowledgements && !hasTasks) {
+    return null;
+  }
+  return {
+    ...(result.changedTail ? { tail: result.tail } : {}),
+    ...(result.changedHead ? { head: result.head } : {}),
+    ...(hasAcknowledgements
+      ? { acknowledgedClientMessageIds: result.acknowledgedClientMessageIds }
+      : {}),
+    ...(hasTasks ? { taskSnapshot: result.taskSnapshot } : {}),
+    ...(cursor ? { cursor } : {}),
+  };
+}
+
+// A replayed event inside the committed range must not move the cursor back.
+function acceptStreamCursor(
+  current: TimelineCursor | undefined,
+  next: TimelineCursor,
+  lastEvent: AgentStreamReducerEvent | undefined,
+): TimelineCursor | undefined {
+  if (!current) return next;
+  const lastSeq = lastEvent?.seq;
+  const replayedInsideCurrent =
+    typeof lastSeq === "number" &&
+    lastEvent?.epoch === current.epoch &&
+    lastSeq >= current.startSeq &&
+    lastSeq <= current.endSeq;
+  const sameRange =
+    current.epoch === next.epoch &&
+    current.startSeq === next.startSeq &&
+    current.endSeq === next.endSeq;
+  return replayedInsideCurrent || sameRange ? undefined : next;
+}
+
 export function createSessionAgentStreamReducerQueue(
   input: CreateSessionAgentStreamReducerQueueInput,
 ): AgentStreamReducerQueue {
-  const { serverId, setAgentStreamState, setAgentTimelineCursor, recoverTimelineGap, onCommitted } =
-    input;
+  const { serverId, setAgentStreamStates, recoverTimelineGap, onCommitted } = input;
 
   return createAgentStreamReducerQueue({
     getSnapshot: (agentId) => {
@@ -1893,52 +1936,23 @@ export function createSessionAgentStreamReducerQueue(
         isDetached: timeline.status === "synced" && timeline.newer === "available",
       };
     },
-    commit: (agentId, result, events) => {
-      if (
-        result.changedTail ||
-        result.changedHead ||
-        result.acknowledgedClientMessageIds.length > 0 ||
-        result.taskSnapshot !== undefined
-      ) {
-        setAgentStreamState(serverId, agentId, {
-          ...(result.changedTail ? { tail: result.tail } : {}),
-          ...(result.changedHead ? { head: result.head } : {}),
-          ...(result.acknowledgedClientMessageIds.length > 0
-            ? { acknowledgedClientMessageIds: result.acknowledgedClientMessageIds }
-            : {}),
-          ...(result.taskSnapshot !== undefined ? { taskSnapshot: result.taskSnapshot } : {}),
-        });
+    commit: (commits) => {
+      const cursors = useSessionStore.getState().sessions[serverId]?.agentTimelineCursor;
+      const patches = new Map<string, AgentStreamStatePatch>();
+      for (const { agentId, result, events } of commits) {
+        const cursor =
+          result.cursorChanged && result.cursor
+            ? acceptStreamCursor(cursors?.get(agentId), result.cursor, events.at(-1))
+            : undefined;
+        const patch = toStreamStatePatch(result, cursor);
+        if (patch) patches.set(agentId, patch);
       }
-      if (result.cursorChanged && result.cursor) {
-        const nextCursor = result.cursor;
-        const lastEvent = events.at(-1);
-        setAgentTimelineCursor(serverId, (prev) => {
-          const current = prev.get(agentId);
-          if (
-            current &&
-            lastEvent &&
-            typeof lastEvent.seq === "number" &&
-            typeof lastEvent.epoch === "string" &&
-            current.epoch === lastEvent.epoch &&
-            lastEvent.seq >= current.startSeq &&
-            lastEvent.seq <= current.endSeq
-          ) {
-            return prev;
-          }
-          if (
-            current &&
-            current.epoch === nextCursor.epoch &&
-            current.startSeq === nextCursor.startSeq &&
-            current.endSeq === nextCursor.endSeq
-          ) {
-            return prev;
-          }
-          const next = new Map(prev);
-          next.set(agentId, nextCursor);
-          return next;
-        });
+      if (patches.size === 0) return;
+      setAgentStreamStates(serverId, patches);
+      if (!onCommitted) return;
+      for (const [agentId, patch] of patches) {
+        if (patch.tail || patch.head || patch.cursor) onCommitted(agentId);
       }
-      onCommitted?.(agentId);
     },
     handleSideEffects: (agentId, sideEffects) => {
       for (const effect of sideEffects) {

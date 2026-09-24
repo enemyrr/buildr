@@ -225,8 +225,14 @@ function createGitSnapshot(
 describe("CheckoutSession", () => {
   describe("status", () => {
     it("emits a checkout status response built from the git snapshot", async () => {
+      const snapshotRequests: Array<{ cwd: string; options: unknown }> = [];
       const { checkout, emitted } = makeCheckoutSession({
-        git: { getSnapshot: async () => createGitSnapshot("/repo", "main") },
+        git: {
+          getSnapshot: async (cwd, options) => {
+            snapshotRequests.push({ cwd, options });
+            return createGitSnapshot("/repo", "main");
+          },
+        },
       });
 
       await checkout.handleStatusRequest({
@@ -246,6 +252,8 @@ describe("CheckoutSession", () => {
           }),
         },
       ]);
+      // Git status must not wait on forge CLI lookups.
+      expect(snapshotRequests).toEqual([{ cwd: "/repo", options: { includeForge: false } }]);
     });
 
     it("emits an error status response when the git snapshot read fails", async () => {
@@ -1012,6 +1020,111 @@ describe("CheckoutSession", () => {
               message: "Unable to determine current change request number for merge",
             },
             requestId: "pm1",
+          },
+        },
+      ]);
+    });
+  });
+
+  describe("pr merge verification", () => {
+    function createGitHubPrSnapshot(cwd: string, isMerged: boolean): WorkspaceGitRuntimeSnapshot {
+      return {
+        ...createGitSnapshot(cwd, "feature"),
+        forge: {
+          featuresEnabled: true,
+          error: null,
+          pullRequest: {
+            number: 8,
+            repoOwner: "acme",
+            repoName: "repo",
+            url: "https://github.com/acme/repo/pull/8",
+            title: "Feature",
+            state: isMerged ? "merged" : "open",
+            baseRefName: "main",
+            headRefName: "feature",
+            isMerged,
+            isDraft: false,
+            mergeable: "MERGEABLE",
+            checks: [],
+            checksStatus: "success",
+            reviewDecision: null,
+          },
+        },
+      };
+    }
+
+    function makeMergeSession(input: { mergeTakesEffect: boolean }) {
+      let isMerged = false;
+      const mergeCalls: Array<{ prNumber: number; repoOwner?: string; repoName?: string }> = [];
+      const service: Partial<ForgeService> = {
+        async mergePullRequest(options) {
+          mergeCalls.push({
+            prNumber: options.prNumber,
+            repoOwner: options.status?.repoOwner,
+            repoName: options.status?.repoName,
+          });
+          isMerged = input.mergeTakesEffect;
+          return { success: true };
+        },
+      };
+      const session = makeCheckoutSession({
+        git: {
+          getSnapshot: async (cwd) => createGitHubPrSnapshot(cwd, isMerged),
+          resolveForge: async () => ({
+            forge: "github",
+            host: "github.com",
+            service: service as ForgeService,
+          }),
+        },
+      });
+      return { ...session, mergeCalls };
+    }
+
+    it("reports success once the refreshed snapshot shows the pull request merged", async () => {
+      const { checkout, emitted, mergeCalls, gitMutationCalls } = makeMergeSession({
+        mergeTakesEffect: true,
+      });
+
+      await checkout.handleCheckoutPrMergeRequest({
+        type: "checkout_pr_merge_request",
+        cwd: "/repo",
+        mergeMethod: "squash",
+        requestId: "pm-ok",
+      });
+
+      expect(mergeCalls).toEqual([{ prNumber: 8, repoOwner: "acme", repoName: "repo" }]);
+      expect(gitMutationCalls.notifyGitMutation).toEqual([
+        { cwd: "/repo", reason: "merge-pr", options: { invalidateForge: true } },
+      ]);
+      expect(emitted).toEqual([
+        {
+          type: "checkout_pr_merge_response",
+          payload: { cwd: "/repo", success: true, error: null, requestId: "pm-ok" },
+        },
+      ]);
+    });
+
+    it("fails when the merge command succeeds but the pull request is still open", async () => {
+      const { checkout, emitted } = makeMergeSession({ mergeTakesEffect: false });
+
+      await checkout.handleCheckoutPrMergeRequest({
+        type: "checkout_pr_merge_request",
+        cwd: "/repo",
+        mergeMethod: "squash",
+        requestId: "pm-open",
+      });
+
+      expect(emitted).toEqual([
+        {
+          type: "checkout_pr_merge_response",
+          payload: {
+            cwd: "/repo",
+            success: false,
+            error: {
+              code: "UNKNOWN",
+              message: "Could not confirm that pull request #8 merged. Its current state is open.",
+            },
+            requestId: "pm-open",
           },
         },
       ]);

@@ -73,6 +73,34 @@ describe("checkout-git-actions-store", () => {
     expect(store.getStatus({ serverId, cwd, actionId: "commit" })).toBe("idle");
   });
 
+  it("merges a PR once when a second merge method is requested while one is in flight", async () => {
+    const deferred = createDeferred<unknown>();
+    const client = {
+      checkoutPrMerge: vi.fn(() => deferred.promise),
+    };
+
+    useSessionStore.setState((state) => ({
+      ...state,
+      sessions: {
+        ...state.sessions,
+        [serverId]: { client } as unknown as (typeof state.sessions)[string],
+      },
+    }));
+
+    const store = useCheckoutGitActionsStore.getState();
+
+    const squash = store.mergePr({ serverId, cwd, method: "squash" });
+    const merge = store.mergePr({ serverId, cwd, method: "merge" });
+
+    expect(store.getStatus({ serverId, cwd, actionId: "merge-pr-merge" })).toBe("idle");
+
+    deferred.resolve({});
+    await Promise.all([squash, merge]);
+
+    expect(client.checkoutPrMerge).toHaveBeenCalledTimes(1);
+    expect(client.checkoutPrMerge).toHaveBeenCalledWith(cwd, { method: "squash" });
+  });
+
   it("runs pull then push sequentially for pull-and-push", async () => {
     const order: string[] = [];
     const client = {

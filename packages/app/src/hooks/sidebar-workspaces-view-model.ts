@@ -231,57 +231,22 @@ function getPendingInitialAgentCreateStartedAt(input: {
   return latestStartedAt;
 }
 
-export interface ProjectStatusSession {
-  workspaces: Map<string, WorkspaceDescriptor>;
-  workspaceAgentActivity: Map<string, WorkspaceAgentActivity>;
-}
-
 /**
  * Most urgent status among a project's workspaces. Backs the status dot on a collapsed
  * project row, which otherwise hides every workspace-level signal it contains.
  *
- * Workspaces the session hasn't hydrated yet are skipped rather than counted as done —
- * an unknown workspace shouldn't drag the aggregate anywhere. Reuses the same
- * activity-index + effective-status pipeline as per-workspace rows (one pass over the
- * session's agents per server, not per workspace) rather than re-deriving it.
+ * Reads the already-derived entries, so workspaces the session hasn't hydrated yet (no entry)
+ * are skipped rather than counted as done.
  */
 export function deriveProjectStatusBucket(input: {
   workspaces: readonly SidebarWorkspacePlacement[];
-  sessions: Record<string, ProjectStatusSession | undefined>;
-  pendingCreateAttempts?: Record<string, PendingCreateAttempt>;
+  workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
 }): SidebarStateBucket {
-  const workspaceIdsByServer = new Map<string, string[]>();
-  for (const placement of input.workspaces) {
-    const existing = workspaceIdsByServer.get(placement.serverId);
-    if (existing) {
-      existing.push(placement.workspaceId);
-    } else {
-      workspaceIdsByServer.set(placement.serverId, [placement.workspaceId]);
-    }
-  }
-
   const buckets: SidebarStateBucket[] = [];
-  for (const [serverId, workspaceIds] of workspaceIdsByServer) {
-    const session = input.sessions[serverId];
-    if (!session) continue;
-    for (const workspaceId of workspaceIds) {
-      const workspaceKey = resolveWorkspaceMapKeyByIdentity({
-        workspaces: session.workspaces,
-        workspaceId,
-      });
-      const workspace = workspaceKey ? session.workspaces.get(workspaceKey) : undefined;
-      if (!workspace) continue;
-      buckets.push(
-        deriveEffectiveWorkspaceStatus({
-          serverId,
-          workspace,
-          pendingCreateAttempts: input.pendingCreateAttempts,
-          workspaceAgentActivity: session.workspaceAgentActivity,
-        }).status,
-      );
-    }
+  for (const placement of input.workspaces) {
+    const entry = input.workspaceEntriesByKey.get(placement.workspaceKey);
+    if (entry) buckets.push(entry.statusBucket);
   }
-
   return aggregateSidebarStateBuckets(buckets);
 }
 
@@ -367,9 +332,9 @@ export function buildSidebarWorkspaceEntries(input: {
   sessions: SidebarWorkspaceSession[];
   pendingCreateAttempts?: Record<string, PendingCreateAttempt>;
   previousEntries?: ReadonlyMap<string, SidebarWorkspaceEntry>;
-}): Map<string, SidebarWorkspaceEntry> {
+}): ReadonlyMap<string, SidebarWorkspaceEntry> {
   if (input.placements.length === 0 || input.sessions.length === 0) {
-    return new Map();
+    return input.previousEntries?.size === 0 ? input.previousEntries : new Map();
   }
 
   const sessionByServerId = new Map(input.sessions.map((session) => [session.serverId, session]));
@@ -401,7 +366,22 @@ export function buildSidebarWorkspaceEntries(input: {
     );
   }
 
-  return entries;
+  return input.previousEntries && areEntryMapsIdentical(input.previousEntries, entries)
+    ? input.previousEntries
+    : entries;
+}
+
+function areEntryMapsIdentical(
+  left: ReadonlyMap<string, SidebarWorkspaceEntry>,
+  right: ReadonlyMap<string, SidebarWorkspaceEntry>,
+): boolean {
+  if (left.size !== right.size) return false;
+  const rightIterator = right.entries();
+  for (const [key, entry] of left) {
+    const next = rightIterator.next();
+    if (next.done || next.value[0] !== key || next.value[1] !== entry) return false;
+  }
+  return true;
 }
 
 function areSidebarWorkspaceEntriesEqual(
@@ -410,22 +390,64 @@ function areSidebarWorkspaceEntriesEqual(
 ): boolean {
   const keys = Object.keys(left) as Array<keyof SidebarWorkspaceEntry>;
   if (keys.length !== Object.keys(right).length) return false;
+  // normalizeWorkspaceDescriptor rebuilds these objects on every payload; compare by value.
   return keys.every((key) => {
-    if (key !== "prHint") return Object.is(left[key], right[key]);
-    const leftHint = left.prHint;
-    const rightHint = right.prHint;
-    return (
-      leftHint === rightHint ||
-      (leftHint !== null &&
-        rightHint !== null &&
-        leftHint.url === rightHint.url &&
-        leftHint.number === rightHint.number &&
-        leftHint.state === rightHint.state &&
-        leftHint.checks === rightHint.checks &&
-        leftHint.checksStatus === rightHint.checksStatus &&
-        leftHint.reviewDecision === rightHint.reviewDecision)
-    );
+    switch (key) {
+      case "prHint":
+        return arePrHintsEqual(left.prHint, right.prHint);
+      case "statusEnteredAt":
+        return left.statusEnteredAt?.getTime() === right.statusEnteredAt?.getTime();
+      case "diffStat":
+        return (
+          left.diffStat === right.diffStat ||
+          (left.diffStat !== null &&
+            right.diffStat !== null &&
+            left.diffStat.additions === right.diffStat.additions &&
+            left.diffStat.deletions === right.diffStat.deletions)
+        );
+      case "labels":
+        return areArraysShallowEqual(left.labels, right.labels);
+      case "scripts":
+        return areArraysShallowEqual(left.scripts, right.scripts, areScriptsEqual);
+      default:
+        return Object.is(left[key], right[key]);
+    }
   });
+}
+
+function arePrHintsEqual(left: PrHint | null, right: PrHint | null): boolean {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.url === right.url &&
+      left.number === right.number &&
+      left.state === right.state &&
+      left.checks === right.checks &&
+      left.checksStatus === right.checksStatus &&
+      left.reviewDecision === right.reviewDecision)
+  );
+}
+
+function areArraysShallowEqual<T>(
+  left: readonly T[] | undefined,
+  right: readonly T[] | undefined,
+  isEqual: (a: T, b: T) => boolean = Object.is,
+): boolean {
+  if (left === right) return true;
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((item, index) => isEqual(item, right[index] as T));
+}
+
+type WorkspaceScript = WorkspaceDescriptor["scripts"][number];
+
+function areScriptsEqual(left: WorkspaceScript, right: WorkspaceScript): boolean {
+  if (left === right) return true;
+  const keys = Object.keys(left) as Array<keyof WorkspaceScript>;
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every((key) => Object.is(left[key], right[key]))
+  );
 }
 
 export function buildSidebarProjectsFromStructure(input: {

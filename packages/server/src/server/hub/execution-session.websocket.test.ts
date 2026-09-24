@@ -175,7 +175,6 @@ test("ordinary Hub requests survive daemon restart and restore an archived works
       requestId: "ordinary-archive",
     }),
   ).toMatchObject({ payload: { error: null, archivedAt: expect.any(String) } });
-  expect((await hub.worktreeState(agent.cwd)).exists).toBe(false);
   expect(
     await hub.requestOrdinary({
       type: "workspace.recovery.inspect.request",
@@ -183,6 +182,7 @@ test("ordinary Hub requests survive daemon restart and restore an archived works
       requestId: "inspect-recovery",
     }),
   ).toMatchObject({ payload: { state: { kind: "recoverable" } } });
+  expect((await hub.worktreeState(agent.cwd)).exists).toBe(false);
   expect(
     await hub.requestOrdinary({
       type: "workspace.recovery.restore.request",

@@ -8,10 +8,10 @@ import {
   rmSync,
   statSync,
 } from "fs";
-import { copyFile, rm, stat } from "fs/promises";
+import { copyFile, rename, rm, stat } from "fs/promises";
 import { join, basename, dirname, isAbsolute, resolve, sep } from "path";
 import net from "node:net";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import stripAnsi from "strip-ansi";
 import {
   buildStringCommandShellInvocation,
@@ -1095,8 +1095,11 @@ export interface DeletePaseoWorktreeOptions {
   worktreesRoot?: string;
   paseoHome?: string;
   worktreesBaseRoot?: string;
+  onBackgroundRemovalError?: (error: Error) => void;
 }
 
+// Resolves once the worktree path is free and unregistered. The files are moved
+// aside and deleted in the background, since large worktrees take seconds to rm.
 export async function deletePaseoWorktree({
   cwd,
   worktreePath,
@@ -1105,6 +1108,7 @@ export async function deletePaseoWorktree({
   worktreesRoot,
   paseoHome,
   worktreesBaseRoot,
+  onBackgroundRemovalError,
 }: DeletePaseoWorktreeOptions): Promise<void> {
   if (!worktreePath && !worktreeSlug) {
     throw new Error("worktreePath or worktreeSlug is required");
@@ -1148,7 +1152,9 @@ export async function deletePaseoWorktree({
     }
   }
 
-  if (cwd) {
+  const trashPath = await moveWorktreeToTrash(resolvedWorktree);
+
+  if (cwd && trashPath === null) {
     try {
       await runGitCommand(["worktree", "remove", resolvedWorktree, "--force"], {
         cwd,
@@ -1162,7 +1168,9 @@ export async function deletePaseoWorktree({
     }
   }
 
-  await removeDirectoryWithRetries(resolvedWorktree);
+  if (trashPath === null) {
+    await removeDirectoryWithRetries(resolvedWorktree);
+  }
 
   if (cwd) {
     try {
@@ -1171,6 +1179,44 @@ export async function deletePaseoWorktree({
       // not critical; git will prune lazily
     }
   }
+
+  if (trashPath !== null) {
+    removeDirectoryInBackground(trashPath, onBackgroundRemovalError);
+  }
+}
+
+// A sibling path stays on the same filesystem, so the rename is atomic and instant.
+// Returns null when the worktree is already gone or cannot be renamed (for example
+// a locked file on Windows); the caller then removes it in place.
+async function moveWorktreeToTrash(worktreePath: string): Promise<string | null> {
+  const trashPath = join(
+    dirname(worktreePath),
+    `.${basename(worktreePath)}.trash-${randomUUID().slice(0, 8)}`,
+  );
+  try {
+    await rename(worktreePath, trashPath);
+    return trashPath;
+  } catch {
+    return null;
+  }
+}
+
+// Detached so the removal survives a daemon restart and stays off the libuv threadpool.
+function removeDirectoryInBackground(path: string, onError?: (error: Error) => void): void {
+  if (process.platform === "win32") {
+    void rm(path, { recursive: true, force: true, maxRetries: 3 }).catch((error: unknown) =>
+      onError?.(error instanceof Error ? error : new Error(String(error))),
+    );
+    return;
+  }
+  const child = spawnProcess("rm", ["-rf", path], { detached: true, stdio: "ignore" });
+  child.once("error", (error) => onError?.(error));
+  child.once("exit", (code, signal) => {
+    if (code !== 0) {
+      onError?.(new Error(`rm -rf ${path} exited with ${signal ?? `code ${code}`}`));
+    }
+  });
+  child.unref();
 }
 
 export async function rollbackCreatedPaseoWorktree(

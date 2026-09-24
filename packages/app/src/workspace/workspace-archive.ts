@@ -3,8 +3,16 @@ import {
   clearWorkspaceArchivePending,
   markWorkspaceArchivePending,
 } from "@/contexts/session-workspace-upserts";
-import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
-import { resolveWorkspaceMapKeyByIdentity } from "@/utils/workspace-identity";
+import type { FetchWorkspacesEntry } from "@getpaseo/client/internal/daemon-client";
+import {
+  normalizeWorkspaceDescriptor,
+  useSessionStore,
+  type WorkspaceDescriptor,
+} from "@/stores/session-store";
+import {
+  normalizeWorkspaceOpaqueId,
+  resolveWorkspaceMapKeyByIdentity,
+} from "@/utils/workspace-identity";
 import { i18n } from "@/i18n/i18next";
 
 export interface WorkspaceArchiveTarget {
@@ -12,9 +20,18 @@ export interface WorkspaceArchiveTarget {
   workspaceId: string;
 }
 
+interface ProjectWorkspacesQuery {
+  filter: { projectId: string };
+  page: { limit: number };
+}
+
 interface WorkspaceArchiveClient {
   archiveWorkspace: (workspaceId: string) => Promise<{ error: string | null }>;
+  fetchWorkspaces: (query: ProjectWorkspacesQuery) => Promise<{ entries: FetchWorkspacesEntry[] }>;
 }
+
+// The sidebar strip and the workspace menu can both archive the same workspace.
+const inFlightArchives = new Map<string, Promise<void>>();
 
 interface OptimisticWorkspaceArchiveSnapshot {
   workspace: WorkspaceDescriptor | null;
@@ -55,18 +72,45 @@ function hideWorkspaceOptimistically(
   return { workspace: snapshot };
 }
 
-function restoreOptimisticallyHiddenWorkspace(input: {
+// A failed or timed-out request may still have archived the workspace, so only
+// the host's current view decides whether it comes back.
+async function restoreWorkspaceIfStillActive(input: {
+  client: WorkspaceArchiveClient;
   serverId: string;
   workspaceId: string;
   snapshot: OptimisticWorkspaceArchiveSnapshot;
-}): void {
+}): Promise<void> {
   clearWorkspaceArchivePending({
     serverId: input.serverId,
     workspaceId: input.workspaceId,
   });
-  if (input.snapshot.workspace) {
-    getHostRuntimeStore().acceptWorkspaceSnapshots(input.serverId, [input.snapshot.workspace]);
+  const hidden = input.snapshot.workspace;
+  if (!hidden) {
+    return;
   }
+  const active = await fetchActiveWorkspace(input.client, hidden);
+  if (active) {
+    getHostRuntimeStore().acceptWorkspaceSnapshots(input.serverId, [active]);
+  }
+}
+
+async function fetchActiveWorkspace(
+  client: WorkspaceArchiveClient,
+  hidden: WorkspaceDescriptor,
+): Promise<WorkspaceDescriptor | null> {
+  let entries: FetchWorkspacesEntry[];
+  try {
+    ({ entries } = await client.fetchWorkspaces({
+      filter: { projectId: hidden.projectId },
+      page: { limit: 200 },
+    }));
+  } catch {
+    // Unreachable host: nothing was synced past the hide, so the reconnect sync
+    // still replays an archive that did land.
+    return hidden;
+  }
+  const entry = entries.find((candidate) => normalizeWorkspaceOpaqueId(candidate.id) === hidden.id);
+  return entry ? normalizeWorkspaceDescriptor(entry) : null;
 }
 
 async function archiveWorkspaceOrThrow(input: {
@@ -79,7 +123,23 @@ async function archiveWorkspaceOrThrow(input: {
   }
 }
 
-export async function archiveWorkspaceOptimistically(input: {
+export function archiveWorkspaceOptimistically(input: {
+  client: WorkspaceArchiveClient;
+  workspace: WorkspaceArchiveTarget;
+}): Promise<void> {
+  const workspaceId =
+    normalizeWorkspaceOpaqueId(input.workspace.workspaceId) ?? input.workspace.workspaceId;
+  const key = `${input.workspace.serverId}:${workspaceId}`;
+  const inFlight = inFlightArchives.get(key);
+  if (inFlight) {
+    return inFlight;
+  }
+  const archive = runOptimisticArchive(input).finally(() => inFlightArchives.delete(key));
+  inFlightArchives.set(key, archive);
+  return archive;
+}
+
+async function runOptimisticArchive(input: {
   client: WorkspaceArchiveClient;
   workspace: WorkspaceArchiveTarget;
 }): Promise<void> {
@@ -91,7 +151,8 @@ export async function archiveWorkspaceOptimistically(input: {
       workspaceId: input.workspace.workspaceId,
     });
   } catch (error) {
-    restoreOptimisticallyHiddenWorkspace({
+    await restoreWorkspaceIfStillActive({
+      client: input.client,
       serverId: input.workspace.serverId,
       workspaceId: input.workspace.workspaceId,
       snapshot,

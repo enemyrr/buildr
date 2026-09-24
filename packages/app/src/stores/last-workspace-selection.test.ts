@@ -37,6 +37,20 @@ class DelayedWorkspaceSelectionStorage implements LastWorkspaceSelectionStorage 
 }
 
 describe("last workspace selection", () => {
+  it("forgets only the matching selection", async () => {
+    const storage = new DelayedWorkspaceSelectionStorage();
+    const store = createLastWorkspaceSelectionStore(storage);
+    store.remember({ serverId: "server-1", workspaceId: "workspace-kept" });
+
+    store.forget({ serverId: "server-1", workspaceId: "workspace-other" });
+    expect(store.getSelection()).toEqual({ serverId: "server-1", workspaceId: "workspace-kept" });
+
+    store.forget({ serverId: "server-1", workspaceId: "workspace-kept" });
+    await Promise.resolve();
+    expect(store.getSelection()).toBeNull();
+    expect(storage.getSavedSelection()).toBeNull();
+  });
+
   it("hydrates the saved workspace selection", async () => {
     const storage = new DelayedWorkspaceSelectionStorage();
     const store = createLastWorkspaceSelectionStore(storage);

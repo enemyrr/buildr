@@ -60,6 +60,8 @@ export class AgentStoreProjection {
     useSessionStore.getState().setAgents(this.serverId, (current) => {
       const previous = current.get(agent.id);
       accepted = acceptAgentDirectoryUpdate(previous, mergeSnapshotTurn(previous, agent));
+      // The daemon re-sends unchanged agents; keep identity so nothing commits.
+      if (previous && accepted !== previous && equal(previous, accepted)) accepted = previous;
       if (accepted === previous) return current;
       const next = new Map(current);
       next.set(agent.id, accepted);
@@ -141,13 +143,26 @@ export class AgentStoreProjection {
   }
 
   replacePendingPermissions(agent: Agent): void {
-    const pending = new Map(useSessionStore.getState().sessions[this.serverId]?.pendingPermissions);
-    for (const [key, entry] of pending) if (entry.agentId === agent.id) pending.delete(key);
-    for (const request of agent.pendingPermissions) {
-      const key = derivePendingPermissionKey(agent.id, request);
-      pending.set(key, { key, agentId: agent.id, request });
-    }
-    useSessionStore.getState().setPendingPermissions(this.serverId, pending);
+    useSessionStore.getState().setPendingPermissions(this.serverId, (current) => {
+      const requests = new Map(
+        agent.pendingPermissions.map((request) => [
+          derivePendingPermissionKey(agent.id, request),
+          request,
+        ]),
+      );
+      let owned = 0;
+      let unchanged = true;
+      for (const [key, entry] of current) {
+        if (entry.agentId !== agent.id) continue;
+        owned += 1;
+        if (!equal(requests.get(key), entry.request)) unchanged = false;
+      }
+      if (unchanged && owned === requests.size) return current;
+      const next = new Map(current);
+      for (const [key, entry] of current) if (entry.agentId === agent.id) next.delete(key);
+      for (const [key, request] of requests) next.set(key, { key, agentId: agent.id, request });
+      return next;
+    });
   }
 
   removeFromDirectory(agentId: string): void {

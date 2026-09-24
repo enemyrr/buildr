@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactElement } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type RefObject,
+} from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -7,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useFetchQuery } from "@/data/query";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
+import { isWeb } from "@/constants/platform";
 import { buildRunScriptRequest, buildSetupScriptRequest } from "@/git/project-config-instructions";
 import type { InstructionsRequest } from "@/git/pr-instructions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
@@ -44,6 +54,8 @@ interface ExplorerUtilityPanelProps {
   projectRootPath: string;
   scripts: WorkspaceDescriptor["scripts"];
   liveTerminalIds: readonly string[];
+  /** Whether the terminal list has loaded, so a missing shell is known to be gone. */
+  hasLoadedTerminals: boolean;
   isWorkspaceFocused: boolean;
   buildPaneContentModel: (input: {
     paneId: string;
@@ -62,7 +74,7 @@ function descriptor(target: WorkspaceTabTarget, id: string): WorkspaceTabDescrip
 }
 
 /** The Explorer's bottom panel: workspace setup, run scripts, and a terminal. */
-export function ExplorerUtilityPanel({
+export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
   serverId,
   workspaceId,
   workspaceKey,
@@ -71,6 +83,7 @@ export function ExplorerUtilityPanel({
   projectRootPath,
   scripts,
   liveTerminalIds,
+  hasLoadedTerminals,
   isWorkspaceFocused,
   buildPaneContentModel,
   onCreateTerminal,
@@ -98,14 +111,17 @@ export function ExplorerUtilityPanel({
   const requestedTerminalRef = useRef(false);
   const showsTerminal = !collapsed && tab === "terminal";
   useEffect(() => {
-    if (!showsTerminal || liveTerminalId) {
+    if (!showsTerminal || !hasLoadedTerminals || liveTerminalId) {
       requestedTerminalRef.current = false;
       return;
     }
     if (requestedTerminalRef.current) return;
     requestedTerminalRef.current = true;
     onCreateTerminal();
-  }, [liveTerminalId, onCreateTerminal, showsTerminal]);
+  }, [hasLoadedTerminals, liveTerminalId, onCreateTerminal, showsTerminal]);
+
+  const panelRef = useRef<View>(null);
+  const isPaneFocused = useUtilityPanelFocus(panelRef, showsTerminal);
 
   const panelTabs = useMemo(() => {
     const tabs = [descriptor({ kind: "setup", workspaceId }, "setup")];
@@ -127,6 +143,7 @@ export function ExplorerUtilityPanel({
 
   return (
     <View
+      ref={panelRef}
       style={collapsed ? styles.panelCollapsed : styles.panel}
       testID="workspace-explorer-utility-panel"
     >
@@ -190,7 +207,7 @@ export function ExplorerUtilityPanel({
               normalizedServerId={serverId}
               normalizedWorkspaceId={workspaceId}
               isWorkspaceFocused={isWorkspaceFocused}
-              isPaneFocused
+              isPaneFocused={isPaneFocused}
               buildPaneContentModel={buildPaneContentModel}
             />
           </View>
@@ -198,6 +215,42 @@ export function ExplorerUtilityPanel({
       )}
     </View>
   );
+});
+
+/**
+ * The panel shares the screen with the composer, so its terminal takes focus and PTY size only
+ * after the user opens Terminal or interacts with the panel, and gives them up on outside input.
+ */
+function useUtilityPanelFocus(panelRef: RefObject<View | null>, showsTerminal: boolean): boolean {
+  const [isFocused, setIsFocused] = useState(false);
+  const [previousShowsTerminal, setPreviousShowsTerminal] = useState(showsTerminal);
+  if (previousShowsTerminal !== showsTerminal) {
+    setPreviousShowsTerminal(showsTerminal);
+    if (showsTerminal) {
+      setIsFocused(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!isWeb) {
+      return;
+    }
+    const panelElement: unknown = panelRef.current;
+    if (!(panelElement instanceof HTMLElement)) {
+      return;
+    }
+    const handleInteraction = (event: Event) => {
+      setIsFocused(event.target instanceof Node && panelElement.contains(event.target));
+    };
+    document.addEventListener("pointerdown", handleInteraction, true);
+    document.addEventListener("focusin", handleInteraction, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleInteraction, true);
+      document.removeEventListener("focusin", handleInteraction, true);
+    };
+  }, [panelRef]);
+
+  return isFocused;
 }
 
 /** The script the Run panel follows: the last one started or viewed, else any running one. */

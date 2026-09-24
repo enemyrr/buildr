@@ -74,8 +74,9 @@ tab content. There is no hidden side-pane lifecycle.
 
 An open Explorer owns the workspace's git and script controls, and the main header drops them. The
 top row is the pull request strip, or **Create PR** before a pull request exists. The tab rail ends
-with **Review** and the git menu. When the Explorer is hidden, the header carries **Create PR**, the
-inline strip, and the scripts menu instead.
+with **Review** and the git menu. When the Explorer is hidden, the header carries **Create PR** and
+the inline strip instead. The desktop header has no scripts menu; scripts run from the Explorer's
+Run panel.
 
 Under the views, `packages/app/src/screens/workspace/explorer-utility-panel.tsx` renders the
 **Setup**, **Run**, and **Terminal** panel. Its panels mount through `WorkspacePanelHost` with the

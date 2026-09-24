@@ -258,6 +258,30 @@ describe("AgentDirectoryReplica", () => {
     store.clearSession(serverId);
   });
 
+  it("commits nothing when a delta re-sends an unchanged agent", () => {
+    const serverId = "agent-replica-unchanged-delta";
+    const store = useSessionStore.getState();
+    store.initializeSession(serverId, null as unknown as DaemonClient);
+    const replica = new AgentDirectoryReplica(
+      serverId,
+      () => undefined,
+      () => undefined,
+    );
+    const agent: AgentSnapshotPayload = {
+      ...payload("waiting"),
+      pendingPermissions: [{ id: "permission", provider: "codex", name: "Bash", kind: "tool" }],
+    };
+    const delta = { kind: "upsert", agent, project: entry(agent).project } as const;
+    replica.applyDelta(delta);
+    const session = useSessionStore.getState().sessions[serverId];
+    expect(session?.pendingPermissions.size).toBe(1);
+
+    replica.applyDelta({ ...delta, agent: structuredClone(agent) });
+
+    expect(useSessionStore.getState().sessions[serverId]).toBe(session);
+    store.clearSession(serverId);
+  });
+
   it("uses turn liveness for stopped transitions even when protocol status disagrees", () => {
     const serverId = "agent-replica-mismatched-status";
     const store = useSessionStore.getState();

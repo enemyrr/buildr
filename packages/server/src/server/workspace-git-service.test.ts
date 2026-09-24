@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import os from "node:os";
 import path, { join } from "node:path";
 import type pino from "pino";
+import { ForgeAuthenticationError } from "../services/forge-cli-command.js";
 import type { ForgeService } from "../services/forge-service.js";
 import type {
   CheckoutSnapshotFacts,
@@ -430,6 +431,60 @@ describe("WorkspaceGitServiceImpl", () => {
 
     expect(gitlabIsAuthenticated).not.toHaveBeenCalled();
     expect(getPullRequestStatus).toHaveBeenCalledTimes(1);
+
+    service.dispose();
+  });
+
+  test("transient forge failures keep the last pull request while auth failures clear it", async () => {
+    const github = createGitHubServiceStub();
+    const isAuthenticated = vi.mocked(github.isAuthenticated);
+    const getPullRequestStatus = vi
+      .fn<() => Promise<PullRequestStatusResult>>()
+      .mockResolvedValueOnce(createPullRequestStatusResult())
+      .mockRejectedValueOnce(new Error("gh: request timed out"));
+    const service = createService({ getPullRequestStatus, forgeOverrides: { github } });
+    const pullRequest = createSnapshot(REPO_CWD).forge.pullRequest;
+
+    await service.getSnapshot(REPO_CWD);
+    const lookupFailure = await service.getSnapshot(REPO_CWD, {
+      force: true,
+      reason: "test-lookup-failure",
+    });
+    expect(lookupFailure.forge).toEqual({
+      featuresEnabled: true,
+      authState: "authenticated",
+      forge: "github",
+      pullRequest,
+      error: { message: "gh: request timed out" },
+    });
+
+    isAuthenticated.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+    const probeFailure = await service.getSnapshot(REPO_CWD, {
+      force: true,
+      reason: "test-probe-failure",
+    });
+    expect(probeFailure.forge).toEqual({
+      featuresEnabled: true,
+      authState: "error",
+      forge: "github",
+      pullRequest,
+      error: { message: "connect ETIMEDOUT" },
+    });
+
+    isAuthenticated.mockRejectedValueOnce(
+      new ForgeAuthenticationError("GitHub CLI authentication failed", { stderr: "" }),
+    );
+    const authFailure = await service.getSnapshot(REPO_CWD, {
+      force: true,
+      reason: "test-auth-failure",
+    });
+    expect(authFailure.forge).toEqual({
+      featuresEnabled: false,
+      authState: "unauthenticated",
+      forge: "github",
+      pullRequest: null,
+      error: null,
+    });
 
     service.dispose();
   });

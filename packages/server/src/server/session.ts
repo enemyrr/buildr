@@ -253,7 +253,11 @@ import {
   handleWorkspaceSetupStatusRequest as handleWorkspaceSetupStatusRequestMessage,
   handleWorkspaceSetupRunRequest as handleWorkspaceSetupRunRequestMessage,
 } from "./worktree-session.js";
-import { archiveByScope, type ActiveWorkspaceRef } from "./workspace-archive-service.js";
+import {
+  startArchiveByScope,
+  waitForWorkspaceArchiveCleanup,
+  type ActiveWorkspaceRef,
+} from "./workspace-archive-service.js";
 import { WorkspaceSetupRuntime } from "./workspace-setup-runtime.js";
 import { SessionAuthorization, type DaemonPermission } from "./authorization/index.js";
 
@@ -908,7 +912,10 @@ export class Session {
     this.workspaceRecovery = createWorkspaceRecoveryService({
       paseoHome: this.paseoHome,
       worktreesRoot: this.worktreesRoot,
-      getWorkspace: (workspaceId) => this.workspaceRegistry.get(workspaceId),
+      getWorkspace: async (workspaceId) => {
+        await waitForWorkspaceArchiveCleanup(workspaceId);
+        return this.workspaceRegistry.get(workspaceId);
+      },
       getProject: (projectId) => this.projectRegistry.get(projectId),
       isDirectory: (path) => this.filesystem.isDirectory(path),
       unarchiveWorkspace: async (workspace) => {
@@ -7320,7 +7327,8 @@ export class Session {
         throw new Error(`Workspace not found: ${request.workspaceId}`);
       }
 
-      await archiveByScope(
+      // Agent, terminal, and disk teardown continue after the response.
+      await startArchiveByScope(
         {
           paseoHome: this.paseoHome,
           paseoWorktreesBaseRoot: this.worktreesRoot,
@@ -7350,8 +7358,10 @@ export class Session {
         },
       );
 
-      const archivedWorkspace = await this.workspaceRegistry.get(request.workspaceId);
-      const archivedAt = archivedWorkspace?.archivedAt ?? new Date().toISOString();
+      const archivedAt = (await this.workspaceRegistry.get(request.workspaceId))?.archivedAt;
+      if (!archivedAt) {
+        throw new Error(`Failed to archive workspace: ${request.workspaceId}`);
+      }
       this.emit({
         type: "archive_workspace_response",
         payload: {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createCachedCliPathResolver,
   createForgeCliRunner,
+  ForgeCommandError,
   probeHostViaCliAuthStatus,
 } from "./forge-cli-command.js";
 import { isPlatform } from "../test-utils/platform.js";
@@ -137,6 +138,35 @@ describe.skipIf(isPlatform("win32"))("createForgeCliRunner", () => {
     const normalized = runner.normalizeError(rawError, { args: ["arg"], cwd: tempDir });
     expect(normalized).toBeInstanceOf(FakeCommandError);
     expect((normalized as FakeCommandError).stderr).toMatch(/timed out after 100ms/);
+  });
+});
+
+describe("ForgeCommandError", () => {
+  const label = { brand: "GitHub", binary: "gh" };
+
+  it("appends the first non-empty stderr line so the CLI's reason reaches the user", () => {
+    const error = new ForgeCommandError(label, {
+      args: ["pr", "merge", "8", "--squash"],
+      cwd: "/tmp/repo",
+      exitCode: 1,
+      stderr:
+        "\n  X Pull request acme/repo#8 is not mergeable: the base branch policy prohibits the merge.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.\n",
+    });
+
+    expect(error.message).toBe(
+      "GitHub CLI command failed: gh pr merge 8 --squash: X Pull request acme/repo#8 is not mergeable: the base branch policy prohibits the merge.",
+    );
+  });
+
+  it("keeps the command-only message when stderr is empty", () => {
+    const error = new ForgeCommandError(label, {
+      args: ["pr", "merge", "8", "--squash"],
+      cwd: "/tmp/repo",
+      exitCode: 1,
+      stderr: "  \n",
+    });
+
+    expect(error.message).toBe("GitHub CLI command failed: gh pr merge 8 --squash");
   });
 });
 

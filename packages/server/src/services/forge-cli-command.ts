@@ -168,7 +168,9 @@ export class ForgeCommandError extends Error {
   readonly stdout?: string;
 
   constructor(label: { brand: string; binary: string }, params: ForgeCommandFailureParams) {
-    super(`${label.brand} CLI command failed: ${label.binary} ${params.args.join(" ")}`);
+    const command = `${label.brand} CLI command failed: ${label.binary} ${params.args.join(" ")}`;
+    const reason = firstNonEmptyLine(params.stderr);
+    super(reason ? `${command}: ${reason}` : command);
     this.args = [...params.args];
     this.cwd = params.cwd;
     this.exitCode = params.exitCode;
@@ -210,6 +212,16 @@ export function createCachedCliPathResolver(
     pending = current;
     return current;
   };
+}
+
+function firstNonEmptyLine(text: string): string | null {
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return null;
 }
 
 export function bufferOrStringToString(value: unknown): string {

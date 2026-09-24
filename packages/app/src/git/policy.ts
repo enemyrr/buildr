@@ -560,12 +560,20 @@ function hasUnpushedCommits(input: BuildGitActionsInput): boolean {
   return (input.aheadOfOrigin ?? 0) > 0;
 }
 
+/**
+ * Forge merge facts speak for the PR's own base. `aheadCount` is measured against the workspace's
+ * local base, which differs from the PR's base on stacked branches, so it only counts without facts.
+ */
+function hasCommitsToMerge(input: BuildGitActionsInput): boolean {
+  return input.mergeCapability !== null || input.aheadCount > 0;
+}
+
 function canMergePr(input: BuildGitActionsInput): boolean {
   const capability = input.mergeCapability;
   const canMergeFromPullRequestStatus =
     isOpenPullRequest(input) &&
     input.pullRequestMergeable !== "CONFLICTING" &&
-    input.aheadCount > 0 &&
+    hasCommitsToMerge(input) &&
     !input.hasUncommittedChanges &&
     !hasUnpushedCommits(input);
 
@@ -737,7 +745,7 @@ function getMergePrUnavailableMessage(input: BuildGitActionsInput): string | und
   if (hasUnpushedCommits(input)) {
     return i18n.t("workspace.git.actions.unavailable.mergePrUnpushed");
   }
-  if (input.aheadCount === 0) {
+  if (!hasCommitsToMerge(input)) {
     return i18n.t("workspace.git.actions.unavailable.mergeNothing");
   }
   if (input.mergeCapability?.mergeBlockedByQueue) {

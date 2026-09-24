@@ -13,7 +13,6 @@ import {
   isPaseoOwnedWorktreeCwd,
   resolveWorktreeBranchName,
   runWorktreeTeardownCommands,
-  WorktreeTeardownError,
 } from "../utils/worktree.js";
 import type { TerminalManager } from "../terminal/terminal-manager.js";
 import type {
@@ -120,76 +119,124 @@ export async function resolveWorkspaceIdAtPath(
   return dependencies.findWorkspaceIdForCwd(targetPath);
 }
 
-// Resolves the in-scope record set, tears each down
-// (agents + terminals + record), then removes the backing directory iff it is
-// Paseo-owned AND no active workspace still references it.
+// Restore must not race the background removal of the directory it would reuse.
+const pendingCleanups = new Map<string, Promise<ArchiveCleanupResult>>();
+
+export async function waitForWorkspaceArchiveCleanup(workspaceId: string): Promise<void> {
+  await pendingCleanups.get(workspaceId);
+}
+
+export interface StartedArchive {
+  archivedWorkspaceIds: string[];
+  // Settles once agents, terminals, and the backing directory are torn down. Never rejects:
+  // the records are already archived, so cleanup failures are logged instead.
+  cleanup: Promise<ArchiveCleanupResult>;
+}
+
+interface ArchiveCleanupResult {
+  archivedAgentIds: string[];
+  removedDirectory: boolean;
+}
+
+// Archives the in-scope records, tears down their agents and terminals, then removes
+// the backing directory iff it is Paseo-owned AND no active workspace still references it.
 export async function archiveByScope(
   dependencies: ArchiveDependencies,
   request: ArchiveByScopeRequest,
 ): Promise<ArchiveResult> {
-  return runWithGitCommandPriority("high", () => archiveByScopeWithPriority(dependencies, request));
+  const started = await startArchiveByScope(dependencies, request);
+  const cleanup = await started.cleanup;
+  return { archivedWorkspaceIds: started.archivedWorkspaceIds, ...cleanup };
 }
 
-async function archiveByScopeWithPriority(
+// Resolves as soon as the in-scope records are archived; teardown continues in `cleanup`.
+export function startArchiveByScope(
   dependencies: ArchiveDependencies,
   request: ArchiveByScopeRequest,
-): Promise<ArchiveResult> {
+): Promise<StartedArchive> {
+  return runWithGitCommandPriority("high", () =>
+    startArchiveByScopeWithPriority(dependencies, request),
+  );
+}
+
+async function startArchiveByScopeWithPriority(
+  dependencies: ArchiveDependencies,
+  request: ArchiveByScopeRequest,
+): Promise<StartedArchive> {
   const target = await resolveArchiveTarget(dependencies, request.scope);
   const targetWorkspaceIds = target.workspaceIds;
 
   await stopWorkspaceSetups(dependencies, target.setupWorkspaceIds, request.requestId);
 
+  let archivedWorkspaceIds: string[] = [];
   if (targetWorkspaceIds.length > 0) {
     dependencies.markWorkspaceArchiving(targetWorkspaceIds, new Date().toISOString());
-  }
-
-  let removedDirectory = false;
-
-  try {
-    if (targetWorkspaceIds.length > 0) {
+    try {
       await dependencies.emitWorkspaceUpdatesForWorkspaceIds(targetWorkspaceIds);
-    }
-
-    const { archivedAgents, archivedWorkspaceIds } = await archiveTargetRecords(
-      dependencies,
-      targetWorkspaceIds,
-      request.requestId,
-    );
-
-    if (target.backing?.mainRepoRoot) {
-      try {
-        await dependencies.workspaceGitService.getSnapshot(target.backing.mainRepoRoot, {
-          force: true,
-          reason: "archive-worktree",
-        });
-      } catch (error) {
-        dependencies.sessionLogger?.warn(
-          { err: error, cwd: target.backing.mainRepoRoot, requestId: request.requestId },
-          "Failed to force-refresh workspace git snapshot after archiving",
-        );
-      }
-    }
-
-    if (target.backing !== null) {
-      removedDirectory = await maybeRemoveDirectory(
+      archivedWorkspaceIds = await archiveTargetRecords(
         dependencies,
-        request,
-        target,
-        archivedWorkspaceIds,
+        targetWorkspaceIds,
+        request.requestId,
       );
-    }
-
-    return {
-      archivedAgentIds: Array.from(archivedAgents),
-      archivedWorkspaceIds,
-      removedDirectory,
-    };
-  } finally {
-    if (targetWorkspaceIds.length > 0) {
+    } finally {
       dependencies.clearWorkspaceArchiving(targetWorkspaceIds);
       await dependencies.emitWorkspaceUpdatesForWorkspaceIds(targetWorkspaceIds);
     }
   }
+
+  const cleanup = cleanUpArchivedScope(dependencies, request, target, archivedWorkspaceIds).catch(
+    (error: unknown) => {
+      dependencies.sessionLogger?.warn(
+        { err: error, requestId: request.requestId },
+        "Archive cleanup failed; workspace already archived",
+      );
+      return { archivedAgentIds: [], removedDirectory: false };
+    },
+  );
+  const cleanupWorkspaceIds =
+    request.scope.kind === "workspace" ? [request.scope.workspaceId] : archivedWorkspaceIds;
+  for (const workspaceId of cleanupWorkspaceIds) {
+    pendingCleanups.set(workspaceId, cleanup);
+  }
+  void cleanup.finally(() => {
+    for (const workspaceId of cleanupWorkspaceIds) {
+      if (pendingCleanups.get(workspaceId) === cleanup) pendingCleanups.delete(workspaceId);
+    }
+  });
+  return { archivedWorkspaceIds, cleanup };
+}
+
+async function cleanUpArchivedScope(
+  dependencies: ArchiveDependencies,
+  request: ArchiveByScopeRequest,
+  target: ArchiveTarget,
+  archivedWorkspaceIds: string[],
+): Promise<ArchiveCleanupResult> {
+  const agentSets = await Promise.all(
+    archivedWorkspaceIds.map((workspaceId) => archiveWorkspaceContents(dependencies, workspaceId)),
+  );
+  const archivedAgentIds = agentSets.flatMap((agents) => Array.from(agents));
+
+  const removedDirectory =
+    target.backing !== null &&
+    (await maybeRemoveDirectory(dependencies, request, target, archivedWorkspaceIds));
+
+  if (target.backing?.mainRepoRoot) {
+    try {
+      await dependencies.workspaceGitService.getSnapshot(target.backing.mainRepoRoot, {
+        force: true,
+        includeForge: false,
+        reason: "archive-worktree",
+      });
+    } catch (error) {
+      dependencies.sessionLogger?.warn(
+        { err: error, cwd: target.backing.mainRepoRoot, requestId: request.requestId },
+        "Failed to force-refresh workspace git snapshot after archiving",
+      );
+    }
+  }
+
+  return { archivedAgentIds, removedDirectory };
 }
 
 async function resolveArchiveTarget(
@@ -321,33 +368,24 @@ async function archiveTargetRecords(
   dependencies: ArchiveDependencies,
   targetWorkspaceIds: string[],
   requestId: string,
-): Promise<{ archivedAgents: Set<string>; archivedWorkspaceIds: string[] }> {
-  const archivedAgents = new Set<string>();
-  const archivedWorkspaceIds: string[] = [];
-
+): Promise<string[]> {
   const results = await Promise.allSettled(
-    targetWorkspaceIds.map(async (workspaceId) => {
-      const agents = await archiveWorkspaceContents(dependencies, workspaceId);
-      await dependencies.archiveWorkspaceRecord(workspaceId);
-      return { workspaceId, agents };
-    }),
+    targetWorkspaceIds.map((workspaceId) => dependencies.archiveWorkspaceRecord(workspaceId)),
   );
 
-  for (const result of results) {
+  const archivedWorkspaceIds: string[] = [];
+  for (const [index, result] of results.entries()) {
+    const workspaceId = targetWorkspaceIds[index];
     if (result.status === "fulfilled") {
-      archivedWorkspaceIds.push(result.value.workspaceId);
-      for (const agentId of result.value.agents) {
-        archivedAgents.add(agentId);
-      }
+      archivedWorkspaceIds.push(workspaceId);
     } else {
       dependencies.sessionLogger?.warn(
-        { err: result.reason, requestId },
-        "archiveByScope workspace teardown failed; continuing",
+        { err: result.reason, workspaceId, requestId },
+        "Failed to archive workspace record; leaving it active",
       );
     }
   }
-
-  return { archivedAgents, archivedWorkspaceIds };
+  return archivedWorkspaceIds;
 }
 
 async function maybeRemoveDirectory(
@@ -380,14 +418,11 @@ async function maybeRemoveDirectory(
       });
     }
   } catch (error) {
-    if (error instanceof WorktreeTeardownError) {
-      dependencies.sessionLogger?.warn(
-        { err: error, targetPath: backing.path, requestId: request.requestId },
-        "Worktree teardown failed during archive; workspace already archived",
-      );
-      return false;
-    }
-    throw error;
+    dependencies.sessionLogger?.warn(
+      { err: error, targetPath: backing.path, requestId: request.requestId },
+      "Worktree teardown failed during archive; keeping the directory",
+    );
+    return false;
   }
 
   const remainingActive = await dependencies.listActiveWorkspaces();
@@ -413,6 +448,11 @@ async function maybeRemoveDirectory(
       worktreesRoot: backing.paseoWorktreesRoot ?? undefined,
       paseoHome: dependencies.paseoHome,
       worktreesBaseRoot: dependencies.paseoWorktreesBaseRoot,
+      onBackgroundRemovalError: (error) =>
+        dependencies.sessionLogger?.warn(
+          { err: error, targetPath: backing.path, requestId: request.requestId },
+          "Background removal of archived worktree files failed",
+        ),
     });
     dependencies.github.invalidate({ cwd: backing.path });
   } catch (error) {

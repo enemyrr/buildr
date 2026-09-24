@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type ReactNode } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { RetainedPanel } from "@/components/retained-panel";
@@ -39,7 +39,7 @@ interface ExplorerSidebarDockProps {
 }
 
 /** A dock shell over the shared panel host. It owns no workspace-pane capabilities. */
-export function ExplorerSidebarDock({
+export const ExplorerSidebarDock = memo(function ExplorerSidebarDock({
   pane,
   uiTabs,
   normalizedServerId,
@@ -127,7 +127,7 @@ export function ExplorerSidebarDock({
       </WindowChromeRegion>
     </RetainedPanel>
   );
-}
+});
 
 const styles = StyleSheet.create((theme) => ({
   dock: {

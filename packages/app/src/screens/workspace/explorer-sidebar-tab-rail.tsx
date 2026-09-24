@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import Animated from "react-native-reanimated";
 import { SortableInlineList } from "@/components/sortable-inline-list";
 import { EXPLORER_TAB_RAIL_INSET } from "@/components/explorer-sidebar-layout";
+import { RetainedPanelActivity } from "@/components/retained-panel";
 import type {
   DraggableListDragHandleProps,
   DraggableRenderItemInfo,
@@ -178,11 +179,14 @@ function ExplorerSidebarTab({
                 {segmentLabelKey ? t(segmentLabelKey) : presentation.label}
               </Text>
               {item.tab.target.kind === "changes_tree" ? (
-                <ChangesCount
-                  serverId={normalizedServerId}
-                  workspaceId={normalizedWorkspaceId}
-                  active={item.isActive}
-                />
+                // The count shares the Changes view's diff subscription; inactive, it shows the cached count.
+                <RetainedPanelActivity active={item.isActive}>
+                  <ChangesCount
+                    serverId={normalizedServerId}
+                    workspaceId={normalizedWorkspaceId}
+                    active={item.isActive}
+                  />
+                </RetainedPanelActivity>
               ) : null}
             </ContextMenuTrigger>
           </TooltipTrigger>

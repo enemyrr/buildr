@@ -26,7 +26,7 @@ import {
   processTimelineResponse,
 } from "./session-stream-reducers";
 import { isTimelineResumeSnapshotAuthoritative } from "./timeline-sync-plan";
-import { replaceWithCanonicalStream } from "@/types/stream";
+import { replaceWithCanonicalStream, type StreamItem } from "@/types/stream";
 
 export interface TimelineReplicaStorage {
   readTimeline(serverId: string, agentId: string): Promise<CachedTimeline | undefined>;
@@ -96,8 +96,28 @@ export interface TimelineReplica {
   timelineUpdated(agentId: string): void;
 }
 
+interface CommittedTimelineSource {
+  tail: StreamItem[];
+  head: StreamItem[] | undefined;
+  range: AgentTimelineCursorState | null;
+  hasOlder: boolean;
+}
+
+function isSameTimelineSource(
+  left: CommittedTimelineSource,
+  right: CommittedTimelineSource,
+): boolean {
+  return (
+    left.tail === right.tail &&
+    left.head === right.head &&
+    left.range === right.range &&
+    left.hasOlder === right.hasOlder
+  );
+}
+
 class TimelineReplicaOwner implements TimelineReplica {
   private readonly cachedRanges = new Map<string, AgentTimelineCursorState>();
+  private readonly committedSources = new Map<string, CommittedTimelineSource>();
   private readonly preparations = new Map<string, Promise<void>>();
 
   constructor(
@@ -145,11 +165,20 @@ class TimelineReplicaOwner implements TimelineReplica {
     const timeline = selectAgentTimelineState(session, agentId);
     if (timeline.status === "cold") return;
     if (timeline.status === "synced") this.cachedRanges.delete(agentId);
-    this.storage.commitTimeline(this.serverId, agentId, {
-      agentId,
-      items: [...timeline.items, ...(session?.agentStreamHead.get(agentId) ?? [])],
+    const source: CommittedTimelineSource = {
+      tail: timeline.items,
+      head: session?.agentStreamHead.get(agentId),
       range: timeline.status === "synced" ? timeline.range : null,
       hasOlder: timeline.status === "synced" && timeline.older === "available",
+    };
+    const committed = this.committedSources.get(agentId);
+    if (committed && isSameTimelineSource(committed, source)) return;
+    this.committedSources.set(agentId, source);
+    this.storage.commitTimeline(this.serverId, agentId, {
+      agentId,
+      items: [...source.tail, ...(source.head ?? [])],
+      range: source.range,
+      hasOlder: source.hasOlder,
     });
   }
 }
@@ -383,8 +412,7 @@ export function createViewedTimelineOwner(input: {
   });
   const streamQueue = createSessionAgentStreamReducerQueue({
     serverId: input.serverId,
-    setAgentStreamState: (...args) => useSessionStore.getState().setAgentStreamState(...args),
-    setAgentTimelineCursor: (...args) => useSessionStore.getState().setAgentTimelineCursor(...args),
+    setAgentStreamStates: (...args) => useSessionStore.getState().setAgentStreamStates(...args),
     recoverTimelineGap: (agentId, cursor) => sync.recoverGap(agentId, cursor),
     onCommitted: (agentId) => input.replica.timelineUpdated(agentId),
   });

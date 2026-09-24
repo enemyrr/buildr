@@ -91,7 +91,10 @@ vi.mock("@/constants/platform", () => ({
 }));
 
 vi.mock("@/runtime/host-runtime", () => ({
-  useHostRuntimeSnapshot: () => ({ activeConnection: null }),
+  getHostRuntimeStore: () => ({
+    subscribe: () => () => {},
+    getSnapshot: () => ({ activeConnection: null }),
+  }),
 }));
 
 vi.mock("@/workspace-service-routes/store", async () => {

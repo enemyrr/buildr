@@ -41,6 +41,7 @@ export interface NavigateToWorkspaceDeps extends PrepareWorkspaceTabDeps {
 
 export interface NavigateToLastWorkspaceDeps extends NavigateToWorkspaceDeps {
   getLastWorkspaceSelection: () => ActiveWorkspaceSelection | null;
+  forgetLastWorkspace: (selection: ActiveWorkspaceSelection) => void;
 }
 
 function getParamValue(value: string | string[] | undefined): string {
@@ -130,6 +131,15 @@ export function navigateToWorkspace(
 export function navigateToLastWorkspace(deps: NavigateToLastWorkspaceDeps): boolean {
   const selection = deps.getLastWorkspaceSelection();
   if (!selection) {
+    return false;
+  }
+  // The remembered workspace may have been archived since; only a loaded host can tell.
+  const workspaces = deps.getSessionWorkspaces(selection.serverId);
+  const isGone =
+    Boolean(workspaces) &&
+    resolveWorkspaceMapKeyByIdentity({ workspaces, workspaceId: selection.workspaceId }) === null;
+  if (isGone) {
+    deps.forgetLastWorkspace(selection);
     return false;
   }
   navigateToWorkspace(selection, deps);

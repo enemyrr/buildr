@@ -69,18 +69,22 @@ export type GitMutationRefreshReason =
   | "create-worktree";
 
 const DISCARD_CHANGES_TIMEOUT_MS = 120_000;
-const DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS = 30_000;
-const PULL_REQUEST_STATUS_CACHE_MAX = 1_000;
+// A transient forge error may serve the last good status for the same HEAD, but only this long.
+const PULL_REQUEST_STATUS_STALE_MAX_AGE_MS = 5 * 60_000;
+const PULL_REQUEST_STATUS_STALE_MAX = 1_000;
 const DEFAULT_SHORTSTAT_CACHE_TTL_MS = 15_000;
 const SHORTSTAT_CACHE_MAX = 1_000;
 
-let pullRequestStatusCacheTtlMs = DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS;
-let pullRequestStatusCache = createPullRequestStatusCache(pullRequestStatusCacheTtlMs);
 const pullRequestStatusInFlight = new Map<string, Promise<PullRequestStatusResult>>();
-const lastSuccessfulPullRequestStatus = new Map<string, PullRequestStatusResult>();
+const lastSuccessfulPullRequestStatus = new Map<string, SuccessfulPullRequestStatus>();
 let shortstatCacheTtlMs = DEFAULT_SHORTSTAT_CACHE_TTL_MS;
 let shortstatCache = createShortstatCache(shortstatCacheTtlMs);
 const shortstatInFlight = new Map<string, Promise<CheckoutShortstat | null>>();
+
+interface SuccessfulPullRequestStatus {
+  result: PullRequestStatusResult;
+  loadedAtMs: number;
+}
 
 interface CheckoutReadCacheOptions {
   force?: boolean;
@@ -123,14 +127,6 @@ function throwBranchNotFound(branch: string | undefined): never {
   throw new Error(`Branch not found: ${branch ?? "unknown"}`);
 }
 
-function createPullRequestStatusCache(ttlMs: number) {
-  return new TTLCache<string, PullRequestStatusResult>({
-    ttl: ttlMs,
-    max: PULL_REQUEST_STATUS_CACHE_MAX,
-    checkAgeOnGet: true,
-  });
-}
-
 function createShortstatCache(ttlMs: number) {
   return new TTLCache<string, CheckoutShortstat | null>({
     ttl: ttlMs,
@@ -143,9 +139,10 @@ function getPullRequestStatusCacheKey(cwd: string, headSha: string | null): stri
   return `${resolve(cwd)}\u0000${headSha ?? ""}`;
 }
 
-function rememberPullRequestStatus(cacheKey: string, status: PullRequestStatusResult): void {
-  lastSuccessfulPullRequestStatus.set(cacheKey, status);
-  if (lastSuccessfulPullRequestStatus.size <= PULL_REQUEST_STATUS_CACHE_MAX) {
+function rememberPullRequestStatus(cacheKey: string, result: PullRequestStatusResult): void {
+  lastSuccessfulPullRequestStatus.delete(cacheKey);
+  lastSuccessfulPullRequestStatus.set(cacheKey, { result, loadedAtMs: Date.now() });
+  if (lastSuccessfulPullRequestStatus.size <= PULL_REQUEST_STATUS_STALE_MAX) {
     return;
   }
   const oldest = lastSuccessfulPullRequestStatus.keys().next();
@@ -154,24 +151,19 @@ function rememberPullRequestStatus(cacheKey: string, status: PullRequestStatusRe
   }
 }
 
+function getRecentPullRequestStatus(cacheKey: string): PullRequestStatusResult | null {
+  const entry = lastSuccessfulPullRequestStatus.get(cacheKey);
+  if (!entry || Date.now() - entry.loadedAtMs > PULL_REQUEST_STATUS_STALE_MAX_AGE_MS) {
+    return null;
+  }
+  return entry.result;
+}
+
 function getShortstatCacheKey(cwd: string): string {
   return resolve(cwd);
 }
 
 export function __resetPullRequestStatusCacheForTests(): void {
-  pullRequestStatusCache.clear();
-  pullRequestStatusCache.cancelTimer();
-  pullRequestStatusCacheTtlMs = DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS;
-  pullRequestStatusCache = createPullRequestStatusCache(pullRequestStatusCacheTtlMs);
-  pullRequestStatusInFlight.clear();
-  lastSuccessfulPullRequestStatus.clear();
-}
-
-export function __setPullRequestStatusCacheTtlForTests(ttlMs: number): void {
-  pullRequestStatusCache.clear();
-  pullRequestStatusCache.cancelTimer();
-  pullRequestStatusCacheTtlMs = ttlMs;
-  pullRequestStatusCache = createPullRequestStatusCache(ttlMs);
   pullRequestStatusInFlight.clear();
   lastSuccessfulPullRequestStatus.clear();
 }
@@ -4120,14 +4112,17 @@ export function isForgeAuthError(error: unknown): boolean {
 
 /**
  * Map a forge CLI failure to an auth state. A missing-CLI error means the user
- * must install the tool; anything else surfaced as an auth probe failure means
- * they must sign in.
+ * must install the tool and an auth failure means they must sign in. Anything
+ * else (timeouts, network, API errors) is transient and says nothing about auth.
  */
 export function forgeAuthStateFromError(error: unknown): ForgeAuthState {
   if (error instanceof ForgeCliMissingError) {
     return "cli_missing";
   }
-  return "unauthenticated";
+  if (error instanceof ForgeAuthenticationError) {
+    return "unauthenticated";
+  }
+  return "error";
 }
 
 export type PullRequestCheck = ForgePullRequestCheck;
@@ -4186,12 +4181,8 @@ export async function getPullRequestStatus(
 ): Promise<PullRequestStatusResult> {
   const headSha = await getCurrentHeadSha(cwd, context);
   const cacheKey = getPullRequestStatusCacheKey(cwd, headSha);
+  // No result cache here: forge adapters own caching and invalidation, and poller writes land there.
   if (!options?.force) {
-    const cached = pullRequestStatusCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
     const existing = pullRequestStatusInFlight.get(cacheKey);
     if (existing) {
       return existing;
@@ -4200,13 +4191,12 @@ export async function getPullRequestStatus(
 
   const lookup = getPullRequestStatusUncached(cwd, forgeService, options, context, headSha)
     .then((status) => {
-      pullRequestStatusCache.set(cacheKey, status);
       rememberPullRequestStatus(cacheKey, status);
       return status;
     })
     .catch((error) => {
       if (!options?.force && error instanceof ForgeCommandError) {
-        const stale = lastSuccessfulPullRequestStatus.get(cacheKey);
+        const stale = getRecentPullRequestStatus(cacheKey);
         if (stale) {
           return stale;
         }
@@ -4265,7 +4255,7 @@ async function getPullRequestStatusUncached(
       });
     }
     return buildPullRequestStatusResult(
-      await dropFinishedPullRequestOutsideWorktree(cwd, status, context),
+      await dropFinishedPullRequestForCheckout(cwd, status, context),
       "authenticated",
     );
   } catch (error) {
@@ -4278,7 +4268,17 @@ async function getPullRequestStatusUncached(
 
 // A local checkout on a long-lived branch (e.g. `dev`) can sit exactly on the head of an old
 // merged PR. Only Paseo worktrees own their branch, so only they surface finished PRs.
-async function dropFinishedPullRequestOutsideWorktree(
+export function dropFinishedPullRequestOutsideWorktree<T extends { state: string }>(
+  status: T | null,
+  isPaseoOwnedWorktree: boolean,
+): T | null {
+  if (!status || status.state === "open" || isPaseoOwnedWorktree) {
+    return status;
+  }
+  return null;
+}
+
+async function dropFinishedPullRequestForCheckout(
   cwd: string,
   status: CurrentPullRequestStatus | null,
   context?: CheckoutContext,
@@ -4289,7 +4289,7 @@ async function dropFinishedPullRequestOutsideWorktree(
   const isPaseoWorktree = context?.facts?.isGit
     ? context.facts.paseoWorktree.isPaseoOwnedWorktree
     : (await getPaseoWorktreeForCwd(cwd, { context })).isPaseoOwnedWorktree;
-  return isPaseoWorktree ? status : null;
+  return dropFinishedPullRequestOutsideWorktree(status, isPaseoWorktree);
 }
 
 function getUnavailablePullRequestStatus(

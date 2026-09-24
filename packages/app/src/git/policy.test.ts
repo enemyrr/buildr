@@ -521,6 +521,64 @@ describe("git-actions-policy", () => {
     );
   });
 
+  it("offers PR merge on a stacked branch with nothing ahead of the workspace's local base", () => {
+    const actions = buildGitActions(
+      createInput({
+        hasRemote: true,
+        isOnBaseBranch: false,
+        aheadCount: 0,
+        hasPullRequest: true,
+        pullRequestUrl: "https://example.com/pr/456",
+        pullRequestState: "open",
+        pullRequestMergeable: "MERGEABLE",
+        pullRequestGithub: githubStatus({ mergeStateStatus: "CLEAN" }),
+      }),
+    );
+
+    expect(actions.primary).toMatchObject({ id: "merge-pr-squash", disabled: false });
+    expect(actions.primary?.unavailableMessage).toBeUndefined();
+  });
+
+  it("still requires local commits ahead to merge a PR without forge facts", () => {
+    const actions = buildGitActions(
+      createInput({
+        hasRemote: true,
+        isOnBaseBranch: false,
+        aheadCount: 0,
+        hasPullRequest: true,
+        pullRequestUrl: "https://example.com/pr/456",
+        pullRequestState: "open",
+        pullRequestMergeable: "MERGEABLE",
+      }),
+    );
+
+    expect(actions.secondary.find((action) => action.id === "merge-pr-squash")).toMatchObject({
+      disabled: true,
+      unavailableMessage:
+        "Merge isn't available because this branch doesn't have anything new to merge yet",
+    });
+  });
+
+  it.each(["UNSTABLE", "UNKNOWN"])(
+    "offers PR merge while GitHub reports %s",
+    (mergeStateStatus) => {
+      const actions = buildGitActions(
+        createInput({
+          hasRemote: true,
+          isOnBaseBranch: false,
+          aheadCount: 2,
+          hasPullRequest: true,
+          pullRequestUrl: "https://example.com/pr/456",
+          pullRequestState: "open",
+          pullRequestMergeable: "UNKNOWN",
+          pullRequestGithub: githubStatus({ mergeStateStatus }),
+        }),
+      );
+
+      expect(actions.primary).toMatchObject({ id: "merge-pr-squash", disabled: false });
+    },
+  );
+
   it("promotes ready PR merge over update-from-base", () => {
     const actions = buildGitActions(
       createInput({

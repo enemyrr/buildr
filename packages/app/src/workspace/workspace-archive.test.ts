@@ -1,12 +1,16 @@
 import { seedSessionHosts } from "@/test/seed-session";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient, FetchWorkspacesEntry } from "@getpaseo/client/internal/daemon-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearWorkspaceArchivePending,
   isWorkspaceArchivePending,
 } from "@/contexts/session-workspace-upserts";
-import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
+import {
+  normalizeWorkspaceDescriptor,
+  useSessionStore,
+  type WorkspaceDescriptor,
+} from "@/stores/session-store";
 import {
   archiveWorkspaceOptimistically,
   archiveWorkspacesOptimistically,
@@ -30,7 +34,7 @@ function archivePayload(input: {
   };
 }
 
-function workspace(input?: Partial<WorkspaceDescriptor>): WorkspaceDescriptor {
+function workspacePayload(input?: Partial<FetchWorkspacesEntry>): FetchWorkspacesEntry {
   return {
     id: "workspace-1",
     projectId: "project-1",
@@ -41,12 +45,17 @@ function workspace(input?: Partial<WorkspaceDescriptor>): WorkspaceDescriptor {
     workspaceKind: "worktree",
     name: "workspace-1",
     status: "done",
+    activityAt: null,
     archivingAt: null,
     statusEnteredAt: null,
     diffStat: null,
     scripts: [],
     ...input,
   };
+}
+
+function workspace(input?: Partial<FetchWorkspacesEntry>): WorkspaceDescriptor {
+  return normalizeWorkspaceDescriptor(workspacePayload(input));
 }
 
 function target(input?: Partial<WorkspaceArchiveTarget>): WorkspaceArchiveTarget {
@@ -60,8 +69,12 @@ function target(input?: Partial<WorkspaceArchiveTarget>): WorkspaceArchiveTarget
 
 function createClient(
   archiveWorkspace: DaemonClient["archiveWorkspace"],
-): Pick<DaemonClient, "archiveWorkspace"> {
-  return { archiveWorkspace };
+  activeWorkspaces: FetchWorkspacesEntry[] = [],
+) {
+  return {
+    archiveWorkspace,
+    fetchWorkspaces: vi.fn(async () => ({ entries: activeWorkspaces })),
+  };
 }
 
 function deferred<T>(): {
@@ -131,6 +144,7 @@ describe("archiveWorkspaceOptimistically", () => {
     getHostRuntimeStore().acceptWorkspaceSnapshots(SERVER_ID, [archived]);
     const client = createClient(
       vi.fn(async () => archivePayload({ workspaceId: archived.id, error: "nope" })),
+      [workspacePayload()],
     );
 
     await expect(
@@ -147,6 +161,39 @@ describe("archiveWorkspaceOptimistically", () => {
         workspaceId: archived.id,
       }),
     ).toBe(false);
+  });
+
+  it("keeps the workspace hidden when the host already archived it despite the error", async () => {
+    const archived = workspace();
+    getHostRuntimeStore().acceptWorkspaceSnapshots(SERVER_ID, [archived]);
+    const client = createClient(vi.fn(async () => Promise.reject(new Error("timed out"))));
+
+    await expect(archiveWorkspaceOptimistically({ client, workspace: target() })).rejects.toThrow(
+      "timed out",
+    );
+
+    expect(client.fetchWorkspaces).toHaveBeenCalledWith({
+      filter: { projectId: archived.projectId },
+      page: { limit: 200 },
+    });
+    expect(storedWorkspace(archived.id)).toBeUndefined();
+    expect(isWorkspaceArchivePending({ serverId: SERVER_ID, workspaceId: archived.id })).toBe(
+      false,
+    );
+  });
+
+  it("sends one archive request when two surfaces archive the same workspace", async () => {
+    getHostRuntimeStore().acceptWorkspaceSnapshots(SERVER_ID, [workspace()]);
+    const releaseArchive = deferred<ArchiveWorkspacePayload>();
+    const archiveWorkspace = vi.fn(async () => releaseArchive.promise);
+    const client = createClient(archiveWorkspace);
+
+    const first = archiveWorkspaceOptimistically({ client, workspace: target() });
+    const second = archiveWorkspaceOptimistically({ client, workspace: target() });
+    releaseArchive.resolve(archivePayload({ workspaceId: "workspace-1" }));
+    await Promise.all([first, second]);
+
+    expect(archiveWorkspace).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -166,6 +213,13 @@ describe("archiveWorkspacesOptimistically", () => {
           error: workspaceId === second.id ? "failed" : null,
         }),
       ),
+      [
+        workspacePayload({
+          id: "workspace-2",
+          workspaceDirectory: "/repo/project/workspace-2",
+          name: "workspace-2",
+        }),
+      ],
     );
 
     const failures = await archiveWorkspacesOptimistically({
