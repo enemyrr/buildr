@@ -1372,6 +1372,144 @@ test("create_agent_request does not title an existing workspace from the agent p
   }
 });
 
+test("create_agent_request names an empty worktree from its first prompt", async () => {
+  const workdir = realpathSync(mkdtempSync(path.join(tmpdir(), "paseo-create-agent-empty-wt-")));
+  try {
+    const repoDir = path.join(workdir, "repo");
+    mkdirSync(repoDir);
+    execFileSync("git", ["init", repoDir], { stdio: "pipe" });
+    execFileSync("git", ["config", "user.email", "test@getpaseo.local"], {
+      cwd: repoDir,
+      stdio: "pipe",
+    });
+    execFileSync("git", ["config", "user.name", "Paseo Test"], { cwd: repoDir, stdio: "pipe" });
+    execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: repoDir, stdio: "pipe" });
+    writeFileSync(path.join(repoDir, "README.md"), "hello\n");
+    execFileSync("git", ["add", "README.md"], { cwd: repoDir, stdio: "pipe" });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: repoDir, stdio: "pipe" });
+    execFileSync("git", ["branch", "-M", "amsterdam"], { cwd: repoDir, stdio: "pipe" });
+    writePaseoWorktreeMetadata(repoDir, { baseRefName: "main" });
+    writePaseoWorktreeFirstAgentBranchAutoNameMetadata(repoDir, {
+      placeholderBranchName: "amsterdam",
+    });
+
+    const logger = asSessionLogger(createTestLogger());
+    const agentStorage = new AgentStorage(path.join(workdir, "agents"), logger);
+    const agentManager = new AgentManager({
+      clients: { codex: new CreateAgentTestClient() },
+      registry: agentStorage,
+      logger,
+      idFactory: () => "00000000-0000-4000-8000-000000000553",
+    });
+    const projectRegistry = new FileBackedProjectRegistry(
+      path.join(workdir, "projects.json"),
+      logger,
+    );
+    const workspaceRegistry = new FileBackedWorkspaceRegistry(
+      path.join(workdir, "workspaces.json"),
+      logger,
+    );
+    await workspaceRegistry.upsert(
+      createPersistedWorkspaceRecord({
+        workspaceId: "ws-empty-worktree",
+        projectId: "proj-empty-worktree",
+        cwd: repoDir,
+        kind: "worktree",
+        displayName: "amsterdam",
+        title: null,
+        branch: "amsterdam",
+        worktreeRoot: repoDir,
+        isPaseoOwnedWorktree: true,
+        createdAt: "2026-05-07T00:00:00.000Z",
+        updatedAt: "2026-05-07T00:00:00.000Z",
+      }),
+    );
+
+    const session = asTestSession(
+      new Session({
+        messageReceipts: createMessageReceiptsStub(),
+        creationService: createTestCreationService(),
+        clientId: "test-client",
+        permissions: OWNER_PERMISSIONS,
+        appVersion: null,
+        onMessage: vi.fn(),
+        logger,
+        downloadTokenStore: asDownloadTokenStore(),
+        pushNotifications: asPushNotifications(),
+        paseoHome: path.join(workdir, "paseo-home"),
+        agentManager,
+        agentStorage,
+        projectRegistry,
+        workspaceRegistry,
+        scheduleService: asScheduleService(),
+        checkoutDiffManager: asCheckoutDiffManager({
+          subscribe: async () => ({
+            initial: { cwd: repoDir, files: [], error: null },
+            unsubscribe: () => {},
+          }),
+          scheduleRefreshForCwd: () => {},
+          onWorkspaceStateMayHaveChanged: () => {},
+          invalidateForge: () => {},
+          getMetrics: () => ({
+            checkoutDiffTargetCount: 0,
+            checkoutDiffSubscriptionCount: 0,
+            checkoutDiffWatcherCount: 0,
+            checkoutDiffFallbackRefreshTargetCount: 0,
+          }),
+          dispose: () => {},
+        }),
+        workspaceGitService: createNoopWorkspaceGitService(),
+        workspaceAutoName: new WorkspaceAutoName({
+          agentManager,
+          workspaceRegistry,
+          workspaceGitService: createNoopWorkspaceGitService(),
+          providerSnapshotManager: createProviderSnapshotManagerStub().manager,
+          readDaemonConfig: () => ({ metadataGeneration: { providers: [] } }),
+          gitMutation: { notifyGitMutation: async () => {} },
+          emitWorkspaceUpdateForCwd: async () => {},
+          emitWorkspaceUpdateForWorkspaceId: async () => {},
+          logger,
+          generateWorkspaceName: async () => ({
+            title: "Code review PR 943",
+            branch: "code-review-pr-943",
+          }),
+        }),
+        daemonConfigStore: asDaemonConfigStore({
+          get: () => ({ mcp: { injectIntoAgents: false }, providers: {} }),
+          onChange: () => () => {},
+        }),
+        mcpBaseUrl: null,
+        stt: null,
+        tts: null,
+        providerSnapshotManager: createProviderSnapshotManagerStub().manager,
+        terminalManager: null,
+      }),
+    );
+
+    await session.handleMessage({
+      type: "create_agent_request",
+      requestId: "req-create-empty-worktree",
+      workspaceId: "ws-empty-worktree",
+      config: { provider: "codex", cwd: repoDir },
+      initialPrompt: "/code-review https://github.com/sajn-se/sajn-app/pull/943",
+      attachments: [],
+    });
+    await vi.waitFor(async () => {
+      await expect(workspaceRegistry.get("ws-empty-worktree")).resolves.toMatchObject({
+        title: "Code review PR 943",
+        branch: "code-review-pr-943",
+      });
+    });
+    expect(
+      execFileSync("git", ["branch", "--show-current"], { cwd: repoDir, stdio: "pipe" })
+        .toString()
+        .trim(),
+    ).toBe("code-review-pr-943");
+  } finally {
+    rmSync(workdir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
 test("unsupported persisted agents are excluded from active lists but preserved in history payloads", async () => {
   const session = createSessionForWorkspaceTests({ appVersion: "0.1.45" });
   const storedRecord = {
