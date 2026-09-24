@@ -72,10 +72,10 @@ describe("loadExternalSessionIndex", () => {
       );
     };
     writeAgent(".paseo", "a", "thread-a");
-    writeAgent(".paseo-fork", "b", "thread-b");
+    writeAgent(".buildr", "b", "thread-b");
 
     const index = await loadExternalSessionIndex({
-      paseoHome: join(homeDir, ".paseo-fork"),
+      paseoHome: join(homeDir, ".buildr"),
       logger: createTestLogger(),
       homeDir,
     });

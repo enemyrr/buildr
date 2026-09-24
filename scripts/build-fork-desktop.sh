@@ -20,7 +20,7 @@ set -eu
 FORK_NAME="${PASEO_FORK_NAME:-Paseo Fork}"
 FORK_DISPLAY_NAME="${PASEO_FORK_DISPLAY_NAME:-Buildr}"
 FORK_APP_ID="${PASEO_FORK_APP_ID:-sh.paseo.desktop.fork}"
-FORK_HOME="${PASEO_FORK_HOME:-~/.paseo-fork}"
+FORK_HOME="${PASEO_FORK_HOME:-~/.buildr}"
 FORK_LISTEN="${PASEO_FORK_LISTEN:-127.0.0.1:6777}"
 
 npm run build:desktop -- --mac dir --arm64 \

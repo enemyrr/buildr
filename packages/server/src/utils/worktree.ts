@@ -851,15 +851,21 @@ export async function getGitCommonDir(cwd: string): Promise<string> {
   return commonDir;
 }
 
-const WORKTREE_PROJECT_HASH_LENGTH = 8;
+const WORKTREE_PROJECT_HASH_LENGTH = 4;
 
-function deriveShortAlphanumericHash(value: string): string {
-  const digest = createHash("sha256").update(value).digest();
+// Readable, collision-safe folder name: `<repo-basename>-<hash of repo root>`.
+function deriveProjectDirName(repoRoot: string): string {
+  const digest = createHash("sha256").update(repoRoot).digest();
   let hashValue = 0n;
   for (let index = 0; index < 8; index += 1) {
     hashValue = (hashValue << 8n) | BigInt(digest[index] ?? 0);
   }
-  return hashValue.toString(36).padStart(13, "0").slice(0, WORKTREE_PROJECT_HASH_LENGTH);
+  const hash = hashValue.toString(36).padStart(13, "0").slice(0, WORKTREE_PROJECT_HASH_LENGTH);
+  const name = basename(repoRoot)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return name ? `${name}-${hash}` : hash;
 }
 
 export async function deriveWorktreeProjectHash(cwd: string): Promise<string> {
@@ -868,9 +874,9 @@ export async function deriveWorktreeProjectHash(cwd: string): Promise<string> {
     const normalizedCommonDir = normalizePathForOwnership(commonDir);
     const repoRoot =
       basename(normalizedCommonDir) === ".git" ? dirname(normalizedCommonDir) : normalizedCommonDir;
-    return deriveShortAlphanumericHash(repoRoot);
+    return deriveProjectDirName(repoRoot);
   } catch {
-    return deriveShortAlphanumericHash(normalizePathForOwnership(cwd));
+    return deriveProjectDirName(normalizePathForOwnership(cwd));
   }
 }
 
