@@ -210,6 +210,7 @@ import {
   type AgentUpdatesService,
 } from "./session/agent-updates/agent-updates-service.js";
 import { expandTilde } from "../utils/path.js";
+import { readPaseoWorktreeMetadata } from "../utils/worktree-metadata.js";
 import {
   searchDirectoryEntries,
   WORKSPACE_SEARCH_HIDDEN_DIRECTORIES,
@@ -4297,15 +4298,12 @@ export class Session {
       );
       createdAgentId = snapshot.id;
       await this.agentUpdates.forwardLiveAgent(snapshot);
-      if (resolvedIntent.createdDirectoryWorkspace && trimmedPrompt) {
-        this.workspaceAutoName.scheduleForDirectory(
-          {
-            workspaceId: resolvedIntent.intent.workspaceId,
-            cwd: resolvedIntent.config.cwd,
-            firstAgentContext,
-          },
-          { currentSelection: this.getFocusedAgentSelectionForCwd(resolvedIntent.config.cwd) },
-        );
+      if (trimmedPrompt) {
+        await this.scheduleWorkspaceAutoNameForCreatedAgent({
+          resolvedIntent,
+          createdWorktree: Boolean(createdWorktree),
+          firstAgentContext,
+        });
       }
       if (trimmedPrompt && provisionalTitle && !config.title?.trim()) {
         this.scheduleAgentAutoTitle({
@@ -8058,6 +8056,9 @@ export class Session {
       const { provisionalTitle } = resolveCreateAgentTitles({ initialPrompt: text });
       if (provisionalTitle) {
         await this.agentManager.setTitle(agentId, provisionalTitle);
+        if (stored.workspaceId) {
+          await this.scheduleEmptyWorktreeAutoName(stored.workspaceId, { prompt: text.trim() });
+        }
         this.scheduleAgentAutoTitle({
           agentId,
           cwd: stored.cwd,
@@ -8066,6 +8067,55 @@ export class Session {
         });
       }
     }
+  }
+
+  // A new worktree schedules its own auto-name when it is created.
+  private async scheduleWorkspaceAutoNameForCreatedAgent(input: {
+    resolvedIntent: ResolvedSessionCreateAgentIntent;
+    createdWorktree: boolean;
+    firstAgentContext: FirstAgentContext;
+  }): Promise<void> {
+    const { resolvedIntent, firstAgentContext } = input;
+    if (resolvedIntent.createdDirectoryWorkspace) {
+      this.workspaceAutoName.scheduleForDirectory(
+        {
+          workspaceId: resolvedIntent.intent.workspaceId,
+          cwd: resolvedIntent.config.cwd,
+          firstAgentContext,
+        },
+        { currentSelection: this.getFocusedAgentSelectionForCwd(resolvedIntent.config.cwd) },
+      );
+    } else if (!input.createdWorktree) {
+      await this.scheduleEmptyWorktreeAutoName(
+        resolvedIntent.intent.workspaceId,
+        firstAgentContext,
+      );
+    }
+  }
+
+  // A worktree created without a prompt keeps its placeholder name until the
+  // first prompt of its first agent names it.
+  private async scheduleEmptyWorktreeAutoName(
+    workspaceId: string,
+    firstAgentContext: FirstAgentContext,
+  ): Promise<void> {
+    const workspace = await this.workspaceRegistry.get(workspaceId);
+    if (!workspace || workspace.title || workspace.kind !== "worktree") {
+      return;
+    }
+    let metadata: ReturnType<typeof readPaseoWorktreeMetadata>;
+    try {
+      metadata = readPaseoWorktreeMetadata(workspace.worktreeRoot ?? workspace.cwd);
+    } catch {
+      return;
+    }
+    if (metadata?.version !== 2 || metadata.firstAgentBranchAutoName?.status !== "pending") {
+      return;
+    }
+    this.workspaceAutoName.scheduleForWorktree(
+      { workspace, firstAgentContext },
+      { currentSelection: this.getFocusedAgentSelectionForCwd(workspace.cwd) },
+    );
   }
 
   // Replaces the prompt-derived tab title with a generated one, unless the
