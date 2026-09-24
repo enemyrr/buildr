@@ -10,6 +10,10 @@
 # Tags are named buildr-v<version> because the upstream workflows trigger on
 # v* tags.
 #
+# The build packages whatever is in the working tree, so run it from a checkout
+# no agent edits, such as a dedicated worktree at origin/main:
+#   git worktree add --detach ../buildr-release origin/main
+#
 # Usage: scripts/release-buildr-mac.sh [patch|minor|major]
 #
 # Store the notarization credentials once before the first release:
@@ -29,9 +33,8 @@ fail() {
 }
 
 [ -z "$(git status --porcelain)" ] || fail "Commit or stash your changes first."
-[ "$(git branch --show-current)" = main ] || fail "Switch to main first."
 git fetch -q origin main
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "Sync main with origin/main first."
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "Check out origin/main first."
 xcrun notarytool history --keychain-profile buildr >/dev/null ||
   fail "Store the buildr notarytool profile first. See the header of this script."
 
@@ -54,12 +57,13 @@ APPLE_KEYCHAIN_PROFILE=buildr scripts/build-fork-desktop.sh \
 for file in "Buildr-$VERSION-arm64.dmg" "Buildr-$VERSION-arm64.zip" latest-mac.yml; do
   [ -f "$OUT/$file" ] || fail "Missing $OUT/$file."
 done
-spctl --assess --type open --context context:primary-signature "$OUT/Buildr-$VERSION-arm64.dmg" ||
-  fail "Gatekeeper rejects the dmg."
+# The dmg itself stays unsigned, like upstream's. Gatekeeper checks the app.
+spctl --assess --type exec "$OUT/mac-arm64/Buildr.app" || fail "Gatekeeper rejects Buildr.app."
+xcrun stapler validate "$OUT/mac-arm64/Buildr.app" || fail "Buildr.app has no notarization ticket."
 
-git add -A
+git add -- package-lock.json $(git ls-files '*package.json')
 git commit -m "chore(release): Buildr $VERSION"
-git push origin main
+git push origin HEAD:main
 
 gh release create "$TAG" -R "$REPO" --target main --title "Buildr $VERSION" --generate-notes \
   "$OUT/Buildr-$VERSION-arm64."* "$OUT/latest-mac.yml"
