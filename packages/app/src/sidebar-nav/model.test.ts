@@ -36,6 +36,7 @@ describe("resolveSidebarNavItems", () => {
 
     expect(summarize(items)).toEqual([
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "history", visible: true },
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
@@ -43,7 +44,7 @@ describe("resolveSidebarNavItems", () => {
       { key: kanbanKey, visible: true },
       { key: notesKey, visible: true },
     ]);
-    expect(items[5]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
+    expect(items[6]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
     expect(items[0]).toEqual({
       kind: "builtin",
       key: "dashboard",
@@ -64,6 +65,7 @@ describe("resolveSidebarNavItems", () => {
 
     expect(summarize(items)).toEqual([
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: kanbanKey, visible: false },
       { key: "schedules", visible: true },
       { key: "new-workspace", visible: false },
@@ -85,6 +87,7 @@ describe("resolveSidebarNavItems", () => {
 
     expect(items.map((item) => item.key)).toEqual([
       "dashboard",
+      "home",
       "history",
       "new-workspace",
       "search",
@@ -103,6 +106,7 @@ describe("resolveSidebarNavItems", () => {
 
     expect(summarize(items)).toEqual([
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "history", visible: false },
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
@@ -119,6 +123,7 @@ describe("setSidebarNavItemVisible", () => {
 
     expect(next).toEqual([
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "history", visible: true },
       { key: "new-workspace", visible: true },
       { key: "search", visible: false },
@@ -139,6 +144,7 @@ describe("setSidebarNavItemVisible", () => {
     expect(next).toEqual([
       { key: notesKey, visible: false },
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "history", visible: false },
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
@@ -149,6 +155,7 @@ describe("setSidebarNavItemVisible", () => {
   it("keeps an unavailable plugin in its configured position", () => {
     const previous: SidebarNavPreference[] = [
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "new-workspace", visible: true },
       { key: notesKey, visible: false },
       { key: "history", visible: true },
@@ -161,6 +168,7 @@ describe("setSidebarNavItemVisible", () => {
 
     expect(next).toEqual([
       { key: "dashboard", visible: true },
+      { key: "home", visible: true },
       { key: "new-workspace", visible: true },
       { key: notesKey, visible: false },
       { key: "history", visible: false },
@@ -189,6 +197,7 @@ describe("moveSidebarNavItem", () => {
 
     expect(next.map((preference) => preference.key)).toEqual([
       "dashboard",
+      "home",
       "history",
       "search",
       "new-workspace",
@@ -202,6 +211,7 @@ describe("moveSidebarNavItem", () => {
 
     expect(next.map((preference) => preference.key)).toEqual([
       "dashboard",
+      "home",
       "history",
       "new-workspace",
       "search",

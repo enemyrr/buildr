@@ -9,6 +9,9 @@ import {
   FastForward,
   GitCommitHorizontal,
   GitMerge,
+  GitPullRequestArrow,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
   Wrench,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
@@ -155,9 +158,8 @@ export function PrStatusStrip({
       style={[variant === "bar" ? styles.bar : styles.inline, tone.tint]}
       testID={variant === "bar" ? "workspace-pr-status-strip" : "workspace-pr-status-inline"}
     >
-      <View style={[styles.link, tone.border]}>
+      <View style={styles.link}>
         <PrSegment
-          tone={state.tone}
           onPress={onOpenPullRequest ?? openPr}
           role={onOpenPullRequest ? "button" : "link"}
           accessibilityLabel={
@@ -167,22 +169,21 @@ export function PrStatusStrip({
           }
           testID="workspace-pr-status-number"
         >
+          <ToneIcon icon={prStateIcon(prStatus)} tone={state.tone} size={14} />
           <Text style={[styles.chipText, tone.text]}>{numberLabel}</Text>
         </PrSegment>
         <PrSegment
-          tone={state.tone}
           onPress={openPr}
           role="link"
           accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
-          divided
           testID="workspace-pr-status-open-external"
         >
-          <ToneIcon icon={ArrowUpRight} tone={state.tone} size={12} />
+          <ToneIcon icon={ArrowUpRight} tone="muted" size={12} />
         </PrSegment>
       </View>
       <View style={styles.status}>
         <Text
-          style={[styles.label, tone.text]}
+          style={[styles.label, state.tone === "muted" ? styles.labelMuted : tone.text]}
           numberOfLines={1}
           testID="workspace-pr-status-label"
         >
@@ -238,38 +239,42 @@ function stripLabelText(
   return t(`workspace.git.prFlow.state.${label}`);
 }
 
+/** The PR's lifecycle glyph, matching the forge's own open, draft, merged, and closed icons. */
+function prStateIcon(pr: { state: string; isMerged: boolean; isDraft?: boolean }): LucideIcon {
+  if (pr.isMerged) return GitMerge;
+  if (pr.state === "closed") return GitPullRequestClosed;
+  if (pr.isDraft) return GitPullRequestDraft;
+  return GitPullRequestArrow;
+}
+
+const segmentStyle = ({
+  hovered = false,
+  pressed,
+}: PressableStateCallbackType & { hovered?: boolean }) => [
+  styles.segment,
+  (hovered || pressed) && styles.segmentHovered,
+];
+
 /** One half of the `#N` `↗` link: the number opens the PR in the app, the arrow in the browser. */
 function PrSegment({
-  tone,
   onPress,
   role,
   accessibilityLabel,
-  divided = false,
   testID,
   children,
 }: {
-  tone: PrStripTone;
   onPress: () => void;
   role: "link" | "button";
   accessibilityLabel: string;
-  divided?: boolean;
   testID?: string;
   children: ReactNode;
 }) {
-  const style = useCallback(
-    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.segment,
-      divided && [styles.segmentDivided, TONE_SHEETS[tone].border],
-      hovered && TONE_SHEETS[tone].tint,
-    ],
-    [tone, divided],
-  );
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole={role}
       accessibilityLabel={accessibilityLabel}
-      style={style}
+      style={segmentStyle}
       testID={testID}
     >
       {children}
@@ -531,25 +536,25 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
   },
   link: {
-    height: CHIP_SIZE,
     flexDirection: "row",
-    alignItems: "stretch",
-    borderWidth: theme.borderWidth[1],
-    borderRadius: theme.borderRadius.md,
-    overflow: "hidden",
+    alignItems: "center",
   },
   segment: {
-    minWidth: CHIP_SIZE - theme.borderWidth[1] * 2,
-    paddingHorizontal: theme.spacing[1],
+    height: CHIP_SIZE,
+    minWidth: CHIP_SIZE,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
   },
-  segmentDivided: {
-    borderLeftWidth: theme.borderWidth[1],
+  segmentHovered: {
+    backgroundColor: theme.colors.interactionHighlight,
   },
   chipText: {
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
+    fontWeight: theme.fontWeight.semibold,
     fontVariant: ["tabular-nums"],
   },
   status: {
@@ -557,12 +562,14 @@ const styles = StyleSheet.create((theme) => ({
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: theme.spacing[2],
+    paddingLeft: theme.spacing[1],
   },
   label: {
     flexShrink: 1,
     fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
+  },
+  labelMuted: {
+    color: theme.colors.foregroundMuted,
   },
   actions: {
     flexDirection: "row",

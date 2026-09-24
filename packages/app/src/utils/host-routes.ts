@@ -432,6 +432,10 @@ export function buildDashboardRoute() {
   return "/dashboard" as const;
 }
 
+export function buildHomeRoute() {
+  return "/home" as const;
+}
+
 export function buildOpenProjectRoute() {
   return "/open-project" as const;
 }

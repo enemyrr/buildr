@@ -257,6 +257,14 @@ export const ru: TranslationResources = {
       unarchive: "Разархивировать",
     },
   },
+  home: {
+    title: "Главная",
+    searchPlaceholder: "Поиск",
+    createWorkspace: "Создать рабочее пространство",
+    daysAgo: "{{count}} дн. назад",
+    empty: "Рабочих пространств пока нет",
+    noMatches: "Нет подходящих рабочих пространств",
+  },
   dashboard: {
     title: "Панель",
     allProjects: "Все проекты",
@@ -1295,6 +1303,7 @@ export const ru: TranslationResources = {
     },
     sections: {
       dashboard: "Панель",
+      home: "Главная",
       sessions: "История",
       search: "Поиск",
       schedules: "Расписания",

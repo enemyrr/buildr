@@ -25,7 +25,8 @@ export type TurnActivityEntryRenderer = (entry: TurnActivityEntry, isLast: boole
 
 interface OverviewGroupProps {
   group: OverviewToolCallGroup;
-  expanded: boolean;
+  /** `null` until the user toggles the group. */
+  expanded: boolean | null;
   isLastInSequence: boolean;
   onExpandedChange: (groupId: string, expanded: boolean) => void;
   renderEntry: TurnActivityEntryRenderer;
@@ -99,18 +100,20 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
   const isCompact = useIsCompactFormFactor();
   const label = useGroupLabel(group);
   const toggle = useCallback(() => {
-    onExpandedChange(group.run.id, !expanded);
+    onExpandedChange(group.run.id, expanded !== true);
   }, [expanded, group.run.id, onExpandedChange]);
   const close = useCallback(() => {
     onExpandedChange(group.run.id, false);
   }, [group.run.id, onExpandedChange]);
 
-  const isInlineExpanded = expanded && !isCompact;
+  const isInlineExpanded = expanded === true && !isCompact;
+  // On compact the sheet owns expansion, so closing it must not hide the live preview.
+  const showsLivePreview = !group.run.isSealed && (isCompact || expanded === null);
   const visibleEntries = useMemo(() => {
     if (isInlineExpanded) return group.entries;
-    if (!group.run.isSealed) return group.entries.slice(-LIVE_PREVIEW_ENTRY_COUNT);
+    if (showsLivePreview) return group.entries.slice(-LIVE_PREVIEW_ENTRY_COUNT);
     return [];
-  }, [group.entries, group.run.isSealed, isInlineExpanded]);
+  }, [group.entries, isInlineExpanded, showsLivePreview]);
   const chevronStyle = isInlineExpanded ? styles.chevronExpanded : styles.chevron;
 
   return (
@@ -152,7 +155,7 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
         <View style={styles.body}>{renderEntries(visibleEntries, renderEntry)}</View>
       ) : null}
       {isCompact ? (
-        <OverviewToolCallGroupSheet visible={expanded} summary={label} onClose={close}>
+        <OverviewToolCallGroupSheet visible={expanded === true} summary={label} onClose={close}>
           {expanded ? renderEntries(group.entries, renderEntry) : null}
         </OverviewToolCallGroupSheet>
       ) : null}

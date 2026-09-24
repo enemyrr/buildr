@@ -375,8 +375,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const [expandedInlineToolCallIds, setExpandedInlineToolCallIds] = useState<Set<string>>(
       new Set(),
     );
-    const [expandedToolCallGroupIds, setExpandedToolCallGroupIds] = useState<Set<string>>(
-      new Set(),
+    // Holds only groups the user toggled; absent groups use the default (collapsed with a live
+    // preview while the turn runs).
+    const [toolCallGroupExpansion, setToolCallGroupExpansion] = useState<Map<string, boolean>>(
+      new Map(),
     );
 
     // Get serverId (fallback to agent's serverId if not provided)
@@ -441,7 +443,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     useEffect(() => {
       setIsNearBottom(true);
       setExpandedInlineToolCallIds(new Set());
-      setExpandedToolCallGroupIds(new Set());
+      setToolCallGroupExpansion(new Map());
     }, [agentId]);
 
     const openFileLocation = useStableEvent(
@@ -696,15 +698,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     );
 
     const setToolCallGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
-      setExpandedToolCallGroupIds((previous) => {
-        const next = new Set(previous);
-        if (expanded) {
-          next.add(groupId);
-        } else {
-          next.delete(groupId);
-        }
-        return next;
-      });
+      setToolCallGroupExpansion((previous) => new Map(previous).set(groupId, expanded));
     }, []);
 
     const renderUserMessageItem = useCallback(
@@ -919,7 +913,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         return (
           <OverviewToolCallGroupView
             group={group}
-            expanded={expandedToolCallGroupIds.has(group.run.id)}
+            expanded={toolCallGroupExpansion.get(group.run.id) ?? null}
             isLastInSequence={layoutItem.isLastInToolSequence}
             onExpandedChange={setToolCallGroupExpanded}
             renderEntry={renderGroupEntry}
@@ -927,7 +921,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         );
       },
       [
-        expandedToolCallGroupIds,
+        toolCallGroupExpansion,
         getToolCallGroup,
         renderGroupEntry,
         renderSingleToolCallItem,
@@ -1167,10 +1161,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const historyRowRevision = useMemo(
       () => ({
         contentById: presentation.historyGroupUpdatesByHostId,
-        displayStateById: expandedToolCallGroupIds,
+        displayStateById: toolCallGroupExpansion,
         globalDisplayState: isMobile,
       }),
-      [expandedToolCallGroupIds, isMobile, presentation.historyGroupUpdatesByHostId],
+      [toolCallGroupExpansion, isMobile, presentation.historyGroupUpdatesByHostId],
     );
 
     const findItems = useMemo(
@@ -1194,7 +1188,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                 agentId,
                 segments: renderModel.segments,
                 historyRowRevision,
-                liveHeadRowRevision: expandedToolCallGroupIds,
+                liveHeadRowRevision: toolCallGroupExpansion,
                 boundary,
                 renderers,
                 listEmptyComponent,
