@@ -56,7 +56,7 @@ import { toggleDesktopSidebarsWithCheckoutIntent } from "@/utils/desktop-sidebar
 import {
   isExplorerSidebarOpen,
   openExplorerSidebarView,
-  showExplorerSidebar,
+  usesCompactExplorerSidebar,
   toggleExplorerSidebar,
   useIsExplorerSidebarOpen,
 } from "@/workspace-tabs/explorer-sidebar";
@@ -2139,7 +2139,6 @@ function WorkspaceScreenContent({
       return pending?.serverId === normalizedServerId && pending.lifecycle === "active";
     });
 
-    const isFirstVisit = !useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey];
     reconcileWorkspaceTabs(
       persistenceKey,
       buildWorkspaceTabSnapshot({
@@ -2154,8 +2153,8 @@ function WorkspaceScreenContent({
       }),
     );
     // A workspace opens with the Explorer showing; after that it keeps the user's choice.
-    if (isFirstVisit) {
-      showExplorerSidebar({ isCompact: isMobile, workspaceKey: persistenceKey, checkout: null });
+    if (!usesCompactExplorerSidebar({ isCompact: isMobile })) {
+      useWorkspaceLayoutStore.getState().autoShowExplorerSidebar(persistenceKey);
     }
   }, [
     hasHydratedAgents,

@@ -117,6 +117,8 @@ interface WorkspaceLayoutStore {
   sidePaneIdByWorkspace: Record<string, string | null>;
   /** Workspaces where PR detection already added its tab once; a closed tab never returns. */
   pullRequestTabAutoOpenedByWorkspace: Record<string, true>;
+  /** Workspaces where the Explorer already opened by default once; after that it keeps the user's choice. */
+  explorerSidebarAutoShownByWorkspace: Record<string, true>;
   openTab: (input: OpenWorkspaceTabInput) => string | null;
   /** Placement resolves lazily so an already acknowledged workspace never creates a side pane. */
   autoOpenPullRequestTab: (
@@ -126,6 +128,8 @@ interface WorkspaceLayoutStore {
   /** Reveals the Explorer sidebar without selecting a view. Returns its pane id. */
   showExplorerSidebar: (workspaceKey: string) => string | null;
   hideExplorerSidebar: (workspaceKey: string) => void;
+  /** Reveals the Explorer sidebar the first time a workspace is visited. */
+  autoShowExplorerSidebar: (workspaceKey: string) => void;
   /** Returns the ordinary right-side workspace pane, creating it when absent. */
   ensureSidePane: (workspaceKey: string, options?: { focus: boolean }) => string | null;
   closeTab: (workspaceKey: string, tabId: string) => void;
@@ -709,6 +713,7 @@ function createLayoutPartializer() {
       state.explorerSidebarPaneIdByWorkspace,
       state.sidePaneIdByWorkspace,
       state.pullRequestTabAutoOpenedByWorkspace,
+      state.explorerSidebarAutoShownByWorkspace,
     ];
     if (previous?.sources.every((source, index) => source === sources[index])) {
       return previous.value;
@@ -730,6 +735,7 @@ function createLayoutPartializer() {
       explorerPaneIdByWorkspace: state.explorerSidebarPaneIdByWorkspace,
       sidePaneIdByWorkspace: state.sidePaneIdByWorkspace,
       pullRequestTabAutoOpenedByWorkspace: state.pullRequestTabAutoOpenedByWorkspace,
+      explorerSidebarAutoShownByWorkspace: state.explorerSidebarAutoShownByWorkspace,
     };
     previous = { sources, value };
     return value;
@@ -770,6 +776,7 @@ export function createWorkspaceLayoutStore(
         explorerSidebarPaneIdByWorkspace: {},
         sidePaneIdByWorkspace: {},
         pullRequestTabAutoOpenedByWorkspace: {},
+        explorerSidebarAutoShownByWorkspace: {},
         openTab: (input) => {
           const normalizedWorkspaceKey = trimNonEmpty(input.workspaceKey);
           const normalizedTarget = normalizeWorkspaceTabTarget(input.target);
@@ -887,6 +894,17 @@ export function createWorkspaceLayoutStore(
             };
           });
           return paneId;
+        },
+        autoShowExplorerSidebar: (workspaceKey) => {
+          const key = trimNonEmpty(workspaceKey);
+          if (!key || get().explorerSidebarAutoShownByWorkspace[key]) return;
+          get().showExplorerSidebar(key);
+          set((state) => ({
+            explorerSidebarAutoShownByWorkspace: {
+              ...state.explorerSidebarAutoShownByWorkspace,
+              [key]: true,
+            },
+          }));
         },
         hideExplorerSidebar: (workspaceKey) => {
           const normalizedWorkspaceKey = trimNonEmpty(workspaceKey);
@@ -1753,7 +1771,8 @@ export function createWorkspaceLayoutStore(
               normalizedWorkspaceKey in state.focusRestorationByWorkspace ||
               normalizedWorkspaceKey in state.explorerSidebarPaneIdByWorkspace ||
               normalizedWorkspaceKey in state.sidePaneIdByWorkspace ||
-              normalizedWorkspaceKey in state.pullRequestTabAutoOpenedByWorkspace;
+              normalizedWorkspaceKey in state.pullRequestTabAutoOpenedByWorkspace ||
+              normalizedWorkspaceKey in state.explorerSidebarAutoShownByWorkspace;
             if (!hasAny) {
               return state;
             }
@@ -1761,6 +1780,10 @@ export function createWorkspaceLayoutStore(
               [normalizedWorkspaceKey]: _autoOpened,
               ...pullRequestTabAutoOpenedByWorkspace
             } = state.pullRequestTabAutoOpenedByWorkspace;
+            const {
+              [normalizedWorkspaceKey]: _explorerAutoShown,
+              ...explorerSidebarAutoShownByWorkspace
+            } = state.explorerSidebarAutoShownByWorkspace;
             const { [normalizedWorkspaceKey]: _layout, ...layoutByWorkspace } =
               state.layoutByWorkspace;
             const { [normalizedWorkspaceKey]: _splits, ...splitSizesByWorkspace } =
@@ -1783,6 +1806,7 @@ export function createWorkspaceLayoutStore(
               state.sidePaneIdByWorkspace;
             return {
               pullRequestTabAutoOpenedByWorkspace,
+              explorerSidebarAutoShownByWorkspace,
               layoutByWorkspace,
               splitSizesByWorkspace,
               explorerSidebarWidthByWorkspace,
@@ -1854,6 +1878,8 @@ export function createWorkspaceLayoutStore(
             sidePaneIdByWorkspace: result.data.sidePaneIdByWorkspace ?? {},
             pullRequestTabAutoOpenedByWorkspace:
               result.data.pullRequestTabAutoOpenedByWorkspace ?? {},
+            explorerSidebarAutoShownByWorkspace:
+              result.data.explorerSidebarAutoShownByWorkspace ?? {},
           };
         },
       },
