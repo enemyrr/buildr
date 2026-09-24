@@ -38,6 +38,7 @@ import {
   normalizeLayout,
   removePaneFromTree,
   removeTabFromTree,
+  selectIsExplorerSidebarVisible,
   stripEphemeralTabsFromLayout,
   type SplitNode,
   type SplitPane,
@@ -594,6 +595,7 @@ describe("workspace-layout-store version 2 migration", () => {
       expect(persisted.version).toBe(3);
       expect(Object.keys(persisted.state).sort()).toEqual([
         "explorerPaneIdByWorkspace",
+        "explorerSidebarAutoShownByWorkspace",
         "explorerSidebarWidthByWorkspace",
         "layoutByWorkspace",
         "pinnedAgentIdsByWorkspace",
@@ -1149,6 +1151,7 @@ describe("workspace-layout-store actions", () => {
       hiddenAgentIdsByWorkspace: {},
       focusRestorationByWorkspace: {},
       explorerSidebarPaneIdByWorkspace: {},
+      explorerSidebarAutoShownByWorkspace: {},
     });
     await flushPendingWrites();
   });
@@ -1870,6 +1873,27 @@ describe("workspace-layout-store actions", () => {
 
     const layout = workspaceLayoutStore.getState().layoutByWorkspace[workspaceKey];
     expect(findPaneContainingTab(layout.root, terminalTabId as string)?.id).toBe("explorer");
+  });
+
+  it("shows Explorer once for a workspace laid out before its first visit", () => {
+    const workspaceKey = createWorkspaceKey();
+    const store = workspaceLayoutStore.getState();
+    store.openTab({
+      workspaceKey: workspaceKey,
+      target: { kind: "agent", agentId: "agent-1" },
+      intent: "reveal",
+    });
+
+    store.autoShowExplorerSidebar(workspaceKey);
+    expect(selectIsExplorerSidebarVisible(workspaceLayoutStore.getState(), workspaceKey)).toBe(
+      true,
+    );
+
+    store.hideExplorerSidebar(workspaceKey);
+    store.autoShowExplorerSidebar(workspaceKey);
+    expect(selectIsExplorerSidebarVisible(workspaceLayoutStore.getState(), workspaceKey)).toBe(
+      false,
+    );
   });
 
   it("keeps setup in main when Explorer is hidden", () => {
@@ -3206,6 +3230,7 @@ describe("workspace-layout-store actions", () => {
       explorerSidebarWidthByWorkspace: currentState.explorerSidebarWidthByWorkspace,
       explorerPaneIdByWorkspace: {},
       pullRequestTabAutoOpenedByWorkspace: currentState.pullRequestTabAutoOpenedByWorkspace,
+      explorerSidebarAutoShownByWorkspace: currentState.explorerSidebarAutoShownByWorkspace,
       sidePaneIdByWorkspace: currentState.sidePaneIdByWorkspace,
     });
     expect(layout && collectAllTabs(layout.root).map((tab) => tab.target)).toEqual([
@@ -3437,6 +3462,7 @@ describe("workspace-layout-store actions", () => {
     expect(partialize).toBeTypeOf("function");
     expect(partialize?.(state)).toEqual({
       pullRequestTabAutoOpenedByWorkspace: {},
+      explorerSidebarAutoShownByWorkspace: {},
       layoutByWorkspace: {},
       pinnedAgentIdsByWorkspace: {},
       splitSizesByWorkspace: {},

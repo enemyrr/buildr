@@ -113,6 +113,7 @@ export const WorkspaceLayoutPersistedStateSchema = z.strictObject({
   // panel; accepted and ignored so the strict schema keeps saved layouts. Remove after 2026-12-23.
   bottomPaneIdByWorkspace: z.record(z.string(), z.string().nullable()).optional(),
   pullRequestTabAutoOpenedByWorkspace: z.record(z.string(), z.literal(true)).optional(),
+  explorerSidebarAutoShownByWorkspace: z.record(z.string(), z.literal(true)).optional(),
   // COMPAT(pullRequestAutoAdd): PR detection stopped opening a tab in v0.5; accepted
   // and ignored so upgrading does not discard the layout. Remove after 2027-08-20.
   acknowledgedPullRequestByWorkspace: z.record(z.string(), z.string()).optional(),
