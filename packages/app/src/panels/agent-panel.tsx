@@ -92,6 +92,7 @@ import type { Theme } from "@/styles/theme";
 import type { PendingPermission } from "@/types/shared";
 import type { StreamItem, TodoEntry } from "@/types/stream";
 import type { ViewedTimelineStatus, ViewedTimelineUiBridge } from "@/timeline/viewed-timeline-sync";
+import { useArchiveFinishedSubagents, useSubagentsForParent } from "@/subagents";
 import { getInitDeferred, getInitKey } from "@/utils/agent-initialization";
 import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { applyLegacyDaemonWorkspaceOwnership } from "@/workspace/legacy-daemon-workspaces";
@@ -1158,12 +1159,23 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
 }) {
   const { t } = useTranslation();
+  const subagentRows = useSubagentsForParent({ serverId, parentAgentId: agentId });
   const tasks = useSessionStore((state): TodoEntry[] | undefined =>
     state.sessions[serverId]?.agentTasks.get(agentId),
   );
+  const archiveFinishedSubagents = useArchiveFinishedSubagents({
+    serverId,
+    parentAgentId: agentId,
+    rows: subagentRows,
+  });
   const hasPluginComposerPills = useHasPluginComposerPills(serverId, workspaceId, agentId);
   const hasActiveComposer = !agentState.archivedAt && !isArchivingCurrentAgent;
-  const hasVisibleAgentTracks = hasAgentTracks({ tasks, hasPluginComposerPills });
+  const hasVisibleAgentTracks = hasAgentTracks({
+    subagentRows,
+    tasks,
+    archiveFinishedStatus: archiveFinishedSubagents.status,
+    hasPluginComposerPills,
+  });
   const rawAgentInputDraft = useAgentInputDraft({
     draftKey: buildDraftStoreKey({
       serverId,
@@ -1249,7 +1261,10 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
           serverId={serverId}
           workspaceId={workspaceId}
           agentId={agentId}
+          subagentRows={subagentRows}
           tasks={tasks}
+          archiveFinishedStatus={archiveFinishedSubagents.status}
+          onArchiveFinished={archiveFinishedSubagents.archiveFinished}
           hasPluginComposerPills={hasPluginComposerPills}
         />
       ) : null}

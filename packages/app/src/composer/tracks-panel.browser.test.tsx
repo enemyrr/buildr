@@ -152,18 +152,13 @@ describe("composer track pill status mark", () => {
     return { mark: segment.firstElementChild, body };
   }
 
-  it("spins the shared ring while a child is running", () => {
+  it("animates the pixel loader while a child is running", () => {
     const { mark } = mountMark("running");
     const animated = [...mark.querySelectorAll("*")].filter(
       (element) => element.getAnimations().length > 0,
     );
 
-    expect(animated).toHaveLength(1);
-    // The rotation is on the carrier; the quarter arc it turns is the coloured top border inside.
-    const arc = animated[0]?.firstElementChild as HTMLElement;
-    const arcStyle = getComputedStyle(arc);
-    expect(arcStyle.borderTopColor).toBe("rgb(38, 138, 224)");
-    expect(arcStyle.borderLeftColor).toBe("rgba(0, 0, 0, 0)");
+    expect(animated.length).toBeGreaterThan(0);
   });
 
   it("draws a still dot for every other state", () => {
@@ -182,11 +177,8 @@ describe("composer track pill status mark", () => {
     // looking correctly centred in the box nobody can see.
     for (const bucket of ["running", "failed"] as const) {
       const { mark, body } = mountMark(bucket);
-      // The dot is its own box; the ring is drawn by the rotator inside the frame's halo.
-      const glyph = bucket === "failed" ? mark : mark.firstElementChild?.firstElementChild;
-      if (!(glyph instanceof HTMLElement)) {
-        throw new Error(`${bucket} mark did not render a glyph`);
-      }
+      // The dot and the pixel loader are each their own box.
+      const glyph = mark;
 
       const style = getComputedStyle(body);
       const edge = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.borderLeftWidth);
@@ -212,8 +204,11 @@ describe("composer track pill status mark", () => {
 
     const segments = [...container.querySelectorAll('[data-testid^="pill-segment-"]')];
     expect(segments.map((segment) => segment.textContent)).toEqual(["1 failed", "1 working"]);
-    // The ring is the only mark that animates, so its presence proves the second state survived.
+    // The pixel loader is the only mark that animates, so its presence proves the second state
+    // survived.
     const animated = segments[1]?.querySelectorAll("*") ?? [];
-    expect([...animated].filter((element) => element.getAnimations().length > 0)).toHaveLength(1);
+    expect([...animated].filter((element) => element.getAnimations().length > 0)).not.toHaveLength(
+      0,
+    );
   });
 });
