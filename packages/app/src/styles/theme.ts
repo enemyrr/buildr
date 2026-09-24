@@ -500,7 +500,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
 // ---------------------------------------------------------------------------
 
 // Conductor — warm near-black, flat, hairline borders. The fork's default dark theme.
-// The workspace sits on surface0; the sidebar is one step lighter. Peach is reserved for the
+// The workspace and both sidebars share surface0, separated by hairline borders. Peach is reserved for the
 // active tab underline, so the accent CTA stays a quiet warm neutral.
 const conductorDarkColors = buildDarkSemanticColors({
   surface0: "#161413",
@@ -509,7 +509,7 @@ const conductorDarkColors = buildDarkSemanticColors({
   surface3: "#34302d",
   surface4: "#5a5550",
   surfaceDiffEmpty: "#1c1a18",
-  surfaceSidebar: "#1c1a19",
+  surfaceSidebar: "#161413",
   foreground: "#e8e6e3",
   foregroundMuted: "#9a9590",
   foregroundExtraMuted: "#6b6661",
