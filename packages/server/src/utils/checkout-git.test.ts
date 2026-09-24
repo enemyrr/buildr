@@ -20,6 +20,7 @@ import {
   __resetPullRequestStatusCacheForTests,
   commitAll,
   discardChanges,
+  dropFinishedPullRequestOutsideWorktree,
   CHECKOUT_DIFF_MAX_STRUCTURED_BYTES,
   forgeAuthStateFromError,
   createPullRequest,
@@ -3885,6 +3886,26 @@ const x = 1;
     it("is case insensitive on Windows paths", () => {
       expect(isDescendantPath("c:\\repo\\child", "C:\\repo")).toBe(true);
     });
+  });
+});
+
+describe("dropFinishedPullRequestOutsideWorktree", () => {
+  const now = Date.parse("2026-09-24T12:00:00Z");
+
+  it("keeps a PR merged within the last day outside a Paseo worktree", () => {
+    const merged = { state: "merged", mergedAt: "2026-09-24T07:45:18Z" };
+    expect(dropFinishedPullRequestOutsideWorktree(merged, false, now)).toBe(merged);
+  });
+
+  it("drops older and undated finished PRs outside a Paseo worktree", () => {
+    const old = { state: "merged", mergedAt: "2026-09-20T07:45:18Z" };
+    expect(dropFinishedPullRequestOutsideWorktree(old, false, now)).toBeNull();
+    expect(dropFinishedPullRequestOutsideWorktree({ state: "closed" }, false, now)).toBeNull();
+  });
+
+  it("keeps every finished PR in a Paseo worktree", () => {
+    const old = { state: "merged", mergedAt: "2026-09-20T07:45:18Z" };
+    expect(dropFinishedPullRequestOutsideWorktree(old, true, now)).toBe(old);
   });
 });
 
