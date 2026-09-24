@@ -47,6 +47,7 @@ import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { useWorkingDiffSummary } from "@/git/use-working-diff-summary";
 import { HEADER_INNER_HEIGHT } from "@/constants/layout";
+import { HEADER_CONTROL_HEIGHT } from "@/components/ui/control-geometry";
 import { useHostFeature } from "@/runtime/host-features";
 import type { Theme } from "@/styles/theme";
 import { copyToClipboard } from "@/utils/copy-to-clipboard";
@@ -155,58 +156,85 @@ export function PrStatusStrip({
     ? `${getForgePresentation(forge).numberPrefix}${prStatus.number}`
     : "PR";
   const tone = TONE_SHEETS[state.tone];
-  return (
-    <View
-      style={[variant === "bar" ? styles.bar : styles.inline, tone.tint]}
-      testID={variant === "bar" ? "workspace-pr-status-strip" : "workspace-pr-status-inline"}
-    >
-      <View style={styles.link}>
-        <PrSegment
-          onPress={onOpenPullRequest ?? openPr}
-          role={onOpenPullRequest ? "button" : "link"}
-          accessibilityLabel={
-            onOpenPullRequest
-              ? t("panels.pullRequest.label")
-              : t("workspace.git.prFlow.openPr", { ref: numberLabel })
-          }
-          testID="workspace-pr-status-number"
-        >
-          <ToneIcon icon={prStateIcon(prStatus)} tone={state.tone} size={14} />
-          <Text style={[styles.chipText, tone.text]}>{numberLabel}</Text>
-        </PrSegment>
-        <PrSegment
-          onPress={openPr}
-          role="link"
-          accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
-          testID="workspace-pr-status-open-external"
-        >
-          <ToneIcon icon={ArrowUpRight} tone="muted" size={12} />
-        </PrSegment>
+  const labelText = stripLabelText(t, state.label, uncommittedCount);
+  const renderAction = (action: PrStripAction, inline: boolean) => (
+    <StripButton
+      key={action.label}
+      action={action}
+      tone={state.tone}
+      inline={inline}
+      {...stripActionState(action, {
+        requests,
+        direct: directContinue ? { pending: continuePending } : null,
+      })}
+      onPress={runAction}
+      onRunOption={runGitAction}
+      onCopyLink={copyPrUrl}
+    />
+  );
+  const link = (
+    <View style={variant === "inline" ? styles.pill : styles.link}>
+      <PrSegment
+        onPress={onOpenPullRequest ?? openPr}
+        role={onOpenPullRequest ? "button" : "link"}
+        accessibilityLabel={
+          onOpenPullRequest
+            ? t("panels.pullRequest.label")
+            : t("workspace.git.prFlow.openPr", { ref: numberLabel })
+        }
+        pill={variant === "inline"}
+        testID="workspace-pr-status-number"
+      >
+        <ToneIcon icon={prStateIcon(prStatus)} tone={state.tone} size={14} />
+        <Text style={[styles.chipText, variant === "bar" ? tone.text : styles.chipTextNeutral]}>
+          {numberLabel}
+        </Text>
+      </PrSegment>
+      {variant === "inline" ? <View style={styles.pillDivider} /> : null}
+      <PrSegment
+        onPress={openPr}
+        role="link"
+        accessibilityLabel={t("workspace.git.prFlow.openPr", { ref: numberLabel })}
+        pill={variant === "inline"}
+        testID="workspace-pr-status-open-external"
+      >
+        <ToneIcon icon={ArrowUpRight} tone="muted" size={12} />
+      </PrSegment>
+    </View>
+  );
+
+  if (variant === "inline") {
+    // The header keeps only the live next step; the state rides on the glyph and its tooltip.
+    const primary = state.actions.filter(
+      (action) => action.emphasis === "filled" && !(action.kind === "git" && action.blocked),
+    );
+    return (
+      <View style={styles.inline} testID="workspace-pr-status-inline">
+        <Tooltip delayDuration={300} enabledOnDesktop enabledOnMobile={false}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="bottom" align="end">
+            <Text style={styles.tooltipText}>{labelText}</Text>
+          </TooltipContent>
+        </Tooltip>
+        {primary.map((action) => renderAction(action, true))}
       </View>
+    );
+  }
+
+  return (
+    <View style={[styles.bar, tone.tint]} testID="workspace-pr-status-strip">
+      {link}
       <View style={styles.status}>
         <Text
           style={[styles.label, state.tone === "muted" ? styles.labelMuted : tone.text]}
           numberOfLines={1}
           testID="workspace-pr-status-label"
         >
-          {stripLabelText(t, state.label, uncommittedCount)}
+          {labelText}
         </Text>
       </View>
       <View style={styles.actions}>
-        {state.actions.map((action) => (
-          <StripButton
-            key={action.label}
-            action={action}
-            tone={state.tone}
-            {...stripActionState(action, {
-              requests,
-              direct: directContinue ? { pending: continuePending } : null,
-            })}
-            onPress={runAction}
-            onRunOption={runGitAction}
-            onCopyLink={copyPrUrl}
-          />
-        ))}
+        {state.actions.map((action) => renderAction(action, false))}
       </View>
     </View>
   );
@@ -257,15 +285,23 @@ const segmentStyle = ({
   (hovered || pressed) && styles.segmentHovered,
 ];
 
+const pillSegmentStyle = (state: PressableStateCallbackType & { hovered?: boolean }) => [
+  ...segmentStyle(state),
+  styles.pillSegment,
+];
+
 /** One half of the `#N` `↗` link: the number opens the PR in the app, the arrow in the browser. */
 function PrSegment({
   onPress,
   role,
   accessibilityLabel,
+  pill,
   testID,
   children,
 }: {
   onPress: () => void;
+  /** Fills a cell of the header's bordered `#N | ↗` pill. */
+  pill: boolean;
   role: "link" | "button";
   accessibilityLabel: string;
   testID?: string;
@@ -276,7 +312,7 @@ function PrSegment({
       onPress={onPress}
       accessibilityRole={role}
       accessibilityLabel={accessibilityLabel}
-      style={segmentStyle}
+      style={pill ? pillSegmentStyle : segmentStyle}
       testID={testID}
     >
       {children}
@@ -315,6 +351,7 @@ function actionIcon(action: PrStripAction): LucideIcon {
 function StripButton({
   action,
   tone,
+  inline,
   pending,
   disabled,
   onPress,
@@ -323,6 +360,8 @@ function StripButton({
 }: {
   action: PrStripAction;
   tone: PrStripTone;
+  /** Header size on a neutral fill, so the button reads apart from the state's color. */
+  inline: boolean;
   pending: boolean;
   disabled: boolean;
   onPress: (action: PrStripAction) => void;
@@ -344,6 +383,7 @@ function StripButton({
   const testID = `workspace-pr-status-${action.label}`;
   const options = action.kind === "git" ? (action.options ?? []) : [];
   const sheet = TONE_SHEETS[buttonTone];
+  const fill = inline ? styles.neutralFill : sheet.fill;
   const button = (
     <Button
       variant={filled ? "default" : "outline"}
@@ -354,7 +394,8 @@ function StripButton({
       loading={pending}
       style={[
         styles.stripButton,
-        filled ? sheet.fill : sheet.border,
+        inline && styles.inlineButton,
+        filled ? fill : sheet.border,
         action.kind === "continue" && styles.dashed,
         options.length > 0 && styles.splitStart,
       ]}
@@ -370,7 +411,7 @@ function StripButton({
         {button}
         <DropdownMenu>
           <DropdownMenuTrigger
-            style={[styles.splitEnd, sheet.fill]}
+            style={[styles.splitEnd, inline && styles.inlineButton, fill]}
             disabled={disabled || pending}
             accessibilityLabel={t("workspace.git.prFlow.mergeOptions")}
             testID={`${testID}-options`}
@@ -532,12 +573,22 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomColor: theme.colors.border,
   },
   inline: {
-    height: HEADER_INNER_HEIGHT - theme.spacing[1] * 2,
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing[1],
-    paddingHorizontal: theme.spacing[1.5],
+    gap: theme.spacing[2],
+  },
+  pill: {
+    height: HEADER_CONTROL_HEIGHT,
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.borderAccent,
     borderRadius: theme.borderRadius.md,
+    overflow: "hidden",
+  },
+  pillDivider: {
+    width: theme.borderWidth[1],
+    backgroundColor: theme.colors.borderAccent,
   },
   link: {
     flexDirection: "row",
@@ -553,6 +604,12 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[1],
     borderRadius: theme.borderRadius.md,
   },
+  pillSegment: {
+    height: "100%",
+    minWidth: HEADER_CONTROL_HEIGHT - theme.borderWidth[1] * 2,
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: 0,
+  },
   segmentHovered: {
     backgroundColor: theme.colors.interactionHighlight,
   },
@@ -560,6 +617,9 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.semibold,
     fontVariant: ["tabular-nums"],
+  },
+  chipTextNeutral: {
+    color: theme.colors.foreground,
   },
   status: {
     flex: 1,
@@ -586,6 +646,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     gap: theme.spacing[1],
     borderRadius: theme.borderRadius.md,
+  },
+  inlineButton: {
+    minHeight: HEADER_CONTROL_HEIGHT,
+    height: HEADER_CONTROL_HEIGHT,
+  },
+  neutralFill: {
+    backgroundColor: theme.colors.foreground,
+    borderColor: theme.colors.foreground,
   },
   dashed: {
     borderStyle: "dashed",

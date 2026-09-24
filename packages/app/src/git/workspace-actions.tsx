@@ -25,6 +25,9 @@ const ThemedChevronDown = withUnistyles(ChevronDown, (theme) => ({
   color: theme.colors.foregroundMuted,
 }));
 
+const ThemedEye = withUnistyles(Eye, (theme) => ({ color: theme.colors.foregroundMuted }));
+const REVIEW_ICON = <ThemedEye size={16} />;
+
 interface WorkspaceActionsProps {
   serverId: string;
   cwd: string;
@@ -55,10 +58,19 @@ export function WorkspaceActions({ serverId, cwd, onOpenPullRequest }: Workspace
   const flow = usePrFlow({ serverId, cwd });
   const prUrl = flow.prStatus?.url ?? null;
   const commitAndPushItem = useCommitAndPushItem(flow);
+  const closed = flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed";
+  const reviewItem = useReviewItem({
+    serverId,
+    cwd,
+    baseRef: flow.baseRef,
+    prUrl,
+    enabled: !closed,
+  });
   usePrStatusFreshness({ serverId, cwd });
 
   if (!flow.isGit) return <GitActionsSplitButton gitActions={flow.gitActions} />;
   if (!prUrl) return <CreatePrSplitButton flow={flow} />;
+  // Review folds into the git menu so the header stays at `#N ↗`, the next step, and the menu.
   return (
     <View style={styles.group}>
       <PrStatusStrip
@@ -68,15 +80,53 @@ export function WorkspaceActions({ serverId, cwd, onOpenPullRequest }: Workspace
         variant="inline"
         onOpenPullRequest={onOpenPullRequest}
       />
-      {flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed" ? null : (
-        <ReviewButton serverId={serverId} cwd={cwd} baseRef={flow.baseRef} prUrl={prUrl} />
-      )}
       <GitActionsSplitButton
         gitActions={flow.gitActions}
         menuOnly
-        menuLeading={commitAndPushItem}
+        menuLeading={
+          commitAndPushItem || reviewItem ? (
+            <>
+              {commitAndPushItem}
+              {reviewItem}
+            </>
+          ) : null
+        }
       />
     </View>
+  );
+}
+
+function useReviewItem({
+  serverId,
+  cwd,
+  baseRef,
+  prUrl,
+  enabled,
+}: {
+  serverId: string;
+  cwd: string;
+  baseRef: string | null;
+  prUrl: string | null;
+  enabled: boolean;
+}) {
+  const { t } = useTranslation();
+  const { send, busy } = useInstructionRequests({ serverId, cwd });
+  const requestReview = useCallback(() => {
+    void send(buildReviewRequest({ baseRef, prUrl }));
+  }, [send, baseRef, prUrl]);
+  return useMemo(
+    () =>
+      enabled ? (
+        <DropdownMenuItem
+          leading={REVIEW_ICON}
+          onSelect={requestReview}
+          disabled={busy}
+          testID="workspace-pr-review"
+        >
+          {t("workspace.git.prFlow.review")}
+        </DropdownMenuItem>
+      ) : null,
+    [enabled, requestReview, busy, t],
   );
 }
 
