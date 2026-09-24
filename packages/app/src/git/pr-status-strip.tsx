@@ -348,6 +348,15 @@ function actionIcon(action: PrStripAction): LucideIcon {
   return action.action.id === "archive-workspace" ? Archive : GitMerge;
 }
 
+/** In the header, commit takes a neutral fill; merge and archive keep the state's color. */
+function buttonFill(
+  action: PrStripAction,
+  inline: boolean,
+  sheet: (typeof TONE_SHEETS)[PrStripTone],
+) {
+  return inline && action.kind === "commit-and-push" ? styles.neutralFill : sheet.fill;
+}
+
 function StripButton({
   action,
   tone,
@@ -360,7 +369,7 @@ function StripButton({
 }: {
   action: PrStripAction;
   tone: PrStripTone;
-  /** Header size on a neutral fill, so the button reads apart from the state's color. */
+  /** Header size. */
   inline: boolean;
   pending: boolean;
   disabled: boolean;
@@ -383,7 +392,7 @@ function StripButton({
   const testID = `workspace-pr-status-${action.label}`;
   const options = action.kind === "git" ? (action.options ?? []) : [];
   const sheet = TONE_SHEETS[buttonTone];
-  const fill = inline ? styles.neutralFill : sheet.fill;
+  const fill = buttonFill(action, inline, sheet);
   const button = (
     <Button
       variant={filled ? "default" : "outline"}
