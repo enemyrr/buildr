@@ -57,6 +57,7 @@ import {
   waitForAgentRunStartWithTimeout,
   unarchiveAgentState,
 } from "./agent/agent-prompt.js";
+import { runAgentShellCommand, stopAgentShellCommand } from "./agent/agent-shell-command.js";
 import {
   resolveCreateAgentTitles,
   resolveFirstAgentPromptTitle,
@@ -2623,6 +2624,14 @@ export class Session {
         return this.handleFetchAgentTimelineRequest(msg, source);
       case "agent.timeline.append.request":
         return this.handleAgentTimelineAppendRequest(msg);
+      case "agent.shell.run.request":
+        return this.handleAgentShellRunRequest(msg);
+      case "agent.shell.stop.request":
+        this.emit({
+          type: "agent.shell.stop.response",
+          payload: { requestId: msg.requestId, stopped: stopAgentShellCommand(msg.callId) },
+        });
+        return Promise.resolve();
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
       case "agent.timeline.list_prompts.request":
@@ -7753,6 +7762,38 @@ export class Session {
     this.emit({
       type: "agent.timeline.append.response",
       payload: { requestId: msg.requestId, seq, epoch },
+    });
+  }
+
+  private async handleAgentShellRunRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.shell.run.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      const terminalManager = this.terminalManager;
+      if (!terminalManager) throw new Error("Terminals aren't available on this host");
+      const snapshot = await ensureAgentLoaded(msg.agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+      });
+      // The response acknowledges the start; output reaches the client through the timeline.
+      void runAgentShellCommand({
+        agentId: msg.agentId,
+        command: msg.command,
+        cwd: snapshot.cwd,
+        terminalManager,
+        emitLiveTimelineItem: (item) => this.agentManager.emitLiveTimelineItem(msg.agentId, item),
+        appendTimelineItem: (item) => this.agentManager.appendTimelineItem(msg.agentId, item),
+      }).catch((err: unknown) => {
+        this.sessionLogger.error({ err, agentId: msg.agentId }, "Agent shell command failed");
+      });
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+    }
+    this.emit({
+      type: "agent.shell.run.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
     });
   }
 

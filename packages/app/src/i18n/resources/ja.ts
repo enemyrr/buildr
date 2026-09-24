@@ -185,6 +185,8 @@ export const ja: TranslationResources = {
       noClipboardImage:
         "現在のクリップボードに画像がありません。キーボードから貼り付けてみてください。",
       pasteImageFailed: "画像を貼り付けられませんでした",
+      shellCommandUnsupported: "チャットからシェルコマンドを実行するにはホストを更新してください",
+      hostDisconnected: "ホストに接続されていません",
       fileTooLarge: "{{fileName}}が大きすぎます（最大{{size}}）",
     },
     clientCommands: {
@@ -2043,6 +2045,8 @@ export const ja: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "エージェントと共有",
+    stopCommand: "停止",
     error: "エラー",
     empty: "追加の詳細はありません",
     subAgentActivity: "サブエージェントアクティビティ",

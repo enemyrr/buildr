@@ -183,6 +183,8 @@ export const ko: TranslationResources = {
       uploadFailed: "파일을 업로드하지 못했습니다",
       noClipboardImage: "현재 클립보드에 이미지가 없습니다. 키보드에서 붙여넣기를 시도해 보세요.",
       pasteImageFailed: "이미지를 붙여넣지 못했습니다.",
+      shellCommandUnsupported: "채팅에서 셸 명령을 실행하려면 호스트를 업데이트하세요",
+      hostDisconnected: "호스트가 연결되어 있지 않습니다",
       fileTooLarge: "{{fileName}}이(가) 너무 큽니다 (최대 {{size}})",
     },
     clientCommands: {
@@ -2032,6 +2034,8 @@ export const ko: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "에이전트와 공유",
+    stopCommand: "중지",
     error: "오류",
     empty: "추가 세부 정보가 없습니다",
     subAgentActivity: "서브에이전트 활동",

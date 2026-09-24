@@ -3,6 +3,7 @@ import {
   CLIENT_SLASH_COMMANDS,
   buildDraftAgentSetup,
   resolveClientSlashCommand,
+  resolveShellCommand,
 } from "@/client-slash-commands";
 import type { Agent } from "@/stores/session-store";
 
@@ -135,5 +136,20 @@ describe("buildDraftAgentSetup", () => {
       model: "runtime-model",
       thinkingOptionId: "runtime-thinking",
     });
+  });
+});
+
+describe("resolveShellCommand", () => {
+  it("returns the command after a leading bang", () => {
+    expect(resolveShellCommand({ text: "  ! ./dev db push  ", hasAttachments: false })).toBe(
+      "./dev db push",
+    );
+    expect(resolveShellCommand({ text: "!ls -la", hasAttachments: false })).toBe("ls -la");
+  });
+
+  it("ignores plain messages, a bare bang, and messages with attachments", () => {
+    expect(resolveShellCommand({ text: "run ls", hasAttachments: false })).toBeNull();
+    expect(resolveShellCommand({ text: " ! ", hasAttachments: false })).toBeNull();
+    expect(resolveShellCommand({ text: "!ls", hasAttachments: true })).toBeNull();
   });
 });

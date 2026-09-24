@@ -185,6 +185,8 @@ export const ru: TranslationResources = {
       noClipboardImage:
         "В текущем буфере обмена нет изображения. Попробуйте вставить его с клавиатуры.",
       pasteImageFailed: "Не удалось вставить изображение",
+      shellCommandUnsupported: "Обновите хост, чтобы запускать команды оболочки из чата",
+      hostDisconnected: "Хост не подключен",
       fileTooLarge: "Файл {{fileName}} слишком большой (максимальный размер: {{size}})",
     },
     clientCommands: {
@@ -2057,6 +2059,8 @@ export const ru: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "Поделиться с агентом",
+    stopCommand: "Остановить",
     error: "Ошибка",
     empty: "Дополнительные сведения отсутствуют",
     subAgentActivity: "Активность субагента",

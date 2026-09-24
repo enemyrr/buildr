@@ -187,6 +187,9 @@ export const fr: TranslationResources = {
       noClipboardImage:
         "Aucune image dans le presse-papiers actuel. Essayez de coller depuis votre clavier.",
       pasteImageFailed: "Impossible de coller l’image",
+      shellCommandUnsupported:
+        "Mettez à jour l'hôte pour exécuter des commandes shell depuis le chat",
+      hostDisconnected: "L'hôte n'est pas connecté",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -2078,6 +2081,8 @@ export const fr: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "Partager avec l'agent",
+    stopCommand: "Arrêter",
     error: "Erreur",
     empty: "Aucun détail supplémentaire disponible",
     subAgentActivity: "Activité du sous-agent",

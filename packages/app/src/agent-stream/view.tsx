@@ -49,9 +49,10 @@ import type {
   AgentCapabilityFlags,
   AgentPermissionAction,
   AgentPermissionResponse,
+  ToolCallDetail,
 } from "@getpaseo/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
-import { useSessionStore } from "@/stores/session-store";
+import { selectAgentTurnPresentation, useSessionStore } from "@/stores/session-store";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
@@ -105,6 +106,11 @@ import {
 } from "@/workspace/file-open";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { useStableEvent } from "@/hooks/use-stable-event";
+import { dispatchComposerAgentMessage } from "@/composer/actions";
+import { createMessageSubmissionWriter } from "@/composer/submission/writer";
+import { useAppSettings } from "@/hooks/use-settings";
+import { formatShellOutputShare } from "@/utils/shell-output-share";
+import { INLINE_TERMINAL_SUPPORTED, InlineTerminal } from "@/components/inline-terminal";
 import { useForkAgent } from "@/hooks/use-fork-agent";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
@@ -534,6 +540,33 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       handleInlinePathPress({ raw: filePath, path: filePath }, "preferred");
     });
 
+    const { settings: appSettings } = useAppSettings();
+    const reportShellError = (error: unknown) =>
+      toast?.error(error instanceof Error ? error.message : String(error));
+
+    // Sends the output as a user message, honoring the composer's send behavior.
+    const handleShareShellOutput = useStableEvent((detail: ToolCallDetail) => {
+      if (detail.type !== "shell" || !client) return;
+      const steer = appSettings.sendBehavior === "steer";
+      const session = useSessionStore.getState().sessions[resolvedServerId];
+      void dispatchComposerAgentMessage({
+        client,
+        agentId,
+        text: formatShellOutputShare(detail),
+        attachments: [],
+        encodeImages: async () => undefined,
+        submission: createMessageSubmissionWriter(resolvedServerId),
+        activeTurnBehavior: steer ? "steer" : "interrupt",
+        activeTurnId: steer
+          ? (selectAgentTurnPresentation(session, agentId).turnId ?? undefined)
+          : undefined,
+      }).catch(reportShellError);
+    });
+
+    const handleStopShellCommand = useStableEvent((callId: string) => {
+      void client?.stopAgentShellCommand(callId).catch(reportShellError);
+    });
+
     const handleForkAssistantTurn: AssistantTurnForkHandler = useStableEvent(
       async ({ target, boundary }) => {
         await forkAgent({
@@ -825,6 +858,27 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             );
           }
 
+          if (data.metadata?.userShell === true && data.detail.type === "shell") {
+            return (
+              <UserShellToolCallSlot
+                serverId={resolvedServerId}
+                itemId={item.id}
+                onInlineDetailsExpandedChangeByItemId={setInlineDetailsExpanded}
+                callId={data.callId}
+                toolName={data.name}
+                error={data.error}
+                status={data.status}
+                detail={data.detail}
+                cwd={context.cwd}
+                metadata={data.metadata}
+                isLastInSequence={isLastInSequence}
+                maxDetailHeight={maxDetailHeight}
+                onShareDetail={handleShareShellOutput}
+                onStopCall={handleStopShellCommand}
+              />
+            );
+          }
+
           return (
             <ToolCallSlot
               itemId={item.id}
@@ -857,7 +911,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           />
         );
       },
-      [context.cwd, setInlineDetailsExpanded, handleToolCallOpenFile],
+      [
+        context.cwd,
+        resolvedServerId,
+        setInlineDetailsExpanded,
+        handleToolCallOpenFile,
+        handleShareShellOutput,
+        handleStopShellCommand,
+      ],
     );
 
     // Read through a stable event so live group updates do not change the renderer identity
@@ -1424,6 +1485,45 @@ function ToolCallSlot({
     [onInlineDetailsExpandedChangeByItemId, itemId],
   );
   return <ToolCall {...rest} onInlineDetailsExpandedChange={handleExpandedChange} />;
+}
+
+// A command the user ran with `!`: starts open so the output reads inline, and can be
+// stopped while running or shared with the agent once finished.
+function UserShellToolCallSlot({
+  serverId,
+  callId,
+  detail,
+  onShareDetail,
+  onStopCall,
+  ...rest
+}: ToolCallSlotProps & {
+  serverId: string;
+  callId: string;
+  detail: ToolCallDetail;
+  onShareDetail: (detail: ToolCallDetail) => void;
+  onStopCall: (callId: string) => void;
+}) {
+  const handleShare = useCallback(() => onShareDetail(detail), [detail, onShareDetail]);
+  const handleStop = useCallback(() => onStopCall(callId), [callId, onStopCall]);
+  const terminalId = rest.metadata?.terminalId;
+  const liveTerminal = useMemo(
+    () =>
+      INLINE_TERMINAL_SUPPORTED && rest.status === "running" && typeof terminalId === "string" ? (
+        <InlineTerminal serverId={serverId} terminalId={terminalId} />
+      ) : undefined,
+    [rest.status, serverId, terminalId],
+  );
+  return (
+    <ToolCallSlot
+      {...rest}
+      detail={detail}
+      detailsContent={liveTerminal}
+      defaultExpanded
+      forceInline
+      onShare={handleShare}
+      onStop={handleStop}
+    />
+  );
 }
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);

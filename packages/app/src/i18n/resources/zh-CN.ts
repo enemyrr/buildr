@@ -183,6 +183,8 @@ export const zhCN: TranslationResources = {
       uploadFailed: "Failed to upload file",
       noClipboardImage: "当前剪贴板中没有图片。请尝试通过键盘粘贴。",
       pasteImageFailed: "无法粘贴图片",
+      shellCommandUnsupported: "请更新 Host 以从聊天中运行 shell 命令",
+      hostDisconnected: "Host 未连接",
       fileTooLarge: "{{fileName}} is too large (max {{size}})",
     },
     clientCommands: {
@@ -2000,6 +2002,8 @@ export const zhCN: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "分享给 Agent",
+    stopCommand: "停止",
     error: "错误",
     empty: "没有可用的更多详情",
     subAgentActivity: "Sub-agent 活动",

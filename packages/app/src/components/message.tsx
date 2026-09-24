@@ -42,6 +42,8 @@ import {
   Scissors,
   MicVocal,
   FileSymlink,
+  MessageSquareShare,
+  Square,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
@@ -108,6 +110,7 @@ import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
 import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assistant-fork-menu";
 import { useRetainedPanelActive } from "@/components/retained-panel";
+import { Button } from "@/components/ui/button";
 import {
   markdownCopyDataSet,
   markdownCopyOrderedListDataSet,
@@ -3051,6 +3054,12 @@ interface ToolCallProps {
   defaultExpanded?: boolean;
   forceInline?: boolean;
   maxDetailHeight?: number;
+  /** Shows a share button under the details once the call finishes. */
+  onShare?: () => void;
+  /** Shows a stop button under the details while the call runs. */
+  onStop?: () => void;
+  /** Replaces the rendered detail, such as a live terminal while a command runs. */
+  detailsContent?: ReactNode;
 }
 
 export const ToolCall = memo(function ToolCall({
@@ -3070,7 +3079,11 @@ export const ToolCall = memo(function ToolCall({
   defaultExpanded,
   forceInline = false,
   maxDetailHeight = 400,
+  onShare,
+  onStop,
+  detailsContent,
 }: ToolCallProps) {
+  const { t } = useTranslation();
   const { openToolCall } = useToolCallSheet();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
 
@@ -3165,10 +3178,29 @@ export const ToolCall = memo(function ToolCall({
     };
   }, [onInlineDetailsExpandedChange]);
 
+  const isRunning = status === "running" || status === "executing";
+  const detailAction = useMemo(() => {
+    if (isRunning && onStop) {
+      return (
+        <Button variant="ghost" size="xs" leftIcon={Square} onPress={onStop}>
+          {t("toolCallDetails.stopCommand")}
+        </Button>
+      );
+    }
+    if (!isRunning && onShare) {
+      return (
+        <Button variant="ghost" size="xs" leftIcon={MessageSquareShare} onPress={onShare}>
+          {t("toolCallDetails.shareOutput")}
+        </Button>
+      );
+    }
+    return null;
+  }, [isRunning, onShare, onStop, t]);
+
   // Render inline details for desktop
   const renderDetails = useCallback(() => {
     if (!shouldRenderInline) return null;
-    return (
+    const content = detailsContent ?? (
       <ToolCallDetailsContent
         toolName={toolName}
         detail={effectiveDetail}
@@ -3177,6 +3209,13 @@ export const ToolCall = memo(function ToolCall({
         showLoadingSkeleton={presentation.isLoadingDetails}
       />
     );
+    if (!detailAction) return content;
+    return (
+      <>
+        {content}
+        <View style={toolCallActionStylesheet.row}>{detailAction}</View>
+      </>
+    );
   }, [
     shouldRenderInline,
     toolName,
@@ -3184,6 +3223,8 @@ export const ToolCall = memo(function ToolCall({
     presentation.errorText,
     presentation.isLoadingDetails,
     maxDetailHeight,
+    detailAction,
+    detailsContent,
   ]);
 
   if (presentation.isPlan && effectiveDetail?.type === "plan") {
@@ -3235,5 +3276,17 @@ function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.defaultExpanded !== next.defaultExpanded) return false;
   if (previous.forceInline !== next.forceInline) return false;
   if (previous.maxDetailHeight !== next.maxDetailHeight) return false;
+  if (previous.onShare !== next.onShare) return false;
+  if (previous.onStop !== next.onStop) return false;
+  if (previous.detailsContent !== next.detailsContent) return false;
   return true;
 }
+
+const toolCallActionStylesheet = StyleSheet.create((theme) => ({
+  row: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: theme.spacing[2],
+    paddingBottom: theme.spacing[2],
+  },
+}));

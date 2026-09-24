@@ -184,6 +184,8 @@ export const ptBR: TranslationResources = {
       uploadFailed: "Falha ao enviar arquivo",
       noClipboardImage: "Não há imagem na área de transferência atual. Tente colar pelo teclado.",
       pasteImageFailed: "Falha ao colar a imagem",
+      shellCommandUnsupported: "Atualize o host para executar comandos de shell pelo chat",
+      hostDisconnected: "O host não está conectado",
       fileTooLarge: "{{fileName}} é grande demais (máximo {{size}})",
     },
     clientCommands: {
@@ -2058,6 +2060,8 @@ export const ptBR: TranslationResources = {
     },
   },
   toolCallDetails: {
+    shareOutput: "Compartilhar com o agente",
+    stopCommand: "Parar",
     error: "Erro",
     empty: "Nenhum detalhe adicional disponível",
     subAgentActivity: "Atividade do subagente",
