@@ -379,11 +379,9 @@ export function resolveTrailingActionVisibility({
     trailingPresentation,
     showKebab,
     renderSlot: hasArchiveAction || hasTrailing,
-    // The slot only holds width for something that permanently sits in it. Trailing content
-    // does; the kebab only does on touch, where there is no hover for it to appear on and so
-    // nothing to let it overlay the title. Everywhere else the width goes back to the title
-    // and the kebab fades in over its tail.
-    reserveSlotWidth: hasContent || (hasArchiveAction && isTouchPlatform),
+    // The slot holds width whenever something sits in it, so the title truncates before the
+    // kebab instead of running underneath it.
+    reserveSlotWidth: hasContent || showKebab || (hasArchiveAction && isTouchPlatform),
   };
 }
 
