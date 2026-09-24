@@ -129,6 +129,8 @@ export interface CurrentPullRequestStatus {
   baseRefName: string;
   headRefName: string;
   isMerged: boolean;
+  /** ISO 8601 time the PR merged; set by forges that report it. */
+  mergedAt?: string;
   isDraft?: boolean;
   mergeable: PullRequestMergeable;
   checks: PullRequestCheck[];

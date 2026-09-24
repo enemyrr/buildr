@@ -2998,7 +2998,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     return { headRef: git.currentBranch };
   }
 
-  private dropFinishedPullRequestOutsideWorktree<T extends { state: string }>(
+  private dropFinishedPullRequestOutsideWorktree<T extends { state: string; mergedAt?: string }>(
     target: WorkspaceGitTarget,
     status: T | null,
   ): T | null {

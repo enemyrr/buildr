@@ -4266,16 +4266,19 @@ async function getPullRequestStatusUncached(
   }
 }
 
+const RECENT_MERGE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 // A local checkout on a long-lived branch (e.g. `dev`) can sit exactly on the head of an old
-// merged PR. Only Paseo worktrees own their branch, so only they surface finished PRs.
-export function dropFinishedPullRequestOutsideWorktree<T extends { state: string }>(
-  status: T | null,
-  isPaseoOwnedWorktree: boolean,
-): T | null {
+// merged PR. Only Paseo worktrees own their branch, so elsewhere a finished PR shows only for a
+// day after it merges, long enough to see the result of merging it.
+export function dropFinishedPullRequestOutsideWorktree<
+  T extends { state: string; mergedAt?: string },
+>(status: T | null, isPaseoOwnedWorktree: boolean, nowMs = Date.now()): T | null {
   if (!status || status.state === "open" || isPaseoOwnedWorktree) {
     return status;
   }
-  return null;
+  const mergedAtMs = status.mergedAt ? Date.parse(status.mergedAt) : Number.NaN;
+  return nowMs - mergedAtMs < RECENT_MERGE_WINDOW_MS ? status : null;
 }
 
 async function dropFinishedPullRequestForCheckout(
