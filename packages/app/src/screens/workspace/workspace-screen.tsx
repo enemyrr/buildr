@@ -3872,19 +3872,6 @@ function WorkspaceScreenContent({
     () => (
       <View style={styles.headerRight}>
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
-        {/* An open Explorer carries the scripts and git controls in its own chrome. */}
-        {!isMobile && !isExplorerSidebarShowing && workspaceScripts.length > 0 ? (
-          <WorkspaceScriptsButton
-            serverId={normalizedServerId}
-            workspaceId={normalizedWorkspaceId}
-            scripts={workspaceScripts}
-            liveTerminalIds={liveTerminalIds}
-            onScriptTerminalStarted={handleScriptTerminalStarted}
-            onViewTerminal={handleViewScriptTerminal}
-            onOpenUrlInBrowserTab={handleOpenUrlInBrowserTab}
-            hideLabels
-          />
-        ) : null}
         {!isMobile && workspaceDirectory ? (
           <WorkspaceOpenInEditorButton
             serverId={normalizedServerId}
@@ -3928,15 +3915,10 @@ function WorkspaceScreenContent({
     [
       isExplorerSidebarShowing,
       isMobile,
-      workspaceScripts,
       normalizedServerId,
       normalizedWorkspaceId,
       workspaceDirectory,
       activeFileLocation,
-      liveTerminalIds,
-      handleScriptTerminalStarted,
-      handleViewScriptTerminal,
-      handleOpenUrlInBrowserTab,
       handleOpenPullRequest,
       handleToggleExplorerSidebar,
       explorerSidebarToggleLabel,
