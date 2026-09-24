@@ -24,9 +24,9 @@ export function explorerSidebarCloseButtonLayout(compact: boolean) {
  */
 export const EXPLORER_TAB_RAIL_INSET = 4;
 
-// Explorer carries diffs and file trees, so it opens half again as wide as the left sidebar.
-const DEFAULT_EXPLORER_SIDEBAR_WIDTH = Math.round(DEFAULT_SIDEBAR_WIDTH * 1.5);
-const MIN_EXPLORER_SIDEBAR_WIDTH = 280;
+// Explorer carries diffs and file trees, so it is never narrower than 1.5x the left sidebar.
+const MIN_EXPLORER_SIDEBAR_WIDTH = Math.round(DEFAULT_SIDEBAR_WIDTH * 1.5);
+const DEFAULT_EXPLORER_SIDEBAR_WIDTH = MIN_EXPLORER_SIDEBAR_WIDTH;
 const MIN_WORKSPACE_BODY_WIDTH = 400;
 
 export function resolveExplorerSidebarWidth(input: {

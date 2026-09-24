@@ -21,9 +21,9 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
-import { ArrowUp, Mic, MicOff, CornerDownLeft, Plus, Square } from "lucide-react-native";
+import { ArrowUp, Mic, MicOff, CornerDownLeft, Plus } from "lucide-react-native";
 import { useDictation } from "@/hooks/use-dictation";
-import { DictationOverlay } from "@/components/dictation-controls";
+import { DictationInlineControls } from "@/components/dictation-controls";
 import { RealtimeVoiceOverlay } from "@/components/realtime-voice-overlay";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { useSessionStore } from "@/stores/session-store";
@@ -60,6 +60,7 @@ import { ComposerTextOverlay } from "./text-overlay";
 import type { InlineChip } from "./text-overlay.types";
 import { resolveComposerInputMode, type ComposerInputMode } from "@/composer/input-mode";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
+import { trimInlineText } from "@/composer/inline-attachments/tokens";
 import {
   EditingTextInput,
   type EditingTextInputHandle as ComposerTextInputHandle,
@@ -310,18 +311,13 @@ function AttachmentDropdown({
 
 function VoiceButtonIcon({
   hovered,
-  isDictating,
   isMutedRealtime,
   buttonIconSize,
 }: {
   hovered: boolean;
-  isDictating: boolean;
   isMutedRealtime: boolean;
   buttonIconSize: number;
 }) {
-  if (isDictating) {
-    return <Square size={buttonIconSize} color="white" fill="white" />;
-  }
   const colorMapping = hovered ? iconForegroundMapping : iconForegroundMutedMapping;
   if (isMutedRealtime) {
     return <ThemedMicOff size={buttonIconSize} uniProps={colorMapping} />;
@@ -542,23 +538,10 @@ function MessageInputAutoFocus({
 }
 
 function MessageInputOverlay({
-  showDictationOverlay,
   showRealtimeOverlay,
   voice,
-  dictationVolume,
-  dictationDuration,
-  isDictating,
-  isDictationProcessing,
-  dictationStatus,
-  dictationError,
-  onCancelRecording,
-  onAcceptRecording,
-  onAcceptAndSendRecording,
-  onRetryFailedRecording,
-  onDiscardFailedRecording,
   onRealtimeVoiceStop,
 }: {
-  showDictationOverlay: boolean;
   showRealtimeOverlay: boolean;
   voice:
     | {
@@ -568,47 +551,17 @@ function MessageInputOverlay({
       }
     | null
     | undefined;
-  dictationVolume: number;
-  dictationDuration: number;
-  isDictating: boolean;
-  isDictationProcessing: boolean;
-  dictationStatus: React.ComponentProps<typeof DictationOverlay>["status"];
-  dictationError: string | null;
-  onCancelRecording: () => Promise<void>;
-  onAcceptRecording: () => Promise<void>;
-  onAcceptAndSendRecording: () => Promise<void>;
-  onRetryFailedRecording: () => void;
-  onDiscardFailedRecording: () => void;
   onRealtimeVoiceStop: () => void;
 }) {
-  if (showDictationOverlay) {
-    return (
-      <DictationOverlay
-        volume={dictationVolume}
-        duration={dictationDuration}
-        isRecording={isDictating}
-        isProcessing={isDictationProcessing}
-        status={dictationStatus}
-        errorText={dictationStatus === "failed" ? (dictationError ?? undefined) : undefined}
-        onCancel={onCancelRecording}
-        onAccept={onAcceptRecording}
-        onAcceptAndSend={onAcceptAndSendRecording}
-        onRetry={dictationStatus === "failed" ? onRetryFailedRecording : undefined}
-        onDiscard={dictationStatus === "failed" ? onDiscardFailedRecording : undefined}
-      />
-    );
-  }
-  if (showRealtimeOverlay && voice) {
-    return (
-      <RealtimeVoiceOverlay
-        isMuted={voice.isMuted}
-        isSwitching={voice.isVoiceSwitching}
-        onToggleMute={voice.toggleMute}
-        onStop={onRealtimeVoiceStop}
-      />
-    );
-  }
-  return null;
+  if (!showRealtimeOverlay || !voice) return null;
+  return (
+    <RealtimeVoiceOverlay
+      isMuted={voice.isMuted}
+      isSwitching={voice.isVoiceSwitching}
+      onToggleMute={voice.toggleMute}
+      onStop={onRealtimeVoiceStop}
+    />
+  );
 }
 
 function FocusHint({
@@ -918,7 +871,7 @@ interface SendMessageContext {
 }
 
 function sendMessageImpl(ctx: SendMessageContext): void {
-  const trimmed = ctx.value.trim();
+  const trimmed = trimInlineText(ctx.value);
   if (
     !trimmed &&
     ctx.attachments.length === 0 &&
@@ -951,7 +904,7 @@ interface QueueMessageContext {
 
 function queueMessageImpl(ctx: QueueMessageContext): void {
   if (!ctx.onQueue) return;
-  const trimmed = ctx.value.trim();
+  const trimmed = trimInlineText(ctx.value);
   if (!trimmed && ctx.attachments.length === 0) return;
   ctx.onQueue({ text: trimmed, attachments: ctx.attachments, cwd: ctx.cwd });
   ctx.replaceText("");
@@ -967,7 +920,7 @@ function computeIsRealtimeVoiceForAgent(
   return voice.isVoiceModeForAgent(voiceServerId, voiceAgentId);
 }
 
-function computeShouldShowDictationOverlay(
+function computeShouldShowDictationControls(
   isDictating: boolean,
   isDictationProcessing: boolean,
   dictationStatus: string,
@@ -1374,8 +1327,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       isProcessing: isDictationProcessing,
       partialTranscript: _dictationPartialTranscript,
       volume: dictationVolume,
-      duration: dictationDuration,
-      error: dictationError,
       status: dictationStatus,
       startDictation,
       cancelDictation,
@@ -1396,14 +1347,13 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       voiceServerId,
       voiceAgentId,
     );
-    const showDictationOverlay = computeShouldShowDictationOverlay(
+    const showDictationControls = computeShouldShowDictationControls(
       isDictating,
       isDictationProcessing,
       dictationStatus,
     );
     const showRealtimeOverlay = isRealtimeVoiceForCurrentAgent;
-    const showOverlay = showDictationOverlay || showRealtimeOverlay;
-    const surfacePresentation = resolveComposerSurfacePresentation(showOverlay);
+    const surfacePresentation = resolveComposerSurfacePresentation(showRealtimeOverlay);
 
     useEffect(() => {
       if (isDictating || isDictationProcessing) {
@@ -1447,11 +1397,6 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
 
     const handleAcceptRecording = useCallback(async () => {
       sendAfterTranscriptRef.current = false;
-      await confirmDictation();
-    }, [confirmDictation]);
-
-    const handleAcceptAndSendRecording = useCallback(async () => {
-      sendAfterTranscriptRef.current = true;
       await confirmDictation();
     }, [confirmDictation]);
 
@@ -1713,11 +1658,10 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     const voiceButtonStyle = useCallback(
       ({ hovered }: { hovered?: boolean }) => [
         styles.voiceButton,
-        Boolean(hovered) && !isDictating && styles.iconButtonHovered,
+        Boolean(hovered) && styles.iconButtonHovered,
         !isDictationStartEnabled && styles.buttonDisabled,
-        isDictating && styles.voiceButtonRecording,
       ],
-      [isDictating, isDictationStartEnabled],
+      [isDictationStartEnabled],
     );
 
     const handleRealtimeVoiceStop = useCallback(() => {
@@ -1781,12 +1725,11 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       ({ hovered }: { hovered?: boolean }) => (
         <VoiceButtonIcon
           hovered={Boolean(hovered)}
-          isDictating={isDictating}
           isMutedRealtime={Boolean(isRealtimeVoiceForCurrentAgent && voice?.isMuted)}
           buttonIconSize={buttonIconSize}
         />
       ),
-      [isDictating, isRealtimeVoiceForCurrentAgent, voice?.isMuted, buttonIconSize],
+      [isRealtimeVoiceForCurrentAgent, voice?.isMuted, buttonIconSize],
     );
 
     return (
@@ -1855,8 +1798,19 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
                 addAttachmentLabel={t("composer.input.addAttachment")}
               />
               {beforeVoiceContent}
+              <DictationInlineControls
+                visible={showDictationControls}
+                volume={dictationVolume}
+                isProcessing={isDictationProcessing}
+                status={dictationStatus}
+                iconSize={buttonIconSize}
+                onCancel={handleCancelRecording}
+                onStop={handleAcceptRecording}
+                onRetry={handleRetryFailedRecording}
+                onDiscard={handleDiscardFailedRecording}
+              />
               <VoiceButtonTooltip
-                visible={mode.showVoice}
+                visible={mode.showVoice && !showDictationControls}
                 onVoicePress={handleVoicePress}
                 isDictationStartEnabled={isDictationStartEnabled}
                 voiceButtonAccessibilityLabel={voiceButtonAccessibilityLabel}
@@ -1896,20 +1850,8 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           pointerEvents={surfacePresentation.overlay.pointerEvents}
         >
           <MessageInputOverlay
-            showDictationOverlay={showDictationOverlay}
             showRealtimeOverlay={showRealtimeOverlay}
             voice={voice}
-            dictationVolume={dictationVolume}
-            dictationDuration={dictationDuration}
-            isDictating={isDictating}
-            isDictationProcessing={isDictationProcessing}
-            dictationStatus={dictationStatus}
-            dictationError={dictationError}
-            onCancelRecording={handleCancelRecording}
-            onAcceptRecording={handleAcceptRecording}
-            onAcceptAndSendRecording={handleAcceptAndSendRecording}
-            onRetryFailedRecording={handleRetryFailedRecording}
-            onDiscardFailedRecording={handleDiscardFailedRecording}
             onRealtimeVoiceStop={handleRealtimeVoiceStop}
           />
         </View>
@@ -2032,9 +1974,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-  },
-  voiceButtonRecording: {
-    backgroundColor: theme.colors.destructive,
   },
   sendButton: {
     width: 28,

@@ -68,6 +68,70 @@ export function parseForgeRef(
   return extractForgeRefs(text, remoteUrl)[0] ?? null;
 }
 
+export interface PastedForgeRef extends ForgeRef {
+  /** `host/repo/path` of the URL, lowercased, to check a lookup result is from the same repo. */
+  repo: string;
+}
+
+/**
+ * Finds issue and change-request URLs without knowing the repository's remote,
+ * so detection doesn't wait on a checkout status round trip. Callers confirm a
+ * ref by comparing `repo` with `parseForgeUrlRepo` of the resolved item's URL.
+ */
+export function extractPastedForgeRefs(text: string | null | undefined): PastedForgeRef[] {
+  const body = text?.trim();
+  if (!body) {
+    return [];
+  }
+  const refs: PastedForgeRef[] = [];
+  const seen = new Set<string>();
+  for (const match of body.matchAll(WEB_URL_PATTERN)) {
+    const ref = parsePastedForgeUrl(match[0]);
+    if (!ref) {
+      continue;
+    }
+    const key = `${ref.repo}:${forgeRefKey(ref)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      refs.push(ref);
+    }
+  }
+  return refs;
+}
+
+/** Returns the `repo` key of an issue or change-request URL, or null. */
+export function parseForgeUrlRepo(url: string): string | null {
+  return parsePastedForgeUrl(url)?.repo ?? null;
+}
+
+function parsePastedForgeUrl(raw: string): PastedForgeRef | null {
+  const candidate = parsePastedWebUrl(raw);
+  const pathname = candidate ? decodePathname(candidate.pathname) : null;
+  if (!candidate || !pathname) {
+    return null;
+  }
+  const lowerPathname = pathname.toLowerCase();
+  // The earliest infix wins, so GitLab's `/-/issues/` beats GitHub's `/issues/`.
+  let best: { index: number; referencePath: ForgeReferencePath } | null = null;
+  for (const referencePath of registeredReferencePaths(null)) {
+    const index = lowerPathname.indexOf(referencePath.infix.toLowerCase());
+    if (index > 0 && (!best || index < best.index)) {
+      best = { index, referencePath };
+    }
+  }
+  if (!best) {
+    return null;
+  }
+  const repoPath = pathname.slice(1, best.index);
+  if (!repoPath.includes("/")) {
+    return null;
+  }
+  const ref = parseReferencePath(pathname, repoPath, best.referencePath);
+  return ref
+    ? { ...ref, repo: `${normalizeHost(candidate.hostname)}/${repoPath}`.toLowerCase() }
+    : null;
+}
+
 function resolveRemoteReferenceTarget(
   remoteUrl: string | null | undefined,
 ): RemoteReferenceTarget | null {

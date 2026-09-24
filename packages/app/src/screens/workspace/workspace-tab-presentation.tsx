@@ -9,7 +9,7 @@ import { getPanelRegistration, type PanelIconProps } from "@/panels/panel-regist
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { getStatusDotColor } from "@/utils/status-dot-color";
-import { DotSpinner } from "@/components/dot-spinner";
+import { PixelLoader } from "@/components/pixel-loader";
 import {
   STATUS_INDICATOR_ALERT_SIZE,
   STATUS_INDICATOR_DOT_SIZE,
@@ -158,7 +158,7 @@ export function WorkspaceTabIcon({
     <View style={agentIconWrapperStyle}>
       {isRunning ? (
         <View accessibilityRole="progressbar" accessibilityLabel="Agent running">
-          <DotSpinner size={size} color={iconColor} />
+          <PixelLoader size={size} color={iconColor} seed={presentation.key} />
         </View>
       ) : (
         <Icon size={size} color={iconColor} strokeWidth={strokeWidth} />

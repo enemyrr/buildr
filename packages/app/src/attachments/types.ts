@@ -93,6 +93,22 @@ export interface ChatHistoryContextAttachment {
 
 export const NEW_WORKSPACE_PICKER_ATTACHMENT_OWNER = "new-workspace-picker";
 
+export type PickerOwnedAttachment = Extract<
+  UserComposerAttachment,
+  { kind: "github_pr" | "github_issue" }
+> & { owner: typeof NEW_WORKSPACE_PICKER_ATTACHMENT_OWNER };
+
+/** True for the PR or issue the new-workspace picker attached; its header shows it, not the composer. */
+export function isPickerOwnedAttachment(
+  attachment: ComposerAttachment,
+): attachment is PickerOwnedAttachment {
+  return (
+    (attachment.kind === "github_pr" || attachment.kind === "github_issue") &&
+    "owner" in attachment &&
+    attachment.owner === NEW_WORKSPACE_PICKER_ATTACHMENT_OWNER
+  );
+}
+
 export type WorkspaceFileSelection =
   | { kind: "whole_file" }
   | { kind: "line_range"; startLine: number; endLine: number };
@@ -113,7 +129,11 @@ export type UserComposerAttachment =
   // COMPAT(githubAttachmentKinds): legacy persisted attachment kinds retained
   // when forge-neutral kinds shipped in v0.2.0-beta.1. Remove after 2027-01-17
   // once supported floors are >= v0.2.0 and old drafts no longer need them.
-  | { kind: "github_issue"; item: ForgeSearchItem }
+  | {
+      kind: "github_issue";
+      item: ForgeSearchItem;
+      owner?: typeof NEW_WORKSPACE_PICKER_ATTACHMENT_OWNER;
+    }
   | {
       kind: "github_pr";
       item: ForgeSearchItem;

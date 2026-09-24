@@ -119,12 +119,13 @@ import { RenderProfile } from "@/utils/render-profiler";
 import { AfterPaintPublication } from "@/composer/after-paint-publication";
 import { isWeb, isNative } from "@/constants/platform";
 import type { ForgeSearchItem } from "@getpaseo/protocol/messages";
-import type {
-  AttachmentMetadata,
-  ComposerAttachment,
-  UserComposerAttachment,
-  WorkspaceFileComposerAttachment,
-  WorkspaceComposerAttachment,
+import {
+  isPickerOwnedAttachment,
+  type AttachmentMetadata,
+  type ComposerAttachment,
+  type UserComposerAttachment,
+  type WorkspaceFileComposerAttachment,
+  type WorkspaceComposerAttachment,
 } from "@/attachments/types";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { resolveComposerAttachmentSubmitFormat } from "@/composer/attachments/submit";
@@ -146,7 +147,6 @@ import { useOpenImageTab } from "@/panels/use-open-image-tab";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useIsDictationReady } from "@/hooks/use-is-dictation-ready";
 import { useForgeSearchQuery } from "@/git/use-forge-search-query";
-import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { getForgePresentation } from "@/git/forge";
 import { ForgeBrandIcon } from "@/git/forge-icon";
@@ -242,12 +242,6 @@ function resolveGithubSearchEnabled(
   cwd: string,
 ): boolean {
   return isGithubPickerOpen && isConnected && cwd.trim().length > 0;
-}
-
-function resolveCheckoutRemoteUrl(
-  checkoutStatus: ReturnType<typeof useCheckoutStatusQuery>["status"],
-): string | null {
-  return checkoutStatus?.remoteUrl ?? null;
 }
 
 function buildCancelButtonStyle(input: {
@@ -373,12 +367,14 @@ function renderAttachmentTray(args: RenderAttachmentTrayArgs): ReactElement | nu
     isInline,
     labels,
   } = args;
-  const hasTrayAttachments = selectedAttachments.some((attachment) => !isInline(attachment));
+  const isInTray = (attachment: ComposerAttachment) =>
+    !isInline(attachment) && !isPickerOwnedAttachment(attachment);
+  const hasTrayAttachments = selectedAttachments.some(isInTray);
   if (!hasTrayAttachments && pendingFiles.length === 0) return null;
   return (
     <View style={styles.attachmentTray} testID="composer-attachment-tray">
       {selectedAttachments.map((attachment, index) =>
-        isInline(attachment)
+        !isInTray(attachment)
           ? null
           : renderComposerAttachmentPill({
               attachment,
@@ -1343,7 +1339,6 @@ function ComposerContentImpl({
     onOpenWorkspaceAttachment,
   });
   const setSelectedAttachments = onChangeAttachments;
-  const checkoutStatusQuery = useCheckoutStatusQuery({ serverId, cwd });
   const supportsForgeSearch = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.features?.forgeSearch === true,
   );
@@ -1351,7 +1346,6 @@ function ComposerContentImpl({
   const [isForgeResolving, setIsForgeResolving] = useState(false);
   const forgeConfiguration = useMemo(
     () => ({
-      remoteUrl: resolveCheckoutRemoteUrl(checkoutStatusQuery.status),
       attachments,
       client,
       isConnected,
@@ -1363,7 +1357,6 @@ function ComposerContentImpl({
       onChangeRequestAdded: onForgeChangeRequestAutoAttach,
     }),
     [
-      checkoutStatusQuery.status,
       attachments,
       client,
       isConnected,

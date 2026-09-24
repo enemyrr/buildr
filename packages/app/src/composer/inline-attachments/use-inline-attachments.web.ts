@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { ComposerAttachment, UserComposerAttachment } from "@/attachments/types";
+import {
+  isPickerOwnedAttachment,
+  type ComposerAttachment,
+  type UserComposerAttachment,
+} from "@/attachments/types";
 import { isWorkspaceAttachment } from "@/attachments/workspace-attachment-utils";
 import type { InlineChip } from "@/composer/input/text-overlay.types";
 import { buildInlineAttachments } from "./attachments";
@@ -47,7 +51,16 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
   inputRef.current = input;
   const selectionRef = useRef<TextSelection>({ start: 0, end: 0 });
 
-  const inlineAttachments = useMemo(() => buildInlineAttachments(attachments), [attachments]);
+  // The new-workspace header shows its picked PR, so it gets no chip and its
+  // pasted URL is removed from the text.
+  const inlineAttachments = useMemo(
+    () => buildInlineAttachments(attachments.filter((a) => !isPickerOwnedAttachment(a))),
+    [attachments],
+  );
+  const consumedUrls = useMemo(
+    () => attachments.filter(isPickerOwnedAttachment).map((attachment) => attachment.item.url),
+    [attachments],
+  );
   const inlineAttachmentsRef = useRef(inlineAttachments);
   inlineAttachmentsRef.current = inlineAttachments;
 
@@ -64,6 +77,7 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
       text,
       items: inlineAttachments,
       insertAt: current.getSelection().end,
+      consumedUrls,
     });
     if (result.text !== text) {
       current.replaceText(
@@ -78,7 +92,7 @@ export function useInlineAttachments(input: UseInlineAttachmentsInput): InlineAt
     if (order.some((attachment, index) => attachment !== attachments[index])) {
       current.setAttachments(order);
     }
-  }, [attachments, enabled, inlineAttachments]);
+  }, [attachments, consumedUrls, enabled, inlineAttachments]);
 
   const handleChangeText = useCallback(
     (next: string) => {

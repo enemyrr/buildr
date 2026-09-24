@@ -24,7 +24,15 @@ export type PickerItem =
   | {
       kind: "github-pr";
       item: ForgeSearchItem;
+    }
+  | {
+      // Context for the agent, not a ref: the workspace still starts from the base branch.
+      kind: "issue";
+      item: ForgeSearchItem;
     };
+
+/** A picker item the workspace can start from: everything but an issue. */
+export type RefPickerItem = Exclude<PickerItem, { kind: "issue" }>;
 
 export type PickerCheckoutRequest = Pick<
   CreatePaseoWorktreeInput,
@@ -33,6 +41,7 @@ export type PickerCheckoutRequest = Pick<
 
 const BRANCH_OPTION_PREFIX = "branch:";
 const PR_OPTION_PREFIX = "github-pr:";
+const ISSUE_OPTION_PREFIX = "issue:";
 const REMOTE_TRACKING_PREFIX = "refs/remotes/";
 
 export function branchPickerOptionId(refName: string): string {
@@ -230,6 +239,8 @@ export function pickerItemToCheckoutRequest(
           : {}),
       };
     }
+    case "issue":
+      return undefined;
   }
 }
 
@@ -237,10 +248,19 @@ export function prPickerOptionId(number: number): string {
   return `${PR_OPTION_PREFIX}${number}`;
 }
 
+export function issuePickerOptionId(number: number): string {
+  return `${ISSUE_OPTION_PREFIX}${number}`;
+}
+
 export function pickerOptionId(item: PickerItem): string {
-  return item.kind === "branch"
-    ? branchPickerOptionId(item.refName)
-    : prPickerOptionId(item.item.number);
+  switch (item.kind) {
+    case "branch":
+      return branchPickerOptionId(item.refName);
+    case "github-pr":
+      return prPickerOptionId(item.item.number);
+    case "issue":
+      return issuePickerOptionId(item.item.number);
+  }
 }
 
 function formatPrLabel(item: Pick<ForgeSearchItem, "forge" | "number" | "title">): string {
@@ -248,8 +268,20 @@ function formatPrLabel(item: Pick<ForgeSearchItem, "forge" | "number" | "title">
   return `${presentation.numberPrefix}${item.number} ${item.title}`;
 }
 
+function formatIssueLabel(item: Pick<ForgeSearchItem, "forge" | "number" | "title">): string {
+  const presentation = getForgePresentation(item.forge ?? "github");
+  return `${presentation.issueNumberPrefix}${item.number} ${item.title}`;
+}
+
 export function pickerItemLabel(item: PickerItem): string {
-  return item.kind === "branch" ? item.name : formatPrLabel(item.item);
+  switch (item.kind) {
+    case "branch":
+      return item.name;
+    case "github-pr":
+      return formatPrLabel(item.item);
+    case "issue":
+      return formatIssueLabel(item.item);
+  }
 }
 
 export interface PickerOptionData {
@@ -266,6 +298,7 @@ interface TimedOption {
 export function buildPickerOptionData(input: {
   branchDetails: readonly BranchPickerDetail[];
   prItems: readonly ForgeSearchItem[];
+  issueItems?: readonly ForgeSearchItem[];
   baseItem: PickerItem | null;
 }): PickerOptionData {
   const itemById = new Map<string, PickerItem>();
@@ -285,9 +318,16 @@ export function buildPickerOptionData(input: {
     if (!pr.headRefName) continue;
     const id = prPickerOptionId(pr.number);
     itemById.set(id, { kind: "github-pr", item: pr });
-    const updatedAtMs = pr.updatedAt ? Date.parse(pr.updatedAt) : 0;
-    const timestamp = Number.isNaN(updatedAtMs) ? 0 : Math.floor(updatedAtMs / 1000);
-    timedOptions.push({ option: { id, label: formatPrLabel(pr) }, timestamp });
+    timedOptions.push({ option: { id, label: formatPrLabel(pr) }, timestamp: toSeconds(pr) });
+  }
+
+  for (const issue of input.issueItems ?? []) {
+    const id = issuePickerOptionId(issue.number);
+    itemById.set(id, { kind: "issue", item: issue });
+    timedOptions.push({
+      option: { id, label: formatIssueLabel(issue) },
+      timestamp: toSeconds(issue),
+    });
   }
 
   const baseItem = input.baseItem;
@@ -312,6 +352,11 @@ export function buildPickerOptionData(input: {
   return { options: timedOptions.map((t) => t.option), itemById, selectedOptionId };
 }
 
+function toSeconds(item: Pick<ForgeSearchItem, "updatedAt">): number {
+  const updatedAtMs = item.updatedAt ? Date.parse(item.updatedAt) : 0;
+  return Number.isNaN(updatedAtMs) ? 0 : Math.floor(updatedAtMs / 1000);
+}
+
 // Two rows reading "main" would be a coin flip for the user, so the added row says where its
 // ref lives. Only when it collides — a lone row needs no qualifier.
 function disambiguate(item: PickerItem, existing: readonly TimedOption[]): PickerItem {
@@ -331,10 +376,17 @@ function disambiguate(item: PickerItem, existing: readonly TimedOption[]): Picke
 
 // "Create from…" splits the one ref list into tabs. The selection model stays shared: a tab is
 // only a view over the same options, so picking a row behaves exactly as it did in the flat list.
-export type CreateFromTab = "prs" | "branches";
+export type CreateFromTab = "prs" | "branches" | "issues";
 
 export function createFromTabForItem(item: PickerItem | null): CreateFromTab {
-  return item?.kind === "github-pr" ? "prs" : "branches";
+  switch (item?.kind) {
+    case "github-pr":
+      return "prs";
+    case "issue":
+      return "issues";
+    default:
+      return "branches";
+  }
 }
 
 export function filterPickerOptionsByTab<T extends { id: string }>(input: {

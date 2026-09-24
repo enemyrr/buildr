@@ -2,9 +2,14 @@ import type { UserComposerAttachment } from "@/attachments/types";
 import { getWorkspaceFileAttachmentLabel } from "@/attachments/workspace-file";
 import type { InlineChipKind } from "@/composer/input/text-overlay.types";
 import { getForgePresentation } from "@/git/forge";
+import { formatAttachmentReference, formatImageReference } from "./references";
 import { formatInlineLabel, type InlineAttachmentItem } from "./tokens";
 
-function describe(attachment: UserComposerAttachment): { label: string; kind: InlineChipKind } {
+function describe(attachment: UserComposerAttachment): {
+  label: string;
+  kind: InlineChipKind;
+  url?: string;
+} {
   switch (attachment.kind) {
     case "image":
       return { label: attachment.metadata.fileName || "image", kind: "image" };
@@ -25,6 +30,7 @@ function describe(attachment: UserComposerAttachment): { label: string; kind: In
       return {
         label: `${prefix}${item.number} ${item.title}`,
         kind: isChangeRequest ? "change_request" : "issue",
+        url: item.url,
       };
     }
   }
@@ -44,9 +50,10 @@ export function buildInlineAttachments(
 ): InlineAttachment[] {
   let imageCount = 0;
   return attachments.map((attachment) => {
-    const { label, kind } = describe(attachment);
+    const { label, kind, url } = describe(attachment);
     const formatted = formatInlineLabel(label);
-    const reference = kind === "image" ? `[Image #${++imageCount}]` : `[${label}]`;
-    return { item: attachment, label: formatted, reference, kind };
+    const reference =
+      kind === "image" ? formatImageReference(++imageCount) : formatAttachmentReference(label);
+    return { item: attachment, label: formatted, reference, kind, url };
   });
 }

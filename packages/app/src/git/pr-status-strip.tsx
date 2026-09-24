@@ -517,8 +517,9 @@ const TONE_SHEETS = {
   muted: createToneSheet("muted"),
 };
 
-const CHIP_SIZE = 20;
 const STRIP_BUTTON_HEIGHT = 22;
+// The `#N` link matches the strip's buttons.
+const CHIP_SIZE = STRIP_BUTTON_HEIGHT;
 
 const styles = StyleSheet.create((theme) => ({
   bar: {

@@ -13,7 +13,7 @@ import { resolveAssistantTurnForkBoundary, type AssistantTurnForkBoundary } from
 import { AssistantTurnFooter, LiveElapsed, type AssistantForkTarget } from "@/components/message";
 import type { TurnFooterHost } from "./layout";
 import { AssistantForkMenu } from "@/components/assistant-fork-menu";
-import { DotSpinner } from "@/components/dot-spinner";
+import { PixelLoader } from "@/components/pixel-loader";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { MaterialFileIcon } from "@/components/material-file-icon";
 import {
@@ -28,7 +28,7 @@ export interface TurnFileChipActions {
   openFile: (filePath: string) => void;
 }
 
-const ThemedDotSpinner = withUnistyles(DotSpinner);
+const ThemedPixelLoader = withUnistyles(PixelLoader);
 const workingIndicatorColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 export const TURN_FOOTER_BOTTOM_SPACING = SPACING[8];
 
@@ -137,7 +137,7 @@ const WorkingIndicator = memo(function WorkingIndicator({
   return (
     <View style={stylesheet.turnFooterContent}>
       <View style={stylesheet.workingLoader}>
-        <ThemedDotSpinner size={12} uniProps={workingIndicatorColorMapping} />
+        <ThemedPixelLoader size={12} uniProps={workingIndicatorColorMapping} />
       </View>
       {/* Match the completed-turn footer: actions precede timing metadata. */}
       {onForkInFlightTurn ? <AssistantForkMenu onFork={onForkInFlightTurn} /> : null}

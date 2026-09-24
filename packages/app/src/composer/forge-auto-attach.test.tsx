@@ -13,7 +13,6 @@ import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 
 type ForgeSearchPayload = ForgeSearchResponse["payload"];
 
-const remoteUrl = "git@github.com:acme/paseo.git";
 const cwd = "/repo";
 
 const pr101: ForgeSearchItem = {
@@ -85,7 +84,6 @@ interface HarnessInput {
   initialText?: string;
   onChangeRequestDetected?: () => void;
   onChangeRequestAdded?: (item: ForgeSearchItem) => void;
-  remote?: string | null;
 }
 
 function githubPayload(items: ForgeSearchItem[], requestId: string): ForgeSearchPayload {
@@ -138,7 +136,6 @@ function useHarness(client: ForgeSearchClient, input: HarnessInput = {}) {
   );
   const autoAttach = useComposerForgeAutoAttach({
     text,
-    remoteUrl: input.remote ?? remoteUrl,
     attachments,
     client: searchClient,
     isConnected: true,
@@ -186,7 +183,7 @@ describe("useComposerForgeAutoAttach", () => {
 
     expect(result.current.attachments).toEqual([{ kind: "forge_change_request", item: pr101 }]);
     expect(result.current.isResolving).toBe(false);
-    expect(client.calls).toEqual([{ cwd, query: "101", limit: 20 }]);
+    expect(client.calls).toEqual([{ cwd, query: "101", limit: 20, kinds: ["change_request"] }]);
     vi.useRealTimers();
   });
 
@@ -200,7 +197,6 @@ describe("useComposerForgeAutoAttach", () => {
         useHarness(client, {
           onChangeRequestDetected,
           onChangeRequestAdded,
-          remote: "git@gitlab.com:acme/paseo.git",
         }),
       { wrapper: createWrapper() },
     );
@@ -215,20 +211,14 @@ describe("useComposerForgeAutoAttach", () => {
     ]);
     expect(onChangeRequestDetected).toHaveBeenCalledTimes(1);
     expect(onChangeRequestAdded).toHaveBeenCalledWith(gitlabMr73);
-    expect(client.calls).toEqual([{ cwd, query: "73", limit: 20 }]);
+    expect(client.calls).toEqual([{ cwd, query: "73", limit: 20, kinds: ["change_request"] }]);
     vi.useRealTimers();
   });
 
   it("adds a matching pasted self-hosted Gitea issue URL", async () => {
     vi.useFakeTimers();
     const client = createSearchClient([giteaIssue27]);
-    const { result } = renderHook(
-      () =>
-        useHarness(client, {
-          remote: "git@gitea.example.com:acme/paseo.git",
-        }),
-      { wrapper: createWrapper() },
-    );
+    const { result } = renderHook(() => useHarness(client, {}), { wrapper: createWrapper() });
 
     act(() => {
       result.current.setText("See https://gitea.example.com/acme/paseo/issues/27");
@@ -236,11 +226,11 @@ describe("useComposerForgeAutoAttach", () => {
     await flushDebounce();
 
     expect(result.current.attachments).toEqual([{ kind: "forge_issue", item: giteaIssue27 }]);
-    expect(client.calls).toEqual([{ cwd, query: "27", limit: 20 }]);
+    expect(client.calls).toEqual([{ cwd, query: "27", limit: 20, kinds: ["issue"] }]);
     vi.useRealTimers();
   });
 
-  it("ignores URLs that do not match the current remote", async () => {
+  it("ignores URLs from another repository", async () => {
     vi.useFakeTimers();
     const client = createSearchClient([pr101]);
     const { result } = renderHook(() => useHarness(client), { wrapper: createWrapper() });
@@ -251,7 +241,6 @@ describe("useComposerForgeAutoAttach", () => {
     await flushDebounce();
 
     expect(result.current.attachments).toEqual([]);
-    expect(client.calls).toEqual([]);
     vi.useRealTimers();
   });
 
@@ -310,8 +299,8 @@ describe("useComposerForgeAutoAttach", () => {
       { kind: "forge_issue", item: issue202 },
     ]);
     expect(client.calls).toEqual([
-      { cwd, query: "101", limit: 20 },
-      { cwd, query: "202", limit: 20 },
+      { cwd, query: "101", limit: 20, kinds: ["change_request"] },
+      { cwd, query: "202", limit: 20, kinds: ["issue"] },
     ]);
     vi.useRealTimers();
   });
@@ -432,8 +421,8 @@ describe("useComposerForgeAutoAttach", () => {
 
     expect(onChangeRequestAdded.mock.calls).toEqual([[pr202], [pr101]]);
     expect(client.calls).toEqual([
-      { cwd, query: "202", limit: 20 },
-      { cwd, query: "101", limit: 20 },
+      { cwd, query: "202", limit: 20, kinds: ["change_request"] },
+      { cwd, query: "101", limit: 20, kinds: ["change_request"] },
     ]);
     vi.useRealTimers();
   });

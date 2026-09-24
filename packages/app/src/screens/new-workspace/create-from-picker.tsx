@@ -2,8 +2,13 @@ import { useCallback, useMemo, type ReactElement, type RefObject } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { CornerDownLeft, GitBranch, GitPullRequest } from "lucide-react-native";
-import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
+import { CircleDot, GitBranch, GitPullRequest } from "lucide-react-native";
+import {
+  Combobox,
+  ComboboxItem,
+  type ComboboxDesktopPlacement,
+  type ComboboxOption,
+} from "@/components/ui/combobox";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import {
@@ -15,11 +20,18 @@ import {
 
 const ThemedGitBranch = withUnistyles(GitBranch);
 const ThemedGitPullRequest = withUnistyles(GitPullRequest);
-const ThemedCornerDownLeft = withUnistyles(CornerDownLeft);
+const ThemedCircleDot = withUnistyles(CircleDot);
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const branchIcon = <ThemedGitBranch size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
 const prIcon = <ThemedGitPullRequest size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+const issueIcon = <ThemedCircleDot size={ICON_SIZE.sm} uniProps={mutedColorMapping} />;
+
+const ROW_ICONS: Record<PickerItem["kind"], ReactElement> = {
+  branch: branchIcon,
+  "github-pr": prIcon,
+  issue: issueIcon,
+};
 
 function CreateFromOptionRow({
   item,
@@ -34,46 +46,38 @@ function CreateFromOptionRow({
   disabled: boolean;
   onPress: () => void;
 }): ReactElement {
-  const { t } = useTranslation();
   const isBranch = item.kind === "branch";
   const divergence = isBranch ? item.divergenceLabel : undefined;
+  const number = isBranch ? null : `#${item.item.number}`;
   const leadingSlot = useMemo(
-    () => <View style={styles.rowIconBox}>{isBranch ? branchIcon : prIcon}</View>,
-    [isBranch],
+    () => (
+      <View style={styles.rowLeading}>
+        <View style={styles.rowIconBox}>{ROW_ICONS[item.kind]}</View>
+        {number ? <Text style={styles.rowNumber}>{number}</Text> : null}
+      </View>
+    ),
+    [item.kind, number],
   );
-  // The highlighted row names the key that picks it, so keyboard and pointer read the same.
-  const trailingSlot = useMemo(() => {
-    if (active) {
-      return (
-        <View style={styles.selectHint}>
-          <Text style={styles.selectHintText}>{t("newWorkspace.createFrom.select")}</Text>
-          <ThemedCornerDownLeft size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
-        </View>
-      );
-    }
-    return divergence ? <Text style={styles.divergenceLabel}>{divergence}</Text> : undefined;
-  }, [active, divergence, t]);
-  const description =
-    !isBranch && item.item.baseRefName
-      ? t("newWorkspace.refPicker.intoBase", { baseRef: item.item.baseRefName })
-      : undefined;
+  const trailingSlot = useMemo(
+    () => (divergence ? <Text style={styles.divergenceLabel}>{divergence}</Text> : undefined),
+    [divergence],
+  );
 
   return (
     <ComboboxItem
       testID={
         isBranch
           ? `new-workspace-ref-picker-branch-${item.name}`
-          : `new-workspace-ref-picker-pr-${item.item.number}`
+          : `new-workspace-ref-picker-${item.kind === "issue" ? "issue" : "pr"}-${item.item.number}`
       }
-      label={pickerItemLabel(item)}
-      description={description}
+      label={isBranch ? item.name : item.item.title}
       selected={selected}
       active={active}
       disabled={disabled}
       onPress={onPress}
       leadingSlot={leadingSlot}
       trailingSlot={trailingSlot}
-      accessibilityLabel={isBranch ? item.accessibilityLabel : undefined}
+      accessibilityLabel={isBranch ? item.accessibilityLabel : pickerItemLabel(item)}
     />
   );
 }
@@ -82,10 +86,11 @@ export interface CreateFromPickerProps {
   anchorRef: RefObject<View | null>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  desktopPlacement?: ComboboxDesktopPlacement;
   tab: CreateFromTab;
   onTabChange: (tab: CreateFromTab) => void;
   /** False when the host can't search the forge; the picker is then a plain branch list. */
-  showPullRequests: boolean;
+  showForgeTabs: boolean;
   options: ComboboxOption[];
   itemById: Map<string, PickerItem>;
   selectedOptionId: string;
@@ -103,9 +108,10 @@ export function CreateFromPicker({
   anchorRef,
   open,
   onOpenChange,
+  desktopPlacement = "bottom-start",
   tab,
   onTabChange,
-  showPullRequests,
+  showForgeTabs,
   options,
   itemById,
   selectedOptionId,
@@ -115,7 +121,7 @@ export function CreateFromPicker({
   disabled,
 }: CreateFromPickerProps): ReactElement {
   const { t } = useTranslation();
-  const effectiveTab: CreateFromTab = showPullRequests ? tab : "branches";
+  const effectiveTab: CreateFromTab = showForgeTabs ? tab : "branches";
   const visibleOptions = useMemo(
     () => filterPickerOptionsByTab({ options, itemById, tab: effectiveTab }),
     [effectiveTab, itemById, options],
@@ -132,12 +138,17 @@ export function CreateFromPicker({
         label: t("newWorkspace.createFrom.branches"),
         testID: "new-workspace-create-from-tab-branches",
       },
+      {
+        value: "issues",
+        label: t("newWorkspace.createFrom.issues"),
+        testID: "new-workspace-create-from-tab-issues",
+      },
     ],
     [t],
   );
   const tabs = useMemo(
     () =>
-      showPullRequests ? (
+      showForgeTabs ? (
         <View style={styles.tabs}>
           <SegmentedControl
             size="xs"
@@ -148,7 +159,7 @@ export function CreateFromPicker({
           />
         </View>
       ) : null,
-    [effectiveTab, onTabChange, showPullRequests, tabOptions],
+    [effectiveTab, onTabChange, showForgeTabs, tabOptions],
   );
 
   const renderOption = useCallback(
@@ -181,6 +192,7 @@ export function CreateFromPicker({
   let emptyText = t("newWorkspace.createFrom.noBranches");
   if (isSearching) emptyText = t("newWorkspace.refPicker.searching");
   else if (effectiveTab === "prs") emptyText = t("newWorkspace.createFrom.noPullRequests");
+  else if (effectiveTab === "issues") emptyText = t("newWorkspace.createFrom.noIssues");
 
   return (
     <Combobox
@@ -193,7 +205,7 @@ export function CreateFromPicker({
       open={open}
       onOpenChange={onOpenChange}
       onSearchQueryChange={onSearchQueryChange}
-      desktopPlacement="bottom-start"
+      desktopPlacement={desktopPlacement}
       desktopMinWidth={420}
       desktopLockWidth
       anchorRef={anchorRef}
@@ -211,20 +223,22 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: theme.spacing[2],
     paddingBottom: theme.spacing[1],
   },
+  rowLeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  rowNumber: {
+    minWidth: 36,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+    fontVariant: ["tabular-nums"],
+  },
   rowIconBox: {
     width: theme.iconSize.md,
     height: theme.iconSize.md,
     alignItems: "center",
     justifyContent: "center",
-  },
-  selectHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-  },
-  selectHintText: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.foregroundMuted,
   },
   divergenceLabel: {
     fontSize: theme.fontSize.sm,

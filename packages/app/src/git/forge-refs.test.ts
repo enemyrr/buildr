@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractForgeRefs, parseForgeRef } from "./forge-refs";
+import {
+  extractForgeRefs,
+  extractPastedForgeRefs,
+  parseForgeRef,
+  parseForgeUrlRepo,
+} from "./forge-refs";
 
 describe("parseForgeRef", () => {
   it.each([
@@ -100,5 +105,28 @@ describe("extractForgeRefs", () => {
   it("returns no references without text or a valid remote", () => {
     expect(extractForgeRefs("", "git@github.com:getpaseo/paseo.git")).toEqual([]);
     expect(extractForgeRefs("https://github.com/getpaseo/paseo/pull/1", null)).toEqual([]);
+  });
+});
+
+describe("extractPastedForgeRefs", () => {
+  it("reads refs and their repository without a remote", () => {
+    expect(
+      extractPastedForgeRefs(
+        "See https://github.com/Acme/Paseo/pull/12/files and https://gitlab.com/group/sub/project/-/issues/19.",
+      ),
+    ).toEqual([
+      { kind: "change_request", number: 12, repo: "github.com/acme/paseo" },
+      { kind: "issue", number: 19, repo: "gitlab.com/group/sub/project" },
+    ]);
+  });
+
+  it("ignores URLs without an owner and repository", () => {
+    expect(extractPastedForgeRefs("https://example.com/pull/3")).toEqual([]);
+  });
+
+  it("matches the repository of a resolved item URL", () => {
+    expect(parseForgeUrlRepo("https://github.com/acme/paseo/pull/12")).toBe(
+      "github.com/acme/paseo",
+    );
   });
 });

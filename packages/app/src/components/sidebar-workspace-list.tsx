@@ -31,7 +31,6 @@ import {
 } from "@/stores/navigation-active-workspace-store";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
-import type { SidebarSurfaceBackdrop } from "@/styles/surface-backdrop";
 import { getSidebarRowBackdrop } from "@/components/sidebar/sidebar-row-backdrop";
 import { type GestureType } from "react-native-gesture-handler";
 import { useWorkspaceClipboardActions } from "@/hooks/use-workspace-clipboard-actions";
@@ -659,7 +658,6 @@ function ProjectMenuItems({
 
 function WorkspaceRowRightGroup({
   workspace,
-  backdrop,
   isHovered,
   isTouchPlatform,
   isCreating,
@@ -679,7 +677,6 @@ function WorkspaceRowRightGroup({
   onTogglePin,
 }: {
   workspace: SidebarWorkspaceEntry;
-  backdrop: SidebarSurfaceBackdrop;
   isHovered: boolean;
   isTouchPlatform: boolean;
   isCreating: boolean;
@@ -705,7 +702,6 @@ function WorkspaceRowRightGroup({
   const {
     trailingPresentation,
     showKebab: showKebabInSlot,
-    showScrim,
     renderSlot,
     reserveSlotWidth,
   } = resolveTrailingActionVisibility({
@@ -725,13 +721,13 @@ function WorkspaceRowRightGroup({
       ) : null}
       {renderSlot ? (
         <SidebarWorkspaceTrailingActionSlot reserveWidth={reserveSlotWidth}>
-          <SidebarWorkspaceTrailingActionBase presentation={trailingPresentation}>
+          <SidebarWorkspaceTrailingActionBase
+            presentation={trailingPresentation}
+            concealed={kebab.showKebab}
+          >
             <SidebarWorkspaceTrailingContent workspace={workspace} trailing={trailing} />
           </SidebarWorkspaceTrailingActionBase>
-          <SidebarWorkspaceTrailingActionOverlay
-            visible={kebab.showKebab}
-            scrimBackdrop={showScrim ? backdrop : undefined}
-          >
+          <SidebarWorkspaceTrailingActionOverlay visible={kebab.showKebab}>
             {onArchive ? (
               <SidebarWorkspaceMenu
                 {...kebab.menuProps}
@@ -1199,7 +1195,6 @@ function WorkspaceRowInner({
               >
                 <WorkspaceRowRightGroup
                   workspace={workspace}
-                  backdrop={backdrop}
                   isHovered={isHovered}
                   isTouchPlatform={isTouchPlatform}
                   isCreating={isCreating}
@@ -2536,15 +2531,15 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing[2],
   },
   workspaceListContainer: {},
-  // 28pt tall with the 24pt trailing controls filling the vertical padding exactly, so the + and
+  // 36pt tall with the 24pt trailing controls filling the vertical padding exactly, so the + and
   // ... reveal on hover without growing the row.
   projectRow: {
     position: "relative",
-    minHeight: 28,
-    paddingVertical: theme.spacing[0.5],
+    minHeight: 36,
+    paddingVertical: theme.spacing[1.5],
     paddingHorizontal: theme.spacing[2],
     borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing[0.5],
+    marginBottom: theme.spacing[1],
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -2652,9 +2647,9 @@ const styles = StyleSheet.create((theme) => ({
     right: theme.spacing[2],
   },
   workspaceRow: {
-    minHeight: 28,
-    marginBottom: theme.spacing[0.5],
-    paddingVertical: theme.spacing[1],
+    minHeight: 36,
+    marginBottom: theme.spacing[1],
+    paddingVertical: theme.spacing[2],
     paddingLeft: theme.spacing[2],
     paddingRight: theme.spacing[2],
     borderRadius: theme.borderRadius.md,

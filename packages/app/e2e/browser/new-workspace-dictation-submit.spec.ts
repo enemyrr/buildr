@@ -159,7 +159,7 @@ async function installDictationFailureHarness(page: Page) {
 async function dictateAndSend(page: Page, waitForAudio: () => Promise<void>): Promise<void> {
   await page.getByRole("button", { name: "Start dictation" }).click();
   await waitForAudio();
-  await page.getByRole("button", { name: "Insert transcription and send" }).click();
+  await page.keyboard.press("Enter");
 }
 
 test.describe("New Workspace dictation submit", () => {

@@ -85,10 +85,12 @@ function Pie({ fraction, color }: { fraction: number; color: string }) {
 
 const ThemedCheckIndicatorSvg = withUnistyles(CheckIndicatorSvg);
 
+// Running is muted, not amber: in the sidebar amber means an agent needs you, and pending CI
+// asks nothing of you. The filling pie already says it's in progress.
 const COLOR_MAPPINGS: Record<CheckSummary["state"], (theme: Theme) => { color: string }> = {
   passed: (theme) => ({ color: theme.colors.statusSuccess }),
   failed: (theme) => ({ color: theme.colors.statusDanger }),
-  running: (theme) => ({ color: theme.colors.statusWarning }),
+  running: (theme) => ({ color: theme.colors.foregroundMuted }),
 };
 
 export function CheckIndicator({ summary, size }: { summary: CheckSummary; size: number }) {
