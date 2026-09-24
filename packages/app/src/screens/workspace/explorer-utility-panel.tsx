@@ -8,7 +8,7 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -21,6 +21,7 @@ import { buildRunScriptRequest, buildSetupScriptRequest } from "@/git/project-co
 import type { InstructionsRequest } from "@/git/pr-instructions";
 import { useInstructionRequests } from "@/git/use-instruction-requests";
 import { openProjectSettings } from "@/navigation/settings-navigation";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { WorkspacePanelHost } from "@/screens/workspace/workspace-panel-host";
 import type { WorkspacePaneContentModel } from "@/screens/workspace/workspace-pane-content";
@@ -32,6 +33,7 @@ import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useExplorerUtilityStore, type ExplorerUtilityTab } from "@/stores/explorer-utility-store";
 import type { Theme } from "@/styles/theme";
+import { estimateTerminalSize } from "@/terminal/runtime/terminal-font";
 import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 
 // Panels here live outside the workspace layout, so they use a pane id no layout ever holds.
@@ -62,7 +64,7 @@ interface ExplorerUtilityPanelProps {
     tab: WorkspaceTabDescriptor;
   }) => WorkspacePaneContentModel;
   /** Starts the Terminal panel's shell; the created id arrives through the store. */
-  onCreateTerminal: () => void;
+  onCreateTerminal: (size: { rows: number; cols: number } | undefined) => void;
   /** Registers a started script's terminal without opening a workspace tab for it. */
   onTrackScriptTerminal: (terminalId: string) => void;
   onOpenUrlInBrowserTab?: (url: string) => void;
@@ -107,7 +109,15 @@ export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
 
   const runTerminalId = resolveRunTerminalId(scripts, runScriptName, liveTerminalIdSet);
 
-  // The Terminal tab starts its shell on first view and again after that shell exits.
+  const { settings } = useAppSettings();
+  const [bodySize, setBodySize] = useState<{ width: number; height: number } | null>(null);
+  const handleBodyLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setBodySize({ width, height });
+  }, []);
+
+  // The Terminal tab starts its shell on first view and again after that shell exits. It waits for
+  // the body's layout so the shell starts at the panel's width.
   const requestedTerminalRef = useRef(false);
   const showsTerminal = !collapsed && tab === "terminal";
   useEffect(() => {
@@ -115,10 +125,19 @@ export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
       requestedTerminalRef.current = false;
       return;
     }
-    if (requestedTerminalRef.current) return;
+    if (requestedTerminalRef.current || !bodySize) return;
     requestedTerminalRef.current = true;
-    onCreateTerminal();
-  }, [hasLoadedTerminals, liveTerminalId, onCreateTerminal, showsTerminal]);
+    onCreateTerminal(
+      estimateTerminalSize({ ...bodySize, fontSize: settings.codeFontSize }) ?? undefined,
+    );
+  }, [
+    bodySize,
+    hasLoadedTerminals,
+    liveTerminalId,
+    onCreateTerminal,
+    settings.codeFontSize,
+    showsTerminal,
+  ]);
 
   const panelRef = useRef<View>(null);
   const isPaneFocused = useUtilityPanelFocus(panelRef, showsTerminal);
@@ -168,7 +187,7 @@ export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
         ))}
       </View>
       {collapsed ? null : (
-        <View style={styles.body}>
+        <View style={styles.body} onLayout={handleBodyLayout}>
           {showsSetupPrompt ? (
             <ScriptPrompt
               serverId={serverId}

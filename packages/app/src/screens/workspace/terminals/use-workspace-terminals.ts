@@ -30,6 +30,8 @@ export type TerminalTabDestination =
 interface PendingTerminalCreateInput {
   destination: TerminalTabDestination;
   profile?: TerminalProfile;
+  /** Spawns the PTY at this size so the shell's first prompt matches the pane it renders in. */
+  size?: { rows: number; cols: number };
 }
 
 interface UseWorkspaceTerminalsInput {
@@ -159,9 +161,11 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
             command: profile.command,
             args: profile.args,
             workspaceId: normalizedWorkspaceId || undefined,
+            size: _input.size,
           })
         : await client.createTerminal(workspaceDirectory, undefined, undefined, {
             workspaceId: normalizedWorkspaceId || undefined,
+            size: _input.size,
           });
       // The daemon reports a failed spawn (e.g. a profile command that isn't
       // installed) via payload.error with a null terminal. Surface it instead

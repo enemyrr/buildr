@@ -3944,9 +3944,11 @@ function WorkspaceScreenContent({
       ) : null,
     [normalizedServerId, workspaceDirectory],
   );
-  const handleCreateUtilityTerminal = useStableEvent(() => {
-    createTerminal({ destination: { kind: "utility" } });
-  });
+  const handleCreateUtilityTerminal = useStableEvent(
+    (size: { rows: number; cols: number } | undefined) => {
+      createTerminal({ destination: { kind: "utility" }, size });
+    },
+  );
   const workspaceProjectId = getWorkspaceProjectId(workspaceDescriptor);
   const workspaceProjectRootPath = getWorkspaceProjectRootPath(workspaceDescriptor);
   const renderExplorerSidebarUtility = useCallback(
