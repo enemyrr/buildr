@@ -553,6 +553,99 @@ describe("CheckoutSession", () => {
     });
   });
 
+  describe("base ref set", () => {
+    function initBaseRefRepo(prefix: string) {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+      const repo = join(root, "repo");
+      const git = (cwd: string, ...args: string[]) =>
+        execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
+      git(root, "init", "-b", "main", repo);
+      git(repo, "config", "user.name", "Test");
+      git(repo, "config", "user.email", "test@example.com");
+      git(repo, "commit", "--allow-empty", "-m", "base");
+      git(repo, "branch", "develop");
+      return { root, repo, paseoHome: join(root, "home") };
+    }
+
+    it("stores the new base, invalidates base diffs, and refreshes subscribers", async () => {
+      const { root, repo, paseoHome } = initBaseRefRepo("checkout-session-base-ref-");
+      try {
+        const created = await createWorktree({
+          cwd: repo,
+          paseoHome,
+          worktreeSlug: "retarget",
+          source: { kind: "branch-off", baseBranch: "main", branchName: "retarget" },
+          runSetup: false,
+        });
+        const cwd = created.worktreePath;
+        const invalidated: string[] = [];
+        const { subscriber, refreshedCwds } = createFakeDiffSubscriber({
+          cwd: "",
+          files: [],
+          error: null,
+        });
+        const { checkout, emitted, gitMutationCalls } = makeCheckoutSession({
+          paseoHome,
+          diff: subscriber,
+          git: { invalidateBaseDiffs: (worktreeRoot) => invalidated.push(worktreeRoot) },
+        });
+
+        await checkout.handleBaseRefSetRequest({
+          type: "checkout.base_ref.set.request",
+          cwd,
+          baseRef: "develop",
+          requestId: "base-ref-1",
+        });
+
+        expect(emitted).toEqual([
+          {
+            type: "checkout.base_ref.set.response",
+            payload: { cwd, baseRef: "develop", error: null, requestId: "base-ref-1" },
+          },
+        ]);
+        expect(invalidated).toEqual([cwd]);
+        expect(gitMutationCalls.notifyGitMutation).toEqual([
+          { cwd, reason: "set-base-ref", options: { invalidateForge: true } },
+        ]);
+        expect(refreshedCwds).toEqual([cwd]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects checkouts that are not Paseo worktrees", async () => {
+      const { root, repo, paseoHome } = initBaseRefRepo("checkout-session-base-ref-denied-");
+      try {
+        const { checkout, emitted, gitMutationCalls } = makeCheckoutSession({ paseoHome });
+
+        await checkout.handleBaseRefSetRequest({
+          type: "checkout.base_ref.set.request",
+          cwd: repo,
+          baseRef: "develop",
+          requestId: "base-ref-denied",
+        });
+
+        expect(emitted).toEqual([
+          {
+            type: "checkout.base_ref.set.response",
+            payload: {
+              cwd: repo,
+              baseRef: null,
+              error: {
+                code: "NOT_ALLOWED",
+                message: "Base branch can only be changed on Paseo worktrees",
+              },
+              requestId: "base-ref-denied",
+            },
+          },
+        ]);
+        expect(gitMutationCalls.notifyGitMutation).toEqual([]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("diff subscriptions", () => {
     it("opens a subscription, streams updates tagged with the id, and tears down on unsubscribe", async () => {
       const { subscriber, subscriptions } = createFakeDiffSubscriber({

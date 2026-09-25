@@ -1,4 +1,5 @@
 import {
+  CheckoutNotAllowedError,
   MergeConflictError,
   MergeFromBaseConflictError,
   NotGitRepoError,
@@ -32,6 +33,9 @@ export async function resolveCheckoutGitDir(cwd: string): Promise<string | null>
 export function toCheckoutError(error: unknown): CheckoutErrorPayload {
   if (error instanceof NotGitRepoError) {
     return { code: "NOT_GIT_REPO", message: error.message };
+  }
+  if (error instanceof CheckoutNotAllowedError) {
+    return { code: "NOT_ALLOWED", message: error.message };
   }
   if (error instanceof MergeConflictError) {
     return { code: "MERGE_CONFLICT", message: error.message };

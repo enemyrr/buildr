@@ -2820,6 +2820,8 @@ export class Session {
         return this.checkoutSession.handleStatusRequest(msg);
       case "checkout.commits.list.request":
         return this.checkoutSession.handleCommitsListRequest(msg);
+      case "checkout.base_ref.set.request":
+        return this.checkoutSession.handleBaseRefSetRequest(msg);
       case "checkout.commits.file_diff.request":
         return this.checkoutSession.handleCommitFileDiffRequest(msg);
       case "validate_branch_request":

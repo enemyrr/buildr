@@ -6,6 +6,7 @@ import { getForgeDefinitionOrNeutral } from "@getpaseo/protocol/forge-manifest";
 import { validateBranchSlug } from "@getpaseo/protocol/branch-slug";
 import type {
   BranchSuggestionsRequest,
+  CheckoutBaseRefSetRequest,
   CheckoutCommitsListRequest,
   CheckoutCommitFileDiffRequest,
   CheckoutContinueBranchRequest,
@@ -54,6 +55,7 @@ import {
   pushCurrentBranch,
   listCheckoutCommits,
   getCommitFileDiff,
+  setPaseoWorktreeBaseRef,
 } from "../../../utils/checkout-git.js";
 import { runGitCommand } from "../../../utils/run-git-command.js";
 import { expandTilde } from "../../../utils/path.js";
@@ -291,6 +293,34 @@ export class CheckoutSession {
       this.host.emit({
         type: "checkout.commits.list.response",
         payload: { cwd, baseRef: null, commits: [], error: toCheckoutError(error), requestId },
+      });
+    }
+  }
+
+  async handleBaseRefSetRequest(msg: CheckoutBaseRefSetRequest): Promise<void> {
+    const { cwd, requestId } = msg;
+    const resolvedCwd = expandTilde(cwd);
+
+    try {
+      const result = await setPaseoWorktreeBaseRef({
+        cwd: resolvedCwd,
+        baseRef: msg.baseRef,
+        context: { paseoHome: this.paseoHome, worktreesRoot: this.worktreesRoot },
+      });
+      // Base-mode diffs, ahead/behind, and the status baseRef all derive from the stored base.
+      this.workspaceGitService.invalidateBaseDiffs(result.worktreeRoot);
+      await this.gitMutation.notifyGitMutation(resolvedCwd, "set-base-ref", {
+        invalidateForge: true,
+      });
+      this.scheduleDiffRefresh(resolvedCwd);
+      this.host.emit({
+        type: "checkout.base_ref.set.response",
+        payload: { cwd, baseRef: result.baseRefName, error: null, requestId },
+      });
+    } catch (error) {
+      this.host.emit({
+        type: "checkout.base_ref.set.response",
+        payload: { cwd, baseRef: null, error: toCheckoutError(error), requestId },
       });
     }
   }

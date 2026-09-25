@@ -70,3 +70,5 @@ export function expireWorkingDiffComparisons(input: {
 export function resetWorkingDiffComparisons(): void {
   useWorkingDiffComparisonStore.setState({ overrides: {} });
 }
+
+export type { WorkingDiffComparison } from "./state";

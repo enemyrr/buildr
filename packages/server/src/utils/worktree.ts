@@ -1719,7 +1719,7 @@ function normalizeRequiredBaseBranch(baseBranch: string): string {
   return normalizedBaseBranch;
 }
 
-async function resolveBaseBranchForWorktree(
+export async function resolveBaseBranchForWorktree(
   cwd: string,
   requestedBaseBranch: string,
 ): Promise<string> {
