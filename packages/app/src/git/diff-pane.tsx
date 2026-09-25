@@ -33,7 +33,8 @@ import type { ChangesState } from "@/panels/changes/state";
 import { defaultChangesState } from "@/panels/changes/state";
 import { DiffDocument, type WorkingDiffMode } from "@/git/diff-document";
 import { ChangedFilesList } from "@/git/changed-files-list";
-import { summarizeDiffFiles } from "@/git/use-working-diff-summary";
+import { useChangesComparisonMenu } from "@/git/changes-comparison-menu";
+import { summarizeDiffFiles, type WorkingDiffSummary } from "@/git/use-working-diff-summary";
 import { WORKSPACE_PANE_TRAILING_GLYPH_RAIL } from "@/components/tree-primitives";
 import { ChangedFilesTree } from "@/git/changed-files-tree";
 import { JUMP_TO_FILE_CLEARANCE, JumpToFile } from "@/git/jump-to-file";
@@ -51,6 +52,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  type MenuPageDefinition,
 } from "@/components/ui/dropdown-menu";
 import * as Clipboard from "expo-clipboard";
 import { useFileDownload } from "@/hooks/use-file-download";
@@ -108,22 +110,6 @@ export function resolveDiffLayout(
   canUseSplitLayout: boolean,
 ): "unified" | "split" {
   return canUseSplitLayout ? layout : "unified";
-}
-
-function computeSelectedDiffStat(
-  files: ParsedDiffFile[],
-  isLoading: boolean,
-): { additions: number; deletions: number } | null {
-  if (isLoading) {
-    return null;
-  }
-  return files.reduce(
-    (total, file) => ({
-      additions: total.additions + file.additions,
-      deletions: total.deletions + file.deletions,
-    }),
-    { additions: 0, deletions: 0 },
-  );
 }
 
 function useDiscardChangesAction({
@@ -296,8 +282,6 @@ export function DiffModeMenu({
   onSelectBase,
 }: DiffModeMenuProps) {
   const { t } = useTranslation();
-  const uncommittedLabel = t("workspace.git.diff.uncommitted");
-  const committedLabel = t("workspace.git.diff.committed");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -311,7 +295,11 @@ export function DiffModeMenu({
           return (
             <>
               <Text style={toolbarLabelTriggerTextStyle(highlighted)} numberOfLines={1}>
-                {diffMode === "uncommitted" ? uncommittedLabel : committedLabel}
+                {t(
+                  diffMode === "uncommitted"
+                    ? "workspace.git.diff.uncommitted"
+                    : "workspace.git.diff.committed",
+                )}
               </Text>
               <ToolbarLabelTriggerIcon>
                 <ThemedChevronDown size={12} uniProps={extraMutedIconColorMapping} />
@@ -326,7 +314,7 @@ export function DiffModeMenu({
           selected={diffMode === "uncommitted"}
           onSelect={onSelectUncommitted}
         >
-          {uncommittedLabel}
+          {t("workspace.git.diff.uncommitted")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -335,7 +323,7 @@ export function DiffModeMenu({
           description={committedDescription}
           onSelect={onSelectBase}
         >
-          {committedLabel}
+          {t("workspace.git.diff.committed")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -474,13 +462,14 @@ interface ChangesComparisonToolbarModel {
   committedDescription?: string;
   diffMode: "uncommitted" | "base";
   mode: ChangesToolbarMode;
-  selectedDiffStat: { additions: number; deletions: number } | null;
+  selectedDiffStat: WorkingDiffSummary | null;
   onSelectBase: () => void;
   onSelectUncommitted: () => void;
 }
 
 interface ChangesHeaderProps {
   compact: boolean;
+  comparisonMenu: ChangesMenuExtension;
   repository: ChangesRepositoryToolbarModel;
   comparison: ChangesComparisonToolbarModel;
   sidebarSurface: boolean;
@@ -498,7 +487,7 @@ interface BuildChangesHeaderModelInput {
   onSelectBase: () => void;
   onSelectUncommitted: () => void;
   pullRequest: PrHint | null;
-  selectedDiffStat: { additions: number; deletions: number } | null;
+  selectedDiffStat: WorkingDiffSummary | null;
   serverId: string;
   workspaceId?: string | null;
 }
@@ -531,7 +520,13 @@ function buildChangesHeaderModel(input: BuildChangesHeaderModelInput): {
 
 // Presentation resolves into these two capability models before rendering. The rows
 // never infer which host or Changes presentation produced them.
-function ChangesHeader({ compact, repository, comparison, sidebarSurface }: ChangesHeaderProps) {
+function ChangesHeader({
+  compact,
+  comparisonMenu,
+  repository,
+  comparison,
+  sidebarSurface,
+}: ChangesHeaderProps) {
   if (comparison.mode.kind === "diff") {
     return (
       <ChangesDiffOnlyToolbar
@@ -540,6 +535,11 @@ function ChangesHeader({ compact, repository, comparison, sidebarSurface }: Chan
         sidebarSurface={sidebarSurface}
       />
     );
+  }
+  // The desktop Explorer's tab rail already carries the PR and git actions, so the
+  // sidebar collapses to one summary row and folds the comparison into the options menu.
+  if (sidebarSurface && !compact) {
+    return <ChangesSidebarToolbar model={comparison} menu={comparisonMenu} />;
   }
   return (
     <View>
@@ -756,12 +756,52 @@ function ChangesComparisonToolbar({
   );
 }
 
-function ChangesToolbarActions({ mode, compact }: { mode: ChangesToolbarMode; compact: boolean }) {
+function ChangesSidebarToolbar({
+  model,
+  menu,
+}: {
+  model: ChangesComparisonToolbarModel;
+  menu: ChangesMenuExtension;
+}) {
+  const { t } = useTranslation();
+  const stat = model.selectedDiffStat;
+  return (
+    <ChangesToolbarRow compact={false} sidebarSurface testID="changes-header" trailing="glyph">
+      <ChangesToolbarLeading>
+        {stat ? (
+          <>
+            <Text style={styles.listSummaryText} numberOfLines={1}>
+              {t("workspace.git.prFlow.changes.filesChanged", { count: stat.fileCount })}
+            </Text>
+            <DiffStat
+              additions={stat.additions}
+              deletions={stat.deletions}
+              testID="changes-selected-diff-stat"
+            />
+          </>
+        ) : null}
+      </ChangesToolbarLeading>
+      <ChangesToolbarTrailing>
+        <ChangesToolbarActions mode={model.mode} compact={false} menu={menu} />
+      </ChangesToolbarTrailing>
+    </ChangesToolbarRow>
+  );
+}
+
+function ChangesToolbarActions({
+  mode,
+  compact,
+  menu,
+}: {
+  mode: ChangesToolbarMode;
+  compact: boolean;
+  menu?: ChangesMenuExtension;
+}) {
   if (mode.kind === "tree") {
     return (
       <>
         {mode.refresh ? <ChangesRefreshButton refresh={mode.refresh} compact={compact} /> : null}
-        <ChangesOptionsMenu mode={mode} compact={compact} />
+        <ChangesOptionsMenu mode={mode} compact={compact} extension={menu} />
       </>
     );
   }
@@ -899,9 +939,23 @@ function ChangesRefreshButton({
   );
 }
 
+/** Rows and sub pages a surface adds above the options menu's own items. */
+interface ChangesMenuExtension {
+  items: ReactNode;
+  pages: readonly MenuPageDefinition[];
+}
+
 type ChangesOptionsMenuMode = Extract<ChangesToolbarMode, { kind: "tree" | "combined" }>;
 
-function ChangesOptionsMenu({ mode, compact }: { mode: ChangesOptionsMenuMode; compact: boolean }) {
+function ChangesOptionsMenu({
+  mode,
+  compact,
+  extension,
+}: {
+  mode: ChangesOptionsMenuMode;
+  compact: boolean;
+  extension?: ChangesMenuExtension;
+}) {
   const { t } = useTranslation();
   const optionsLabel = t("workspace.git.diff.options");
   const content =
@@ -936,7 +990,18 @@ function ChangesOptionsMenu({ mode, compact }: { mode: ChangesOptionsMenuMode; c
           uniProps={extraMutedIconColorMapping}
         />
       </ToolbarButton>
-      <DropdownMenuContent align="end" width={240} testID="changes-options-menu-content">
+      <DropdownMenuContent
+        align="end"
+        width={extension ? 300 : 240}
+        pages={extension?.pages}
+        testID="changes-options-menu-content"
+      >
+        {extension ? (
+          <>
+            {extension.items}
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         {content}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1352,7 +1417,7 @@ function ChangesBody({
     if (files.length === 0) return children;
     return (
       <View style={styles.listBody}>
-        <ChangesListSummary files={files} />
+        {isMobile ? <ChangesListSummary files={files} /> : null}
         {listMode === "flat" ? (
           <ChangedFilesList files={files} mode={mode} onSelectFile={onSelectFile} />
         ) : (
@@ -1789,7 +1854,7 @@ export function ChangesSurface({
   });
   const showJumpToFile = jumpToFileInset > 0;
   const selectedDiffStat = useMemo(
-    () => computeSelectedDiffStat(files, isDiffLoading),
+    () => (isDiffLoading ? null : summarizeDiffFiles(files)),
     [files, isDiffLoading],
   );
   const allFilesCollapsed =
@@ -1924,6 +1989,16 @@ export function ChangesSurface({
       wrapLines,
     ],
   );
+  const comparisonMenu = useChangesComparisonMenu({
+    serverId,
+    workspaceId,
+    cwd,
+    diffMode,
+    baseRefLabel,
+    onSelectUncommitted: handleSelectUncommitted,
+    onSelectBase: handleSelectBase,
+    onOpenCommit: handleCommitPress,
+  });
   const changesHeaderModel = useMemo(
     () =>
       buildChangesHeaderModel({
@@ -1938,8 +2013,8 @@ export function ChangesSurface({
         onSelectBase: handleSelectBase,
         onSelectUncommitted: handleSelectUncommitted,
         pullRequest: selectPrHintFromStatus(pullRequestStatus, forge),
-        // The tree presentation states the stat in its list summary instead.
-        selectedDiffStat: presentation === "tree" ? null : selectedDiffStat,
+        // The compact tree states the stat in its list summary instead.
+        selectedDiffStat: presentation === "tree" && isMobile ? null : selectedDiffStat,
         serverId,
         workspaceId,
       }),
@@ -1973,6 +2048,7 @@ export function ChangesSurface({
       {isGit ? (
         <ChangesHeader
           compact={isMobile}
+          comparisonMenu={comparisonMenu}
           repository={changesHeaderModel.repository}
           comparison={changesHeaderModel.comparison}
           sidebarSurface={presentation === "tree"}

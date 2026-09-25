@@ -268,8 +268,7 @@ test("Changes opens the populated committed comparison for a clean checkout", as
   await openWorkspaceChangesSurface(page, workspace, 90_000);
 
   const panel = page.getByTestId("working-diff-panel").filter({ visible: true });
-  const tree = page.getByTestId("changes-tree-panel").filter({ visible: true });
-  await expect(tree.getByTestId("changes-diff-status-trigger")).toContainText("Committed");
+  await expectChangesComparison(page, "Committed");
   await expect(panel.getByTestId("diff-file-0")).toHaveAccessibleName("committed-only.ts, +1, -0");
 });
 
@@ -278,23 +277,20 @@ test("Changes expires a manual comparison when checkout dirtiness changes", asyn
   await openWorkspaceChanges(page, workspace);
 
   const tree = page.getByTestId("changes-tree-panel").filter({ visible: true });
-  const mode = tree.getByTestId("changes-diff-status-trigger");
-  await expect(mode).toContainText("Uncommitted");
+  await expectChangesComparison(page, "Uncommitted");
 
-  await mode.click();
-  await page.getByTestId("changes-diff-mode-committed").click();
-  await expect(mode).toContainText("Committed");
+  await selectChangesComparison(page, "Committed");
   await expect(tree.getByRole("button", { name: "See uncommitted changes" })).toBeVisible();
 
   execFileSync("git", ["add", "--all"], { cwd: workspace.repoPath });
   execFileSync("git", ["commit", "-m", "Commit working changes"], { cwd: workspace.repoPath });
-  await expect(mode).toContainText("Committed");
+  await expectChangesComparison(page, "Committed");
   await expect(tree.getByRole("button", { name: "See uncommitted changes" })).toHaveCount(0, {
     timeout: 30_000,
   });
 
   await writeFile(path.join(workspace.repoPath, "new-working-change.txt"), "uncommitted\n");
-  await expect(mode).toContainText("Uncommitted", { timeout: 30_000 });
+  await expectChangesComparison(page, "Uncommitted", 30_000);
 });
 
 test("an empty Changes comparison links to the populated comparison", async ({ page }) => {
@@ -303,20 +299,17 @@ test("an empty Changes comparison links to the populated comparison", async ({ p
 
   const panel = page.getByTestId("working-diff-panel").filter({ visible: true });
   const tree = page.getByTestId("changes-tree-panel").filter({ visible: true });
-  const mode = tree.getByTestId("changes-diff-status-trigger");
-  await mode.click();
-  await page.getByTestId("changes-diff-mode-committed").click();
+  await selectChangesComparison(page, "Committed");
   await expect(panel.getByTestId("diff-file-0")).toHaveAccessibleName("committed-only.ts, +1, -0");
 
-  await mode.click();
-  await page.getByTestId("changes-diff-mode-uncommitted").click();
+  await selectChangesComparison(page, "Uncommitted");
 
   await expect(tree.getByText("No changes to display", { exact: true })).toBeVisible();
   await expect(panel.getByText("No changes to display", { exact: true })).toBeVisible();
   const seeCommitted = tree.getByRole("button", { name: "See committed changes" });
   await expect(seeCommitted).toBeVisible();
   await seeCommitted.click();
-  await expect(mode).toContainText("Committed");
+  await expectChangesComparison(page, "Committed");
   await expect(panel.getByTestId("diff-file-0")).toHaveAccessibleName("committed-only.ts, +1, -0");
 });
 
@@ -1765,10 +1758,32 @@ async function selectChangesComparison(
   page: Page,
   comparison: "Committed" | "Uncommitted",
 ): Promise<void> {
-  const tree = page.getByTestId("changes-tree-panel").filter({ visible: true });
-  await tree.getByTestId("changes-diff-status-trigger").click();
+  await openChangesOptions(page);
   await page.getByTestId(`changes-diff-mode-${comparison.toLowerCase()}`).click();
-  await expect(tree.getByTestId("changes-diff-status-trigger")).toContainText(comparison);
+  await expectChangesComparison(page, comparison);
+}
+
+async function openChangesOptions(page: Page): Promise<void> {
+  const tree = page.getByTestId("changes-tree-panel").filter({ visible: true });
+  await tree.getByTestId("changes-options-menu").click();
+}
+
+// The desktop sidebar keeps the comparison in its options menu, so reading it opens the menu.
+async function expectChangesComparison(
+  page: Page,
+  comparison: "Committed" | "Uncommitted",
+  timeout = 10_000,
+): Promise<void> {
+  await expect(async () => {
+    await openChangesOptions(page);
+    try {
+      await expect(
+        page.getByTestId(`changes-diff-mode-${comparison.toLowerCase()}`),
+      ).toHaveAttribute("aria-checked", "true", { timeout: 1_000 });
+    } finally {
+      await page.keyboard.press("Escape");
+    }
+  }).toPass({ timeout });
 }
 
 async function expectWorkingComparisonFiles(

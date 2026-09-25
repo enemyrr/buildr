@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { useChangesPreferences } from "@/hooks/use-changes-preferences";
 import { useCheckoutDiffQuery } from "@/git/use-diff-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
-import { useWorkingDiffComparison } from "@/git/working-diff-comparison";
+import {
+  useWorkingDiffComparison,
+  type WorkingDiffComparison,
+} from "@/git/working-diff-comparison";
 
 export interface WorkingDiffSummary {
   fileCount: number;
@@ -24,7 +27,7 @@ export function useWorkingDiffSummary({
   workspaceId?: string;
   cwd: string;
   /** Pin the comparison instead of following the Changes view's selection. */
-  mode?: "uncommitted";
+  mode?: WorkingDiffComparison;
 }): WorkingDiffSummary | null {
   const { preferences } = useChangesPreferences();
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
