@@ -19,6 +19,7 @@ import {
 import type { Logger } from "pino";
 import type { ProviderOptions, ToolPolicy } from "@getpaseo/protocol/agent-types";
 import type { ProviderPaseoToolsPolicy } from "@getpaseo/protocol/provider-config";
+import type { AgentDefaults } from "@getpaseo/protocol/messages";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 
@@ -332,6 +333,7 @@ export interface AgentManagerOptions {
   paseoToolCatalogFactory?: PaseoToolCatalogFactory;
   resolvePaseoToolPolicy?: (provider: AgentProvider) => ProviderPaseoToolsPolicy | undefined;
   appendSystemPrompt?: string;
+  agentDefaults?: AgentDefaults;
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
   beforeSteerUnavailableFallback?: (input: {
@@ -749,6 +751,7 @@ export class AgentManager {
     provider: AgentProvider,
   ) => ProviderPaseoToolsPolicy | undefined;
   private appendSystemPrompt: string;
+  private agentDefaults: AgentDefaults | undefined;
   private onAgentAttention?: AgentAttentionCallback;
   private onAgentArchived?: AgentArchivedCallback;
   private onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
@@ -769,6 +772,7 @@ export class AgentManager {
     this.configurePaseoTools(options);
     this.resolvePaseoToolPolicy = options.resolvePaseoToolPolicy ?? (() => undefined);
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
+    this.agentDefaults = options.agentDefaults;
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
     this.rescueTimeouts = {
       reloadSessionCloseMs:
@@ -878,6 +882,10 @@ export class AgentManager {
 
   setAppendSystemPrompt(prompt: string | null | undefined): void {
     this.appendSystemPrompt = prompt ?? "";
+  }
+
+  setAgentDefaults(defaults: AgentDefaults | undefined): void {
+    this.agentDefaults = defaults;
   }
 
   public getMetricsSnapshot(): AgentMetricsSnapshot {
@@ -5132,7 +5140,7 @@ export class AgentManager {
     const paseoToolPolicy = this.paseoToolsEnabled
       ? this.resolvePaseoToolPolicy(storedConfig.provider)
       : { enabled: false };
-    const launchConfig = this.applyDaemonAppendSystemPrompt(
+    const launchConfig = this.applyDaemonLaunchSettings(
       withRuntimePaseoMcpServer({
         config: storedConfig,
         agentId,
@@ -5146,17 +5154,28 @@ export class AgentManager {
     return { storedConfig, launchConfig, paseoToolPolicy };
   }
 
-  private applyDaemonAppendSystemPrompt(config: AgentSessionConfig): AgentSessionConfig {
+  private applyDaemonLaunchSettings(config: AgentSessionConfig): AgentSessionConfig {
     const daemonAppendSystemPrompt = this.appendSystemPrompt.trim();
     const next = { ...config };
     delete next.daemonAppendSystemPrompt;
+    delete next.daemonAgentDefaults;
+    const daemonAgentDefaults = config.internal ? undefined : this.resolveDaemonAgentDefaults();
 
-    return daemonAppendSystemPrompt
-      ? {
-          ...next,
-          daemonAppendSystemPrompt,
-        }
-      : next;
+    return {
+      ...next,
+      ...(daemonAppendSystemPrompt ? { daemonAppendSystemPrompt } : {}),
+      ...(daemonAgentDefaults ? { daemonAgentDefaults } : {}),
+    };
+  }
+
+  private resolveDaemonAgentDefaults(): AgentDefaults | undefined {
+    const claudeOutputStyle = this.agentDefaults?.claudeOutputStyle?.trim();
+    const codexPersonality = this.agentDefaults?.codexPersonality;
+    if (!claudeOutputStyle && !codexPersonality) return undefined;
+    return {
+      ...(claudeOutputStyle ? { claudeOutputStyle } : {}),
+      ...(codexPersonality ? { codexPersonality } : {}),
+    };
   }
 
   private async buildLaunchContext(

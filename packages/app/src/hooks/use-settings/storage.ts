@@ -95,6 +95,8 @@ export interface AppSettings {
   openInSidePane: OpenInSidePanePreferences;
   pullRequestOpenLocation: PullRequestOpenLocation;
   defaultNewTab: DefaultNewTab;
+  /** New chats start in the provider's plan mode when it has one. */
+  defaultToPlanMode: boolean;
 }
 
 export type AppSettingsUpdate =
@@ -148,6 +150,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   openInSidePane: DEFAULT_OPEN_IN_SIDE_PANE_PREFERENCES,
   pullRequestOpenLocation: "explorer",
   defaultNewTab: "agent",
+  defaultToPlanMode: false,
 };
 
 export const DEFAULT_APP_SETTINGS: Settings = {
@@ -265,6 +268,7 @@ const StoredAppSettingsSchema = z
       }),
     pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).optional(),
     defaultNewTab: z.enum(["agent", "terminal", "browser", "launcher"]).catch("agent"),
+    defaultToPlanMode: z.boolean().catch(false),
     // COMPAT(explorerSidebarRouting): replaced by source-specific side-pane preferences in v0.6.
     openSupportingTabsInSidePanel: z.boolean().optional().catch(undefined),
     // COMPAT(rendererDesktopSettings): these fields used to share this renderer-owned key.

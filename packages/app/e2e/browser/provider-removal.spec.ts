@@ -8,7 +8,7 @@ import {
   installAcpCatalogProvider,
   openAddProviderArea,
   openSettingsHost,
-  openSettingsHostSection,
+  openAgentsTab,
 } from "../support/helpers/settings";
 
 const CUSTOM_PROVIDER = {
@@ -69,7 +69,7 @@ test.describe("provider removal", () => {
       await gotoAppShell(page);
       await openSettings(page);
       await openSettingsHost(page, getServerId());
-      await openSettingsHostSection(page, getServerId(), "providers");
+      await openAgentsTab(page, getServerId(), "providers");
 
       await expect(page.getByTestId("provider-actions-claude")).toHaveCount(0);
       await openAddProviderArea(page);

@@ -18,7 +18,7 @@ import { connectNewWorkspaceDaemonClient, openGlobalNewWorkspaceComposer } from 
 import { copyPluginExample } from "./plugin-fixture";
 import { seedWorkspace, type SeededWorkspace } from "./seed-client";
 import { getServerId } from "./server-id";
-import { openSettingsHostSection } from "./settings";
+import { openAgentsTab } from "./settings";
 
 const MODEL_LABEL = "Select model (Example 1)";
 const PLUGIN_MODEL_ROW = "model-row-direct-example-example-1";
@@ -124,7 +124,7 @@ export async function verifyProviderSettings({
 }: ProviderIconJourney): Promise<void> {
   await test.step("provider settings render the registered icon", async () => {
     await openSettings(page);
-    await openSettingsHostSection(page, getServerId(), "providers");
+    await openAgentsTab(page, getServerId(), "providers");
     await expectProviderIcon(
       page.getByRole("button", { name: "Direct provider example provider details", exact: true }),
       iconPaths,

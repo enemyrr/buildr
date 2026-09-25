@@ -9,7 +9,7 @@ import { StartupSplashScreen } from "@/screens/startup-splash-screen";
 import {
   buildSettingsHostSectionRoute,
   buildSettingsRoute,
-  isSettingsSectionSlug,
+  normalizeSettingsSectionSlug,
   type SettingsSectionSlug,
 } from "@/utils/host-routes";
 
@@ -37,7 +37,7 @@ function SettingsDaemonRedirect() {
 export default function SettingsSectionRoute() {
   const params = useLocalSearchParams<{ section?: string; addHost?: string }>();
   const rawSection = typeof params.section === "string" ? params.section : "";
-  const section: SettingsSectionSlug = isSettingsSectionSlug(rawSection) ? rawSection : "general";
+  const section: SettingsSectionSlug = normalizeSettingsSectionSlug(rawSection) ?? "general";
   const openAddHostIntent = typeof params.addHost === "string" ? params.addHost : null;
   const view = useMemo(() => ({ kind: "section" as const, section }), [section]);
 

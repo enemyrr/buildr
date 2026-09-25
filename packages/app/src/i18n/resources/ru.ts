@@ -2116,6 +2116,10 @@ export const ru: TranslationResources = {
     title: "Настройки",
     loading: "Загрузка настроек...",
     groups: {
+      personal: "Личное",
+      agentsEnvironment: "Агенты и окружение",
+      repositories: "Репозитории",
+      more: "Ещё",
       app: "Приложение",
       host: "Хост",
     },
@@ -2166,6 +2170,8 @@ export const ru: TranslationResources = {
       sendFailedTitle: "Не удалось отправить тестовое уведомление",
     },
     hostSections: {
+      environment: "Окружение",
+      advanced: "Дополнительно",
       projects: "Проекты",
       connections: "Подключения",
       agents: "Агенты",
@@ -2610,6 +2616,11 @@ export const ru: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "Провайдеры",
+          behavior: "Поведение",
+          usage: "Использование",
+        },
         unavailable: "Подключитесь к этому хосту, чтобы управлять агентами",
       },
       workspaces: {

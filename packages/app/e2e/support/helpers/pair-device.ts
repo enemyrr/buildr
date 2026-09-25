@@ -2,12 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import type { IsolatedHostDaemon } from "./isolated-host-daemon";
 import type { OutdatedDaemon } from "./daemon-update";
 import { openSettings, gotoAppShell } from "./app";
-import {
-  openSettingsHost,
-  openSettingsHostSection,
-  seedSavedSettingsHosts,
-  selectSettingsHost,
-} from "./settings";
+import { openSettingsHost, seedSavedSettingsHosts, selectSettingsHost } from "./settings";
 import { expectAppRoute } from "./route-assertions";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 
@@ -75,9 +70,8 @@ export async function preparePairingHost(
   ]);
   await gotoAppShell(page);
   await openSettings(page);
+  // Pair device lives on the Connections page.
   await openSettingsHost(page, daemon.serverId);
-  await expect(page.getByTestId("host-page-pair-device-row")).toHaveCount(0);
-  await openSettingsHostSection(page, daemon.serverId, "pair-device");
   await expect(page.getByTestId("host-page-pair-device-row")).toBeVisible();
 }
 
@@ -202,7 +196,7 @@ export async function expectPairingDisconnected(page: Page): Promise<void> {
 
 export async function switchPairDeviceToHost(page: Page, serverId: string): Promise<void> {
   await selectSettingsHost(page, serverId);
-  await expectAppRoute(page, buildSettingsHostSectionRoute(serverId, "pair-device"));
+  await expectAppRoute(page, buildSettingsHostSectionRoute(serverId, "connections"));
   await expect(page.getByTestId("host-page-pair-device-row")).toBeVisible();
 }
 

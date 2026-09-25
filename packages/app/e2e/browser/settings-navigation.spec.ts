@@ -57,13 +57,10 @@ test.describe("Settings sidebar navigation", () => {
     await gotoAppShell(page);
     await openSettings(page);
 
-    await openSettingsSection(page, "diagnostics");
-    await expectSettingsHeader(page, "Diagnostics");
-    await expectDiagnosticsContent(page);
-
     await openSettingsSection(page, "about");
     await expectSettingsHeader(page, "About");
     await expectAboutContent(page);
+    await expectDiagnosticsContent(page);
 
     await openSettingsSection(page, "general");
     await expectSettingsHeader(page, "General");
@@ -153,12 +150,12 @@ test.describe("Settings — compact master-detail", () => {
     await gotoAppShell(page);
     await openCompactSettings(page, buildOpenProjectRoute());
 
-    await expectSettingsSidebarSections(page, ["general", "diagnostics", "about"]);
+    await expectSettingsSidebarSections(page, ["general", "appearance", "about"]);
     await expectCompactSettingsList(page);
 
     await test.step("open app details and return to the list", async () => {
-      await openSettingsSection(page, "diagnostics");
-      await expectAppRoute(page, buildSettingsSectionRoute("diagnostics"));
+      await openSettingsSection(page, "about");
+      await expectAppRoute(page, buildSettingsSectionRoute("about"));
       await expectDiagnosticsContent(page);
       await expectSettingsSidebarHidden(page);
       await expectSettingsBackButton(page);
@@ -179,7 +176,7 @@ test.describe("Settings — compact master-detail", () => {
     });
   });
 
-  test("host picker settings opens Overview and backs through the settings list", async ({
+  test("host picker settings opens Advanced and backs through the settings list", async ({
     page,
     withWorkspace,
   }) => {
@@ -192,7 +189,7 @@ test.describe("Settings — compact master-detail", () => {
     await page.getByRole("button", { name: /Open .* settings/ }).click();
 
     await expectAppRoute(page, buildSettingsHostSectionRoute(getServerId(), "host"));
-    await expect(page.getByText("Overview", { exact: true })).toBeVisible();
+    await expect(page.getByText("Advanced", { exact: true })).toBeVisible();
 
     await goBackInSettings(page);
     await expectCompactSettingsList(page);

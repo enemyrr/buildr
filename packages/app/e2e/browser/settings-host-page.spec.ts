@@ -7,6 +7,7 @@ import {
   expectSettingsHeader,
   openSettingsHost,
   openHostSection,
+  openAgentsTab,
   expectHostLabelDisplayed,
   clickEditHostLabel,
   expectHostLabelEditMode,
@@ -31,18 +32,18 @@ test.describe("Settings host page", () => {
       await expectSettingsHeader(page, "Connections");
       await expectHostConnectionsCard(page, port);
     });
-    await test.step("agents section shows the inject MCP toggle", async () => {
-      await openHostSection(page, serverId, "agents");
+    await test.step("agents behavior tab shows the inject MCP toggle", async () => {
+      await openAgentsTab(page, serverId, "behavior");
       await expectSettingsHeader(page, "Agents");
       await expectHostInjectMcpCard(page);
     });
-    await test.step("providers section shows the providers card", async () => {
+    await test.step("agents providers tab shows the providers card", async () => {
       await expectHostProvidersCard(page, serverId);
-      await expectSettingsHeader(page, "Providers");
+      await expectSettingsHeader(page, "Agents");
     });
     await test.step("host section shows the host label and restart/remove action cards", async () => {
       await openHostSection(page, serverId, "host");
-      await expectSettingsHeader(page, "Overview");
+      await expectSettingsHeader(page, "Advanced");
       await expectHostLabelDisplayed(page);
       await expectHostActionCards(page, serverId);
     });
@@ -59,7 +60,7 @@ test.describe("Settings host page", () => {
 
       await expectHostNoDaemonLifecycleRow(page);
     });
-    await test.step("settings sidebar exposes the flat App and Host section rows", async () => {
+    await test.step("settings sidebar exposes the regrouped section rows", async () => {
       await expectRetiredSidebarSectionsAbsent(page);
     });
   });

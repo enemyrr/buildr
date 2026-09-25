@@ -3382,13 +3382,15 @@ class ClaudeAgentSession implements AgentSession {
     input: { ultracode: boolean },
   ): Pick<ClaudeOptions, "settings"> | Record<string, never> {
     const fastMode = this.resolveFastModeSetting();
-    if (fastMode === null && !input.ultracode) {
+    const outputStyle = this.config.daemonAgentDefaults?.claudeOutputStyle;
+    if (fastMode === null && !input.ultracode && !outputStyle) {
       return {};
     }
     return {
       settings: mergeClaudeSettings(providerOptions.settings, {
         ...(fastMode === null ? {} : { fastMode }),
         ...(input.ultracode ? { ultracode: true } : {}),
+        ...(outputStyle ? { outputStyle } : {}),
       }),
     };
   }

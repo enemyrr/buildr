@@ -2059,6 +2059,10 @@ export const zhCN: TranslationResources = {
     title: "设置",
     loading: "正在加载设置...",
     groups: {
+      personal: "个人",
+      agentsEnvironment: "代理与环境",
+      repositories: "仓库",
+      more: "更多",
       app: "应用",
       host: "主机",
     },
@@ -2109,6 +2113,8 @@ export const zhCN: TranslationResources = {
       sendFailedTitle: "无法发送测试通知",
     },
     hostSections: {
+      environment: "环境",
+      advanced: "高级",
       projects: "项目",
       connections: "连接",
       agents: "Agents",
@@ -2536,6 +2542,11 @@ export const zhCN: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "提供商",
+          behavior: "行为",
+          usage: "用量",
+        },
         unavailable: "连接到这个 Host 以管理 Agent",
       },
       workspaces: {

@@ -682,6 +682,55 @@ describe("DaemonConfigStore", () => {
     expect(persisted.daemon?.appendSystemPrompt).toBe("Prefer terse replies.");
   });
 
+  test("patch merges agent defaults per field and null clears a field", () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
+    tempDirs.push(paseoHome);
+
+    const store = new DaemonConfigStore(
+      paseoHome,
+      {
+        mcp: { injectIntoAgents: false },
+        browserTools: { enabled: false },
+        providers: {},
+        metadataGeneration: { providers: [] },
+        autoArchiveAfterMerge: false,
+        enableTerminalAgentHooks: false,
+        appendSystemPrompt: "",
+      },
+      undefined,
+    );
+    const observed: unknown[] = [];
+    store.onFieldChange("agentDefaults", (value) => observed.push(value));
+
+    store.patch({ agentDefaults: { claudeOutputStyle: "Explanatory" } });
+    store.patch({ agentDefaults: { codexPersonality: "pragmatic" } });
+    expect(store.get().agentDefaults).toEqual({
+      claudeOutputStyle: "Explanatory",
+      codexPersonality: "pragmatic",
+    });
+    expect(loadPersistedConfig(paseoHome).daemon?.agentDefaults).toEqual({
+      claudeOutputStyle: "Explanatory",
+      codexPersonality: "pragmatic",
+    });
+
+    store.patch({ agentDefaults: { claudeOutputStyle: null } });
+    expect(store.get().agentDefaults).toEqual({ codexPersonality: "pragmatic" });
+    expect(loadPersistedConfig(paseoHome).daemon?.agentDefaults).toEqual({
+      codexPersonality: "pragmatic",
+    });
+
+    store.patch({ agentDefaults: { codexPersonality: null } });
+    expect(store.get().agentDefaults).toBeUndefined();
+    expect(loadPersistedConfig(paseoHome).daemon?.agentDefaults).toBeUndefined();
+
+    expect(observed).toEqual([
+      { claudeOutputStyle: "Explanatory" },
+      { claudeOutputStyle: "Explanatory", codexPersonality: "pragmatic" },
+      { codexPersonality: "pragmatic" },
+      undefined,
+    ]);
+  });
+
   test("patch persists browser tools opt-in into config.json", () => {
     const paseoHome = mkdtempSync(path.join(tmpdir(), "paseo-daemon-config-store-"));
     tempDirs.push(paseoHome);

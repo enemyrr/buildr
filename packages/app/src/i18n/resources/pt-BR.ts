@@ -2117,6 +2117,10 @@ export const ptBR: TranslationResources = {
     title: "Configurações",
     loading: "Carregando configurações...",
     groups: {
+      personal: "Pessoal",
+      agentsEnvironment: "Agentes e ambiente",
+      repositories: "Repositórios",
+      more: "Mais",
       app: "App",
       host: "Host",
     },
@@ -2167,6 +2171,8 @@ export const ptBR: TranslationResources = {
       sendFailedTitle: "Não foi possível enviar a notificação de teste",
     },
     hostSections: {
+      environment: "Ambiente",
+      advanced: "Avançado",
       projects: "Projetos",
       connections: "Conexões",
       agents: "Agentes",
@@ -2604,6 +2610,11 @@ export const ptBR: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "Provedores",
+          behavior: "Comportamento",
+          usage: "Uso",
+        },
         unavailable: "Conecte-se a este host para gerenciar agentes",
       },
       workspaces: {

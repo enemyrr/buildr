@@ -1,6 +1,13 @@
 import { StyleSheet } from "react-native-unistyles";
 
 export const settingsStyles = StyleSheet.create((theme) => ({
+  // Large page heading at the top of a desktop settings page.
+  pageTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize["3xl"],
+    fontWeight: theme.fontWeight.medium,
+    marginBottom: theme.spacing[6],
+  },
   section: {
     marginBottom: theme.spacing[6],
   },

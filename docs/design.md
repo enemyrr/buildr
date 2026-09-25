@@ -114,7 +114,7 @@ Three themes is `DropdownMenu`. Thirty hosts is `Combobox`. A label and a value 
 
 ## 7. Density and rhythm
 
-Settings detail pages, the projects detail page, and any list+detail content sit inside a centered, max-width 720 column (`packages/app/src/screens/settings-screen.tsx`, `packages/app/src/screens/projects-screen.tsx`). Lines stay readable, the eye does not have to track wide horizontal distances. Form modals carry their own narrower content frame (`packages/app/src/components/add-host-modal.tsx`).
+On desktop, settings pages sit in a left-aligned column, max-width 960, that starts next to the sidebar and opens with a large page title (`settingsStyles.pageTitle`). On compact, and on the projects detail page, content sits in a centered, max-width 720 column (`packages/app/src/screens/settings-screen.tsx`, `packages/app/src/screens/projects-screen.tsx`). Lines stay readable, and the eye doesn't have to track wide horizontal distances. Form modals carry their own narrower content frame (`packages/app/src/components/add-host-modal.tsx`).
 
 Workspace and chat surfaces use the full width — these are working surfaces, not reading surfaces. The composer carries `MAX_CONTENT_WIDTH` from `packages/app/src/constants/layout.ts` to keep lines readable while letting the workspace pane fill the rest.
 
@@ -151,7 +151,9 @@ Compact-first. The small case is designed; the large case adds chrome around it.
 The list+detail pattern is canonical and reused across surfaces. The settings shell (`packages/app/src/screens/settings-screen.tsx`) and the projects screen (`packages/app/src/screens/projects-screen.tsx`) implement it identically:
 
 - On compact: full-screen list with `<BackHeader>` at the top. Tapping a row pushes a full-screen detail with its own `<BackHeader>` that returns to the list.
-- On desktop: a 320px sidebar on the left holds the list with `surfaceSidebar` background. The content pane on the right holds the selected detail with `<ScreenHeader>`, `<HeaderIconBadge>`, and `<ScreenTitle>`.
+- On desktop: a 320px sidebar holds the list with `surfaceSidebar` background. The content pane holds the selected detail. Settings leads the detail with its page title; the projects screen uses `<ScreenHeader>`, `<HeaderIconBadge>`, and `<ScreenTitle>`.
+
+Keep the settings sidebar short. A new setting joins an existing page as a section; a page with distinct views splits them with `<SettingsTabs>` (`packages/app/src/components/settings/settings-tabs.tsx`) instead of adding sidebar rows.
 
 The branching is one `useIsCompactFormFactor()` check at the top of the screen component. The list and the detail are the same components in both layouts; only the framing changes.
 

@@ -144,7 +144,7 @@ export function LaunchControl({
     [onChange],
   );
   const openProfileSettings = useCallback(() => {
-    router.push(buildSettingsHostSectionRoute(serverId, "terminals"));
+    router.push(buildSettingsHostSectionRoute(serverId, "environment"));
   }, [router, serverId]);
 
   return (

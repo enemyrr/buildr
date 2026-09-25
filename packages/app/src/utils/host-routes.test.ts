@@ -17,6 +17,7 @@ import {
   encodeWorkspaceIdForPathSegment,
   isSettingsSectionSlug,
   normalizeHostSectionSlug,
+  normalizeSettingsSectionSlug,
   normalizeProjectSettingsRouteId,
   parseHostAgentRouteFromPathname,
   parseHostWorkspaceOpenIntentFromPathname,
@@ -257,30 +258,45 @@ describe("global routes", () => {
 
 describe("host settings section slugs", () => {
   it("keeps current host settings sections", () => {
-    expect(normalizeHostSectionSlug("connections")).toBe("connections");
-    expect(normalizeHostSectionSlug("pair-device")).toBe("pair-device");
-    expect(normalizeHostSectionSlug("agents")).toBe("agents");
-    expect(normalizeHostSectionSlug("metadata")).toBe("metadata");
-    expect(normalizeHostSectionSlug("workspaces")).toBe("workspaces");
-    expect(normalizeHostSectionSlug("projects")).toBe("projects");
-    expect(normalizeHostSectionSlug("providers")).toBe("providers");
-    expect(normalizeHostSectionSlug("usage")).toBe("usage");
-    expect(normalizeHostSectionSlug("host")).toBe("host");
+    for (const slug of [
+      "projects",
+      "models",
+      "agents",
+      "environment",
+      "connections",
+      "plugins",
+      "host",
+    ]) {
+      expect(normalizeHostSectionSlug(slug)).toBe(slug);
+    }
   });
 
-  it("maps old host settings sections to their new names", () => {
+  it("maps old host settings sections to the page that absorbed them", () => {
     expect(normalizeHostSectionSlug("orchestration")).toBe("agents");
+    expect(normalizeHostSectionSlug("providers")).toBe("agents");
+    expect(normalizeHostSectionSlug("usage")).toBe("agents");
     expect(normalizeHostSectionSlug("daemon")).toBe("host");
+    expect(normalizeHostSectionSlug("pair-device")).toBe("connections");
+    expect(normalizeHostSectionSlug("workspaces")).toBe("environment");
+    expect(normalizeHostSectionSlug("terminals")).toBe("environment");
+    expect(normalizeHostSectionSlug("metadata")).toBe("environment");
   });
 });
 
 describe("settings section slugs", () => {
-  it("includes desktop notification settings", () => {
-    expect(isSettingsSectionSlug("notifications")).toBe(true);
+  it("maps merged app sections to the page that absorbed them", () => {
+    expect(isSettingsSectionSlug("notifications")).toBe(false);
+    expect(normalizeSettingsSectionSlug("notifications")).toBe("general");
+    expect(normalizeSettingsSectionSlug("permissions")).toBe("general");
+    expect(normalizeSettingsSectionSlug("editor")).toBe("general");
+    expect(normalizeSettingsSectionSlug("integrations")).toBe("general");
+    expect(normalizeSettingsSectionSlug("layout")).toBe("appearance");
+    expect(normalizeSettingsSectionSlug("diagnostics")).toBe("about");
   });
 
   it("no longer treats daemon as a valid app-level settings section", () => {
     expect(isSettingsSectionSlug("daemon")).toBe(false);
+    expect(normalizeSettingsSectionSlug("daemon")).toBeNull();
   });
 });
 

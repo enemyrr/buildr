@@ -13,7 +13,7 @@ import {
   addDirectHostFromSettings,
   goBackInSettings,
   openCompactSettings,
-  openHostSection,
+  openAgentsTab,
   selectSettingsHost,
 } from "./settings";
 
@@ -133,7 +133,7 @@ export async function openAgentSkillsSettings(
   });
   if (options.compact) await goBackInSettings(page);
   await selectSettingsHost(page, sandbox.daemon.serverId);
-  await openHostSection(page, sandbox.daemon.serverId, "agents");
+  await openAgentsTab(page, sandbox.daemon.serverId, "behavior");
   await expect(page.getByTestId("host-agent-skills-card")).toBeVisible();
 }
 
