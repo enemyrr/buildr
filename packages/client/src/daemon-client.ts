@@ -117,6 +117,7 @@ import type {
   PaseoConfigRevision,
   WorkspaceCreateRequest,
   WorkspaceRecoveryState,
+  ArchivedWorkspaceSummary,
   PluginListItem,
   PluginLogEntry,
   PluginSourceStatusItem,
@@ -3037,6 +3038,25 @@ export class DaemonClient {
         },
       });
     return payload.state;
+  }
+
+  async listArchivedWorkspaces(
+    projectId: string,
+    options?: { limit?: number; requestId?: string },
+  ): Promise<ArchivedWorkspaceSummary[]> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"workspace.archived.list.response">({
+        requestId: options?.requestId,
+        message: {
+          type: "workspace.archived.list.request",
+          projectId,
+          limit: options?.limit,
+        },
+      });
+    if (payload.error) {
+      throw new Error(payload.error);
+    }
+    return payload.workspaces;
   }
 
   async restoreWorkspace(workspaceId: string, requestId?: string): Promise<void> {

@@ -1303,6 +1303,11 @@ export const zhCN: TranslationResources = {
         remove: "移除 project",
         removing: "正在移除...",
       },
+      archived: {
+        title: "已归档的工作区",
+        empty: "没有已归档的工作区",
+        loadFailed: "无法加载已归档的工作区",
+      },
       confirmations: {
         removeTitle: "移除 project？",
         removeMessage: "从侧边栏移除「{{projectName}}」？\n\n磁盘上的文件不会被更改。",

@@ -1340,6 +1340,11 @@ export const en = {
         remove: "Remove project",
         removing: "Removing...",
       },
+      archived: {
+        title: "Archived workspaces",
+        empty: "No archived workspaces",
+        loadFailed: "Couldn't load archived workspaces",
+      },
       confirmations: {
         removeTitle: "Remove project?",
         removeMessage:

@@ -1312,6 +1312,11 @@ export const ar: TranslationResources = {
         remove: "إزالة المشروع",
         removing: "جارٍ الإزالة...",
       },
+      archived: {
+        title: "مساحات العمل المؤرشفة",
+        empty: "لا توجد مساحات عمل مؤرشفة",
+        loadFailed: "تعذر تحميل مساحات العمل المؤرشفة",
+      },
       confirmations: {
         removeTitle: "هل تريد إزالة المشروع؟",
         removeMessage:

@@ -1320,6 +1320,11 @@ export const ko: TranslationResources = {
         remove: "프로젝트 제거",
         removing: "제거하는 중...",
       },
+      archived: {
+        title: "보관된 워크스페이스",
+        empty: "보관된 워크스페이스가 없습니다",
+        loadFailed: "보관된 워크스페이스를 불러올 수 없습니다",
+      },
       confirmations: {
         removeTitle: "프로젝트를 제거할까요?",
         removeMessage:

@@ -1342,6 +1342,11 @@ export const ptBR: TranslationResources = {
         remove: "Remover projeto",
         removing: "Removendo...",
       },
+      archived: {
+        title: "Workspaces arquivados",
+        empty: "Nenhum workspace arquivado",
+        loadFailed: "Não foi possível carregar os workspaces arquivados",
+      },
       confirmations: {
         removeTitle: "Remover projeto?",
         removeMessage:

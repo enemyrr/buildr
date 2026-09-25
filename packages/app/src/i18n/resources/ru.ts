@@ -1333,6 +1333,11 @@ export const ru: TranslationResources = {
         remove: "Удалить проект",
         removing: "Удаление...",
       },
+      archived: {
+        title: "Архивные рабочие пространства",
+        empty: "Нет архивных рабочих пространств",
+        loadFailed: "Не удалось загрузить архивные рабочие пространства",
+      },
       confirmations: {
         removeTitle: "Удалить проект?",
         removeMessage:
