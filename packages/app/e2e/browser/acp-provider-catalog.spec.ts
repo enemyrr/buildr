@@ -7,7 +7,7 @@ import {
   installAcpCatalogProvider,
   openAddProviderArea,
   openSettingsHost,
-  openSettingsHostSection,
+  openAgentsTab,
 } from "../support/helpers/settings";
 
 const ACP_PROVIDER = {
@@ -30,7 +30,7 @@ test.describe("ACP provider catalog", () => {
       await gotoAppShell(page);
       await openSettings(page);
       await openSettingsHost(page, getServerId());
-      await openSettingsHostSection(page, getServerId(), "providers");
+      await openAgentsTab(page, getServerId(), "providers");
       await openAddProviderArea(page);
 
       await installAcpCatalogProvider(page, ACP_PROVIDER.name);

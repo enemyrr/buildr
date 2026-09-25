@@ -14,7 +14,7 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 };
 // manual picker is one; opening it without picking a model saves nothing.
 async function openMetadataModelSelector(page: Page) {
   await gotoAppShell(page);
-  await page.goto(buildSettingsHostSectionRoute(getServerId(), "metadata"));
+  await page.goto(buildSettingsHostSectionRoute(getServerId(), "environment"));
   await page.getByRole("button", { name: "Manual", exact: true }).click();
   await page.getByRole("button", { name: /Select model/ }).click();
   await page.getByTestId("model-provider-mock").click();

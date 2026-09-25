@@ -1101,6 +1101,40 @@ describe("Codex app-server provider", () => {
     const startCall = requests.find((req) => req.method === "thread/start");
     expect(startCall).toBeDefined();
     expect((startCall!.params as Record<string, unknown>).ephemeral).toBeUndefined();
+    expect(startCall?.params).not.toHaveProperty("personality");
+  });
+
+  test("passes the daemon default personality to thread/start and thread/resume", async () => {
+    const requests: Array<{ method: string; params: unknown }> = [];
+    const fakeClient: CodexClientLike = {
+      async request(method: string, params?: unknown) {
+        requests.push({ method, params });
+        if (method === "thread/start") return { thread: { id: "thread-1" } };
+        if (method === "thread/loaded/list") return { data: [] };
+        return null;
+      },
+    };
+
+    const session = new CodexAppServerAgentSession(
+      createConfig({
+        thinkingOptionId: "medium",
+        daemonAgentDefaults: { codexPersonality: "pragmatic" },
+      }),
+      null,
+      createTestLogger(),
+      () => {
+        throw new Error("Test session cannot spawn Codex app-server");
+      },
+    );
+    castInternals<{ client: CodexClientLike }>(session).client = fakeClient;
+
+    await castInternals<{ ensureThread: () => Promise<void> }>(session).ensureThread();
+    await castInternals<{ ensureThreadLoaded: () => Promise<void> }>(session).ensureThreadLoaded();
+
+    const startCall = requests.find((req) => req.method === "thread/start");
+    const resumeCall = requests.find((req) => req.method === "thread/resume");
+    expect(startCall?.params).toMatchObject({ personality: "pragmatic" });
+    expect(resumeCall?.params).toMatchObject({ threadId: "thread-1", personality: "pragmatic" });
   });
 
   test("disposes an unresponsive app-server child with SIGKILL", async () => {

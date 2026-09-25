@@ -1054,6 +1054,28 @@ describe("ClaudeAgentSession features", () => {
     await session.close();
   });
 
+  test("passes the daemon default output style through Claude settings", async () => {
+    const { queryFactory } = createQueryMock();
+    const client = new ClaudeAgentClient({
+      logger,
+      queryFactory,
+      resolveBinary: async () => "/test/claude/bin",
+    });
+    const session = await client.createSession({
+      provider: "claude",
+      cwd: process.cwd(),
+      daemonAgentDefaults: { claudeOutputStyle: "Explanatory" },
+    });
+
+    await session.startTurn("hello");
+
+    expect(queryFactory.mock.calls[0]?.[0].options.settings).toEqual({
+      outputStyle: "Explanatory",
+    });
+
+    await session.close();
+  });
+
   test("turns Claude thinking off without retaining an effort level", async () => {
     const { queryFactory, launches } = createQueryMock();
     const client = new ClaudeAgentClient({

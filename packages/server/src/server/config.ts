@@ -541,6 +541,7 @@ function resolveStaticLoadConfigSettings(
     browserToolsEnabled: resolveBrowserToolsEnabled(persisted),
     autoArchiveAfterMerge: persisted.daemon?.autoArchiveAfterMerge ?? false,
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
+    agentDefaults: persisted.daemon?.agentDefaults,
     ...resolveProfileLists(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
@@ -576,6 +577,7 @@ export function resolveConfigFromPersisted(
     browserToolsEnabled,
     autoArchiveAfterMerge,
     appendSystemPrompt,
+    agentDefaults,
     terminalProfiles,
     agentProfiles,
     hostnames,
@@ -621,6 +623,7 @@ export function resolveConfigFromPersisted(
     autoArchiveAfterMerge,
     enableTerminalAgentHooks: persisted.daemon?.enableTerminalAgentHooks ?? false,
     appendSystemPrompt,
+    agentDefaults,
     terminalProfiles,
     agentProfiles,
     skillSelection: persisted.agents?.skills?.selection,

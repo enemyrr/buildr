@@ -5,7 +5,7 @@ import type {
   ProviderOptions,
   ToolPolicy,
 } from "@getpaseo/protocol/agent-types";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment, AgentDefaults } from "@getpaseo/protocol/messages";
 import type { PaseoToolCatalog } from "./tools/types.js";
 
 export type { AgentProviderNotice, AgentTaskItem };
@@ -610,6 +610,8 @@ export interface AgentSessionConfig {
    * persisted into agent config so daemon setting changes apply cleanly.
    */
   daemonAppendSystemPrompt?: string;
+  /** Daemon-level provider defaults, injected at runtime like daemonAppendSystemPrompt. */
+  daemonAgentDefaults?: AgentDefaults;
   modeId?: string;
   model?: string;
   thinkingOptionId?: string;

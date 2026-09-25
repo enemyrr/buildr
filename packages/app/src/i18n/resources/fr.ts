@@ -2136,6 +2136,10 @@ export const fr: TranslationResources = {
     title: "Paramètres",
     loading: "Chargement des paramètres...",
     groups: {
+      personal: "Personnel",
+      agentsEnvironment: "Agents et environnement",
+      repositories: "Dépôts",
+      more: "Plus",
       app: "Application",
       host: "Host",
     },
@@ -2186,6 +2190,8 @@ export const fr: TranslationResources = {
       sendFailedTitle: "Impossible d’envoyer la notification de test",
     },
     hostSections: {
+      environment: "Environnement",
+      advanced: "Avancé",
       projects: "Projets",
       connections: "Relations",
       agents: "Agents",
@@ -2626,6 +2632,11 @@ export const fr: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "Fournisseurs",
+          behavior: "Comportement",
+          usage: "Utilisation",
+        },
         unavailable: "Connect to this host to manage agents",
       },
       workspaces: {

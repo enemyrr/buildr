@@ -43,12 +43,14 @@ export async function openProjects(page: Page): Promise<void> {
   await expect(projectsSidebar(page)).toBeVisible({ timeout: 30_000 });
 }
 
+// Project sections are tabs on the project page.
 export async function openProjectSection(
   page: Page,
   section: ProjectSettingsSection,
 ): Promise<void> {
-  await projectsSidebar(page).getByRole("button", { name: section, exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/${section.toLowerCase()}$`));
+  const slug = section.toLowerCase();
+  await page.locator(`[data-testid="settings-project-tabs-${slug}"]:visible`).click();
+  await expect(page).toHaveURL(new RegExp(`/${slug}$`));
 }
 
 export async function openProjectSettings(page: Page, projectName: string): Promise<void> {
@@ -58,13 +60,10 @@ export async function openProjectSettings(page: Page, projectName: string): Prom
   });
 }
 
-// Expands the project in the settings sidebar, then opens its Scripts page.
+// Selecting a project in the settings sidebar opens its Scripts tab.
 export async function navigateToProjectSettings(page: Page, projectName: string): Promise<void> {
-  const scripts = projectsSidebar(page).getByRole("button", { name: "Scripts", exact: true });
-  if (!(await scripts.isVisible())) {
-    await projectsSidebar(page).getByRole("button", { name: projectName, exact: true }).click();
-  }
-  await openProjectSection(page, "Scripts");
+  await projectsSidebar(page).getByRole("button", { name: projectName, exact: true }).click();
+  await expect(page).toHaveURL(/\/scripts$/);
 }
 
 // Leaves the Scripts page so reopening it reads paseo.json again.

@@ -2122,6 +2122,10 @@ export const en = {
     title: "Settings",
     loading: "Loading settings...",
     groups: {
+      personal: "Personal",
+      agentsEnvironment: "Agents & environment",
+      repositories: "Repositories",
+      more: "More",
       app: "App",
       host: "Host",
     },
@@ -2217,6 +2221,8 @@ export const en = {
       sendFailedTitle: "Unable to send test notification",
     },
     hostSections: {
+      environment: "Environment",
+      advanced: "Advanced",
       projects: "Projects",
       connections: "Connections",
       agents: "Agents",
@@ -2229,6 +2235,35 @@ export const en = {
       host: "Overview",
     },
     defaultModels: {
+      agentDefaults: {
+        title: "Agent defaults",
+        claudeOutputStyle: {
+          label: "Claude output style",
+          hint: "Applies to new Claude Code chats. Existing chats keep their style.",
+          inherit: "From Claude settings",
+          options: {
+            default: "Default",
+            Proactive: "Proactive",
+            Concise: "Concise",
+            Explanatory: "Explanatory",
+            Learning: "Learning",
+          },
+        },
+        codexPersonality: {
+          label: "Codex personality",
+          hint: "Applies to new Codex chats",
+          inherit: "Codex default",
+          options: {
+            pragmatic: "Pragmatic",
+            friendly: "Friendly",
+            none: "None",
+          },
+        },
+        planMode: {
+          label: "Default to plan mode in new chats",
+          hint: "Applies to providers with a plan mode",
+        },
+      },
       title: "Default models",
       loadoutTitle: "Loadout",
       loadoutInfo: "Choose which models you want to use. The first slot is the default.",
@@ -2730,6 +2765,11 @@ export const en = {
         },
       },
       agents: {
+        tabs: {
+          providers: "Providers",
+          behavior: "Behavior",
+          usage: "Usage",
+        },
         unavailable: "Connect to this host to manage agents",
       },
       workspaces: {

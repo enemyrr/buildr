@@ -2,7 +2,10 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpToLine,
+  Bot,
+  Boxes,
   ChevronRight,
+  Gauge,
   Globe,
   Monitor,
   Pencil,
@@ -53,6 +56,7 @@ import { ProviderUsageSettingsSection } from "@/provider-usage/settings-section"
 import { useProviderUsage } from "@/provider-usage/use-provider-usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { useSessionStore } from "@/stores/session-store";
 import { settingsStyles } from "@/styles/settings";
 import type { HostConnection, HostProfile } from "@/types/host-connection";
@@ -263,10 +267,20 @@ export function HostPairDevicePage({ serverId }: { serverId: string }) {
   );
 }
 
+type HostAgentsTab = "providers" | "behavior" | "usage";
+
 export function HostAgentsPage({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
   const host = useHostProfile(serverId);
-  const isConnected = useHostRuntimeIsConnected(serverId);
+  const [tab, setTab] = useState<HostAgentsTab>("providers");
+  const tabs = useMemo(
+    () => [
+      { value: "providers" as const, label: t("settings.host.agents.tabs.providers"), icon: Boxes },
+      { value: "behavior" as const, label: t("settings.host.agents.tabs.behavior"), icon: Bot },
+      { value: "usage" as const, label: t("settings.host.agents.tabs.usage"), icon: Gauge },
+    ],
+    [t],
+  );
 
   if (!host) {
     return <HostNotFound />;
@@ -274,8 +288,22 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
 
   return (
     <View>
+      <SettingsTabs tabs={tabs} value={tab} onChange={setTab} testID="settings-agents-tabs" />
+      {tab === "providers" ? <ProvidersSection serverId={serverId} /> : null}
+      {tab === "behavior" ? <HostAgentBehavior serverId={serverId} /> : null}
+      {tab === "usage" ? <HostUsage serverId={serverId} /> : null}
+    </View>
+  );
+}
+
+function HostAgentBehavior({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
+  const isConnected = useHostRuntimeIsConnected(serverId);
+
+  return (
+    <View>
       {isConnected ? (
-        <SettingsSection title={t("settings.hostSections.agents")}>
+        <SettingsSection title={t("settings.host.agents.tabs.behavior")}>
           <InjectPaseoToolsCard serverId={serverId} />
           <BrowserToolsOptInCard serverId={serverId} />
           <AppendSystemPromptCard serverId={serverId} />
@@ -288,6 +316,15 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
       <AgentSkillsSection serverId={serverId} />
     </View>
   );
+}
+
+function HostUsage({ serverId }: { serverId: string }) {
+  const { view: providerUsageView, refresh: refreshProviderUsage } = useProviderUsage(serverId);
+  const handleRefresh = useCallback(() => {
+    void refreshProviderUsage();
+  }, [refreshProviderUsage]);
+
+  return <ProviderUsageSettingsSection view={providerUsageView} onRefresh={handleRefresh} />;
 }
 
 export function HostWorkspacesPage({ serverId }: { serverId: string }) {
@@ -310,38 +347,6 @@ export function HostWorkspacesPage({ serverId }: { serverId: string }) {
           <Text style={styles.emptyText}>{t("settings.host.workspaces.unavailable")}</Text>
         </View>
       )}
-    </View>
-  );
-}
-
-export function HostProvidersPage({ serverId }: { serverId: string }) {
-  const host = useHostProfile(serverId);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <View>
-      <ProvidersSection serverId={serverId} />
-    </View>
-  );
-}
-
-export function HostUsagePage({ serverId }: { serverId: string }) {
-  const host = useHostProfile(serverId);
-  const { view: providerUsageView, refresh: refreshProviderUsage } = useProviderUsage(serverId);
-  const handleRefresh = useCallback(() => {
-    void refreshProviderUsage();
-  }, [refreshProviderUsage]);
-
-  if (!host) {
-    return <HostNotFound />;
-  }
-
-  return (
-    <View>
-      <ProviderUsageSettingsSection view={providerUsageView} onRefresh={handleRefresh} />
     </View>
   );
 }

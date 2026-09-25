@@ -3942,7 +3942,10 @@ export class CodexAppServerAgentSession implements AgentSession {
 
   private async ensureThreadLoaded(): Promise<void> {
     if (!this.client || !this.currentThreadId) return;
-    const params: Record<string, unknown> = { threadId: this.currentThreadId };
+    const params: Record<string, unknown> = {
+      threadId: this.currentThreadId,
+      ...this.buildPersonalityParam(),
+    };
     const developerInstructions = composeSystemPromptParts(
       this.config.systemPrompt,
       this.config.daemonAppendSystemPrompt,
@@ -5197,11 +5200,17 @@ export class CodexAppServerAgentSession implements AgentSession {
       ...(developerInstructions ? { developerInstructions } : {}),
       ...(innerConfig ? { config: innerConfig } : {}),
       ...(this.ephemeral ? { ephemeral: true } : {}),
+      ...this.buildPersonalityParam(),
     };
     if (this.hasWorkflowModeOverride) {
       params.approvalsReviewer = preset.approvalsReviewer;
     }
     return { params, approvalPolicy, sandbox };
+  }
+
+  private buildPersonalityParam(): Record<string, unknown> {
+    const personality = this.config.daemonAgentDefaults?.codexPersonality;
+    return personality ? { personality } : {};
   }
 
   private buildCodexInnerConfig(): Record<string, unknown> | null {

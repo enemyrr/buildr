@@ -2100,6 +2100,10 @@ export const ja: TranslationResources = {
     title: "設定",
     loading: "設定を読み込み中...",
     groups: {
+      personal: "個人",
+      agentsEnvironment: "エージェントと環境",
+      repositories: "リポジトリ",
+      more: "その他",
       app: "アプリ",
       host: "ホスト",
     },
@@ -2150,6 +2154,8 @@ export const ja: TranslationResources = {
       sendFailedTitle: "テスト通知を送信できません",
     },
     hostSections: {
+      environment: "環境",
+      advanced: "詳細",
       projects: "プロジェクト",
       connections: "接続",
       agents: "エージェント",
@@ -2585,6 +2591,11 @@ export const ja: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "プロバイダー",
+          behavior: "動作",
+          usage: "使用状況",
+        },
         unavailable: "エージェントを管理するにはこのホストに接続してください",
       },
       workspaces: {

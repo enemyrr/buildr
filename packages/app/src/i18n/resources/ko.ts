@@ -2089,6 +2089,10 @@ export const ko: TranslationResources = {
     title: "설정",
     loading: "설정 불러오는 중...",
     groups: {
+      personal: "개인",
+      agentsEnvironment: "에이전트 및 환경",
+      repositories: "저장소",
+      more: "더 보기",
       app: "앱",
       host: "호스트",
     },
@@ -2139,6 +2143,8 @@ export const ko: TranslationResources = {
       sendFailedTitle: "테스트 알림을 보낼 수 없음",
     },
     hostSections: {
+      environment: "환경",
+      advanced: "고급",
       projects: "프로젝트",
       connections: "연결",
       agents: "에이전트",
@@ -2572,6 +2578,11 @@ export const ko: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "공급자",
+          behavior: "동작",
+          usage: "사용량",
+        },
         unavailable: "에이전트를 관리하려면 이 호스트에 연결하세요",
       },
       workspaces: {

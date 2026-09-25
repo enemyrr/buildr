@@ -2,7 +2,7 @@ import { expect, test } from "../support/fixtures";
 import { gotoAppShell, openSettings } from "../support/helpers/app";
 import { installProviderUsageFixture } from "../support/helpers/provider-usage";
 import { getServerId } from "../support/helpers/server-id";
-import { openSettingsHostSection } from "../support/helpers/settings";
+import { openAgentsTab } from "../support/helpers/settings";
 
 test.describe("provider usage settings", () => {
   test("renders every provider returned by the daemon usage RPC", async ({ page }) => {
@@ -49,7 +49,7 @@ test.describe("provider usage settings", () => {
     await gotoAppShell(page);
     await openSettings(page);
     expect(usageFixture.requestCount()).toBe(0);
-    await openSettingsHostSection(page, serverId, "usage");
+    await openAgentsTab(page, serverId, "usage");
     await usageFixture.waitForRequestCount(1);
 
     const card = page.getByTestId("provider-usage-card");
@@ -101,7 +101,7 @@ test.describe("provider usage settings", () => {
 
     await gotoAppShell(page);
     await openSettings(page);
-    await openSettingsHostSection(page, serverId, "usage");
+    await openAgentsTab(page, serverId, "usage");
     await usageFixture.waitForRequestCount(1);
     await expect(page.getByText("23%")).toBeVisible({ timeout: 10_000 });
 
@@ -140,7 +140,7 @@ test.describe("provider usage settings", () => {
 
     await gotoAppShell(page);
     await openSettings(page);
-    await openSettingsHostSection(page, serverId, "usage");
+    await openAgentsTab(page, serverId, "usage");
 
     const card = page.getByTestId("provider-usage-card");
     await expect(card).toBeVisible({ timeout: 10_000 });

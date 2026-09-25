@@ -2078,6 +2078,10 @@ export const ar: TranslationResources = {
     title: "إعدادات",
     loading: "جارٍ تحميل الإعدادات...",
     groups: {
+      personal: "شخصي",
+      agentsEnvironment: "الوكلاء والبيئة",
+      repositories: "المستودعات",
+      more: "المزيد",
       app: "برنامج",
       host: "Host",
     },
@@ -2128,6 +2132,8 @@ export const ar: TranslationResources = {
       sendFailedTitle: "تعذر إرسال إشعار الاختبار",
     },
     hostSections: {
+      environment: "البيئة",
+      advanced: "متقدم",
       projects: "المشاريع",
       connections: "اتصالات",
       agents: "Agents",
@@ -2560,6 +2566,11 @@ export const ar: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "المزوّدون",
+          behavior: "السلوك",
+          usage: "الاستخدام",
+        },
         unavailable: "Connect to this host to manage agents",
       },
       workspaces: {

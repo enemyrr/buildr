@@ -169,6 +169,26 @@ const MutableRelayConfigSchema = z
   })
   .passthrough();
 
+export const CodexPersonalitySchema = z.enum(["none", "friendly", "pragmatic"]);
+export type CodexPersonality = z.infer<typeof CodexPersonalitySchema>;
+
+// Defaults applied to agents at launch. Absent fields inherit the provider's own default.
+export const AgentDefaultsSchema = z
+  .object({
+    claudeOutputStyle: z.string().optional(),
+    codexPersonality: CodexPersonalitySchema.optional(),
+  })
+  .passthrough();
+export type AgentDefaults = z.infer<typeof AgentDefaultsSchema>;
+
+// `null` clears a field back to inherit; omitted leaves it unchanged.
+const AgentDefaultsPatchSchema = z
+  .object({
+    claudeOutputStyle: z.string().nullable().optional(),
+    codexPersonality: CodexPersonalitySchema.nullable().optional(),
+  })
+  .passthrough();
+
 export const MutableDaemonConfigSchema = z
   .object({
     // COMPAT(relayConfig): added in v0.2.6, remove after 2027-01-31 when old daemons are unsupported.
@@ -201,6 +221,7 @@ export const MutableDaemonConfigSchema = z
     autoArchiveAfterMerge: z.boolean().default(false),
     enableTerminalAgentHooks: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
+    agentDefaults: AgentDefaultsSchema.optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     skills: z.object({ selection: AgentSkillSelectionSchema.optional() }).strict().optional(),
@@ -222,6 +243,7 @@ export const MutableDaemonConfigPatchSchema = z
     autoArchiveAfterMerge: z.boolean().optional(),
     enableTerminalAgentHooks: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
+    agentDefaults: AgentDefaultsPatchSchema.optional(),
     terminalProfiles: z.array(TerminalProfileSchema).optional(),
     agentProfiles: z.array(AgentProfileSchema).optional(),
     pluginsEnabled: z.boolean().optional(),
@@ -3724,6 +3746,8 @@ export const ServerInfoStatusPayloadSchema = z
         projectCustomIcon: z.boolean().optional(),
         // COMPAT(projectGitSettings): added in v0.9.2, remove gate after 2027-03-22.
         projectGitSettings: z.boolean().optional(),
+        // COMPAT(agentDefaults): added in v0.9.7, remove gate after 2027-03-25.
+        agentDefaults: z.boolean().optional(),
         // COMPAT(checkoutContinueBranch): added in v0.9.2, remove gate after 2027-03-23.
         checkoutContinueBranch: z.boolean().optional(),
         // COMPAT(fsEntryOps): added in v0.3.0, remove gate after 2027-02-08.

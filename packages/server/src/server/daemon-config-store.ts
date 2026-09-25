@@ -26,6 +26,7 @@ interface SupportedMutableConfigPatch {
   autoArchiveAfterMerge?: boolean;
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
+  agentDefaults?: MutableDaemonConfigPatch["agentDefaults"];
   terminalProfiles?: MutableDaemonConfig["terminalProfiles"];
   agentProfiles?: MutableDaemonConfig["agentProfiles"];
   skills?: MutableDaemonConfig["skills"];
@@ -181,6 +182,7 @@ const RELOADABLE_PATHS = [
   "daemon.autoArchiveAfterMerge",
   "daemon.enableTerminalAgentHooks",
   "daemon.appendSystemPrompt",
+  "daemon.agentDefaults",
   "daemon.terminalProfiles",
   "daemon.agentProfiles",
   "app.baseUrl",
@@ -204,6 +206,7 @@ const PERSISTED_TO_MUTABLE_PATH = new Map<string, string>([
   ["daemon.autoArchiveAfterMerge", "autoArchiveAfterMerge"],
   ["daemon.enableTerminalAgentHooks", "enableTerminalAgentHooks"],
   ["daemon.appendSystemPrompt", "appendSystemPrompt"],
+  ["daemon.agentDefaults", "agentDefaults"],
   ["daemon.terminalProfiles", "terminalProfiles"],
   ["daemon.agentProfiles", "agentProfiles"],
   ["app.baseUrl", "app.baseUrl"],
@@ -249,6 +252,19 @@ function compactOwnedPaths(paths: readonly string[], owners: readonly string[]):
   return Array.from(compacted).sort();
 }
 
+// Per-field merge: `null` clears a default, `undefined` leaves it unchanged.
+function mergeAgentDefaults(
+  current: MutableDaemonConfig["agentDefaults"],
+  patch: MutableDaemonConfigPatch["agentDefaults"],
+): MutableDaemonConfig["agentDefaults"] {
+  const next: Record<string, unknown> = { ...current };
+  for (const [key, value] of Object.entries(patch ?? {})) {
+    if (value === null) delete next[key];
+    else if (value !== undefined) next[key] = value;
+  }
+  return Object.keys(next).length > 0 ? (next as MutableDaemonConfig["agentDefaults"]) : undefined;
+}
+
 function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMutableConfigPatch {
   return {
     ...(patch.relay?.enabled !== undefined ? { relay: { enabled: patch.relay.enabled } } : {}),
@@ -271,6 +287,14 @@ function pickSupportedPatchFields(patch: MutableDaemonConfigPatch): SupportedMut
       : {}),
     ...(patch.appendSystemPrompt !== undefined
       ? { appendSystemPrompt: patch.appendSystemPrompt }
+      : {}),
+    ...(patch.agentDefaults !== undefined
+      ? {
+          agentDefaults: {
+            claudeOutputStyle: patch.agentDefaults.claudeOutputStyle,
+            codexPersonality: patch.agentDefaults.codexPersonality,
+          },
+        }
       : {}),
     ...(patch.terminalProfiles !== undefined ? { terminalProfiles: patch.terminalProfiles } : {}),
     ...(patch.agentProfiles !== undefined ? { agentProfiles: patch.agentProfiles } : {}),
@@ -368,6 +392,12 @@ export class DaemonConfigStore {
       merged.skills = { selection: parsedPatch.skills.selection };
     }
     if (parsedPatch.plugins !== undefined) merged.plugins = parsedPatch.plugins;
+    if (parsedPatch.agentDefaults !== undefined) {
+      merged.agentDefaults = mergeAgentDefaults(
+        this.current.agentDefaults,
+        parsedPatch.agentDefaults,
+      );
+    }
     const next = MutableDaemonConfigSchema.parse(
       omitMetadataGenerationProvidersFromConfig(
         omitProvidersFromConfig(merged, removedProviders),
@@ -659,6 +689,11 @@ function mergeMutableDaemonPatch(
     next.enableTerminalAgentHooks = patch.enableTerminalAgentHooks;
   }
   if (patch.appendSystemPrompt !== undefined) next.appendSystemPrompt = patch.appendSystemPrompt;
+  if (patch.agentDefaults !== undefined) {
+    const agentDefaults = mergeAgentDefaults(next.agentDefaults, patch.agentDefaults);
+    if (agentDefaults) next.agentDefaults = agentDefaults;
+    else delete next.agentDefaults;
+  }
   if (patch.terminalProfiles !== undefined) next.terminalProfiles = patch.terminalProfiles;
   if (patch.agentProfiles !== undefined) next.agentProfiles = patch.agentProfiles;
   return Object.keys(next).length > 0 ? next : undefined;

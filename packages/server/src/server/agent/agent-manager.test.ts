@@ -2252,6 +2252,33 @@ test("createAgent injects daemon append system prompt at runtime only", async ()
   expect(record?.config).not.toHaveProperty("daemonAppendSystemPrompt");
 });
 
+test("createAgent injects daemon agent defaults at runtime only and follows live updates", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-test-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new TestAgentClient();
+  const ids = ["00000000-0000-4000-8000-000000000105", "00000000-0000-4000-8000-000000000106"];
+  const manager = new AgentManager({
+    clients: { codex: client },
+    registry: storage,
+    logger,
+    agentDefaults: { codexPersonality: "friendly" },
+    idFactory: () => ids.shift() ?? "00000000-0000-4000-8000-000000000107",
+  });
+
+  const snapshot = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: undefined,
+  });
+  const record = await storage.get(snapshot.id);
+  manager.setAgentDefaults(undefined);
+  await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+    workspaceId: undefined,
+  });
+
+  expect(client.createdConfigs[0]?.daemonAgentDefaults).toEqual({ codexPersonality: "friendly" });
+  expect(record?.config).not.toHaveProperty("daemonAgentDefaults");
+  expect(client.createdConfigs[1]).not.toHaveProperty("daemonAgentDefaults");
+});
+
 test("daemon append system prompt is injected into Pi configs", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-test-"));
   const storagePath = join(workdir, "agents");

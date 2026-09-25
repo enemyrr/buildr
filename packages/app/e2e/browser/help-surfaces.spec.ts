@@ -95,7 +95,7 @@ test("searches keyboard shortcuts opened with the ? shortcut", async ({ page }) 
 test("runs diagnostics from Settings", async ({ page }) => {
   await gotoAppShell(page);
   await openSettings(page);
-  await openSettingsSection(page, "diagnostics");
+  await openSettingsSection(page, "about");
 
   await page.getByRole("button", { name: "Run", exact: true }).click();
   await expectDiagnosticReport(page);

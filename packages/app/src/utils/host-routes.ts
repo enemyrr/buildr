@@ -502,36 +502,37 @@ export function resolveKnownHostRoute(input: {
   return { kind: "redirect", href: "/welcome" };
 }
 
-export const SETTINGS_SECTION_SLUGS = [
-  "general",
-  "appearance",
-  "layout",
-  "editor",
-  "shortcuts",
-  "integrations",
-  "notifications",
-  "permissions",
-  "diagnostics",
-  "about",
-] as const;
+export const SETTINGS_SECTION_SLUGS = ["general", "appearance", "shortcuts", "about"] as const;
 
 export type SettingsSectionSlug = (typeof SETTINGS_SECTION_SLUGS)[number];
+
+// Pages merged into a broader one keep their old URLs working.
+const LEGACY_SETTINGS_SECTION_SLUGS: Record<string, SettingsSectionSlug> = {
+  layout: "appearance",
+  editor: "general",
+  integrations: "general",
+  notifications: "general",
+  permissions: "general",
+  diagnostics: "about",
+};
 
 export function isSettingsSectionSlug(value: string): value is SettingsSectionSlug {
   return (SETTINGS_SECTION_SLUGS as readonly string[]).includes(value);
 }
 
+export function normalizeSettingsSectionSlug(value: string): SettingsSectionSlug | null {
+  if (isSettingsSectionSlug(value)) {
+    return value;
+  }
+  return LEGACY_SETTINGS_SECTION_SLUGS[value] ?? null;
+}
+
 export const HOST_SECTION_SLUGS = [
   "projects",
-  "connections",
-  "pair-device",
-  "agents",
   "models",
-  "metadata",
-  "workspaces",
-  "providers",
-  "usage",
-  "terminals",
+  "agents",
+  "environment",
+  "connections",
   "plugins",
   "host",
 ] as const;
@@ -540,7 +541,13 @@ export type HostSectionSlug = (typeof HOST_SECTION_SLUGS)[number];
 
 const LEGACY_HOST_SECTION_SLUGS: Record<string, HostSectionSlug> = {
   orchestration: "agents",
+  providers: "agents",
+  usage: "agents",
   daemon: "host",
+  "pair-device": "connections",
+  workspaces: "environment",
+  terminals: "environment",
+  metadata: "environment",
 };
 
 export function isHostSectionSlug(value: string): value is HostSectionSlug {

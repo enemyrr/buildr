@@ -25,6 +25,7 @@ import {
   slotDragId,
   type LoadoutDragSource,
 } from "./loadout-drop";
+import { AgentDefaultsSection } from "./agent-defaults-section";
 import { LoadoutSlots } from "./loadout-slots";
 import { DragPreview, ModelCatalog } from "./model-catalog";
 
@@ -40,16 +41,12 @@ export function HostDefaultModelsPage({ serverId }: { serverId: string }): React
   const loadout = useModelLoadout(serverId);
   const { entries } = useProvidersSnapshot(serverId, { cwd: null });
 
-  if (!isConnected || !loadout.isSupported) {
+  if (!isConnected) {
     return (
       <SettingsSection title={t("settings.defaultModels.loadoutTitle")}>
         <View style={settingsStyles.card} testID="default-models-unavailable">
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>
-              {isConnected
-                ? t("settings.defaultModels.unsupported")
-                : t("settings.defaultModels.unavailable")}
-            </Text>
+            <Text style={styles.emptyText}>{t("settings.defaultModels.unavailable")}</Text>
           </View>
         </View>
       </SettingsSection>
@@ -58,8 +55,19 @@ export function HostDefaultModelsPage({ serverId }: { serverId: string }): React
 
   return (
     <View>
-      <DefaultModelsBoard serverId={serverId} entries={entries} loadout={loadout} />
-      <AgentProfilesSection serverId={serverId} />
+      {loadout.isSupported ? (
+        <DefaultModelsBoard serverId={serverId} entries={entries} loadout={loadout} />
+      ) : (
+        <SettingsSection title={t("settings.defaultModels.loadoutTitle")}>
+          <View style={settingsStyles.card} testID="default-models-unavailable">
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>{t("settings.defaultModels.unsupported")}</Text>
+            </View>
+          </View>
+        </SettingsSection>
+      )}
+      <AgentDefaultsSection serverId={serverId} />
+      {loadout.isSupported ? <AgentProfilesSection serverId={serverId} /> : null}
     </View>
   );
 }

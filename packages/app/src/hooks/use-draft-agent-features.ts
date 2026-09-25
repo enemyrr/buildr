@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import type { AgentProvider, AgentSessionConfig } from "@getpaseo/protocol/agent-types";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { mergeProviderPreferences, useFormPreferences } from "./use-form-preferences";
+import { useAppSettings } from "./use-settings";
+import { withPlanModeFeature } from "@/create-agent-preferences/plan-mode-default";
 import {
   applyFeatureValues,
   pruneFeatureValues,
@@ -33,13 +35,18 @@ export function useDraftAgentFeatures(input: {
   const client = useHostRuntimeClient(serverId ?? "");
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const { preferences, updatePreferences } = useFormPreferences();
+  const {
+    settings: { defaultToPlanMode },
+  } = useAppSettings();
   const normalizedCwd = cwd?.trim() || "";
   const normalizedProvider = provider ?? null;
   const previousProviderRef = useRef<AgentProvider | null>(normalizedProvider);
-  const persistedFeatureValues = useMemo(
-    () => (provider ? (preferences.providerPreferences?.[provider]?.featureValues ?? {}) : {}),
-    [preferences.providerPreferences, provider],
-  );
+  const persistedFeatureValues = useMemo(() => {
+    const persisted = provider
+      ? (preferences.providerPreferences?.[provider]?.featureValues ?? {})
+      : {};
+    return defaultToPlanMode ? withPlanModeFeature(persisted) : persisted;
+  }, [defaultToPlanMode, preferences.providerPreferences, provider]);
 
   const draftConfig = useMemo<DraftFeatureConfig | null>(() => {
     if (!normalizedProvider || !normalizedCwd) {

@@ -7,6 +7,8 @@ import {
   parseFormPreferences,
 } from "./preferences";
 import { FakeCreateAgentPreferenceStorage } from "./test-utils/fake-preference-storage";
+import { applyPlanModeDefault } from "./plan-mode-default";
+import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
 
 describe("create agent preferences", () => {
   it("keeps the selected mode after saving model and thinking", async () => {
@@ -275,5 +277,52 @@ describe("create agent preferences", () => {
 
   it("rejects an unknown launch target kind as invalid stored preferences", () => {
     expect(parseFormPreferences({ launchTarget: { kind: "shell" } })).toEqual({});
+  });
+});
+
+describe("applyPlanModeDefault", () => {
+  function definition(id: string, modeIds: string[]): AgentProviderDefinition {
+    return {
+      id,
+      label: id,
+      description: id,
+      defaultModeId: modeIds[0] ?? null,
+      modes: modeIds.map((modeId) => ({
+        id: modeId,
+        label: modeId,
+        description: modeId,
+        icon: "Shield",
+        colorTier: "safe",
+      })),
+    };
+  }
+
+  it("starts providers with a plan mode in it and turns on the plan feature", () => {
+    const definitions = new Map([
+      ["claude", definition("claude", ["plan", "default"])],
+      ["codex", definition("codex", ["auto", "full-access"])],
+    ]);
+
+    const result = applyPlanModeDefault(
+      {
+        provider: "claude",
+        providerPreferences: {
+          claude: { mode: "default", model: "opus" },
+          codex: { mode: "full-access", featureValues: { fast_mode: true, plan_mode: false } },
+        },
+      },
+      definitions,
+    );
+
+    expect(result.provider).toBe("claude");
+    expect(result.providerPreferences?.claude).toEqual({
+      mode: "plan",
+      model: "opus",
+      featureValues: { plan_mode: true },
+    });
+    expect(result.providerPreferences?.codex).toEqual({
+      mode: "full-access",
+      featureValues: { fast_mode: true, plan_mode: true },
+    });
   });
 });

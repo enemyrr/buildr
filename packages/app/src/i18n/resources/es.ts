@@ -2129,6 +2129,10 @@ export const es: TranslationResources = {
     title: "Ajustes",
     loading: "Cargando configuración...",
     groups: {
+      personal: "Personal",
+      agentsEnvironment: "Agentes y entorno",
+      repositories: "Repositorios",
+      more: "Más",
       app: "Aplicación",
       host: "Host",
     },
@@ -2179,6 +2183,8 @@ export const es: TranslationResources = {
       sendFailedTitle: "No se pudo enviar la notificación de prueba",
     },
     hostSections: {
+      environment: "Entorno",
+      advanced: "Avanzado",
       projects: "Proyectos",
       connections: "Conexiones",
       agents: "Agents",
@@ -2619,6 +2625,11 @@ export const es: TranslationResources = {
         },
       },
       agents: {
+        tabs: {
+          providers: "Proveedores",
+          behavior: "Comportamiento",
+          usage: "Uso",
+        },
         unavailable: "Connect to this host to manage agents",
       },
       workspaces: {

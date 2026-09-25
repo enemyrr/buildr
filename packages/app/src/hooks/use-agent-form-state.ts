@@ -14,6 +14,8 @@ import {
 import { filterSelectableModels } from "@/provider-selection/model-catalog";
 import { OptimisticFormPreferences } from "@/create-agent-preferences/optimistic-preferences";
 import { applyAgentProfilePreferences } from "@/create-agent-preferences/preferences";
+import { applyPlanModeDefault } from "@/create-agent-preferences/plan-mode-default";
+import { useAppSettings } from "@/hooks/use-settings";
 import { useProvidersSnapshot } from "./use-providers-snapshot";
 import {
   useFormPreferences,
@@ -148,6 +150,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
   const { serverId, initialValues, workingDir, isVisible = true, isCreateFlow = true } = options;
 
   const { preferences, isLoading: isPreferencesLoading, updatePreferences } = useFormPreferences();
+  const { settings: appSettings } = useAppSettings();
+  const startInPlanMode = isCreateFlow && appSettings.defaultToPlanMode;
   const preferenceOverlayRef = useRef(new OptimisticFormPreferences(preferences));
 
   useEffect(() => {
@@ -248,6 +252,15 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
   const modeOptions = snapshotSelectedProviderModes;
   const isModelSelectionLoading =
     resolution.status === "pending" || snapshotIsLoading || selectedProviderIsLoading;
+  const withNewChatDefaults = useCallback(
+    (current: FormPreferences): FormPreferences =>
+      startInPlanMode ? applyPlanModeDefault(current, providerDefinitionMap) : current,
+    [providerDefinitionMap, startInPlanMode],
+  );
+  const resolvedPreferences = useMemo(
+    () => withNewChatDefaults(preferences),
+    [preferences, withNewChatDefaults],
+  );
   const isAllModelsLoading = isModelSelectionLoading;
 
   useEffect(() => {
@@ -259,7 +272,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       isPreferencesLoading,
       hasSnapshot: snapshotEntries !== undefined,
       initialValues,
-      preferences,
+      preferences: resolvedPreferences,
       providerModelsByProvider: snapshotProviderModelsByProvider,
       allowedProviderMap: snapshotResolvableProviderDefinitionMap,
     });
@@ -270,7 +283,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
     isPreferencesLoading,
     snapshotEntries,
     initialValues,
-    preferences,
+    resolvedPreferences,
     snapshotProviderModelsByProvider,
     snapshotResolvableProviderDefinitionMap,
   ]);
@@ -282,7 +295,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
       }
       const providerDef = selectableProviderDefinitionMap.get(provider);
       const providerModels = allProviderModels.get(provider) ?? null;
-      const providerPrefs = preferenceOverlayRef.current.current().providerPreferences?.[provider];
+      const providerPrefs = withNewChatDefaults(preferenceOverlayRef.current.current())
+        .providerPreferences?.[provider];
       const normalizedModelId = normalizeSelectedModelId(modelId);
       const nextModelId = normalizedModelId || resolveDefaultModelId(providerModels);
 
@@ -304,7 +318,12 @@ export function useAgentFormState(options: UseAgentFormStateOptions): UseAgentFo
         }),
       );
     },
-    [allProviderModels, selectableProviderDefinitionMap, updateCurrentPreferences],
+    [
+      allProviderModels,
+      selectableProviderDefinitionMap,
+      updateCurrentPreferences,
+      withNewChatDefaults,
+    ],
   );
 
   const clearProviderSelectionFromUser = useCallback(() => {
