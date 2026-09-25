@@ -1978,6 +1978,8 @@ export const ar: TranslationResources = {
       noPreview: "لا تتوفر معاينة",
       binaryPreviewUnavailable: "المعاينة الثنائية غير متاحة",
       tooLargeToDisplay: "هذا الملف كبير جدًا بحيث لا يمكن عرضه",
+      missing: "هذا الملف غير موجود بعد",
+      createFile: "إنشاء ملف",
       failedToLoad: "فشل تحميل الملف",
       failedToLoadPreview: "فشل تحميل معاينة الملف",
       editor: {

@@ -2015,6 +2015,8 @@ export const ptBR: TranslationResources = {
       noPreview: "Nenhuma prévia disponível",
       binaryPreviewUnavailable: "Prévia binária indisponível",
       tooLargeToDisplay: "Este arquivo é grande demais para exibir",
+      missing: "Este arquivo ainda não existe",
+      createFile: "Criar arquivo",
       failedToLoad: "Falha ao carregar arquivo",
       failedToLoadPreview: "Falha ao carregar prévia do arquivo",
       editor: {

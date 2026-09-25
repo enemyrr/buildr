@@ -132,6 +132,11 @@ function detectLinksForSuffix(line: string, suffix: TerminalLinkSuffix): Termina
   if (!pathWithPrefix) {
     return [];
   }
+  // "file.csv: 56 rows" is prose, not a line reference. Drop the suffix match so
+  // the plain path detector links "file.csv" without the trailing punctuation.
+  if (/[:,]$/.test(pathWithPrefix.path) && /^\s/.test(suffix.suffix.text)) {
+    return [];
+  }
 
   const pathIndex = pathWithPrefix.startIndex + (pathWithPrefix.prefix?.text.length ?? 0);
   const links: TerminalParsedLink[] = [

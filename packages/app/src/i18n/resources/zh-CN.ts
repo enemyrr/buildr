@@ -1957,6 +1957,8 @@ export const zhCN: TranslationResources = {
       noPreview: "没有可用预览",
       binaryPreviewUnavailable: "二进制预览不可用",
       tooLargeToDisplay: "此文件过大，无法显示",
+      missing: "此文件尚不存在",
+      createFile: "创建文件",
       failedToLoad: "加载文件失败",
       failedToLoadPreview: "加载文件预览失败",
       editor: {

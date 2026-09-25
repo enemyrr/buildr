@@ -38,6 +38,8 @@ import type { FileConflictAlertState } from "./conflict-alert";
 import type { LiveFileModel } from "./live-file/model";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { usePublishPanelInstanceAttributes } from "@/panels/panel-instance-attributes";
+import { useToast } from "@/contexts/toast-context";
+import { parentExplorerPath } from "@/utils/explorer-paths";
 import type { Theme } from "@/styles/theme";
 import { ZoomableImage } from "@/components/zoomable-viewport/image";
 
@@ -123,6 +125,47 @@ function TooLargeSource({ size }: { size?: number }) {
     <View style={styles.centerState} testID="file-source-too-large">
       <Text style={styles.emptyText}>{t("panels.file.tooLargeToDisplay")}</Text>
       {size ? <Text style={styles.binaryMetaText}>{formatFileSize({ size })}</Text> : null}
+    </View>
+  );
+}
+
+function MissingFileState({
+  path,
+  onCreate,
+  creating,
+  onRetry,
+  retrying,
+}: {
+  path: string;
+  onCreate?: () => void;
+  creating: boolean;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.centerState} testID="file-missing">
+      <View style={styles.missingCopy}>
+        <Text style={styles.missingTitle}>{t("panels.file.missing")}</Text>
+        <Text style={styles.missingPath} numberOfLines={2}>
+          {path}
+        </Text>
+      </View>
+      {onCreate ? (
+        <Button
+          variant="default"
+          size="sm"
+          onPress={onCreate}
+          loading={creating}
+          testID="file-missing-create"
+        >
+          {t("panels.file.createFile")}
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" onPress={onRetry} loading={retrying}>
+          {t("common.actions.retry")}
+        </Button>
+      )}
     </View>
   );
 }
@@ -239,6 +282,11 @@ export function FilePane({
   const supportsEditing = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.features?.workspaceFileEditing === true,
   );
+  const supportsEntryCreate = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.fsEntryOps === true,
+  );
+  const toast = useToast();
+  const [creatingFile, setCreatingFile] = useState(false);
   const normalizedWorkspaceRoot = useMemo(() => workspaceRoot.trim(), [workspaceRoot]);
   const normalizedFilePath = useMemo(() => trimNonEmpty(location.path), [location.path]);
   const readTarget = useMemo(
@@ -289,6 +337,31 @@ export function FilePane({
   const lineCount =
     preview?.kind === "text" ? (preview.content ?? "").split("\n").length : undefined;
   const errorMessage = previewLifecycle.status === "error" ? previewLifecycle.message : null;
+  const isMissing = previewLifecycle.status === "missing";
+  const { refresh: refreshLiveFile } = liveFile;
+
+  const handleCreateFile = useCallback(async () => {
+    const name = readTarget ? getFileNameFromPath(readTarget.path) : null;
+    if (!client || !readTarget || !name) return;
+    setCreatingFile(true);
+    try {
+      const payload = await client.createFileEntry({
+        cwd: readTarget.cwd,
+        parentPath: parentExplorerPath(readTarget.path),
+        name,
+        kind: "file",
+      });
+      if (!payload.success) {
+        toast.error(payload.error ?? t("workspace.fileExplorer.errors.createFailed"));
+        return;
+      }
+      refreshLiveFile();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setCreatingFile(false);
+    }
+  }, [client, readTarget, refreshLiveFile, t, toast]);
   const isLoading =
     previewLifecycle.status === "initial" ||
     previewLifecycle.status === "read_pending" ||
@@ -301,7 +374,7 @@ export function FilePane({
       readTarget={readTarget}
       preview={preview}
       liveFile={liveFile.model}
-      onRetryRead={liveFile.refresh}
+      onRetryRead={refreshLiveFile}
       retryingRead={liveFile.isRetrying}
       retryLabel={t("common.actions.retry")}
       filename={getFileNameFromPath(location.path) ?? location.path}
@@ -311,6 +384,9 @@ export function FilePane({
       editable={editable}
       disconnectedMessage={t("workspace.terminal.hostDisconnected")}
       errorMessage={errorMessage}
+      isMissing={isMissing}
+      onCreateFile={supportsEntryCreate ? handleCreateFile : undefined}
+      creatingFile={creatingFile}
       isLoading={isLoading}
       isMobile={isMobile}
       location={location}
@@ -352,6 +428,9 @@ function FilePanePresentation({
   editable,
   disconnectedMessage,
   errorMessage,
+  isMissing,
+  onCreateFile,
+  creatingFile,
   isLoading,
   isMobile,
   location,
@@ -373,6 +452,9 @@ function FilePanePresentation({
   editable: boolean;
   disconnectedMessage: string;
   errorMessage: string | null;
+  isMissing: boolean;
+  onCreateFile?: () => void;
+  creatingFile: boolean;
   isLoading: boolean;
   isMobile: boolean;
   location: WorkspaceFileLocation;
@@ -408,6 +490,20 @@ function FilePanePresentation({
         location={location}
         navigationRevision={navigationRevision}
       />
+    );
+  }
+
+  if (isMissing) {
+    return (
+      <View style={styles.container} testID="workspace-file-pane">
+        <MissingFileState
+          path={location.path}
+          onCreate={onCreateFile}
+          creating={creatingFile}
+          onRetry={onRetryRead}
+          retrying={retryingRead}
+        />
+      </View>
     );
   }
 
@@ -669,6 +765,22 @@ const styles = StyleSheet.create((theme) => ({
   errorText: {
     color: theme.colors.destructive,
     fontSize: theme.fontSize.base,
+    textAlign: "center",
+  },
+  missingCopy: {
+    alignItems: "center",
+    gap: theme.spacing[1],
+    maxWidth: 360,
+  },
+  missingTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    textAlign: "center",
+  },
+  missingPath: {
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.sm,
     textAlign: "center",
   },
   emptyText: {

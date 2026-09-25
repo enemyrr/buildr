@@ -1999,6 +1999,8 @@ export const ja: TranslationResources = {
       noPreview: "プレビューが利用できません",
       binaryPreviewUnavailable: "バイナリプレビューが利用できません",
       tooLargeToDisplay: "このファイルは大きすぎて表示できません",
+      missing: "このファイルはまだ存在しません",
+      createFile: "ファイルを作成",
       failedToLoad: "ファイルの読み込みに失敗しました",
       failedToLoadPreview: "ファイルプレビューの読み込みに失敗しました",
       editor: {

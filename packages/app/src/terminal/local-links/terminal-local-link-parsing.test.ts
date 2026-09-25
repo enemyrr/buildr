@@ -37,4 +37,13 @@ describe("detectTerminalLocalLinks", () => {
       },
     ]);
   });
+
+  it("does not treat a number after a colon and space as a line suffix", () => {
+    expect(detectTerminalLocalLinks("list is ~/Downloads/capture.csv: 56 rows")).toMatchObject([
+      {
+        path: { index: 8, text: "~/Downloads/capture.csv" },
+        suffix: undefined,
+      },
+    ]);
+  });
 });
