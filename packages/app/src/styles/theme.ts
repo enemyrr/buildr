@@ -204,6 +204,18 @@ const darkStatusDotColors = {
   statusDotRunning: "#5caaf6",
 };
 
+// Status *fill* colors — the solid next-step buttons on the PR strip (Merge, Archive). One button
+// is the call to action, so it runs near the gamut edge instead of the quiet status band. Anchored
+// on merged #980ffa (OKLCH L=0.557, 98% of gamut max); the other hues share its lightness and
+// chroma fraction, so white text clears 4.4:1 on all four. Same values in both themes.
+const statusFillColors = {
+  statusFillSuccess: "#168a42",
+  statusFillDanger: "#d51a20",
+  statusFillWarning: "#9d6612",
+  statusFillMerged: "#980ffa",
+  statusFillForeground: "#ffffff",
+};
+
 // Status *subtle* colors — a wash behind a whole card or row that is in one state, such as a
 // dashboard card whose change request is merged. Derived, not picked: each is its status color at one
 // alpha, so the tint keeps the status family's hue and stays on whatever surface the theme has.
@@ -341,6 +353,7 @@ export function buildLightSemanticColors(tint: LightThemeConfig) {
       neutralAlpha: LIGHT_NEUTRAL_ALPHAS,
     }),
     ...lightStatusDotColors,
+    ...statusFillColors,
 
     terminal: {
       background: tint.surface0,
@@ -480,6 +493,7 @@ export function buildDarkSemanticColors(tint: DarkThemeConfig) {
       neutralAlpha: DARK_NEUTRAL_ALPHAS,
     }),
     ...darkStatusDotColors,
+    ...statusFillColors,
 
     terminal: {
       background: tint.surface0,
