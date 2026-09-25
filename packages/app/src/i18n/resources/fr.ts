@@ -1353,6 +1353,11 @@ export const fr: TranslationResources = {
         remove: "Supprimer le projet",
         removing: "Suppression...",
       },
+      archived: {
+        title: "Espaces de travail archivés",
+        empty: "Aucun espace de travail archivé",
+        loadFailed: "Impossible de charger les espaces de travail archivés",
+      },
       confirmations: {
         removeTitle: "Supprimer le projet?",
         removeMessage:

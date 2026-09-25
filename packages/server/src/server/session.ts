@@ -289,6 +289,7 @@ type ProviderSubagentManagerEvent = Extract<
 const LEGACY_PROVIDER_IDS = new Set(["claude", "codex", "opencode"]);
 const MIN_VERSION_ALL_PROVIDERS = "0.1.45";
 const MIN_VERSION_EXPLICIT_WORKSPACE_RECOVERY = "0.1.105";
+const ARCHIVED_WORKSPACE_LIST_DEFAULT_LIMIT = 50;
 function errorToFriendlyMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -2994,6 +2995,8 @@ export class Session {
         return this.handleWorkspaceRecoveryInspectRequest(msg);
       case "workspace.recovery.restore.request":
         return this.handleWorkspaceRecoveryRestoreRequest(msg);
+      case "workspace.archived.list.request":
+        return this.handleWorkspaceArchivedListRequest(msg);
       case "workspace.clear_attention.request":
         return this.handleWorkspaceClearAttentionRequest(msg);
       case "workspace.mark_unread.request":
@@ -3839,6 +3842,41 @@ export class Session {
           workspaceId: request.workspaceId,
           accepted: false,
           error: message,
+        },
+      });
+    }
+  }
+
+  private async handleWorkspaceArchivedListRequest(
+    request: Extract<SessionInboundMessage, { type: "workspace.archived.list.request" }>,
+  ): Promise<void> {
+    try {
+      const workspaces = (await this.workspaceRegistry.list())
+        .filter(
+          (record): record is typeof record & { archivedAt: string } =>
+            record.projectId === request.projectId && record.archivedAt !== null,
+        )
+        .sort((a, b) => b.archivedAt.localeCompare(a.archivedAt))
+        .slice(0, request.limit ?? ARCHIVED_WORKSPACE_LIST_DEFAULT_LIMIT)
+        .map((record) => ({
+          workspaceId: record.workspaceId,
+          projectId: record.projectId,
+          name: record.title ?? record.displayName,
+          branch: record.branch,
+          kind: record.kind,
+          archivedAt: record.archivedAt,
+        }));
+      this.emit({
+        type: "workspace.archived.list.response",
+        payload: { requestId: request.requestId, workspaces, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "workspace.archived.list.response",
+        payload: {
+          requestId: request.requestId,
+          workspaces: [],
+          error: getErrorMessageOr(error, "Failed to list archived workspaces"),
         },
       });
     }

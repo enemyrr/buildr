@@ -1328,6 +1328,11 @@ export const ja: TranslationResources = {
         remove: "プロジェクトを削除",
         removing: "削除中...",
       },
+      archived: {
+        title: "アーカイブ済みワークスペース",
+        empty: "アーカイブ済みワークスペースはありません",
+        loadFailed: "アーカイブ済みワークスペースを読み込めませんでした",
+      },
       confirmations: {
         removeTitle: "プロジェクトを削除しますか？",
         removeMessage:

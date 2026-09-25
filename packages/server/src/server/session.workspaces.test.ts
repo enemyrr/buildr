@@ -8428,6 +8428,79 @@ test("workspace.pin.set.request stores the pin timestamp and emits an updated de
   });
 });
 
+test("workspace.archived.list.request lists a project's archived workspaces, newest first", async () => {
+  const emitted: SessionOutboundMessage[] = [];
+  const session = asTestSession(
+    createSessionForWorkspaceTests({ onMessage: (message) => emitted.push(message) }),
+  );
+  const base = {
+    cwd: REPO_CWD,
+    kind: "worktree" as const,
+    createdAt: "2026-03-01T12:00:00.000Z",
+    updatedAt: "2026-03-01T12:00:00.000Z",
+  };
+  session.workspaceRegistry.list = async () => [
+    createPersistedWorkspaceRecord({
+      ...base,
+      workspaceId: "ws-active",
+      projectId: "proj-1",
+      displayName: "active",
+    }),
+    createPersistedWorkspaceRecord({
+      ...base,
+      workspaceId: "ws-older",
+      projectId: "proj-1",
+      displayName: "older",
+      branch: "feat/older",
+      archivedAt: "2026-03-02T12:00:00.000Z",
+    }),
+    createPersistedWorkspaceRecord({
+      ...base,
+      workspaceId: "ws-newer",
+      projectId: "proj-1",
+      displayName: "newer",
+      title: "Newer work",
+      archivedAt: "2026-03-03T12:00:00.000Z",
+    }),
+    createPersistedWorkspaceRecord({
+      ...base,
+      workspaceId: "ws-other-project",
+      projectId: "proj-2",
+      displayName: "other",
+      archivedAt: "2026-03-04T12:00:00.000Z",
+    }),
+  ];
+
+  await session.handleMessage({
+    type: "workspace.archived.list.request",
+    projectId: "proj-1",
+    requestId: "req-archived-1",
+  });
+
+  expect(findByType(emitted, "workspace.archived.list.response")?.payload).toEqual({
+    requestId: "req-archived-1",
+    error: null,
+    workspaces: [
+      {
+        workspaceId: "ws-newer",
+        projectId: "proj-1",
+        name: "Newer work",
+        branch: null,
+        kind: "worktree",
+        archivedAt: "2026-03-03T12:00:00.000Z",
+      },
+      {
+        workspaceId: "ws-older",
+        projectId: "proj-1",
+        name: "older",
+        branch: "feat/older",
+        kind: "worktree",
+        archivedAt: "2026-03-02T12:00:00.000Z",
+      },
+    ],
+  });
+});
+
 test("workspace.title.set.request with whitespace-only title clears the title", async () => {
   const emitted: SessionOutboundMessage[] = [];
   const session = asTestSession(

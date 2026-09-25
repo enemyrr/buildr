@@ -152,6 +152,10 @@ import {
   getIsElectron,
 } from "@/constants/platform";
 import { getDesktopHost } from "@/desktop/host";
+import {
+  ArchivedWorkspacesMenuTrigger,
+  useArchivedWorkspacesMenuPages,
+} from "@/workspace/archived-workspaces/menu-page";
 import { OpenInFileManagerMenuItem } from "@/workspace/open-in-file-manager/menu-item";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import type { HostBadgeModel } from "@/hosts/appearance";
@@ -513,6 +517,7 @@ function ProjectKebabMenu({
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
   const { t } = useTranslation();
+  const pages = useArchivedWorkspacesMenuPages(settingsTarget);
   return (
     <DropdownMenu compactMode="sheet">
       <DropdownMenuTrigger
@@ -524,7 +529,12 @@ function ProjectKebabMenu({
       >
         {renderKebabTriggerIcon}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" width={220} sheetTitle={t("sidebar.project.actions.menu")}>
+      <DropdownMenuContent
+        align="end"
+        width={220}
+        pages={pages}
+        sheetTitle={t("sidebar.project.actions.menu")}
+      >
         <ProjectMenuItems
           surface="dropdown"
           projectViewKey={projectViewKey}
@@ -639,6 +649,10 @@ function ProjectMenuItems({
         surface={surface}
         path={projectPath}
         testID={`sidebar-project-menu-open-folder-${projectViewKey}`}
+      />
+      <ArchivedWorkspacesMenuTrigger
+        target={settingsTarget}
+        testID={`sidebar-project-menu-archived-${projectViewKey}`}
       />
       <DropdownMenuSeparator />
       <ProjectMenuItem
@@ -875,6 +889,7 @@ function ProjectHeaderRow({
   const localDaemonServerId = useLocalDaemonServerId();
   const projectPath = resolveSidebarProjectLocalPath(project, localDaemonServerId);
   const settingsTarget = project.hosts[0] ?? null;
+  const archivedWorkspacesPages = useArchivedWorkspacesMenuPages(settingsTarget);
   const beginWorkspaceSetup = useCallback(
     (createFrom: boolean) => {
       if (!worktreeTarget) {
@@ -1042,6 +1057,7 @@ function ProjectHeaderRow({
       <ContextMenuContent
         align="start"
         width={220}
+        pages={archivedWorkspacesPages}
         testID={`sidebar-project-context-menu-${project.viewKey}`}
       >
         <ProjectMenuItems
