@@ -267,7 +267,8 @@ export async function checkForAppUpdate({
       latestVersion: currentVersion,
       body: null,
       date: null,
-      errorMessage: null,
+      errorMessage:
+        "Updates are off for local builds. To get updates, install a release from GitHub.",
     };
   }
   updateLifecycleLog.checkStarted({ currentVersion, releaseChannel, intent });
