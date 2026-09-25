@@ -1,6 +1,6 @@
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import type { StreamItem, ToolCallItem } from "@/types/stream";
-import { continuesTurn } from "@/agent-stream/turn-membership";
+import { continuesTurn, isUserShellCall } from "@/agent-stream/turn-membership";
 
 export interface ToolCallDescriptor {
   detail: ToolCallDetail;
@@ -80,7 +80,7 @@ export function describeToolCall(item: ToolCallItem): ToolCallDescriptor {
 }
 
 export function isGroupableToolCall(item: StreamItem): item is ToolCallItem {
-  if (item.kind !== "tool_call") {
+  if (item.kind !== "tool_call" || isUserShellCall(item)) {
     return false;
   }
   const descriptor = describeToolCall(item);

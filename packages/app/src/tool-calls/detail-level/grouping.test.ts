@@ -12,7 +12,12 @@ const TIMESTAMP = new Date("2026-01-01T00:00:00.000Z");
 function call(
   id: string,
   detail: ToolCallDetail = { type: "shell", command: id },
-  options: { name?: string; status?: "running" | "completed" | "failed"; turnId?: string } = {},
+  options: {
+    name?: string;
+    status?: "running" | "completed" | "failed";
+    turnId?: string;
+    metadata?: Record<string, unknown>;
+  } = {},
 ): ToolCallItem {
   return {
     kind: "tool_call",
@@ -28,6 +33,7 @@ function call(
         status: options.status ?? "completed",
         error: options.status === "failed" ? "boom" : null,
         detail,
+        metadata: options.metadata,
       },
     },
   };
@@ -69,6 +75,16 @@ describe("turn activity grouping", () => {
       toolCallCount: 2,
       messageCount: 2,
     });
+  });
+
+  it("keeps a user's `!` command out of the previous turn", () => {
+    const shell = call("shell", undefined, { metadata: { userShell: true } });
+    const tail = [user("u"), call("1"), text("answer"), shell];
+
+    const result = group(tail);
+
+    expect(result.tail).toEqual([tail[0], tail[1], tail[2], shell]);
+    expect(result.groupsByHostId.get("1")).toMatchObject({ run: { items: [tail[1]] } });
   });
 
   it("leaves turns without tool calls ungrouped", () => {
