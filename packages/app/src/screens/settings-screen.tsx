@@ -6,6 +6,8 @@ import {
   ScrollView,
   Text,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type PressableStateCallbackType,
 } from "react-native";
 import { EditingTextInput as TextInput } from "@/components/ui/text-input";
@@ -915,6 +917,27 @@ function DesktopAppUpdateRow() {
 // Sidebar
 // ---------------------------------------------------------------------------
 
+// Each sidebar selection replaces the route, which remounts the screen. Keep
+// the sidebar offset outside React so the new instance restores it.
+let persistedSidebarScrollY = 0;
+
+function usePersistedSidebarScroll() {
+  const scrollRef = useRef<ScrollView>(null);
+  const hasRestoredRef = useRef(persistedSidebarScrollY === 0);
+
+  const onScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    persistedSidebarScrollY = event.nativeEvent.contentOffset.y;
+  }, []);
+
+  const onContentSizeChange = useCallback(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    scrollRef.current?.scrollTo({ y: persistedSidebarScrollY, animated: false });
+  }, []);
+
+  return { scrollRef, onScroll, onContentSizeChange };
+}
+
 /**
  * Local daemon first, then remaining hosts in their existing order.
  */
@@ -1311,6 +1334,7 @@ function SettingsSidebar({
     () => [{ flex: 1 }, isDesktop ? { paddingTop: insets.top } : null],
     [insets.top, isDesktop],
   );
+  const sidebarScroll = usePersistedSidebarScroll();
   const selectedSectionId = view.kind === "section" ? view.section : null;
   let selectedHostSection: HostSectionSlug | null = null;
   if (view.kind === "host") selectedHostSection = view.section;
@@ -1416,8 +1440,12 @@ function SettingsSidebar({
             />
           </View>
           <ScrollView
+            ref={sidebarScroll.scrollRef}
             style={sidebarStyles.scrollBody}
             showsVerticalScrollIndicator={false}
+            onScroll={sidebarScroll.onScroll}
+            onContentSizeChange={sidebarScroll.onContentSizeChange}
+            scrollEventThrottle={16}
             testID="settings-sidebar-scroll-body"
           >
             {sidebarBody}
