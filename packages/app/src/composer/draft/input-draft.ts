@@ -91,9 +91,20 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
         : [],
     ),
   );
+  const textPublication = useMemo(
+    () =>
+      new AfterPaintPublication<string>((nextText) => {
+        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
+      }),
+    [draftKey],
+  );
   const textSource = useMemo<ComposerTextSource>(
     () => ({
+      // On web, edits reach the store a frame late. Readers get the staged text
+      // so a submit's clear can't be undone by the text it just cleared.
       getSnapshot: () => {
+        const staged = textPublication.peek();
+        if (staged !== null) return staged;
         const record = useDraftStore.getState().drafts[draftKey];
         return record?.lifecycle === "active" ? record.input.text : "";
       },
@@ -106,7 +117,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
             listener();
         }),
     }),
-    [draftKey],
+    [draftKey, textPublication],
   );
   const fileMentionRequestId = useDraftStore(
     (state) => state.fileMentionRequestByDraftKey[draftKey] ?? 0,
@@ -137,6 +148,9 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
         attachments: UserComposerAttachment[];
       },
     ) => {
+      // Saving reads the stored text, so publish the staged text first. Otherwise
+      // clearing attachments on submit writes back the text the submit cleared.
+      textPublication.flush();
       const store = useDraftStore.getState();
       const current = store.getDraftInput(draftKey) ?? { text: "", attachments: [] };
       const next = update(current);
@@ -146,15 +160,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
       }
       store.saveDraftInput({ draftKey, draft: next });
     },
-    [draftKey],
-  );
-
-  const textPublication = useMemo(
-    () =>
-      new AfterPaintPublication<string>((nextText) => {
-        useDraftStore.getState().editDraftText({ draftKey, text: nextText });
-      }),
-    [draftKey],
+    [draftKey, textPublication],
   );
 
   const editText = useCallback(

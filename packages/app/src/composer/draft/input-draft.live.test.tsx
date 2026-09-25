@@ -27,6 +27,13 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
+// Web stages text edits until after paint, which is where drafts can lag.
+vi.mock("@/constants/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/constants/platform")>()),
+  isWeb: true,
+  isNative: false,
+}));
+
 vi.mock("@/attachments/service", () => ({
   garbageCollectAttachments: async () => undefined,
 }));
@@ -423,6 +430,7 @@ describe("useAgentInputDraft live contract", () => {
 
     expect(getLatest().attachments).toEqual([{ kind: "image", metadata: image }]);
     const readPersistedInput = () => useDraftStore.getState().drafts["draft:attachments"]?.input;
+    const readPersistedText = () => readPersistedInput()?.text;
     await act(async () => {
       // Web text publication occurs after paint; attachments save immediately.
       await expect.poll(readPersistedInput).toEqual({
@@ -439,7 +447,8 @@ describe("useAgentInputDraft live contract", () => {
     });
     await act(async () => {
       getLatest().editText("with attachment\n");
-      await expect.poll(source.getSnapshot).toBe("with attachment\n");
+      expect(source.getSnapshot()).toBe("with attachment\n");
+      await expect.poll(readPersistedText).toBe("with attachment\n");
     });
     expect(renders).toBe(settledRenders);
     expect(getLatest().attachments).toBe(attached);
@@ -532,6 +541,58 @@ describe("useAgentInputDraft live contract", () => {
     expect(useDraftStore.getState().drafts["draft:clear"]?.input).toEqual({
       text: "",
       attachments: [],
+    });
+  });
+
+  it("doesn't write back cleared text when attachments clear before the text publishes", async () => {
+    let latest: ReturnType<typeof useAgentInputDraft> | null = null;
+    const image: AttachmentMetadata = {
+      id: "submit-image",
+      mimeType: "image/png",
+      storageType: "web-indexeddb",
+      storageKey: "attachments/submit-image",
+      createdAt: 13,
+    };
+
+    function getLatest(): ReturnType<typeof useAgentInputDraft> {
+      if (!latest) {
+        throw new Error("Expected hook result");
+      }
+      return latest;
+    }
+
+    function Probe() {
+      latest = useAgentInputDraft({ draftKey: "draft:submit" });
+      return null;
+    }
+
+    const container = document.getElementById("root");
+    if (!container) {
+      throw new Error("Missing root container");
+    }
+
+    const root = createTestRoot(container);
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Probe />
+        </QueryClientProvider>,
+      );
+    });
+
+    const readPersistedText = () => useDraftStore.getState().drafts["draft:submit"]?.input.text;
+    await act(async () => {
+      getLatest().setAttachments([{ kind: "image", metadata: image }]);
+      getLatest().editText("look at this");
+      await expect.poll(readPersistedText).toBe("look at this");
+    });
+
+    // A submit clears the text, which web stages until after paint, then the attachments.
+    act(() => {
+      getLatest().editText("");
+      getLatest().setAttachments([]);
+      expect(getLatest().textSource.getSnapshot()).toBe("");
+      expect(readPersistedText()).toBe("");
     });
   });
 
