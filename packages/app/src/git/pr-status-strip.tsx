@@ -17,6 +17,7 @@ import {
 import type { LucideIcon } from "lucide-react-native";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { Button } from "@/components/ui/button";
+import { PixelLoader } from "@/components/pixel-loader";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -349,12 +350,39 @@ function actionIcon(action: PrStripAction): LucideIcon {
 }
 
 /** In the header, commit takes a neutral fill; merge and archive keep the state's color. */
-function buttonFill(
-  action: PrStripAction,
-  inline: boolean,
-  sheet: (typeof TONE_SHEETS)[PrStripTone],
-) {
-  return inline && action.kind === "commit-and-push" ? styles.neutralFill : sheet.fill;
+function buttonFill(action: PrStripAction, inline: boolean, tone: PrStripTone) {
+  const neutralCommit = inline && action.kind === "commit-and-push";
+  const neutral = neutralCommit || tone === "muted";
+  return {
+    fill: neutralCommit ? styles.neutralFill : TONE_SHEETS[tone].fill,
+    onFill: neutral ? ("onNeutral" as const) : ("onTone" as const),
+    onFillText: neutral ? styles.onNeutralText : styles.onToneText,
+  };
+}
+
+function buttonSurface(action: PrStripAction, inline: boolean, tone: PrStripTone) {
+  const sheet = TONE_SHEETS[tone];
+  const solid = buttonFill(action, inline, tone);
+  if (action.emphasis !== "filled") {
+    return { ...solid, surface: sheet.border, text: sheet.text, iconTone: tone };
+  }
+  return { ...solid, surface: solid.fill, text: solid.onFillText, iconTone: solid.onFill };
+}
+
+/** A filled button draws its own loader so it takes the on-fill color, not the variant's. */
+function StripButtonIcon({
+  icon,
+  tone,
+  loading,
+}: {
+  icon: LucideIcon;
+  tone: IconTone;
+  loading: boolean;
+}) {
+  if (loading && (tone === "onTone" || tone === "onNeutral")) {
+    return <ToneLoader tone={tone} size={13} />;
+  }
+  return <ToneIcon icon={icon} tone={tone} size={13} />;
 }
 
 function StripButton({
@@ -384,31 +412,30 @@ function StripButton({
   const blocked = action.kind === "git" ? action.blocked : undefined;
   // A blocked action drops the state's color: outlined and muted beside the live next step.
   const buttonTone: PrStripTone = blocked ? "muted" : tone;
+  const { fill, onFill, surface, text, iconTone } = buttonSurface(action, inline, buttonTone);
   const leftIcon = useMemo(
-    () => <ToneIcon icon={icon} tone={filled ? "onTone" : buttonTone} size={13} />,
-    [filled, icon, buttonTone],
+    () => <StripButtonIcon icon={icon} tone={iconTone} loading={pending} />,
+    [pending, icon, iconTone],
   );
   const label = t(`workspace.git.prFlow.${action.label}`);
   const testID = `workspace-pr-status-${action.label}`;
   const options = action.kind === "git" ? (action.options ?? []) : [];
-  const sheet = TONE_SHEETS[buttonTone];
-  const fill = buttonFill(action, inline, sheet);
   const button = (
     <Button
       variant={filled ? "default" : "outline"}
       size="xs"
       leftIcon={leftIcon}
       onPress={handlePress}
-      disabled={disabled}
-      loading={pending}
+      disabled={disabled || pending}
+      loading={pending && !filled}
       style={[
         styles.stripButton,
         inline && styles.inlineButton,
-        filled ? fill : sheet.border,
+        surface,
         action.kind === "continue" && styles.dashed,
         options.length > 0 && styles.splitStart,
       ]}
-      textStyle={filled ? styles.onToneText : sheet.text}
+      textStyle={text}
       testID={testID}
     >
       {label}
@@ -425,7 +452,7 @@ function StripButton({
             accessibilityLabel={t("workspace.git.prFlow.mergeOptions")}
             testID={`${testID}-options`}
           >
-            <ToneIcon icon={ChevronDown} tone="onTone" size={13} />
+            <ToneIcon icon={ChevronDown} tone={onFill} size={13} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" width={220}>
             {options.map((option) => (
@@ -488,7 +515,7 @@ function MergeOptionItem({
   );
 }
 
-type IconTone = PrStripTone | "onTone";
+type IconTone = PrStripTone | "onTone" | "onNeutral";
 
 function toneColor(theme: Theme, tone: IconTone): string {
   switch (tone) {
@@ -503,7 +530,25 @@ function toneColor(theme: Theme, tone: IconTone): string {
     case "muted":
       return theme.colors.foregroundMuted;
     case "onTone":
+      return theme.colors.statusFillForeground;
+    case "onNeutral":
       return theme.colors.surface0;
+  }
+}
+
+/** The solid color behind a filled button's label. */
+function fillColor(theme: Theme, tone: PrStripTone): string {
+  switch (tone) {
+    case "success":
+      return theme.colors.statusFillSuccess;
+    case "danger":
+      return theme.colors.statusFillDanger;
+    case "warning":
+      return theme.colors.statusFillWarning;
+    case "merged":
+      return theme.colors.statusFillMerged;
+    case "muted":
+      return theme.colors.foregroundMuted;
   }
 }
 
@@ -523,7 +568,18 @@ const TONE_ICONS: Record<IconTone, ReturnType<typeof themedIcon>> = {
   merged: themedIcon("merged"),
   muted: themedIcon("muted"),
   onTone: themedIcon("onTone"),
+  onNeutral: themedIcon("onNeutral"),
 };
+
+const ThemedPixelLoader = withUnistyles(PixelLoader);
+const ON_FILL_LOADER_COLORS = {
+  onTone: (theme: Theme) => ({ color: toneColor(theme, "onTone") }),
+  onNeutral: (theme: Theme) => ({ color: toneColor(theme, "onNeutral") }),
+};
+
+function ToneLoader({ tone, size }: { tone: "onTone" | "onNeutral"; size: number }) {
+  return <ThemedPixelLoader size={size} uniProps={ON_FILL_LOADER_COLORS[tone]} />;
+}
 
 function ToneIcon({ icon, tone, size }: { icon: LucideIcon; tone: IconTone; size: number }) {
   const Themed = TONE_ICONS[tone];
@@ -548,10 +604,11 @@ function toneWash(theme: Theme, tone: PrStripTone): { tint: string; border: stri
 function createToneSheet(tone: PrStripTone) {
   return StyleSheet.create((theme) => {
     const color = toneColor(theme, tone);
+    const solid = fillColor(theme, tone);
     const wash = toneWash(theme, tone);
     return {
       text: { color },
-      fill: { backgroundColor: color, borderColor: color },
+      fill: { backgroundColor: solid, borderColor: solid },
       border: { borderColor: wash.border },
       // The whole strip takes the state's wash, so the state reads before the label does.
       tint: { backgroundColor: wash.tint },
@@ -685,6 +742,9 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomRightRadius: theme.borderRadius.md,
   },
   onToneText: {
+    color: theme.colors.statusFillForeground,
+  },
+  onNeutralText: {
     color: theme.colors.surface0,
   },
   tooltipText: {

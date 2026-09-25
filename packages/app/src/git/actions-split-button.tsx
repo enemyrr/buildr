@@ -198,11 +198,7 @@ export function GitActionsSplitButton({
             accessibilityLabel={gitActions.primary.label}
           >
             {gitActions.primary.status === "pending" ? (
-              <LoadingSpinner
-                size="small"
-                color={theme.colors.foreground}
-                style={styles.splitButtonSpinnerOnly}
-              />
+              <LoadingSpinner size={12} color={theme.colors.foreground} />
             ) : (
               <View style={styles.splitButtonContent}>
                 {gitActions.primary.icon}
@@ -334,9 +330,6 @@ const styles = StyleSheet.create((theme) => ({
       xs: theme.spacing[2],
       md: theme.spacing[1],
     },
-  },
-  splitButtonSpinnerOnly: {
-    transform: [{ scale: 0.8 }],
   },
   splitButtonCaret: {
     width: {
