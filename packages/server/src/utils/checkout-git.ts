@@ -31,13 +31,20 @@ import {
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
 import { runGitCommand, type RunGitCommand } from "./run-git-command.js";
 import { readGitFileContents } from "./git-file-contents.js";
-import { isPaseoOwnedWorktreeCwd, resolvePaseoWorktreesBaseRoot } from "./worktree.js";
 import {
+  isPaseoOwnedWorktreeCwd,
+  resolveBaseBranchForWorktree,
+  resolvePaseoWorktreesBaseRoot,
+} from "./worktree.js";
+import {
+  assertValidBaseRef,
   branchNameFromRef,
+  isQualifiedRef,
   getPaseoWorktreeChangeRequestHintForBranch,
   type PaseoWorktreeMetadata,
   readPaseoWorktreeMetadata,
   rebindPaseoWorktreeChangeRequestHint,
+  writePaseoWorktreeBaseRef,
 } from "./worktree-metadata.js";
 const READ_ONLY_GIT_ENV = {
   GIT_OPTIONAL_LOCKS: "0",
@@ -66,7 +73,8 @@ export type GitMutationRefreshReason =
   | "stash-push"
   | "stash-pop"
   | "discard-changes"
-  | "create-worktree";
+  | "create-worktree"
+  | "set-base-ref";
 
 const DISCARD_CHANGES_TIMEOUT_MS = 120_000;
 // A transient forge error may serve the last good status for the same HEAD, but only this long.
@@ -788,6 +796,13 @@ export class NotGitRepoError extends Error {
   }
 }
 
+export class CheckoutNotAllowedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CheckoutNotAllowedError";
+  }
+}
+
 export class MergeConflictError extends Error {
   readonly baseRef: string;
   readonly currentBranch: string;
@@ -1321,6 +1336,59 @@ async function isWorkingTreeDirty(cwd: string, context?: CheckoutContext): Promi
     logger: context?.logger,
   });
   return stdout.trim().length > 0;
+}
+
+/**
+ * Retargets a Paseo-owned worktree at a new base. Resolves the ref the same way worktree
+ * creation does, so "origin/main" stores refs/remotes/origin/main with display name "main".
+ */
+export async function setPaseoWorktreeBaseRef(input: {
+  cwd: string;
+  baseRef: string;
+  context?: CheckoutContext;
+}): Promise<{ baseRefName: string; baseRef: string; worktreeRoot: string }> {
+  const requested = input.baseRef.trim();
+  if (!requested) {
+    throw new Error("Base branch is required");
+  }
+  assertValidBaseRef(requested);
+
+  await requireGitRepo(input.cwd);
+  const paseoWorktree = await getPaseoWorktreeForCwd(input.cwd, { context: input.context });
+  if (!paseoWorktree.isPaseoOwnedWorktree) {
+    throw new CheckoutNotAllowedError("Base branch can only be changed on Paseo worktrees");
+  }
+  const { worktreeRoot } = paseoWorktree;
+
+  const runGit = getRunGitCommand(input.context);
+  const gitOptions = {
+    cwd: worktreeRoot,
+    envOverlay: READ_ONLY_GIT_ENV,
+    acceptExitCodes: [0, 1, 128],
+    logger: input.context?.logger,
+  };
+  const resolved = await resolveBaseBranchForWorktree(worktreeRoot, requested);
+  // The creation resolver can return a short name that git expands itself ("upstream/main").
+  // Comparisons only treat qualified refs as exact, so store the full name.
+  const baseRef = isQualifiedRef(resolved)
+    ? resolved
+    : (await runGit(["rev-parse", "--symbolic-full-name", resolved], gitOptions)).stdout.trim();
+  if (!isQualifiedBranchRef(baseRef)) {
+    throw new Error(`Base must be a branch: ${requested}`);
+  }
+  const verified = await runGit(
+    ["rev-parse", "--verify", "--quiet", `${baseRef}^{commit}`],
+    gitOptions,
+  );
+  if (verified.exitCode !== 0) {
+    throw new Error(`Base branch not found: ${requested}`);
+  }
+
+  const metadata = writePaseoWorktreeBaseRef(worktreeRoot, {
+    baseRefName: baseRef,
+    baseRef,
+  });
+  return { baseRefName: metadata.baseRefName, baseRef, worktreeRoot };
 }
 
 export async function getOriginRemoteUrl(

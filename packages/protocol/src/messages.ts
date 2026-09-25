@@ -2287,6 +2287,13 @@ export const CheckoutCommitsListRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const CheckoutBaseRefSetRequestSchema = z.object({
+  type: z.literal("checkout.base_ref.set.request"),
+  cwd: z.string(),
+  baseRef: z.string(),
+  requestId: z.string(),
+});
+
 export const CheckoutCommitFileDiffRequestSchema = z.object({
   type: z.literal("checkout.commits.file_diff.request"),
   cwd: z.string(),
@@ -3297,6 +3304,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutForgeSetAutoMergeRequestSchema,
   CheckoutGithubSetAutoMergeRequestSchema,
   CheckoutCommitsListRequestSchema,
+  CheckoutBaseRefSetRequestSchema,
   CheckoutCommitFileDiffRequestSchema,
   CheckoutForgeGetCheckDetailsRequestSchema,
   CheckoutGithubGetCheckDetailsRequestSchema,
@@ -3724,6 +3732,8 @@ export const ServerInfoStatusPayloadSchema = z
         fsEntryDuplicate: z.boolean().optional(),
         // COMPAT(checkoutDiscardChanges): added in v0.3.0, remove gate after 2027-02-08.
         checkoutDiscardChanges: z.boolean().optional(),
+        // COMPAT(checkoutBaseRefSet): added in v0.9.6, remove gate after 2027-03-25.
+        checkoutBaseRefSet: z.boolean().optional(),
         // COMPAT(agentProfiles): added in v0.3.2, remove gate after 2027-02-11.
         // An older daemon parses its persisted config strictly, so writing
         // agentProfiles to one is silently dropped. The client hides the feature
@@ -5587,6 +5597,16 @@ export const CheckoutCommitsListResponseSchema = z.object({
   }),
 });
 
+export const CheckoutBaseRefSetResponseSchema = z.object({
+  type: z.literal("checkout.base_ref.set.response"),
+  payload: z.object({
+    cwd: z.string(),
+    baseRef: z.string().nullable(),
+    error: CheckoutErrorSchema.nullable(),
+    requestId: z.string(),
+  }),
+});
+
 export const CheckoutCommitFileDiffResponseSchema = z.object({
   type: z.literal("checkout.commits.file_diff.response"),
   payload: z.object({
@@ -6963,6 +6983,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   CheckoutForgeSetAutoMergeResponseSchema,
   CheckoutGithubSetAutoMergeResponseSchema,
   CheckoutCommitsListResponseSchema,
+  CheckoutBaseRefSetResponseSchema,
   CheckoutCommitFileDiffResponseSchema,
   CheckoutForgeGetCheckDetailsResponseSchema,
   CheckoutGithubGetCheckDetailsResponseSchema,
@@ -7324,6 +7345,9 @@ export type CheckoutCommitFile = z.infer<typeof CheckoutCommitFileSchema>;
 export type CheckoutCommit = z.infer<typeof CheckoutCommitSchema>;
 export type CheckoutCommitsListRequest = z.infer<typeof CheckoutCommitsListRequestSchema>;
 export type CheckoutCommitsListResponse = z.infer<typeof CheckoutCommitsListResponseSchema>;
+export type CheckoutBaseRefSetRequest = z.infer<typeof CheckoutBaseRefSetRequestSchema>;
+export type CheckoutBaseRefSetResponse = z.infer<typeof CheckoutBaseRefSetResponseSchema>;
+export type CheckoutError = z.infer<typeof CheckoutErrorSchema>;
 export type CheckoutCommitFileDiffRequest = z.infer<typeof CheckoutCommitFileDiffRequestSchema>;
 export type CheckoutCommitFileDiffResponse = z.infer<typeof CheckoutCommitFileDiffResponseSchema>;
 export type ParsedDiffFile = z.infer<typeof ParsedDiffFileSchema>;

@@ -45,6 +45,7 @@ import type {
   GitSetupOptions,
   CheckoutStatusResponse,
   CheckoutCommit,
+  CheckoutError,
   ParsedDiffFile,
   CheckoutCommitResponse,
   CheckoutMergeResponse,
@@ -4165,6 +4166,24 @@ export class DaemonClient {
       throw new Error(payload.error.message);
     }
     return { baseRef: payload.baseRef, commits: payload.commits };
+  }
+
+  async setCheckoutBaseRef(
+    cwd: string,
+    baseRef: string,
+    requestId?: string,
+  ): Promise<{ baseRef: string | null; error: CheckoutError | null }> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"checkout.base_ref.set.response">({
+        requestId,
+        message: {
+          type: "checkout.base_ref.set.request",
+          cwd,
+          baseRef,
+        },
+        timeout: 60000,
+      });
+    return { baseRef: payload.baseRef, error: payload.error };
   }
 
   async getCommitFileDiff(

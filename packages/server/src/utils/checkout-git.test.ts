@@ -32,7 +32,9 @@ import {
   getPullRequestStatus,
   getCheckoutStatus,
   checkoutResolvedBranch,
+  CheckoutNotAllowedError,
   listBranchSuggestions,
+  listCheckoutCommits,
   mergeToBase,
   mergeFromBase,
   MergeConflictError,
@@ -46,6 +48,7 @@ import {
   renameCurrentBranch,
   isPaseoWorktreePath,
   isDescendantPath,
+  setPaseoWorktreeBaseRef,
   warmCheckoutShortstatInBackground,
 } from "./checkout-git.js";
 import { startGitCommandMetrics, stopGitCommandMetrics } from "./run-git-command.js";
@@ -95,6 +98,7 @@ import {
   getPaseoWorktreeMetadataPath,
   readPaseoWorktreeMetadata,
   writePaseoWorktreeMetadata,
+  writePaseoWorktreeRuntimeMetadata,
 } from "./worktree-metadata.js";
 
 function initRepo(): { tempDir: string; repoDir: string } {
@@ -108,6 +112,16 @@ function initRepo(): { tempDir: string; repoDir: string } {
   execFileSync("git", ["add", "."], { cwd: repoDir });
   execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "initial"], { cwd: repoDir });
   return { tempDir, repoDir };
+}
+
+function structuredDiffPaths(diff: Awaited<ReturnType<typeof getCheckoutDiff>>): string[] {
+  return (diff.structured ?? []).map((file) => file.path);
+}
+
+function subjectsAheadOfBase(
+  commits: Awaited<ReturnType<typeof listCheckoutCommits>>["commits"],
+): string[] {
+  return commits.filter((commit) => commit.isOnBase !== true).map((commit) => commit.subject);
 }
 
 function readTextFile(path: string): string {
@@ -3665,6 +3679,115 @@ const x = 1;
     await expect(
       getCheckoutDiff(worktree.worktreePath, { mode: "base", baseRef: "other" }, { paseoHome }),
     ).rejects.toThrow("Base ref mismatch: stored refs/heads/main, requested other");
+  });
+
+  describe("setPaseoWorktreeBaseRef", () => {
+    async function createDevelopBasedWorktree(slug: string) {
+      execFileSync("git", ["checkout", "-b", "develop"], { cwd: repoDir });
+      writeFileSync(join(repoDir, "develop.txt"), "develop\n");
+      execFileSync("git", ["add", "develop.txt"], { cwd: repoDir });
+      execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "develop change"], {
+        cwd: repoDir,
+      });
+      execFileSync("git", ["checkout", "main"], { cwd: repoDir });
+      const worktree = await createLegacyWorktreeForTest({
+        branchName: slug,
+        cwd: repoDir,
+        baseBranch: "develop",
+        worktreeSlug: slug,
+        paseoHome,
+      });
+      writeFileSync(join(worktree.worktreePath, "feature.txt"), "feature\n");
+      execFileSync("git", ["add", "feature.txt"], { cwd: worktree.worktreePath });
+      execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "feature commit"], {
+        cwd: worktree.worktreePath,
+      });
+      return worktree;
+    }
+
+    it("moves status, base diff, and commits to the new base", async () => {
+      const worktree = await createDevelopBasedWorktree("retarget-feature");
+      const cwd = worktree.worktreePath;
+
+      await expect(
+        setPaseoWorktreeBaseRef({ cwd, baseRef: "main", context: { paseoHome } }),
+      ).resolves.toMatchObject({ baseRefName: "main", baseRef: "refs/heads/main" });
+
+      const status = await getCheckoutStatus(cwd, { paseoHome });
+      expect(status.isGit && status.baseRef).toBe("main");
+      expect(status.isGit && status.aheadBehind?.ahead).toBe(2);
+
+      const baseDiff = await getCheckoutDiff(
+        cwd,
+        { mode: "base", baseRef: "main", includeStructured: true },
+        { paseoHome },
+      );
+      expect(structuredDiffPaths(baseDiff)).toEqual(["develop.txt", "feature.txt"]);
+      await expect(
+        getCheckoutDiff(cwd, { mode: "base", baseRef: "develop" }, { paseoHome }),
+      ).rejects.toThrow("Base ref mismatch: stored refs/heads/main, requested develop");
+
+      const commits = await listCheckoutCommits({ cwd, context: { paseoHome } });
+      expect(commits.baseRef).toBe("refs/heads/main");
+      expect(subjectsAheadOfBase(commits.commits)).toEqual(["feature commit", "develop change"]);
+    });
+
+    it("stores the exact remote-tracking ref for origin/<branch>", async () => {
+      const remoteDir = join(tempDir, "remote.git");
+      execFileSync("git", ["init", "--bare", "-b", "main", remoteDir]);
+      execFileSync("git", ["remote", "add", "origin", remoteDir], { cwd: repoDir });
+      execFileSync("git", ["push", "-u", "origin", "main"], { cwd: repoDir });
+      const worktree = await createDevelopBasedWorktree("remote-base-feature");
+
+      await setPaseoWorktreeBaseRef({
+        cwd: worktree.worktreePath,
+        baseRef: "origin/main",
+        context: { paseoHome },
+      });
+
+      expect(readPaseoWorktreeMetadata(worktree.worktreePath)).toMatchObject({
+        baseRefName: "main",
+        baseRef: "refs/remotes/origin/main",
+      });
+    });
+
+    it("preserves the other metadata fields and the stored version", async () => {
+      const worktree = await createDevelopBasedWorktree("preserve-feature");
+      writePaseoWorktreeRuntimeMetadata(worktree.worktreePath, { worktreePort: 4321 });
+      const before = readPaseoWorktreeMetadata(worktree.worktreePath);
+
+      await setPaseoWorktreeBaseRef({
+        cwd: worktree.worktreePath,
+        baseRef: "main",
+        context: { paseoHome },
+      });
+
+      expect(readPaseoWorktreeMetadata(worktree.worktreePath)).toEqual({
+        ...before,
+        version: 2,
+        baseRefName: "main",
+        baseRef: "refs/heads/main",
+      });
+    });
+
+    it("rejects invalid and missing refs without touching metadata", async () => {
+      const worktree = await createDevelopBasedWorktree("invalid-base-feature");
+      const before = readPaseoWorktreeMetadata(worktree.worktreePath);
+
+      for (const baseRef of ["HEAD", "main..develop", "main@{1}", "missing-branch", " "]) {
+        await expect(
+          setPaseoWorktreeBaseRef({ cwd: worktree.worktreePath, baseRef, context: { paseoHome } }),
+        ).rejects.toThrow();
+      }
+
+      expect(readPaseoWorktreeMetadata(worktree.worktreePath)).toEqual(before);
+    });
+
+    it("rejects checkouts that are not Paseo worktrees", async () => {
+      await expect(
+        setPaseoWorktreeBaseRef({ cwd: repoDir, baseRef: "main", context: { paseoHome } }),
+      ).rejects.toBeInstanceOf(CheckoutNotAllowedError);
+    });
   });
 
   it("excludes dirty working tree changes from Paseo worktree base diffs", async () => {

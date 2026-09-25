@@ -204,7 +204,7 @@ export function normalizeBaseRefName(input: string): string {
   return branchNameFromRef(trimmed);
 }
 
-function assertValidBaseRef(value: string): void {
+export function assertValidBaseRef(value: string): void {
   if (value === "HEAD") {
     throw new Error("Base branch cannot be HEAD");
   }
@@ -237,6 +237,27 @@ export function writePaseoWorktreeMetadata(
       : {}),
   };
   writePaseoWorktreeMetadataFile(worktreeRoot, metadata);
+}
+
+// Retargets an existing worktree's base. Unlike writePaseoWorktreeMetadata, keeps every other
+// field and the stored version.
+export function writePaseoWorktreeBaseRef(
+  worktreeRoot: string,
+  options: { baseRefName: string; baseRef: string },
+): PaseoWorktreeMetadata {
+  const baseRefName = normalizeBaseRefName(options.baseRefName);
+  assertValidBaseRef(baseRefName);
+  const baseRef = options.baseRef.trim();
+  assertValidBaseRef(baseRef);
+
+  const current = readPaseoWorktreeMetadata(worktreeRoot);
+  if (!current) {
+    throw new Error("Cannot update worktree base ref: missing base metadata");
+  }
+
+  const next: PaseoWorktreeMetadata = { ...current, baseRefName, baseRef };
+  writePaseoWorktreeMetadataFile(worktreeRoot, next);
+  return next;
 }
 
 export function writePaseoWorktreeRuntimeMetadata(

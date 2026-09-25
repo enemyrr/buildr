@@ -161,3 +161,36 @@ describe("checkout.commits.list schemas", () => {
     ).toEqual({ providersSnapshot: true });
   });
 });
+
+describe("checkout.base_ref.set schemas", () => {
+  test("parses the request and response through the message unions", () => {
+    expect(
+      SessionInboundMessageSchema.parse({
+        type: "checkout.base_ref.set.request",
+        cwd: "/tmp/repo",
+        baseRef: "origin/main",
+        requestId: "request-base-ref",
+      }),
+    ).toMatchObject({ type: "checkout.base_ref.set.request", baseRef: "origin/main" });
+
+    const payload = {
+      cwd: "/tmp/repo",
+      baseRef: null,
+      error: { code: "NOT_ALLOWED" as const, message: "not a Paseo worktree" },
+      requestId: "request-base-ref",
+    };
+    expect(
+      SessionOutboundMessageSchema.parse({ type: "checkout.base_ref.set.response", payload }),
+    ).toEqual({ type: "checkout.base_ref.set.response", payload });
+  });
+
+  test("accepts the checkoutBaseRefSet server_info feature flag", () => {
+    expect(
+      ServerInfoStatusPayloadSchema.parse({
+        status: "server_info",
+        serverId: "srv_test",
+        features: { checkoutBaseRefSet: true },
+      }).features,
+    ).toEqual({ checkoutBaseRefSet: true });
+  });
+});

@@ -266,6 +266,7 @@ export interface WorkspaceGitService {
   scheduleRefreshForCwd(cwd: string): void;
   onWorkspaceStateMayHaveChanged(cwd: string): void;
   invalidateForge(cwd: string): void;
+  invalidateBaseDiffs(worktreeRoot: string): void;
   getMetrics(): WorkspaceGitServiceMetrics;
   dispose(): Promise<void>;
 }
@@ -1055,6 +1056,22 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   invalidateForge(cwd: string): void {
     this.assertNotDisposed();
     this.forgeResolver.invalidate(resolve(cwd));
+  }
+
+  /**
+   * Drop cached base-mode diffs after a worktree's base ref changed. Diffs are cached per cwd,
+   * so this covers every observed workspace inside the worktree.
+   */
+  invalidateBaseDiffs(worktreeRoot: string): void {
+    this.assertNotDisposed();
+    const root = resolve(worktreeRoot);
+    this.invalidateCheckoutDiffCache(root, "base");
+    for (const target of this.workspaceTargets.values()) {
+      const facts = target.latestFacts;
+      if (facts?.isGit && resolve(facts.worktreeRoot) === root) {
+        this.invalidateCheckoutDiffCache(target.cwd, "base");
+      }
+    }
   }
 
   dispose(): Promise<void> {
