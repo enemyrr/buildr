@@ -19,7 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight } from "lucide-react-native";
+import { ChevronDown } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -197,6 +197,7 @@ import type { TerminalProfile } from "@getpaseo/protocol/messages";
 import {
   WorkspaceHeaderMenuDesktop,
   WorkspaceHeaderMenuMobile,
+  type WorkspaceHeaderWorkspaceActions,
 } from "@/screens/workspace/workspace-header-menu";
 import { PluginHeaderButtons } from "@/plugins";
 import {
@@ -260,10 +261,8 @@ function buildWorkspaceFileLocation(
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedChevronDown = withUnistyles(ChevronDown);
-const ThemedChevronRight = withUnistyles(ChevronRight);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-const extraMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
 
 const GATED_WORKSPACE_HEADER_LEFT = <SidebarMenuToggle />;
 
@@ -941,20 +940,6 @@ function WorkspaceHeaderProjectRow({ subtitle, serverId }: { subtitle: string; s
   );
 }
 
-/**
- * Wide: `project › workspace`. A project name that only repeats the workspace name is dropped.
- */
-function WorkspaceHeaderBreadcrumbProject({ subtitle }: { subtitle: string }) {
-  return (
-    <>
-      <Text testID="workspace-header-subtitle" style={styles.headerProjectTitle} numberOfLines={1}>
-        {subtitle}
-      </Text>
-      <ThemedChevronRight size={12} uniProps={extraMutedColorMapping} />
-    </>
-  );
-}
-
 interface WorkspaceHeaderTitleBarProps {
   isLoading: boolean;
   title: string;
@@ -1005,12 +990,133 @@ function useWorkspaceRenameTarget(
 // Web starts the rename on a double-click, so a stray click on the title does nothing.
 const TITLE_DOUBLE_CLICK_MS = 400;
 
-function WorkspaceHeaderTitleBar({
+function useWorkspaceHeaderRename(serverId: string, workspaceId: string) {
+  const renameKey = buildWorkspaceHeaderRenameKey(serverId, workspaceId);
+  const isRenaming = useWorkspaceHeaderRenameStore((state) => state.workspaceKey === renameKey);
+  const startRename = useCallback(() => {
+    useWorkspaceHeaderRenameStore.getState().start(renameKey);
+  }, [renameKey]);
+  const stopRename = useCallback(() => {
+    useWorkspaceHeaderRenameStore.getState().stop(renameKey);
+  }, [renameKey]);
+  return { isRenaming, startRename, stopRename };
+}
+
+interface WorkspaceHeaderTitleProps {
+  isLoading: boolean;
+  title: string;
+  renameTarget: RenamableWorkspace | null;
+  normalizedServerId: string;
+  normalizedWorkspaceId: string;
+  isMobile: boolean;
+}
+
+function WorkspaceHeaderTitle({
   isLoading,
   title,
   renameTarget,
+  normalizedServerId,
+  normalizedWorkspaceId,
+  isMobile,
+}: WorkspaceHeaderTitleProps) {
+  const { t } = useTranslation();
+  const { isRenaming, startRename, stopRename } = useWorkspaceHeaderRename(
+    normalizedServerId,
+    normalizedWorkspaceId,
+  );
+  // Touch has no double-click, so a tap renames there.
+  const renamesOnSingleTap = isNative || isMobile;
+  const lastTitlePressRef = useRef(0);
+  const handleTitlePress = useCallback(() => {
+    const now = Date.now();
+    if (renamesOnSingleTap || now - lastTitlePressRef.current < TITLE_DOUBLE_CLICK_MS) {
+      lastTitlePressRef.current = 0;
+      startRename();
+      return;
+    }
+    lastTitlePressRef.current = now;
+  }, [startRename, renamesOnSingleTap]);
+
+  if (isLoading) {
+    return <View style={styles.headerTitleSkeleton} />;
+  }
+  if (isRenaming && renameTarget) {
+    return (
+      <WorkspaceTitleEditor
+        workspace={renameTarget}
+        variant="header"
+        onDone={stopRename}
+        testID="workspace-header-title-input"
+      />
+    );
+  }
+  return (
+    <Pressable
+      testID="workspace-header-title-button"
+      accessibilityRole="button"
+      accessibilityLabel={t("sidebar.workspace.actions.rename")}
+      style={styles.headerTitleButton}
+      onPress={handleTitlePress}
+    >
+      <ScreenTitle
+        testID="workspace-header-title"
+        style={isMobile ? styles.headerTitleText : styles.headerDesktopTitleText}
+      >
+        {title}
+      </ScreenTitle>
+    </Pressable>
+  );
+}
+
+interface WorkspaceHeaderTitleBarProps extends WorkspaceHeaderTitleProps {
+  subtitle: string;
+  isSubtitleDistinct: boolean;
+  currentBranchName: string | null;
+  workspaceScripts: WorkspaceDescriptor["scripts"];
+  liveTerminalIds: string[];
+  showWorkspaceSetup: boolean;
+  showCreateBrowserTab: boolean;
+  createTerminalDisabled: boolean;
+  importAgentDisabled: boolean;
+  copyPathDisabled: boolean;
+  onCreateDraftTab: () => void;
+  onCreateTerminal: () => void;
+  onCreateTerminalWithProfile: (profile: TerminalProfile) => void;
+  onCreateBrowser: () => void;
+  onOpenImportSheet: () => void;
+  onCopyWorkspacePath: () => void;
+  onCopyBranchName: () => void;
+  onOpenSetupTab: () => void;
+  onScriptTerminalStarted: (terminalId: string) => void;
+  onViewScriptTerminal: (terminalId: string) => void;
+  onOpenUrlInBrowserTab: (url: string) => void;
+}
+
+/**
+ * Left side of the header. Wide shows only the project name: the workspace name sits on the right,
+ * next to the open-in button, the way Conductor lays it out.
+ */
+function WorkspaceHeaderTitleBar(props: WorkspaceHeaderTitleBarProps) {
+  if (!props.isMobile) {
+    return (
+      <View style={styles.headerTitleContainer}>
+        {!props.isLoading && props.isSubtitleDistinct ? (
+          <Text
+            testID="workspace-header-subtitle"
+            style={styles.headerProjectTitle}
+            numberOfLines={1}
+          >
+            {props.subtitle}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
+  return <WorkspaceHeaderCompactTitleBar {...props} />;
+}
+
+function WorkspaceHeaderCompactTitleBar({
   subtitle,
-  isSubtitleDistinct,
   currentBranchName,
   normalizedServerId,
   normalizedWorkspaceId,
@@ -1018,7 +1124,6 @@ function WorkspaceHeaderTitleBar({
   liveTerminalIds,
   showWorkspaceSetup,
   showCreateBrowserTab,
-  isMobile,
   createTerminalDisabled,
   importAgentDisabled,
   copyPathDisabled,
@@ -1033,98 +1138,41 @@ function WorkspaceHeaderTitleBar({
   onScriptTerminalStarted,
   onViewScriptTerminal,
   onOpenUrlInBrowserTab,
+  ...titleProps
 }: WorkspaceHeaderTitleBarProps) {
-  const { t } = useTranslation();
-  const renameKey = buildWorkspaceHeaderRenameKey(normalizedServerId, normalizedWorkspaceId);
-  const isRenaming = useWorkspaceHeaderRenameStore((state) => state.workspaceKey === renameKey);
-  const handleRename = useCallback(() => {
-    useWorkspaceHeaderRenameStore.getState().start(renameKey);
-  }, [renameKey]);
-  const handleRenameDone = useCallback(() => {
-    useWorkspaceHeaderRenameStore.getState().stop(renameKey);
-  }, [renameKey]);
-  // Touch has no double-click, so a tap renames there.
-  const renamesOnSingleTap = isNative || isMobile;
-  const lastTitlePressRef = useRef(0);
-  const handleTitlePress = useCallback(() => {
-    const now = Date.now();
-    if (renamesOnSingleTap || now - lastTitlePressRef.current < TITLE_DOUBLE_CLICK_MS) {
-      lastTitlePressRef.current = 0;
-      handleRename();
-      return;
-    }
-    lastTitlePressRef.current = now;
-  }, [handleRename, renamesOnSingleTap]);
+  const { startRename } = useWorkspaceHeaderRename(normalizedServerId, normalizedWorkspaceId);
   return (
     <View style={styles.headerTitleContainer}>
-      {isLoading ? (
-        <View style={styles.headerTitleTextGroup}>
-          <View style={styles.headerTitleSkeleton} />
-        </View>
-      ) : (
-        <View style={styles.headerTitleTextGroup}>
-          {!isMobile && isSubtitleDistinct ? (
-            <WorkspaceHeaderBreadcrumbProject subtitle={subtitle} />
-          ) : null}
-          {isRenaming && renameTarget ? (
-            <WorkspaceTitleEditor
-              workspace={renameTarget}
-              variant="header"
-              onDone={handleRenameDone}
-              testID="workspace-header-title-input"
-            />
-          ) : (
-            <Pressable
-              testID="workspace-header-title-button"
-              accessibilityRole="button"
-              accessibilityLabel={t("sidebar.workspace.actions.rename")}
-              style={styles.headerTitleButton}
-              onPress={handleTitlePress}
-            >
-              <ScreenTitle testID="workspace-header-title" style={styles.headerTitleText}>
-                {title}
-              </ScreenTitle>
-            </Pressable>
-          )}
-          {isMobile ? (
-            <WorkspaceHeaderProjectRow subtitle={subtitle} serverId={normalizedServerId} />
-          ) : null}
-        </View>
-      )}
-      <View style={styles.compactHeaderMenuCluster}>
-        {isMobile ? (
-          <WorkspaceHeaderMenuMobile
-            normalizedServerId={normalizedServerId}
-            currentBranchName={currentBranchName}
-            showWorkspaceSetup={showWorkspaceSetup}
-            showCreateBrowserTab={showCreateBrowserTab}
-            createTerminalDisabled={createTerminalDisabled}
-            importAgentDisabled={importAgentDisabled}
-            copyPathDisabled={copyPathDisabled}
-            onCreateDraftTab={onCreateDraftTab}
-            onCreateTerminal={onCreateTerminal}
-            onCreateTerminalWithProfile={onCreateTerminalWithProfile}
-            onCreateBrowser={onCreateBrowser}
-            onOpenImportSheet={onOpenImportSheet}
-            onCopyWorkspacePath={onCopyWorkspacePath}
-            onCopyBranchName={onCopyBranchName}
-            onOpenSetupTab={onOpenSetupTab}
-            onRename={handleRename}
-          />
-        ) : (
-          <WorkspaceHeaderMenuDesktop
-            currentBranchName={currentBranchName}
-            showWorkspaceSetup={showWorkspaceSetup}
-            importAgentDisabled={importAgentDisabled}
-            copyPathDisabled={copyPathDisabled}
-            onOpenImportSheet={onOpenImportSheet}
-            onCopyWorkspacePath={onCopyWorkspacePath}
-            onCopyBranchName={onCopyBranchName}
-            onOpenSetupTab={onOpenSetupTab}
-            onRename={handleRename}
-          />
+      <View style={styles.headerTitleTextGroup}>
+        <WorkspaceHeaderTitle
+          {...titleProps}
+          normalizedServerId={normalizedServerId}
+          normalizedWorkspaceId={normalizedWorkspaceId}
+        />
+        {titleProps.isLoading ? null : (
+          <WorkspaceHeaderProjectRow subtitle={subtitle} serverId={normalizedServerId} />
         )}
-        {isMobile && workspaceScripts.length > 0 ? (
+      </View>
+      <View style={styles.compactHeaderMenuCluster}>
+        <WorkspaceHeaderMenuMobile
+          normalizedServerId={normalizedServerId}
+          currentBranchName={currentBranchName}
+          showWorkspaceSetup={showWorkspaceSetup}
+          showCreateBrowserTab={showCreateBrowserTab}
+          createTerminalDisabled={createTerminalDisabled}
+          importAgentDisabled={importAgentDisabled}
+          copyPathDisabled={copyPathDisabled}
+          onCreateDraftTab={onCreateDraftTab}
+          onCreateTerminal={onCreateTerminal}
+          onCreateTerminalWithProfile={onCreateTerminalWithProfile}
+          onCreateBrowser={onCreateBrowser}
+          onOpenImportSheet={onOpenImportSheet}
+          onCopyWorkspacePath={onCopyWorkspacePath}
+          onCopyBranchName={onCopyBranchName}
+          onOpenSetupTab={onOpenSetupTab}
+          onRename={startRename}
+        />
+        {workspaceScripts.length > 0 ? (
           <WorkspaceScriptsButton
             serverId={normalizedServerId}
             workspaceId={normalizedWorkspaceId}
@@ -1138,6 +1186,34 @@ function WorkspaceHeaderTitleBar({
           />
         ) : null}
       </View>
+    </View>
+  );
+}
+
+type WorkspaceHeaderDesktopTitleProps = Omit<WorkspaceHeaderTitleProps, "isMobile"> &
+  Omit<WorkspaceHeaderWorkspaceActions, "onRename">;
+
+/** Wide only: the workspace name and its actions menu, leading the header's right cluster. */
+function WorkspaceHeaderDesktopTitle({
+  isLoading,
+  title,
+  renameTarget,
+  normalizedServerId,
+  normalizedWorkspaceId,
+  ...menuProps
+}: WorkspaceHeaderDesktopTitleProps) {
+  const { startRename } = useWorkspaceHeaderRename(normalizedServerId, normalizedWorkspaceId);
+  return (
+    <View style={styles.headerDesktopTitle}>
+      <WorkspaceHeaderTitle
+        isLoading={isLoading}
+        title={title}
+        renameTarget={renameTarget}
+        normalizedServerId={normalizedServerId}
+        normalizedWorkspaceId={normalizedWorkspaceId}
+        isMobile={false}
+      />
+      <WorkspaceHeaderMenuDesktop {...menuProps} onRename={startRename} />
     </View>
   );
 }
@@ -3877,6 +3953,23 @@ function WorkspaceScreenContent({
   const headerRight = useMemo(
     () => (
       <View style={styles.headerRight}>
+        {isMobile ? null : (
+          <WorkspaceHeaderDesktopTitle
+            isLoading={isWorkspaceHeaderLoading}
+            title={workspaceHeaderTitle}
+            renameTarget={workspaceRenameTarget}
+            normalizedServerId={normalizedServerId}
+            normalizedWorkspaceId={normalizedWorkspaceId}
+            currentBranchName={currentBranchName}
+            showWorkspaceSetup={showWorkspaceSetup}
+            importAgentDisabled={!canOpenImportSheet}
+            copyPathDisabled={!workspaceDirectory}
+            onOpenImportSheet={openImportSheet}
+            onCopyWorkspacePath={handleCopyWorkspacePath}
+            onCopyBranchName={handleCopyBranchName}
+            onOpenSetupTab={handleOpenSetupTab}
+          />
+        )}
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {!isMobile && workspaceDirectory ? (
           <WorkspaceOpenInEditorButton
@@ -3930,6 +4023,16 @@ function WorkspaceScreenContent({
       explorerSidebarToggleLabel,
       explorerSidebarToggleAccessibilityState,
       t,
+      isWorkspaceHeaderLoading,
+      workspaceHeaderTitle,
+      workspaceRenameTarget,
+      currentBranchName,
+      showWorkspaceSetup,
+      canOpenImportSheet,
+      openImportSheet,
+      handleCopyWorkspacePath,
+      handleCopyBranchName,
+      handleOpenSetupTab,
     ],
   );
 
@@ -4376,9 +4479,14 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
     minWidth: 0,
   },
-  // Breadcrumb leaf: primary color at regular weight, against the muted project name before it.
+  // Compact: primary color at regular weight, above the muted project row.
   headerTitleText: {
     fontWeight: theme.fontWeight.normal,
+  },
+  // Wide: a label beside the open-in button, muted like Conductor's.
+  headerDesktopTitleText: {
+    fontWeight: theme.fontWeight.normal,
+    color: theme.colors.foregroundMuted,
   },
   headerTitleSkeleton: {
     width: 220,
@@ -4387,6 +4495,13 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.full,
     backgroundColor: theme.colors.surface3,
     opacity: 0.25,
+  },
+  headerDesktopTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    maxWidth: 360,
+    minWidth: 0,
   },
   headerRight: {
     flexDirection: "row",
