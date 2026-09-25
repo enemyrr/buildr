@@ -126,6 +126,18 @@ describe("FilePreviewLifecycleModel", () => {
     await expectSnapshot(model, { status: "error", message: "attachment failed" });
   });
 
+  it("reports a missing file instead of the raw read error", () => {
+    const model = new FilePreviewLifecycleModel(() => Promise.resolve(null));
+
+    model.setSource(
+      source("~:~/new.env", {
+        observation: { status: "missing", cwd: "~", path: "~/new.env" },
+        read: { status: "error", error: "ENOENT: no such file or directory" },
+      }),
+    );
+    expect(model.getSnapshot()).toEqual({ status: "missing" });
+  });
+
   it("does not publish a stale conversion after retargeting", async () => {
     const first = deferred<FilePanePreview | null>();
     const second = deferred<FilePanePreview | null>();

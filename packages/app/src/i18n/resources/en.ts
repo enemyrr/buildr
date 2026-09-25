@@ -2023,6 +2023,8 @@ export const en = {
       noPreview: "No preview available",
       binaryPreviewUnavailable: "Binary preview unavailable",
       tooLargeToDisplay: "This file is too large to display",
+      missing: "This file doesn't exist yet",
+      createFile: "Create file",
       failedToLoad: "Failed to load file",
       failedToLoadPreview: "Failed to load file preview",
       editor: {

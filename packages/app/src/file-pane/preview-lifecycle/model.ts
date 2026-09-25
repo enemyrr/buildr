@@ -17,6 +17,7 @@ export type FilePreviewLifecycleSnapshot =
   | { status: "preparing"; preview?: FilePanePreview }
   | { status: "ready"; preview: FilePanePreview }
   | { status: "error"; message: string; preview?: FilePanePreview }
+  | { status: "missing"; preview?: FilePanePreview }
   | { status: "unsupported" };
 
 const initialSnapshot: FilePreviewLifecycleSnapshot = { status: "initial" };
@@ -160,6 +161,10 @@ function getReadySource(input: {
 }
 
 function getNonReadySnapshot(snapshot: LiveFileSnapshot): FilePreviewLifecycleSnapshot {
+  // A missing observation outranks the raw read error (ENOENT) it explains.
+  if (snapshot.observation?.status === "missing" && snapshot.read.status !== "pending") {
+    return { status: "missing" };
+  }
   if (snapshot.read.status === "error") {
     return { status: "error", message: snapshot.read.error };
   }
@@ -168,9 +173,6 @@ function getNonReadySnapshot(snapshot: LiveFileSnapshot): FilePreviewLifecycleSn
   }
   if (snapshot.observation?.status === "error") {
     return { status: "error", message: snapshot.observation.error };
-  }
-  if (snapshot.observation?.status === "missing") {
-    return { status: "error", message: "File not found" };
   }
   return initialSnapshot;
 }

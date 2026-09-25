@@ -2035,6 +2035,8 @@ export const fr: TranslationResources = {
       noPreview: "Aucun aperçu disponible",
       binaryPreviewUnavailable: "Aperçu binaire indisponible",
       tooLargeToDisplay: "Ce fichier est trop volumineux pour être affiché",
+      missing: "Ce fichier n'existe pas encore",
+      createFile: "Créer le fichier",
       failedToLoad: "Échec du chargement du fichier",
       failedToLoadPreview: "Échec du chargement de l'aperçu du fichier",
       editor: {
