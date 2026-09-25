@@ -43,6 +43,11 @@ export class AfterPaintPublication<T> {
     });
   }
 
+  /** The staged value that hasn't been published yet, or null. */
+  peek(): T | null {
+    return this.pending;
+  }
+
   flush(): void {
     if (this.pending === null) return;
     this.cancelScheduled?.();
