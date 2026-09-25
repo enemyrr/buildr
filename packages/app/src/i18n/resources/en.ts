@@ -2151,6 +2151,16 @@ export const en = {
       about: "About",
     },
     layout: {
+      defaultNewTab: {
+        title: "New tabs",
+        label: "Default new tab",
+        options: {
+          agent: "Agent",
+          terminal: "Terminal",
+          browser: "Browser",
+          launcher: "Choose each time",
+        },
+      },
       openInSidePane: {
         title: "Open location",
         destinations: {

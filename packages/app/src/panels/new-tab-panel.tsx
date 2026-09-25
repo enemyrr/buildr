@@ -6,6 +6,7 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { TerminalProfileIcon } from "@/components/terminal-profile-icon";
 import { Shortcut } from "@/components/ui/shortcut";
 import { isWeb } from "@/constants/platform";
+import { useAppSettings, type DefaultNewTab } from "@/hooks/use-settings";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import { definePanel, type PanelIconProps } from "@/panels/panel-registry";
@@ -120,33 +121,45 @@ function useNewTabDescriptor() {
 }
 
 /**
- * Main panes have no launcher: an empty slot becomes an agent draft as soon as it
- * mounts. The placeholder stays in the layout model because pane operations replace
- * it synchronously (splits, the explorer sidebar) before it ever renders.
+ * Unless the user picked the launcher, an empty main-pane slot becomes their default
+ * tab as soon as it mounts. The placeholder stays in the layout model because pane
+ * operations replace it synchronously (splits, the explorer sidebar) before it ever
+ * renders. Falls back to an agent draft when the default is unavailable here.
  */
-function PromoteToAgentDraft(): null {
+function PromoteToDefaultTab({ target }: { target: Exclude<DefaultNewTab, "launcher"> }): null {
   const { serverId, tabId } = usePaneContext();
   const groups = useWorkspaceTabLaunchCatalog({ serverId, purpose: "primary", host: "main" });
-  const agentItem = groups.flatMap((group) => group.items).find((item) => item.id === "agent");
+  const items = groups.flatMap((group) => group.items);
+  const item =
+    items.find((candidate) => candidate.id === target) ??
+    items.find((candidate) => candidate.id === "agent");
+  // Terminal creation is async; a catalog re-render must not launch a second one.
+  const launchedRef = useRef(false);
   useEffect(() => {
-    agentItem?.launch({ kind: "replace", tabId });
-  }, [agentItem, tabId]);
+    if (launchedRef.current || !item || item.disabled) return;
+    launchedRef.current = true;
+    item.launch({ kind: "replace", tabId });
+  }, [item, tabId]);
   return null;
 }
 
-const NewTabPanel = memo(function NewTabPanel(): ReactElement {
+const NewTabPanel = memo(function NewTabPanel(): ReactElement | null {
   const { host } = usePaneContext();
-  return host === "explorer" ? <NewTabLauncher /> : <PromoteToAgentDraft />;
+  const { settings, isLoading } = useAppSettings();
+  if (host === "explorer" || settings.defaultNewTab === "launcher") {
+    return <NewTabLauncher />;
+  }
+  return isLoading ? null : <PromoteToDefaultTab target={settings.defaultNewTab} />;
 });
 
 function NewTabLauncher(): ReactElement {
-  const { serverId } = usePaneContext();
+  const { serverId, host } = usePaneContext();
   const { isInteractive, focusPane } = usePaneFocus();
   const containerRef = useRef<View | null>(null);
   const groups = useWorkspaceTabLaunchCatalog({
     serverId,
-    purpose: "supporting",
-    host: "explorer",
+    purpose: host === "explorer" ? "supporting" : "primary",
+    host,
   });
 
   useEffect(() => {
