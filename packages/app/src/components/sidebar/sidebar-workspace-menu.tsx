@@ -374,6 +374,7 @@ function SidebarWorkspaceArchiveButton({
           style={archiveTriggerStyle}
           onPress={handlePress}
           disabled={isPending}
+          accessibilityRole="button"
           accessibilityLabel={label}
           testID={`sidebar-workspace-archive-${workspaceKey}`}
         >

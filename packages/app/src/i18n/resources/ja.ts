@@ -819,6 +819,7 @@ export const ja: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "Git 操作",
         moreOptions: "その他のオプション",
         moreActions: "その他のアクション",
         commit: {
@@ -1022,7 +1023,7 @@ export const ja: TranslationResources = {
       },
       openInEditor: {
         open: "開く",
-        chooseEditor: "エディタを選択",
+        chooseEditor: "次で開く…",
         openIn: "{{target}}でワークスペースを開く",
         openFileIn: "{{target}}で{{fileName}}を開く",
         failedOpen: "ワークスペースを開けませんでした",
@@ -1074,6 +1075,11 @@ export const ja: TranslationResources = {
           filesChanged_one: "{{count}}個のファイルを変更",
           filesChanged_other: "{{count}}個のファイルを変更",
           showAsTree: "ツリーで表示",
+          showAsList: "リストで表示",
+          filterFiles: "ファイルを絞り込む",
+          filteredFiles: "{{total}} 件中 {{visible}} 件",
+          noMatchingFiles: "この条件に一致するファイルはありません。",
+          clearFilter: "絞り込みをクリア",
         },
         checks: {
           titlePlaceholder: "PRタイトル",
@@ -1289,7 +1295,8 @@ export const ja: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "リソースと使用量",
+      unavailableProviders: "利用できないプロバイダー ({{count}})",
+      trigger: "使用状況",
       title: "リソース",
       cpu: "CPU",
       memory: "メモリ",
@@ -2104,6 +2111,11 @@ export const ja: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "設定を検索",
+      clear: "設定の検索をクリア",
+      noResults: "一致する設定がありません",
+    },
     defaultModels: en.settings.defaultModels,
     title: "設定",
     loading: "設定を読み込み中...",

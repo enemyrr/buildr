@@ -828,6 +828,7 @@ export const en = {
     },
     git: {
       actions: {
+        menu: "Git actions",
         moreOptions: "More options",
         moreActions: "More actions",
         commit: {
@@ -1035,7 +1036,7 @@ export const en = {
       },
       openInEditor: {
         open: "Open",
-        chooseEditor: "Choose editor",
+        chooseEditor: "Open in…",
         openIn: "Open workspace in {{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
         failedOpen: "Failed to open workspace",
@@ -1087,6 +1088,11 @@ export const en = {
           filesChanged_one: "{{count}} file changed",
           filesChanged_other: "{{count}} files changed",
           showAsTree: "Show as tree",
+          showAsList: "Show as list",
+          filterFiles: "Filter files",
+          filteredFiles: "{{visible}} of {{total}}",
+          noMatchingFiles: "No files match this filter.",
+          clearFilter: "Clear filter",
         },
         checks: {
           titlePlaceholder: "PR title",
@@ -1301,7 +1307,8 @@ export const en = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "Resources and usage",
+      unavailableProviders: "Unavailable providers ({{count}})",
+      trigger: "Usage",
       title: "Resources",
       cpu: "CPU",
       memory: "Memory",
@@ -2127,6 +2134,11 @@ export const en = {
     },
   },
   settings: {
+    search: {
+      placeholder: "Search settings",
+      clear: "Clear settings search",
+      noResults: "No matching settings",
+    },
     title: "Settings",
     loading: "Loading settings...",
     groups: {

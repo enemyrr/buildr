@@ -101,6 +101,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   serviceSummary = null,
   backdrop,
   isHovered,
+  isSelected,
   isLoading,
   isCreating = false,
   shortcutNumber = null,
@@ -118,6 +119,7 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   /** The row's current background, so the project status badge can knock out of it. */
   backdrop: SidebarSurfaceBackdrop;
   isHovered: boolean;
+  isSelected: boolean;
   isLoading: boolean;
   isCreating?: boolean;
   shortcutNumber?: number | null;
@@ -137,10 +139,9 @@ export const SidebarWorkspaceRowContent = memo(function SidebarWorkspaceRowConte
   const workspaceBranchTextStyle = useMemo(
     () => [
       styles.workspaceBranchText,
-      isHovered && styles.workspaceBranchTextHovered,
-      isCreating && styles.workspaceBranchTextCreating,
+      (isHovered || isSelected || isCreating) && styles.workspaceBranchTextHighlighted,
     ],
-    [isHovered, isCreating],
+    [isHovered, isSelected, isCreating],
   );
 
   return (
@@ -276,9 +277,12 @@ export const sidebarWorkspaceRowStyles = StyleSheet.create((theme) => ({
   // backgrounds have to keep spanning the group's full width. Indenting the container instead
   // pulls the highlight in with the content and the row stops lining up with its header.
   //
-  // The leading glyph lands on the header's title rail: row padding + header icon + gap.
+  // Desktop uses a half-step indent to preserve title space in a narrow sidebar.
   rowIndented: {
-    paddingLeft: theme.spacing[2] + theme.iconSize.md + theme.spacing[2],
+    paddingLeft: {
+      xs: theme.spacing[2] + theme.iconSize.md + theme.spacing[2],
+      md: theme.spacing[6],
+    },
   },
   rowRight: {
     flexDirection: "row",
@@ -482,19 +486,15 @@ const styles = StyleSheet.create((theme) => ({
   // The title owns the first line outright now that the host, change request and CI moved
   // to the meta row, so it takes the full width the trailing slot leaves behind.
   workspaceBranchText: {
-    color: theme.colors.foreground,
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.base,
     fontWeight: "400",
     lineHeight: 20,
-    opacity: 0.76,
     flex: 1,
     minWidth: 0,
   },
-  workspaceBranchTextCreating: {
-    opacity: 0.92,
-  },
-  workspaceBranchTextHovered: {
-    opacity: 1,
+  workspaceBranchTextHighlighted: {
+    color: theme.colors.foreground,
   },
   statusDotNeedsInput: {
     backgroundColor: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,

@@ -810,6 +810,7 @@ export const zhCN: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "Git 操作",
         moreOptions: "更多选项",
         moreActions: "更多操作",
         commit: {
@@ -999,7 +1000,7 @@ export const zhCN: TranslationResources = {
       },
       openInEditor: {
         open: "打开",
-        chooseEditor: "选择编辑器",
+        chooseEditor: "打开方式…",
         openIn: "在 {{target}} 中打开 workspace",
         openFileIn: "在 {{target}} 中打开 {{fileName}}",
         failedOpen: "打开 workspace 失败",
@@ -1051,6 +1052,11 @@ export const zhCN: TranslationResources = {
           filesChanged_one: "{{count}} 个文件已更改",
           filesChanged_other: "{{count}} 个文件已更改",
           showAsTree: "以树形显示",
+          showAsList: "以列表显示",
+          filterFiles: "筛选文件",
+          filteredFiles: "{{visible}} / {{total}}",
+          noMatchingFiles: "没有文件符合此筛选条件。",
+          clearFilter: "清除筛选",
         },
         checks: {
           titlePlaceholder: "PR 标题",
@@ -1265,7 +1271,8 @@ export const zhCN: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "资源与用量",
+      unavailableProviders: "不可用的提供商 ({{count}})",
+      trigger: "用量",
       title: "资源",
       cpu: "CPU",
       memory: "内存",
@@ -2061,6 +2068,11 @@ export const zhCN: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "搜索设置",
+      clear: "清除设置搜索",
+      noResults: "没有匹配的设置",
+    },
     defaultModels: en.settings.defaultModels,
     title: "设置",
     loading: "正在加载设置...",

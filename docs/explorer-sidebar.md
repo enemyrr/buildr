@@ -73,8 +73,9 @@ tab content. There is no hidden side-pane lifecycle.
 ### Explorer chrome
 
 An open Explorer owns the workspace's git and script controls, and the main header drops them. The
-top row is the pull request strip, or **Create PR** before a pull request exists. The tab rail ends
-with **Review** and the git menu. When the Explorer is hidden, the header carries **Create PR** and
+top row is the pull request strip, or **Create PR** before a pull request exists, followed by the git
+menu. Keep git actions in this row so they do not crowd the Explorer tabs. The tab rail ends with
+**Review**. When the Explorer is hidden, the header carries **Create PR** and
 the inline strip instead. The desktop header has no scripts menu; scripts run from the Explorer's
 Run panel.
 

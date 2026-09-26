@@ -19,6 +19,7 @@ const LONG_BRANCH_NAME =
 
 interface ControlBox {
   label: string | null;
+  left: number;
   right: number;
   centerY: number;
 }
@@ -28,6 +29,7 @@ function measureControls(controls: HTMLElement[]): ControlBox[] {
     const rect = control.getBoundingClientRect();
     return {
       label: control.getAttribute("aria-label"),
+      left: rect.left,
       right: rect.right,
       centerY: rect.top + rect.height / 2,
     };
@@ -48,10 +50,10 @@ test.describe("New workspace card layout", () => {
     await workspace?.cleanup();
   });
 
-  test("long host and branch names keep the create card's header chips on one row", async ({
+  test("long names keep icon controls and Close on one row inside the create card", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 2048, height: 878 });
+    await page.setViewportSize({ width: 1100, height: 878 });
     await seedSavedSettingsHosts(page, [
       {
         serverId: getServerId(),
@@ -82,6 +84,7 @@ test.describe("New workspace card layout", () => {
     await expect(card).toBeVisible();
     await expect(headerRow).toBeVisible();
     await expect(createButton).toBeVisible();
+    await expect(card.getByText("New workspace", { exact: true })).toHaveCount(0);
 
     const [cardBox, headerBox, createBox, controls] = await Promise.all([
       card.boundingBox(),
@@ -93,7 +96,7 @@ test.describe("New workspace card layout", () => {
     if (!cardBox || !headerBox || !createBox || !firstControl) {
       throw new Error("New workspace card geometry could not be measured");
     }
-    expect(controls.length).toBeGreaterThanOrEqual(3);
+    expect(controls.length).toBeGreaterThanOrEqual(2);
 
     const cardRight = cardBox.x + cardBox.width;
     const rowCenterY = firstControl.centerY;
@@ -108,5 +111,32 @@ test.describe("New workspace card layout", () => {
     // Create lives in the composer's footer, below the header chips.
     expect(createBox.y).toBeGreaterThan(headerBox.y + headerBox.height);
     expect(createBox.x + createBox.width).toBeLessThanOrEqual(cardRight + 1);
+
+    // Include both groups and Close so compact icons cannot wrap or overlap the edge.
+    for (const width of [1100, 800]) {
+      await page.setViewportSize({ width, height: 878 });
+      const bounds = await card.boundingBox();
+      if (!bounds) throw new Error("Create card is missing");
+      const setup = card.locator(
+        '[data-testid="new-workspace-ref-picker-row"], [data-testid="new-workspace-setup-controls"]',
+      );
+      const allControls = await setup.getByRole("button").evaluateAll(measureControls);
+      expect(allControls.length).toBeGreaterThanOrEqual(5);
+      const close = await card.getByRole("button", { name: "Close", exact: true }).boundingBox();
+      if (!close) throw new Error("Close button is missing");
+      for (const control of allControls) {
+        expect(control.centerY, `${control.label} left the single header row`).toBeCloseTo(
+          close.y + close.height / 2,
+          0,
+        );
+        expect(control.left, control.label ?? "Setup control").toBeGreaterThanOrEqual(bounds.x);
+        expect(control.right, control.label ?? "Setup control").toBeLessThanOrEqual(
+          bounds.x + bounds.width,
+        );
+      }
+      expect(close.x + close.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+    }
+    await card.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(card).toHaveCount(0);
   });
 });

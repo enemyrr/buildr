@@ -814,6 +814,7 @@ export const ar: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "إجراءات Git",
         moreOptions: "المزيد من الخيارات",
         moreActions: "المزيد من الإجراءات",
         commit: {
@@ -1007,7 +1008,7 @@ export const ar: TranslationResources = {
       },
       openInEditor: {
         open: "يفتح",
-        chooseEditor: "اختر المحرر",
+        chooseEditor: "فتح في…",
         openIn: "افتح مساحة العمل في{{target}}",
         openFileIn: "Open {{fileName}} in {{target}}",
         failedOpen: "فشل في فتح مساحة العمل",
@@ -1059,6 +1060,11 @@ export const ar: TranslationResources = {
           filesChanged_one: "تغيّر {{count}} ملف",
           filesChanged_other: "تغيّرت {{count}} ملفات",
           showAsTree: "عرض كشجرة",
+          showAsList: "عرض كقائمة",
+          filterFiles: "تصفية الملفات",
+          filteredFiles: "{{visible}} من {{total}}",
+          noMatchingFiles: "لا توجد ملفات تطابق عامل التصفية.",
+          clearFilter: "مسح عامل التصفية",
         },
         checks: {
           titlePlaceholder: "عنوان PR",
@@ -1273,7 +1279,8 @@ export const ar: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "الموارد والاستخدام",
+      unavailableProviders: "مزودون غير متاحين ({{count}})",
+      trigger: "الاستخدام",
       title: "الموارد",
       cpu: "المعالج",
       memory: "الذاكرة",
@@ -2082,6 +2089,11 @@ export const ar: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "البحث في الإعدادات",
+      clear: "مسح البحث في الإعدادات",
+      noResults: "لا توجد إعدادات مطابقة",
+    },
     defaultModels: en.settings.defaultModels,
     title: "إعدادات",
     loading: "جارٍ تحميل الإعدادات...",

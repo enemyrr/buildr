@@ -820,6 +820,7 @@ export const ptBR: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "Ações do Git",
         moreOptions: "Mais opções",
         moreActions: "Mais ações",
         commit: {
@@ -1034,7 +1035,7 @@ export const ptBR: TranslationResources = {
       },
       openInEditor: {
         open: "Abrir",
-        chooseEditor: "Escolher editor",
+        chooseEditor: "Abrir em…",
         openIn: "Abrir workspace em {{target}}",
         openFileIn: "Abrir {{fileName}} em {{target}}",
         failedOpen: "Falha ao abrir workspace",
@@ -1086,6 +1087,11 @@ export const ptBR: TranslationResources = {
           filesChanged_one: "{{count}} arquivo alterado",
           filesChanged_other: "{{count}} arquivos alterados",
           showAsTree: "Mostrar como árvore",
+          showAsList: "Mostrar como lista",
+          filterFiles: "Filtrar arquivos",
+          filteredFiles: "{{visible}} de {{total}}",
+          noMatchingFiles: "Nenhum arquivo corresponde a este filtro.",
+          clearFilter: "Limpar filtro",
         },
         checks: {
           titlePlaceholder: "Título do PR",
@@ -1303,7 +1309,8 @@ export const ptBR: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "Recursos e uso",
+      unavailableProviders: "Provedores indisponíveis ({{count}})",
+      trigger: "Uso",
       title: "Recursos",
       cpu: "CPU",
       memory: "Memória",
@@ -2119,6 +2126,11 @@ export const ptBR: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "Buscar configurações",
+      clear: "Limpar busca de configurações",
+      noResults: "Nenhuma configuração encontrada",
+    },
     defaultModels: en.settings.defaultModels,
     title: "Configurações",
     loading: "Carregando configurações...",

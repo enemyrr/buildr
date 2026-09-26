@@ -1,5 +1,5 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ChevronDown, GitBranch, MoreVertical } from "lucide-react-native";
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
@@ -85,6 +86,7 @@ export function GitActionsSplitButton({
 }: GitActionsSplitButtonProps) {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const runGitAction = useGitActionRunner();
   const archiveShortcutKeys = useShortcutKeys("archive-workspace");
 
@@ -147,16 +149,25 @@ export function GitActionsSplitButton({
     }
 
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          testID="changes-actions-menu-trigger"
-          style={menuOnlyTriggerStyle}
-          accessibilityRole="button"
-          accessibilityLabel={t("workspace.header.actions.workspaceActions")}
-        >
-          <GitBranch size={16} color={theme.colors.foregroundMuted} />
-          <ChevronDown size={12} color={theme.colors.foregroundExtraMuted} />
-        </DropdownMenuTrigger>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <Tooltip enabledOnDesktop={!menuOpen}>
+          <TooltipTrigger asChild>
+            <View>
+              <DropdownMenuTrigger
+                testID="changes-actions-menu-trigger"
+                style={menuOnlyTriggerStyle}
+                accessibilityRole="button"
+                accessibilityLabel={t("workspace.git.actions.menu")}
+              >
+                <GitBranch size={16} color={theme.colors.foregroundMuted} />
+                <ChevronDown size={12} color={theme.colors.foregroundExtraMuted} />
+              </DropdownMenuTrigger>
+            </View>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <Text style={styles.splitButtonText}>{t("workspace.git.actions.menu")}</Text>
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end" testID="changes-primary-cta-menu">
           {menuLeading}
           {menuLeading && menuOnlyActions.length > 0 ? <DropdownMenuSeparator /> : null}

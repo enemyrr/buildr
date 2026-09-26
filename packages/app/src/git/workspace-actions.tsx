@@ -164,6 +164,17 @@ export const ExplorerGitBar = memo(function ExplorerGitBar({
 }: ExplorerGitProps & { onOpenPullRequest?: () => void }) {
   const flow = usePrFlow({ serverId, cwd });
   usePrStatusFreshness({ serverId, cwd });
+  const commitAndPushItem = useCommitAndPushItem(flow);
+  const gitMenu = useMemo(
+    () => (
+      <GitActionsSplitButton
+        gitActions={flow.gitActions}
+        menuOnly
+        menuLeading={commitAndPushItem}
+      />
+    ),
+    [flow.gitActions, commitAndPushItem],
+  );
   if (!flow.isGit) return null;
   if (flow.prStatus?.url) {
     return (
@@ -172,23 +183,24 @@ export const ExplorerGitBar = memo(function ExplorerGitBar({
         cwd={cwd}
         gitActions={flow.gitActions}
         onOpenPullRequest={onOpenPullRequest}
+        trailingAccessory={gitMenu}
       />
     );
   }
   return (
     <View style={styles.bar} testID="workspace-explorer-git-bar">
       <CreatePrSplitButton flow={flow} />
+      {gitMenu}
     </View>
   );
 });
 
-/** The Explorer tab rail's trailing tools: Review and the git menu. */
+/** Review stays beside the Explorer tabs; git actions live in the row above. */
 export const ExplorerGitToolbar = memo(function ExplorerGitToolbar({
   serverId,
   cwd,
 }: ExplorerGitProps) {
   const flow = usePrFlow({ serverId, cwd });
-  const commitAndPushItem = useCommitAndPushItem(flow);
   if (!flow.isGit) return null;
   const closed = flow.prStatus?.isMerged || flow.prStatus?.state.toLowerCase() === "closed";
   return (
@@ -201,11 +213,6 @@ export const ExplorerGitToolbar = memo(function ExplorerGitToolbar({
           prUrl={flow.prStatus?.url ?? null}
         />
       )}
-      <GitActionsSplitButton
-        gitActions={flow.gitActions}
-        menuOnly
-        menuLeading={commitAndPushItem}
-      />
     </View>
   );
 });
@@ -300,6 +307,7 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
+    gap: theme.spacing[1],
     paddingHorizontal: theme.spacing[2],
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: theme.colors.border,

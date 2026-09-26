@@ -19,7 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -261,6 +261,7 @@ function buildWorkspaceFileLocation(
 
 const ThemedLoadingSpinner = withUnistyles(LoadingSpinner);
 const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedChevronRight = withUnistyles(ChevronRight);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
@@ -1092,23 +1093,38 @@ interface WorkspaceHeaderTitleBarProps extends WorkspaceHeaderTitleProps {
   onOpenUrlInBrowserTab: (url: string) => void;
 }
 
-/**
- * Left side of the header. Wide shows only the project name: the workspace name sits on the right,
- * next to the open-in button, the way Conductor lays it out.
- */
+/** Keep project and workspace identity together, with workspace actions beside the title. */
 function WorkspaceHeaderTitleBar(props: WorkspaceHeaderTitleBarProps) {
   if (!props.isMobile) {
     return (
       <View style={styles.headerTitleContainer}>
         {!props.isLoading && props.isSubtitleDistinct ? (
-          <Text
-            testID="workspace-header-subtitle"
-            style={styles.headerProjectTitle}
-            numberOfLines={1}
-          >
-            {props.subtitle}
-          </Text>
+          <View style={styles.headerProjectRow}>
+            <Text
+              testID="workspace-header-subtitle"
+              style={styles.headerProjectTitle}
+              numberOfLines={1}
+            >
+              {props.subtitle}
+            </Text>
+            <ThemedChevronRight size={14} uniProps={mutedColorMapping} />
+          </View>
         ) : null}
+        <WorkspaceHeaderDesktopTitle
+          isLoading={props.isLoading}
+          title={props.title}
+          renameTarget={props.renameTarget}
+          normalizedServerId={props.normalizedServerId}
+          normalizedWorkspaceId={props.normalizedWorkspaceId}
+          currentBranchName={props.currentBranchName}
+          showWorkspaceSetup={props.showWorkspaceSetup}
+          importAgentDisabled={props.importAgentDisabled}
+          copyPathDisabled={props.copyPathDisabled}
+          onOpenImportSheet={props.onOpenImportSheet}
+          onCopyWorkspacePath={props.onCopyWorkspacePath}
+          onCopyBranchName={props.onCopyBranchName}
+          onOpenSetupTab={props.onOpenSetupTab}
+        />
       </View>
     );
   }
@@ -1193,7 +1209,7 @@ function WorkspaceHeaderCompactTitleBar({
 type WorkspaceHeaderDesktopTitleProps = Omit<WorkspaceHeaderTitleProps, "isMobile"> &
   Omit<WorkspaceHeaderWorkspaceActions, "onRename">;
 
-/** Wide only: the workspace name and its actions menu, leading the header's right cluster. */
+/** Desktop workspace title with its actions menu. */
 function WorkspaceHeaderDesktopTitle({
   isLoading,
   title,
@@ -3953,23 +3969,6 @@ function WorkspaceScreenContent({
   const headerRight = useMemo(
     () => (
       <View style={styles.headerRight}>
-        {isMobile ? null : (
-          <WorkspaceHeaderDesktopTitle
-            isLoading={isWorkspaceHeaderLoading}
-            title={workspaceHeaderTitle}
-            renameTarget={workspaceRenameTarget}
-            normalizedServerId={normalizedServerId}
-            normalizedWorkspaceId={normalizedWorkspaceId}
-            currentBranchName={currentBranchName}
-            showWorkspaceSetup={showWorkspaceSetup}
-            importAgentDisabled={!canOpenImportSheet}
-            copyPathDisabled={!workspaceDirectory}
-            onOpenImportSheet={openImportSheet}
-            onCopyWorkspacePath={handleCopyWorkspacePath}
-            onCopyBranchName={handleCopyBranchName}
-            onOpenSetupTab={handleOpenSetupTab}
-          />
-        )}
         <PluginHeaderButtons serverId={normalizedServerId} workspaceId={normalizedWorkspaceId} />
         {!isMobile && workspaceDirectory ? (
           <WorkspaceOpenInEditorButton
@@ -4023,16 +4022,6 @@ function WorkspaceScreenContent({
       explorerSidebarToggleLabel,
       explorerSidebarToggleAccessibilityState,
       t,
-      isWorkspaceHeaderLoading,
-      workspaceHeaderTitle,
-      workspaceRenameTarget,
-      currentBranchName,
-      showWorkspaceSetup,
-      canOpenImportSheet,
-      openImportSheet,
-      handleCopyWorkspacePath,
-      handleCopyBranchName,
-      handleOpenSetupTab,
     ],
   );
 
@@ -4483,10 +4472,10 @@ const styles = StyleSheet.create((theme) => ({
   headerTitleText: {
     fontWeight: theme.fontWeight.normal,
   },
-  // Wide: a label beside the open-in button, muted like Conductor's.
+  // The active workspace is primary; its project supplies the muted context.
   headerDesktopTitleText: {
     fontWeight: theme.fontWeight.normal,
-    color: theme.colors.foregroundMuted,
+    color: theme.colors.foreground,
   },
   headerTitleSkeleton: {
     width: 220,
@@ -4502,6 +4491,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1],
     maxWidth: 360,
     minWidth: 0,
+    flexShrink: 1,
   },
   headerRight: {
     flexDirection: "row",

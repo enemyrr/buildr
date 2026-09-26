@@ -64,9 +64,6 @@ type ThemedIcon = typeof ThemedSettings;
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-const accentForegroundColorMapping = (theme: Theme) => ({
-  color: theme.colors.accentForeground,
-});
 
 const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
 
@@ -666,19 +663,7 @@ function DesktopSidebar({
           {ownsTopLeft || DEV_BUILD_LABEL ? (
             <View style={styles.desktopChromeRow}>
               <TitlebarDragRegion />
-              {DEV_BUILD_LABEL ? (
-                <View
-                  pointerEvents="none"
-                  style={styles.devBuildBadge}
-                  testID="dev-build-label"
-                  accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
-                >
-                  <ThemedGitBranch size={12} uniProps={accentForegroundColorMapping} />
-                  <Text numberOfLines={1} ellipsizeMode="tail" style={styles.devBuildBadgeText}>
-                    {DEV_BUILD_LABEL}
-                  </Text>
-                </View>
-              ) : null}
+              <SidebarDevelopmentBadge />
               {ownsTopLeft ? <NavigationHistoryButtons /> : null}
             </View>
           ) : (
@@ -727,6 +712,27 @@ function DesktopSidebar({
         />
       </View>
     </Animated.View>
+  );
+}
+
+function SidebarDevelopmentBadge() {
+  if (!DEV_BUILD_LABEL) return null;
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <View
+          style={styles.devBuildBadge}
+          testID="dev-build-label"
+          accessibilityLabel={`Development build: ${DEV_BUILD_LABEL}`}
+        >
+          <ThemedGitBranch size={12} uniProps={foregroundMutedColorMapping} />
+          <Text style={styles.devBuildBadgeText}>Dev</Text>
+        </View>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="end">
+        <Text style={styles.tooltipText}>{DEV_BUILD_LABEL}</Text>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -794,8 +800,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing[0.5],
   },
   workspacesSectionTitle: {
-    color: theme.colors.foregroundExtraMuted,
-    fontSize: 11,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
   },
   workspacesSectionActions: {
@@ -855,14 +861,15 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[1],
     paddingHorizontal: theme.spacing[2],
-    paddingVertical: 2,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.accent,
+    paddingVertical: theme.spacing[0.5],
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
   },
   devBuildBadgeText: {
     minWidth: 0,
     flexShrink: 1,
-    color: theme.colors.accentForeground,
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
   },
@@ -872,7 +879,7 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },

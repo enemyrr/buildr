@@ -1,22 +1,26 @@
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { Gauge } from "lucide-react-native";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
+import { Button } from "@/components/ui/button";
+import { createControlGeometry } from "@/components/ui/control-geometry";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useFetchQuery } from "@/data/query";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { clampPct, formatPct } from "@/provider-usage/format";
 import { deriveTone } from "@/provider-usage/tone";
 import { useProviderUsage } from "@/provider-usage/use-provider-usage";
+import { ProviderUsageCard } from "@/provider-usage/card";
+import { providerUsageCopy } from "@/provider-usage/copy";
+import type { ProviderUsage, ProviderUsageView } from "@/provider-usage/types";
+import type { MenuTriggerState } from "@/components/ui/menu";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent } from "@/stores/session-store";
-import { ICON_SIZE } from "@/styles/theme";
 import {
   buildResourceRows,
   formatCpu,
@@ -24,21 +28,11 @@ import {
   sumResources,
   type ResourceRow,
 } from "./resources/resource-tree";
-import {
-  ProviderUsageSummary,
-  UsageGlanceBars,
-  UsageGlanceSwitch,
-  foregroundColorMapping,
-  foregroundMutedColorMapping,
-  useUsageGlance,
-} from "./sidebar-usage-bars";
 
 const RESOURCES_POLL_MS = 2_000;
 const COLLAPSED_ROW_COUNT = 8;
 const CONTEXT_AGENT_LIMIT = 6;
 const INDENT_PER_DEPTH = 12;
-
-const ThemedGauge = withUnistyles(Gauge);
 
 function useResourcesServerId(): string | null {
   const localServerId = useLocalDaemonServerId();
@@ -205,18 +199,70 @@ function ContextSection({ serverId }: { serverId: string | null }) {
   );
 }
 
-function LimitsSection({ serverId, open }: { serverId: string | null; open: boolean }) {
-  const { view } = useProviderUsage(serverId, { enabled: open });
-  if (view.kind === "loading") return <Text style={styles.muted}>…</Text>;
+function LimitsBody({ view }: { view: ProviderUsageView }) {
+  if (view.kind === "loading") return <Text style={styles.muted}>{providerUsageCopy.loading}</Text>;
   if (view.kind === "error") return <Text style={styles.muted}>{view.message}</Text>;
-  const providers = view.payload.providers.filter(
-    (usage) => usage.status === "available" && usage.windows.length > 0,
-  );
+  if (view.payload.providers.length === 0)
+    return <Text style={styles.muted}>{providerUsageCopy.empty}</Text>;
+  return <ProviderLimits providers={view.payload.providers} />;
+}
+
+function ProviderLimits({ providers }: { providers: ProviderUsage[] }) {
+  const { t } = useTranslation();
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const toggleUnavailable = useCallback(() => setShowUnavailable((shown) => !shown), []);
+  const unavailable = providers.filter((usage) => usage.status === "unavailable");
+  const visible = providers.filter((usage) => usage.status !== "unavailable");
+  const expandedState = useMemo(() => ({ expanded: showUnavailable }), [showUnavailable]);
   return (
     <View style={styles.limitsList}>
-      {providers.map((usage) => (
-        <ProviderUsageSummary key={usage.providerId} usage={usage} />
+      {visible.map((usage) => (
+        <ProviderUsageCard key={usage.providerId} usage={usage} compact />
       ))}
+      {unavailable.length > 0 ? (
+        <Button
+          variant="ghost"
+          size="xs"
+          leftIcon={showUnavailable ? ChevronDown : ChevronRight}
+          onPress={toggleUnavailable}
+          accessibilityState={expandedState}
+          testID="sidebar-usage-unavailable"
+        >
+          {t("sidebar.resources.unavailableProviders", { count: unavailable.length })}
+        </Button>
+      ) : null}
+      {showUnavailable
+        ? unavailable.map((usage) => (
+            <ProviderUsageCard key={usage.providerId} usage={usage} compact />
+          ))
+        : null}
+    </View>
+  );
+}
+
+function LimitsSection({ serverId, open }: { serverId: string | null; open: boolean }) {
+  const { t } = useTranslation();
+  const { view, refresh, canFetch } = useProviderUsage(serverId, { enabled: open });
+  const handleRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  const busy = view.kind === "loading" || (view.kind === "ready" && view.isRefreshing);
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <SectionLabel>{t("sidebar.resources.limits")}</SectionLabel>
+        <Button
+          variant="ghost"
+          size="xs"
+          leftIcon={RefreshCw}
+          onPress={handleRefresh}
+          disabled={!canFetch || busy}
+          loading={busy}
+          accessibilityLabel={providerUsageCopy.refresh}
+          testID="sidebar-usage-refresh"
+        />
+      </View>
+      <LimitsBody view={view} />
     </View>
   );
 }
@@ -225,96 +271,69 @@ export function SidebarResourcesMenu() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const serverId = useResourcesServerId();
-  const { active, next } = useUsageGlance(serverId);
-
+  const triggerStyle = useCallback(
+    ({ hovered, pressed, open: expanded }: MenuTriggerState) => [
+      styles.trigger,
+      (hovered || pressed || expanded) && styles.triggerActive,
+    ],
+    [],
+  );
   return (
-    <View style={styles.glance}>
-      {active ? <UsageGlanceSwitch active={active} next={next} /> : null}
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <Tooltip delayDuration={300} enabledOnDesktop={!open}>
-          <TooltipTrigger asChild>
-            <View>
-              <DropdownMenuTrigger
-                style={active ? styles.barsTrigger : styles.trigger}
-                testID="sidebar-resources"
-                accessibilityRole="button"
-                accessibilityLabel={t("sidebar.resources.trigger")}
-              >
-                {({ hovered }) =>
-                  active ? (
-                    <UsageGlanceBars glance={active} active={hovered || open} />
-                  ) : (
-                    <ThemedGauge
-                      size={ICON_SIZE.md}
-                      uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
-                    />
-                  )
-                }
-              </DropdownMenuTrigger>
-            </View>
-          </TooltipTrigger>
-          <TooltipContent side="top" align="start" offset={8} style={styles.glanceTooltip}>
-            {active ? (
-              <ProviderUsageSummary usage={active.usage} />
-            ) : (
-              <Text style={styles.tooltipText}>{t("sidebar.resources.trigger")}</Text>
-            )}
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent
-          side="top"
-          align="start"
-          offset={8}
-          width={340}
-          maxHeight={560}
-          scrollable
-          testID="sidebar-resources-menu"
-        >
-          <View style={styles.section}>
-            <SectionLabel>{t("sidebar.resources.title")}</SectionLabel>
-            <ResourcesSection serverId={serverId} open={open} />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.section}>
-            <SectionLabel>{t("sidebar.resources.context")}</SectionLabel>
-            <ContextSection serverId={serverId} />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.section}>
-            <SectionLabel>{t("sidebar.resources.limits")}</SectionLabel>
-            <LimitsSection serverId={serverId} open={open} />
-          </View>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </View>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        style={triggerStyle}
+        testID="sidebar-resources"
+        accessibilityRole="button"
+        accessibilityLabel={t("sidebar.resources.trigger")}
+      >
+        <Text style={styles.triggerText}>{t("sidebar.resources.trigger")}</Text>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        offset={8}
+        width={340}
+        maxHeight={560}
+        scrollable
+        testID="sidebar-resources-menu"
+      >
+        <LimitsSection serverId={serverId} open={open} />
+        <View style={styles.divider} />
+        <View style={styles.section}>
+          <SectionLabel>{t("sidebar.resources.context")}</SectionLabel>
+          <ContextSection serverId={serverId} />
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.section}>
+          <SectionLabel>{t("sidebar.resources.title")}</SectionLabel>
+          <ResourcesSection serverId={serverId} open={open} />
+        </View>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  glance: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  glanceTooltip: {
-    width: 240,
-  },
   trigger: {
-    width: 28,
-    height: 28,
+    ...createControlGeometry(theme).buttonXs,
     borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.borderAccent,
     alignItems: "center",
     justifyContent: "center",
   },
-  barsTrigger: {
-    height: 28,
+  triggerActive: {
+    backgroundColor: theme.colors.interactionHighlight,
+  },
+  triggerText: {
+    ...createControlGeometry(theme).buttonTextXs,
+    color: theme.colors.foregroundMuted,
+  },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
-  },
-  tooltipText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
   },
   section: {
     paddingHorizontal: theme.spacing[3],
@@ -325,8 +344,6 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: "500",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
   divider: {
     height: 1,

@@ -25,7 +25,7 @@ desktop launches always force the daemon to production mode.
 
 The web and desktop dev launchers pass the current Git branch to Metro as
 `EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL`. The expanded desktop sidebar shows it in
-the titlebar row. Production builds leave the variable unset and show no label.
+the titlebar row's **Dev** badge tooltip. Production builds leave the variable unset and show no badge.
 
 `npm run dev` is only a shorthand for `npm run dev:server`. Keep `127.0.0.1:6767` for the packaged app and production-style `~/.paseo` state.
 

@@ -78,6 +78,7 @@ function withProviderUsageFeature(message: WebSocketMessage): string | null {
 export async function installProviderUsageFixture(
   page: Page,
   payloads: ProviderUsageFixturePayload[],
+  options: { responseDelayMs?: number } = {},
 ): Promise<ProviderUsageFixture> {
   let requests = 0;
   const waiters: Array<{ count: number; resolve: () => void }> = [];
@@ -104,7 +105,7 @@ export async function installProviderUsageFixture(
   await page.routeWebSocket(daemonWsRoutePattern(), (ws) => {
     const server = ws.connectToServer();
 
-    ws.onMessage((message) => {
+    ws.onMessage(async (message) => {
       const sessionMessage = getSessionMessage(message);
       if (sessionMessage?.type === "provider.usage.list.request") {
         requests += 1;
@@ -114,6 +115,9 @@ export async function installProviderUsageFixture(
         }
         const payload = payloadForRequest();
         notifyWaiters();
+        if (options.responseDelayMs) {
+          await new Promise((resolve) => setTimeout(resolve, options.responseDelayMs));
+        }
         ws.send(
           JSON.stringify({
             type: "session",

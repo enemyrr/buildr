@@ -19,6 +19,8 @@ import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 const BAR_WIDTH = 72;
 const SWAP_FADE_MS = 160;
+// Below the smallest token so the stacked values stay quieter than the bars; scales with interface size.
+const BAR_VALUE_SIZE = (theme: Theme) => Math.round(theme.fontSize.sm * 0.85);
 // Session first, then weekly. Providers without these fall back to their first two windows.
 const GLANCE_WINDOW_ORDER = ["five_hour", "session", "weekly"];
 
@@ -228,17 +230,17 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.statusDanger,
   },
   barValue: {
-    minWidth: 28,
+    minWidth: 24,
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-    lineHeight: theme.fontSize.sm,
+    fontSize: BAR_VALUE_SIZE(theme),
+    lineHeight: BAR_VALUE_SIZE(theme),
     fontVariant: ["tabular-nums"],
   },
   barValueActive: {
-    minWidth: 28,
+    minWidth: 24,
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    lineHeight: theme.fontSize.sm,
+    fontSize: BAR_VALUE_SIZE(theme),
+    lineHeight: BAR_VALUE_SIZE(theme),
     fontVariant: ["tabular-nums"],
   },
   tooltipText: {
