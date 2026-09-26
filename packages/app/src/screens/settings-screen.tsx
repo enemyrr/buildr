@@ -272,10 +272,6 @@ function settingsContentStyle(view: SettingsView, isCompact: boolean) {
 // Trigger + sidebar style helpers
 // ---------------------------------------------------------------------------
 
-function themeTriggerStyle({ pressed }: PressableStateCallbackType) {
-  return [styles.themeTrigger, pressed && { opacity: 0.85 }];
-}
-
 function sidebarItemStyle({ hovered }: PressableStateCallbackType & { hovered?: boolean }) {
   return [sidebarStyles.item, Boolean(hovered) && sidebarStyles.itemHovered];
 }
@@ -452,9 +448,8 @@ function GeneralSection({
             <DropdownTrigger
               accessibilityRole="button"
               accessibilityLabel={`${t("settings.general.defaultSend.label")}: ${selectedSendBehaviorLabel}`}
-              style={themeTriggerStyle}
             >
-              <Text style={styles.themeTriggerText}>{selectedSendBehaviorLabel}</Text>
+              {selectedSendBehaviorLabel}
             </DropdownTrigger>
             <DropdownMenuContent side="bottom" align="end" width={200}>
               {sendBehaviorOptions.map((option) => (
@@ -475,12 +470,8 @@ function GeneralSection({
             <Text style={settingsStyles.rowHint}>{t("settings.general.language.description")}</Text>
           </View>
           <DropdownMenu>
-            <DropdownTrigger
-              accessibilityRole="button"
-              accessibilityLabel={selectedLanguageLabel}
-              style={themeTriggerStyle}
-            >
-              <Text style={styles.themeTriggerText}>{selectedLanguageLabel}</Text>
+            <DropdownTrigger accessibilityRole="button" accessibilityLabel={selectedLanguageLabel}>
+              {selectedLanguageLabel}
             </DropdownTrigger>
             <DropdownMenuContent side="bottom" align="end" width={300}>
               {LANGUAGE_OPTIONS.map((option) => (
@@ -504,10 +495,8 @@ function GeneralSection({
               </Text>
             </View>
             <DropdownMenu>
-              <DropdownTrigger style={themeTriggerStyle}>
-                <Text style={styles.themeTriggerText}>
-                  {getServiceUrlBehaviorLabel(t, settings.serviceUrlBehavior)}
-                </Text>
+              <DropdownTrigger>
+                {getServiceUrlBehaviorLabel(t, settings.serviceUrlBehavior)}
               </DropdownTrigger>
               <DropdownMenuContent side="bottom" align="end" width={200}>
                 {SERVICE_URL_BEHAVIOR_VALUES.map((value) => (
@@ -1861,20 +1850,6 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-  },
-  themeTrigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
-    paddingVertical: theme.spacing[1],
-    paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  themeTriggerText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
   },
   terminalScrollbackInput: {
     width: 112,

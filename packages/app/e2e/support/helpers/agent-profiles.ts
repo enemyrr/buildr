@@ -466,7 +466,7 @@ export async function expectModelRowSelected(
 }
 
 function modelRow(page: Page, input: { provider: string; modelId: string }): Locator {
-  return pickerViewport(page).getByTestId(`model-row-${input.provider}-${input.modelId}`);
+  return modelBrowser(page).getByTestId(`model-row-${input.provider}-${input.modelId}`);
 }
 
 /**
@@ -479,7 +479,7 @@ export async function expectModelRowProfileActionBesideRow(
 ): Promise<void> {
   const row = modelRow(page, input);
   await expect(row).toBeVisible({ timeout: 30_000 });
-  await expect(pickerViewport(page).locator("button button")).toHaveCount(0);
+  await expect(modelBrowser(page).locator("button button")).toHaveCount(0);
   await expect(row.getByRole("button")).toHaveCount(0);
 }
 
@@ -489,7 +489,7 @@ export async function expectCreateProfileFromModelRow(
   input: { provider: string; modelId: string; modelLabel: string },
 ): Promise<void> {
   await modelRow(page, input).hover();
-  await pickerViewport(page)
+  await modelBrowser(page)
     .getByTestId(`model-create-profile-${input.provider}-${input.modelId}`)
     .click();
   const modal = editModal(page);
