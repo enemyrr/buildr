@@ -80,6 +80,7 @@ import {
 } from "./agent-run-state.js";
 import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
 import { isSystemInjectedEnvelope } from "./agent-prompt.js";
+import { mergeUserShellHistory, type UserShellHistoryStore } from "./user-shell-history.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
 import { stripInternalPaseoMcpServer, withRuntimePaseoMcpServer } from "./runtime-mcp-config.js";
 import { resolveCreateAgentTitles } from "./create-agent-title.js";
@@ -326,6 +327,7 @@ export interface AgentManagerOptions {
   onAgentAttention?: AgentAttentionCallback;
   onWorkspaceStateMayHaveChanged?: (params: { cwd: string }) => void;
   durableTimelineStore?: AgentTimelineStore;
+  userShellHistory?: UserShellHistoryStore;
   terminalManager?: TerminalManager | null;
   mcpBaseUrl?: string;
   mcpAuthToken?: string;
@@ -735,6 +737,7 @@ export class AgentManager {
   private readonly idFactory: () => string;
   private readonly registry?: AgentStorage;
   private readonly durableTimelineStore?: AgentTimelineStore;
+  private readonly userShellHistory?: UserShellHistoryStore;
   private readonly previousStatuses = new Map<string, AgentLifecycleStatus>();
   private readonly backgroundTasks = new Set<Promise<void>>();
   private readonly agentRegistrationTasks = new Set<Promise<void>>();
@@ -765,6 +768,7 @@ export class AgentManager {
     this.idFactory = options?.idFactory ?? (() => randomUUID());
     this.registry = options?.registry;
     this.durableTimelineStore = options?.durableTimelineStore;
+    this.userShellHistory = options.userShellHistory;
     this.onAgentAttention = options?.onAgentAttention;
     this.onWorkspaceStateMayHaveChanged = options?.onWorkspaceStateMayHaveChanged;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
@@ -2403,7 +2407,7 @@ export class AgentManager {
   async appendTimelineItem(
     agentId: string,
     item: AgentTimelineItem,
-  ): Promise<{ seq: number; epoch: string }> {
+  ): Promise<{ seq: number; epoch: string; timestamp: string }> {
     const agent = this.requireAgent(agentId);
     item = limitAgentTimelineItemContent(item);
     this.touchUpdatedAt(agent);
@@ -2422,7 +2426,18 @@ export class AgentManager {
       },
     );
     await this.persistSnapshot(agent);
-    return { seq: row.seq, epoch: this.timelineStore.getEpoch(agentId) };
+    return { seq: row.seq, epoch: this.timelineStore.getEpoch(agentId), timestamp: row.timestamp };
+  }
+
+  // Appends a finished `!` command and keeps it on disk, since provider history, which
+  // the timeline is rebuilt from, never contains it.
+  async appendUserShellTimelineItem(agentId: string, item: AgentTimelineItem): Promise<void> {
+    const { timestamp } = await this.appendTimelineItem(agentId, item);
+    await this.userShellHistory
+      ?.append(agentId, { timestamp, item: limitAgentTimelineItemContent(item) })
+      .catch((err: unknown) =>
+        this.logger.warn({ err, agentId }, "Failed to save user shell history"),
+      );
   }
 
   async emitLiveTimelineItem(agentId: string, item: AgentTimelineItem): Promise<void> {
@@ -3205,6 +3220,7 @@ export class AgentManager {
   async deleteAgentState(agentId: string): Promise<void> {
     this.discardRetainedAgentState(agentId);
     await this.deleteCommittedTimeline(agentId);
+    await this.userShellHistory?.delete(agentId);
   }
 
   async deleteCommittedTimeline(agentId: string): Promise<void> {
@@ -3994,6 +4010,16 @@ export class AgentManager {
         providerSubagentEvents.push(event);
       }
     }
+    // Force hydration follows a rewind, so commands after the new end of history are undone.
+    const lastHistoryTimestamp = historyEvents.findLast((event) => event.timestamp)?.timestamp;
+    if (lastHistoryTimestamp) {
+      await this.userShellHistory
+        ?.pruneAfter(agent.id, lastHistoryTimestamp)
+        .catch((err: unknown) =>
+          this.logger.warn({ err, agentId: agent.id }, "Failed to prune user shell history"),
+        );
+    }
+    const mergedHistoryEvents = await this.mergeUserShellHistory(agent, historyEvents);
 
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     await this.deleteCommittedTimeline(agent.id);
@@ -4012,7 +4038,7 @@ export class AgentManager {
         this.dispatch({ type: "provider_subagent", event: update });
       }
     }
-    for (const event of historyEvents) {
+    for (const event of mergedHistoryEvents) {
       const row = this.recordTimeline(
         agent.id,
         event.item,
@@ -4028,6 +4054,20 @@ export class AgentManager {
     }
     this.touchUpdatedAt(agent);
     this.emitState(agent);
+  }
+
+  private async mergeUserShellHistory(
+    agent: ActiveManagedAgent,
+    historyEvents: Extract<AgentStreamEvent, { type: "timeline" }>[],
+  ): Promise<Extract<AgentStreamEvent, { type: "timeline" }>[]> {
+    if (!this.userShellHistory) return historyEvents;
+    try {
+      const entries = await this.userShellHistory.list(agent.id);
+      return mergeUserShellHistory(historyEvents, entries, agent.provider);
+    } catch (err) {
+      this.logger.warn({ err, agentId: agent.id }, "Failed to read user shell history");
+      return historyEvents;
+    }
   }
 
   private async primeTimelineFromLegacyProviderHistory(
@@ -4064,6 +4104,7 @@ export class AgentManager {
     // The replay is the timeline, so drop the rows a previous hydration committed.
     // Keeping them would leave getTimelineRows reading one copy per hydration.
     await this.deleteCommittedTimeline(agent.id);
+    const mergedHistoryEvents = await this.mergeUserShellHistory(agent, historyEvents);
 
     const timelineEvents: Array<{
       event: Extract<AgentStreamEvent, { type: "timeline" }>;
@@ -4079,7 +4120,7 @@ export class AgentManager {
         this.dispatch(managerEvent);
       }
     }
-    for (const event of historyEvents) {
+    for (const event of mergedHistoryEvents) {
       const row = this.recordTimeline(
         agent.id,
         event.item,

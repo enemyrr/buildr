@@ -1329,6 +1329,11 @@ function ComposerContentImpl({
     () => textSource.getSnapshot().trim().length > 0,
     () => textSource.getSnapshot().trim().length > 0,
   );
+  const startsWithShellPrefix = useSyncExternalStore(
+    textSource.subscribe,
+    () => textSource.getSnapshot().trimStart().startsWith("!"),
+    () => textSource.getSnapshot().trimStart().startsWith("!"),
+  );
   const setUserInput = onChangeText;
   const workspaceAttachments = useWorkspaceAttachmentsForScopes(attachmentScopeKeys);
   const {
@@ -2371,6 +2376,14 @@ function ComposerContentImpl({
     [isComposerLocked],
   );
 
+  // Mirrors resolveShellCommand: attachments send the draft to the agent instead.
+  const isShellDraft =
+    Boolean(onShellCommand) && startsWithShellPrefix && selectedAttachments.length === 0;
+  const messageInputWrapperStyle = useMemo(
+    () => [inputWrapperStyle, isShellDraft && styles.shellInputWrapper],
+    [inputWrapperStyle, isShellDraft],
+  );
+
   const attachmentTray = useMemo(
     () =>
       renderAttachmentTray({
@@ -2550,7 +2563,7 @@ function ComposerContentImpl({
                   onSelectionChange={inlineAttachments.handleSelectionChange}
                   onFocusChange={handleFocusChange}
                   onHeightChange={onComposerHeightChange}
-                  inputWrapperStyle={inputWrapperStyle}
+                  inputWrapperStyle={messageInputWrapperStyle}
                   attachmentSlot={attachmentTray}
                   inlineChips={inlineAttachments.chips}
                   inputMode={inputMode}
@@ -2627,6 +2640,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: "relative",
     width: "100%",
     gap: theme.spacing[3],
+  },
+  shellInputWrapper: {
+    borderColor: theme.colors.palette.purple[500],
   },
   // Same box as the send button, so the swap doesn't move anything.
   // Same box as the send button, so the swap doesn't move or restyle anything.

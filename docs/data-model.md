@@ -52,6 +52,8 @@ $PASEO_HOME/
 ├── agents/
 │   └── {sanitized-cwd}/
 │       └── {agentId}.json               # One file per agent
+├── user-shell-history/
+│   └── {agentId}.json                   # Finished composer `!` commands, merged into provider history on rehydrate
 ├── schedules/
 │   └── {scheduleId}.json                # One file per schedule
 ├── projects/

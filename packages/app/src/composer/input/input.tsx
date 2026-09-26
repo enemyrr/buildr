@@ -165,7 +165,7 @@ export interface MessageInputProps {
   onFocusChange?: (focused: boolean) => void;
   onHeightChange?: (height: number) => void;
   /** Extra styles merged onto the input wrapper (e.g. elevated background). */
-  inputWrapperStyle?: import("react-native").ViewStyle;
+  inputWrapperStyle?: import("react-native").StyleProp<import("react-native").ViewStyle>;
   /** Content rendered inside the bordered input surface, above the text input (e.g. attachment pills). */
   attachmentSlot?: React.ReactNode;
   /** Attachments painted as chips over their tokens in the text. Web only. */
@@ -1034,7 +1034,7 @@ interface ResolvedMessageInputProps {
   onSelectionChangeCallback: ((selection: { start: number; end: number }) => void) | undefined;
   onFocusChange: ((focused: boolean) => void) | undefined;
   onHeightChange: ((height: number) => void) | undefined;
-  inputWrapperStyle: import("react-native").ViewStyle | undefined;
+  inputWrapperStyle: import("react-native").StyleProp<import("react-native").ViewStyle>;
   attachmentSlot: React.ReactNode;
   inlineChips: readonly InlineChip[] | undefined;
   inputMode: ComposerInputMode;

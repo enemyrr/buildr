@@ -7824,7 +7824,8 @@ export class Session {
         cwd: snapshot.cwd,
         terminalManager,
         emitLiveTimelineItem: (item) => this.agentManager.emitLiveTimelineItem(msg.agentId, item),
-        appendTimelineItem: (item) => this.agentManager.appendTimelineItem(msg.agentId, item),
+        appendTimelineItem: (item) =>
+          this.agentManager.appendUserShellTimelineItem(msg.agentId, item),
       }).catch((err: unknown) => {
         this.sessionLogger.error({ err, agentId: msg.agentId }, "Agent shell command failed");
       });
