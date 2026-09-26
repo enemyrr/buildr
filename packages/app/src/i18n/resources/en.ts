@@ -1314,6 +1314,7 @@ export const en = {
       untitledAgent: "Untitled agent",
       limits: "Plan limits",
       updateHost: "Update the host to see CPU and memory usage.",
+      switchProvider: "Switch to {{name}}",
     },
     sections: {
       dashboard: "Dashboard",

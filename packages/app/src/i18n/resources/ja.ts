@@ -1302,6 +1302,7 @@ export const ja: TranslationResources = {
       untitledAgent: "無題のエージェント",
       limits: "プランの上限",
       updateHost: "CPU とメモリの使用量を見るにはホストを更新してください。",
+      switchProvider: "{{name}} に切り替え",
     },
     sections: {
       dashboard: "ダッシュボード",

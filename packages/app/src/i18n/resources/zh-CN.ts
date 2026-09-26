@@ -1278,6 +1278,7 @@ export const zhCN: TranslationResources = {
       untitledAgent: "未命名代理",
       limits: "套餐限额",
       updateHost: "更新主机以查看 CPU 和内存用量。",
+      switchProvider: "切换到 {{name}}",
     },
     sections: {
       dashboard: "看板",

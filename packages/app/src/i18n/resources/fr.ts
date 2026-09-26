@@ -1327,6 +1327,7 @@ export const fr: TranslationResources = {
       untitledAgent: "Agent sans titre",
       limits: "Limites du forfait",
       updateHost: "Mettez à jour l’hôte pour voir le CPU et la mémoire.",
+      switchProvider: "Passer à {{name}}",
     },
     sections: {
       dashboard: "Tableau de bord",

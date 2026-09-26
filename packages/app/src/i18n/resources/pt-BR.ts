@@ -1316,6 +1316,7 @@ export const ptBR: TranslationResources = {
       untitledAgent: "Agente sem título",
       limits: "Limites do plano",
       updateHost: "Atualize o host para ver o uso de CPU e memória.",
+      switchProvider: "Mudar para {{name}}",
     },
     sections: {
       dashboard: "Painel",

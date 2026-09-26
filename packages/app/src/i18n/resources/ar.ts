@@ -1286,6 +1286,7 @@ export const ar: TranslationResources = {
       untitledAgent: "وكيل بلا عنوان",
       limits: "حدود الخطة",
       updateHost: "حدّث المضيف لرؤية استخدام المعالج والذاكرة.",
+      switchProvider: "التبديل إلى {{name}}",
     },
     sections: {
       dashboard: "لوحة التحكم",

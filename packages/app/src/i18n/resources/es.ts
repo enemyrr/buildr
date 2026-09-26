@@ -1325,6 +1325,7 @@ export const es: TranslationResources = {
       untitledAgent: "Agente sin título",
       limits: "Límites del plan",
       updateHost: "Actualiza el host para ver el uso de CPU y memoria.",
+      switchProvider: "Cambiar a {{name}}",
     },
     sections: {
       dashboard: "Panel",

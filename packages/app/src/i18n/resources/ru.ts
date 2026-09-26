@@ -1307,6 +1307,7 @@ export const ru: TranslationResources = {
       untitledAgent: "Агент без названия",
       limits: "Лимиты тарифа",
       updateHost: "Обновите хост, чтобы видеть загрузку ЦП и памяти.",
+      switchProvider: "Переключиться на {{name}}",
     },
     sections: {
       dashboard: "Панель",

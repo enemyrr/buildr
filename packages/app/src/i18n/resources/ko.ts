@@ -1294,6 +1294,7 @@ export const ko: TranslationResources = {
       untitledAgent: "제목 없는 에이전트",
       limits: "요금제 한도",
       updateHost: "CPU 및 메모리 사용량을 보려면 호스트를 업데이트하세요.",
+      switchProvider: "{{name}}(으)로 전환",
     },
     sections: {
       dashboard: "대시보드",
