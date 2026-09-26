@@ -41,6 +41,7 @@ import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { HostPicker as SharedHostPicker } from "@/components/hosts/host-picker";
 import { HostStatusDot } from "@/components/host-status-dot";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
+import { SettingsNavigationSearch } from "@/screens/settings/settings-navigation-search";
 import { AppearanceSection } from "@/screens/settings/appearance/appearance-section";
 import { LayoutSection } from "@/screens/settings/layout/layout-section";
 import {
@@ -440,7 +441,7 @@ function GeneralSection({
   }, [settings.terminalScrollbackLines]);
 
   return (
-    <SettingsSection title={t("settings.general.title")}>
+    <View style={settingsStyles.section}>
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
@@ -544,7 +545,7 @@ function GeneralSection({
           />
         </View>
       </View>
-    </SettingsSection>
+    </View>
   );
 }
 
@@ -635,7 +636,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
   const { t } = useTranslation();
   return (
     <>
-      <SettingsSection title={t("settings.about.title")}>
+      <View style={settingsStyles.section}>
         <View style={settingsStyles.card}>
           <View style={settingsStyles.row}>
             <View style={settingsStyles.rowContent}>
@@ -647,7 +648,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
           <WhatsNewRow />
           {isDesktopApp ? <DesktopAppUpdateRow /> : null}
         </View>
-      </SettingsSection>
+      </View>
       <ConnectedHostsSection clientVersion={appVersion} />
     </>
   );
@@ -1255,15 +1256,24 @@ function SettingsSidebar({
           ) : null}
         </View>
       )}
-      {LEADING_NAV_GROUPS.map(renderGroup)}
-      {hasHosts && activeHostServerId ? (
-        <SidebarProjectsGroup
-          serverId={activeHostServerId}
-          selectedProjectId={view.kind === "project" ? view.projectId : null}
-          onSelectProject={onSelectProject}
-        />
-      ) : null}
-      {TRAILING_NAV_GROUPS.map(renderGroup)}
+      <SettingsNavigationSearch
+        entries={[...LEADING_NAV_GROUPS, ...TRAILING_NAV_GROUPS]
+          .flatMap((group) => group.items)
+          .filter(isItemVisible)}
+        isDesktopApp={isDesktopApp}
+        onSelectSection={onSelectSection}
+        onSelectHostSection={onSelectHostSection}
+      >
+        {LEADING_NAV_GROUPS.map(renderGroup)}
+        {hasHosts && activeHostServerId ? (
+          <SidebarProjectsGroup
+            serverId={activeHostServerId}
+            selectedProjectId={view.kind === "project" ? view.projectId : null}
+            onSelectProject={onSelectProject}
+          />
+        ) : null}
+        {TRAILING_NAV_GROUPS.map(renderGroup)}
+      </SettingsNavigationSearch>
     </>
   );
 
@@ -1928,7 +1938,7 @@ const sidebarStyles = StyleSheet.create((theme) => ({
     gap: theme.spacing[1],
   },
   groupLabel: {
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
     color: theme.colors.foregroundMuted,
     paddingHorizontal: theme.spacing[2],
@@ -1938,10 +1948,10 @@ const sidebarStyles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
+    minHeight: { xs: 36, md: 32 },
+    paddingVertical: { xs: theme.spacing[2], md: theme.spacing[1.5] },
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: theme.borderRadius.md,
   },
   itemHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,

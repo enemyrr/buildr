@@ -63,6 +63,8 @@ interface PrStatusStripProps {
   variant?: "bar" | "inline";
   /** Opens the in-app pull request view. Without it, the number opens the browser too. */
   onOpenPullRequest?: () => void;
+  /** Additional controls at the end of the Explorer bar. */
+  trailingAccessory?: ReactNode;
 }
 
 /**
@@ -76,6 +78,7 @@ export function PrStatusStrip({
   gitActions,
   variant = "bar",
   onOpenPullRequest,
+  trailingAccessory,
 }: PrStatusStripProps) {
   const { t } = useTranslation();
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
@@ -236,6 +239,7 @@ export function PrStatusStrip({
       </View>
       <View style={styles.actions}>
         {state.actions.map((action) => renderAction(action, false))}
+        {trailingAccessory}
       </View>
     </View>
   );

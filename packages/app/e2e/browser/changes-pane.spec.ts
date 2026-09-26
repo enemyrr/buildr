@@ -8,7 +8,11 @@ import { daemonWsRoutePattern } from "../support/helpers/daemon-port";
 import { getServerId } from "../support/helpers/server-id";
 import { connectSeedClient } from "../support/helpers/seed-client";
 import { createTempGitRepo } from "../support/helpers/workspace";
-import { openChangesPanel, waitForWorkspaceTabsVisible } from "../support/helpers/workspace-tabs";
+import {
+  openChangesPanel,
+  openChangesTreePanel,
+  waitForWorkspaceTabsVisible,
+} from "../support/helpers/workspace-tabs";
 
 interface DirtyWorkspace {
   id: string;
@@ -260,6 +264,82 @@ test.afterEach(async () => {
   for (const task of cleanupTasks.splice(0)) {
     await task.run();
   }
+});
+
+test("Changes filters file paths in flat and folder views without changing the diff", async ({
+  page,
+}, testInfo) => {
+  const workspace = await createWorkspaceWithMountedTabDiff({ includeNestedFolders: true });
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(buildHostWorkspaceRoute(getServerId(), workspace.id));
+  await waitForWorkspaceTabsVisible(page);
+  await openChangesTreePanel(page);
+  const explorer = page.getByTestId("workspace-explorer-sidebar");
+  await expect(
+    explorer.getByTestId("explorer-sidebar-tab-rail").getByText("Checks", { exact: true }),
+  ).toBeInViewport({ ratio: 1 });
+  await explorer
+    .getByTestId("workspace-explorer-git-bar")
+    .getByTestId("changes-actions-menu-trigger")
+    .click();
+  await expect(page.getByTestId("changes-primary-cta-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  const summary = explorer.getByTestId("changes-selected-diff-stat");
+  await expect(explorer.getByText("3 files changed", { exact: true })).toBeVisible();
+  const totalDiff = (await summary.textContent()) ?? "";
+  await explorer.getByTestId("changes-toggle-filter").click();
+  const filter = explorer.getByTestId("changes-file-filter");
+  await expect(filter).toBeFocused();
+  await filter.fill(" NESTED/CHANGED ");
+  await expect(explorer.getByTestId("changes-filter-count")).toHaveText("1 of 3");
+  await expect(
+    explorer.getByTestId("changes-file-list").getByText("changed.ts", { exact: true }),
+  ).toBeVisible();
+  await expect(explorer.getByText("use-mounted-tab-set.ts", { exact: true })).toHaveCount(0);
+  await expect(summary).toHaveText(totalDiff);
+  await explorer.getByTestId("changes-toggle-list-layout").click();
+  await expect(
+    explorer.getByTestId("changes-file-tree").getByText("changed.ts", { exact: true }),
+  ).toBeVisible();
+  await filter.fill("no-such-file");
+  await expect(explorer.getByTestId("changes-filter-count")).toHaveText("0 of 3");
+  await expect(explorer.getByTestId("changes-filter-empty")).toHaveText(
+    "No files match this filter.",
+  );
+  await expect(page.getByTestId("git-diff-canvas-root")).toHaveCount(0);
+  await explorer.getByTestId("changes-clear-filter").click();
+  await expect(filter).toHaveValue("");
+  await expect(explorer.getByTestId("changes-filter-count")).toHaveText("3 of 3");
+  await filter.fill("changed.ts");
+  await testInfo.attach("changes-sidebar-filter", {
+    body: await explorer.screenshot(),
+    contentType: "image/png",
+  });
+  await filter.press("Escape");
+  await expect(filter).toHaveCount(0);
+  await expect(explorer.getByText("use-mounted-tab-set.ts", { exact: true })).toBeVisible();
+});
+
+test("Changes filter reveals collapsed matches and restores the folder layout", async ({
+  page,
+}) => {
+  const workspace = await createWorkspaceWithMountedTabDiff({ includeNestedFolders: true });
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(buildHostWorkspaceRoute(getServerId(), workspace.id));
+  await waitForWorkspaceTabsVisible(page);
+  await openChangesTreePanel(page);
+  const explorer = page.getByTestId("workspace-explorer-sidebar");
+  await expect(explorer.getByText("3 files changed", { exact: true })).toBeVisible();
+  await explorer.getByTestId("changes-toggle-list-layout").click();
+  await explorer.getByTestId("diff-folder-src-toggle").click();
+  await expect(explorer.getByText("changed.ts", { exact: true })).toHaveCount(0);
+  await explorer.getByTestId("changes-toggle-filter").click();
+  await explorer.getByTestId("changes-file-filter").fill("changed.ts");
+  await expect(explorer.getByText("changed.ts", { exact: true })).toBeVisible();
+  await explorer.getByTestId("changes-clear-filter").click();
+  await expect(explorer.getByText("changed.ts", { exact: true })).toHaveCount(0);
+  await explorer.getByTestId("diff-folder-src-toggle").click();
+  await expect(explorer.getByText("changed.ts", { exact: true })).toBeVisible();
 });
 
 test("Changes opens the populated committed comparison for a clean checkout", async ({ page }) => {
@@ -823,7 +903,10 @@ test("Changes keeps review navigation and controls inside its workspace tab", as
 test("compact Changes keeps its actions compact and menu-only", async ({ page }) => {
   const workspace = await createWorkspaceWithMountedTabDiff();
   await useUnwrappedDiffLines(page);
-  await openWorkspaceChanges(page, workspace);
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(buildHostWorkspaceRoute(getServerId(), workspace.id));
+  await waitForWorkspaceTabsVisible(page);
+  await openChangesTreePanel(page);
   await page.setViewportSize({ width: 480, height: 900 });
 
   const compactChangesTab = page.getByTestId("explorer-tab-changes").filter({ visible: true });
@@ -835,7 +918,7 @@ test("compact Changes keeps its actions compact and menu-only", async ({ page })
   const compactExplorer = page.getByTestId("explorer-content-area").filter({ visible: true });
   await expect(compactExplorer.getByTestId("changes-header")).toBeVisible();
 
-  const actions = compactExplorer.getByTestId("changes-actions-menu-trigger");
+  const actions = page.getByTestId("changes-actions-menu-trigger").filter({ visible: true });
   const options = compactExplorer.getByRole("button", { name: "Diff options" });
   const [actionsBox, optionsBox, glyphBox] = await Promise.all([
     actions.boundingBox(),

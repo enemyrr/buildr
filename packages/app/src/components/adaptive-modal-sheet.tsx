@@ -65,6 +65,8 @@ export interface SheetHeaderBack {
 }
 
 export interface SheetHeader {
+  /** Tight chrome for a composer or toolbar-led dialog. */
+  density?: "compact";
   title: string;
   subtitle?: ReactNode;
   back?: SheetHeaderBack;
@@ -116,10 +118,16 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
   },
+  headerRowCompact: {
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[2],
+  },
   headerBackButton: {
     borderRadius: theme.borderRadius.lg,
   },
   headerLeadingSlot: {
+    minWidth: 0,
+    flexShrink: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -332,7 +340,7 @@ export function SheetHeaderView({
       style={[styles.headerContainer, header.borderless && styles.headerContainerBorderless]}
       testID={testID}
     >
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, header.density === "compact" && styles.headerRowCompact]}>
         {handleBackPress ? (
           <Pressable
             onPress={handleBackPress}
@@ -468,6 +476,8 @@ export interface AdaptiveModalSheetProps {
   testID?: string;
   /** Override the max width of the desktop card. */
   desktopMaxWidth?: number;
+  /** Surface styling for a desktop card with a specialized composition. */
+  desktopCardStyle?: StyleProp<ViewStyle>;
   /** Bound an author-owned list without changing content-sized first-party dialogs. */
   desktopHeight?: DimensionValue;
   /** Whether the host supplies the scroll container. Caller-owned lists still share sheet gestures. */
@@ -494,6 +504,7 @@ export function AdaptiveModalSheet({
   snapPoints,
   testID,
   desktopMaxWidth,
+  desktopCardStyle: customDesktopCardStyle,
   desktopHeight,
   scrollable = true,
   presentation,
@@ -565,10 +576,11 @@ export function AdaptiveModalSheet({
   const desktopCardStyle = useMemo(
     () => [
       styles.desktopCard,
+      customDesktopCardStyle,
       desktopHeight != null && { height: desktopHeight },
       desktopMaxWidth != null && { maxWidth: desktopMaxWidth },
     ],
-    [desktopMaxWidth, desktopHeight],
+    [desktopMaxWidth, desktopHeight, customDesktopCardStyle],
   );
   const desktopOverlayStyle = useMemo(
     () => [

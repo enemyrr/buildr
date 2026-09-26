@@ -20,6 +20,8 @@ import {
   ChevronDown,
   Columns2,
   ExternalLink,
+  Filter,
+  ListTree,
   ListChevronsDownUp,
   ListChevronsUpDown,
   Maximize,
@@ -73,6 +75,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
+import { useChangesFileFilter } from "@/git/changes-file-filter";
 import {
   PaneContentToolbar,
   paneContentToolbarIconSize,
@@ -196,6 +199,8 @@ const ThemedMaximize = withUnistyles(Maximize);
 const noopStateChange = () => {};
 const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedMoreHorizontal = withUnistyles(MoreHorizontal);
+const ThemedFilter = withUnistyles(Filter);
+const ThemedListTree = withUnistyles(ListTree);
 const ThemedExternalLink = withUnistyles(ExternalLink);
 const DIFF_OPTIONS_WHITESPACE_ICON = (
   <ThemedPilcrow size={14} uniProps={foregroundMutedIconColorMapping} />
@@ -473,6 +478,7 @@ interface ChangesHeaderProps {
   repository: ChangesRepositoryToolbarModel;
   comparison: ChangesComparisonToolbarModel;
   sidebarSurface: boolean;
+  fileFilter: ChangesToolbarInlineDiffToggle;
 }
 
 interface BuildChangesHeaderModelInput {
@@ -526,6 +532,7 @@ function ChangesHeader({
   repository,
   comparison,
   sidebarSurface,
+  fileFilter,
 }: ChangesHeaderProps) {
   if (comparison.mode.kind === "diff") {
     return (
@@ -536,10 +543,12 @@ function ChangesHeader({
       />
     );
   }
-  // The desktop Explorer's tab rail already carries the PR and git actions, so the
+  // The desktop Explorer already carries the PR and git actions, so the
   // sidebar collapses to one summary row and folds the comparison into the options menu.
   if (sidebarSurface && !compact) {
-    return <ChangesSidebarToolbar model={comparison} menu={comparisonMenu} />;
+    return (
+      <ChangesSidebarToolbar model={comparison} menu={comparisonMenu} fileFilter={fileFilter} />
+    );
   }
   return (
     <View>
@@ -759,9 +768,11 @@ function ChangesComparisonToolbar({
 function ChangesSidebarToolbar({
   model,
   menu,
+  fileFilter,
 }: {
   model: ChangesComparisonToolbarModel;
   menu: ChangesMenuExtension;
+  fileFilter: ChangesToolbarInlineDiffToggle;
 }) {
   const { t } = useTranslation();
   const stat = model.selectedDiffStat;
@@ -782,6 +793,34 @@ function ChangesSidebarToolbar({
         ) : null}
       </ChangesToolbarLeading>
       <ChangesToolbarTrailing>
+        <ToolbarButton
+          label={t("workspace.git.prFlow.changes.filterFiles")}
+          selected={fileFilter.value}
+          onPress={fileFilter.onToggle}
+          testID="changes-toggle-filter"
+        >
+          <ThemedFilter
+            size={paneContentToolbarIconSize(false)}
+            uniProps={extraMutedIconColorMapping}
+          />
+        </ToolbarButton>
+        {model.mode.kind === "tree" ? (
+          <ToolbarButton
+            label={t(
+              model.mode.listAsTree.value
+                ? "workspace.git.prFlow.changes.showAsList"
+                : "workspace.git.prFlow.changes.showAsTree",
+            )}
+            selected={model.mode.listAsTree.value}
+            onPress={model.mode.listAsTree.onToggle}
+            testID="changes-toggle-list-layout"
+          >
+            <ThemedListTree
+              size={paneContentToolbarIconSize(false)}
+              uniProps={extraMutedIconColorMapping}
+            />
+          </ToolbarButton>
+        ) : null}
         <ChangesToolbarActions mode={model.mode} compact={false} menu={menu} />
       </ChangesToolbarTrailing>
     </ChangesToolbarRow>
@@ -1389,6 +1428,7 @@ function ChangesTreeRail({
 function ChangesBody({
   presentation,
   children,
+  emptyContent,
   desktopTreeVisible,
   isMobile,
   files,
@@ -1403,6 +1443,7 @@ function ChangesBody({
   presentation: ChangesPresentation;
   listMode: "flat" | "tree";
   children: ReactElement;
+  emptyContent: ReactElement | null;
   desktopTreeVisible: boolean;
   isMobile: boolean;
   files: ParsedDiffFile[];
@@ -1414,7 +1455,7 @@ function ChangesBody({
   onCollapsedFolderPathsChange: (paths: string[]) => void;
 }) {
   if (presentation === "tree") {
-    if (files.length === 0) return children;
+    if (files.length === 0) return emptyContent ?? children;
     return (
       <View style={styles.listBody}>
         {isMobile ? <ChangesListSummary files={files} /> : null}
@@ -1678,6 +1719,13 @@ export function ChangesSurface({
     attachment: reviewAttachment,
     enabled: true,
   });
+  const fileFilter = useChangesFileFilter({
+    presentation,
+    compact: isMobile,
+    files,
+    collapsedFolderPaths: instanceState.collapsedFolderPaths,
+    onCollapsedFolderPathsChange: updateCollapsedFolderPaths,
+  });
   const {
     status: pullRequestStatus,
     githubFeaturesEnabled,
@@ -1919,16 +1967,17 @@ export function ChangesSurface({
   const bodyContent = (
     <ChangesBody
       presentation={presentation}
+      emptyContent={fileFilter.emptyContent}
       listMode={preferences.sidebarListMode}
       desktopTreeVisible={desktopTreeVisible}
       isMobile={isMobile}
-      files={files}
+      files={fileFilter.files}
       mode={workingMode}
       onSelectFile={handleSelectTreeFile}
       treeWidth={instanceState.treeWidth}
       onTreeWidthChange={handleChangesTreeWidth}
-      collapsedFolderPaths={instanceState.collapsedFolderPaths}
-      onCollapsedFolderPathsChange={updateCollapsedFolderPaths}
+      collapsedFolderPaths={fileFilter.collapsedFolderPaths}
+      onCollapsedFolderPathsChange={fileFilter.onCollapsedFolderPathsChange}
     >
       {diffContent}
     </ChangesBody>
@@ -2052,8 +2101,11 @@ export function ChangesSurface({
           repository={changesHeaderModel.repository}
           comparison={changesHeaderModel.comparison}
           sidebarSurface={presentation === "tree"}
+          fileFilter={fileFilter.control}
         />
       ) : null}
+
+      {fileFilter.field}
 
       {forgeSetupMessage ? (
         <View style={styles.forgeSetupCallout} testID="forge-setup-callout">

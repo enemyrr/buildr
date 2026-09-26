@@ -179,6 +179,9 @@ its own.
 - **Released height.** Reanimated's web entering animation leaves an inline height snapshot on
   the surface. `AnchoredSurface` clears it, and a `revision` prop re-clears it when content
   identity changes — a pushed page taller than the one it replaced is clipped without that.
+- **Async scrollable content.** Scrollable web popovers use the built-in fade. Custom keyframe
+  cleanup restores the opening position after loading content has grown, which can push a
+  bottom-anchored popover below the window.
 - **Animate only once placed.** The same snapshot carries top/left, and Reanimated writes it back
   750ms after mount. `AnchoredSurface` remounts the surface when its position resolves so the
   entering animation never ends at the off-screen measuring position; on a slow machine that

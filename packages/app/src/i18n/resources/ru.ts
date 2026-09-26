@@ -824,6 +824,7 @@ export const ru: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "Действия Git",
         moreOptions: "Дополнительные параметры",
         moreActions: "Дополнительные действия",
         commit: {
@@ -1027,7 +1028,7 @@ export const ru: TranslationResources = {
       },
       openInEditor: {
         open: "Открыть",
-        chooseEditor: "Выбрать редактор",
+        chooseEditor: "Открыть в…",
         openIn: "Открыть рабочее пространство в {{target}}",
         openFileIn: "Открыть {{fileName}} в {{target}}",
         failedOpen: "Не удалось открыть рабочее пространство",
@@ -1079,6 +1080,11 @@ export const ru: TranslationResources = {
           filesChanged_one: "Изменён {{count}} файл",
           filesChanged_other: "Изменено файлов: {{count}}",
           showAsTree: "Показать деревом",
+          showAsList: "Показать списком",
+          filterFiles: "Фильтр файлов",
+          filteredFiles: "{{visible}} из {{total}}",
+          noMatchingFiles: "Нет файлов, соответствующих фильтру.",
+          clearFilter: "Сбросить фильтр",
         },
         checks: {
           titlePlaceholder: "Заголовок PR",
@@ -1294,7 +1300,8 @@ export const ru: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "Ресурсы и использование",
+      unavailableProviders: "Недоступные провайдеры ({{count}})",
+      trigger: "Использование",
       title: "Ресурсы",
       cpu: "ЦП",
       memory: "Память",
@@ -2118,6 +2125,11 @@ export const ru: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "Поиск настроек",
+      clear: "Очистить поиск настроек",
+      noResults: "Подходящих настроек нет",
+    },
     defaultModels: en.settings.defaultModels,
     title: "Настройки",
     loading: "Загрузка настроек...",

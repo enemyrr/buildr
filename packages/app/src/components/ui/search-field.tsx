@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type ReactElement } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type TextInputProps } from "react-native";
 import { Search, X } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -27,6 +27,8 @@ export interface SearchFieldProps {
   clearAccessibilityLabel: string;
   testID?: string;
   clearTestID?: string;
+  autoFocus?: boolean;
+  onKeyPress?: TextInputProps["onKeyPress"];
 }
 
 /**
@@ -44,6 +46,8 @@ export function SearchField({
   clearAccessibilityLabel,
   testID,
   clearTestID,
+  autoFocus,
+  onKeyPress,
 }: SearchFieldProps): ReactElement {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<EditingTextInputHandle>(null);
@@ -68,6 +72,8 @@ export function SearchField({
         accessibilityLabel={accessibilityLabel ?? placeholder}
         autoCapitalize="none"
         autoCorrect={false}
+        autoFocus={autoFocus}
+        onKeyPress={onKeyPress}
         returnKeyType="search"
         style={styles.input}
       />

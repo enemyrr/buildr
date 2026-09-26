@@ -114,7 +114,7 @@ async function openDesktopWorkspaceList(page: Page) {
 async function expectHoverKeepsTitleWidth(page: Page, width: number, testInfo: TestInfo) {
   const row = workspaceRow(page);
   await row.hover();
-  await expect(row.getByLabel("Workspace actions", { exact: true })).toBeVisible();
+  await expect(row.getByTestId(/^sidebar-workspace-archive-/)).toBeVisible();
   expect(await titleWidth(row)).toBeCloseTo(width, 0);
   await page.screenshot({ path: testInfo.outputPath("desktop-hover.png") });
 }

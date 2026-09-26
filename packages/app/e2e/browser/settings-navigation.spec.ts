@@ -53,6 +53,32 @@ async function openWorkspace(
 }
 
 test.describe("Settings sidebar navigation", () => {
+  test("settings search finds controls and opens their page", async ({ page }) => {
+    await gotoAppShell(page);
+    await openSettings(page);
+    await openSettingsSection(page, "appearance");
+
+    const search = page.getByTestId("settings-search");
+    await search.fill("  ScRoLlBaCk  ");
+    const results = page.getByTestId("settings-search-results");
+    await expect(results.getByRole("button")).toHaveCount(1);
+    await expect(results).toContainText("Terminal scrollback");
+    await search.press("Enter");
+    await expectSettingsHeader(page, "General");
+    await expect(page.getByLabel("Terminal scrollback lines", { exact: true })).toBeVisible();
+
+    await search.fill("code font");
+    await results.getByRole("button", { name: /Appearance/ }).click();
+    await expectSettingsHeader(page, "Appearance");
+    await search.fill("not-a-setting");
+    await expect(results).toHaveText("No matching settings");
+    await page.getByTestId("settings-search-clear").click();
+    await expect(search).toHaveValue("");
+    await expect(results).toHaveCount(0);
+    await openSettingsSection(page, "general");
+    await expectSettingsHeader(page, "General");
+  });
+
   test("clicking a sidebar section updates the URL and renders the section", async ({ page }) => {
     await gotoAppShell(page);
     await openSettings(page);
@@ -143,6 +169,22 @@ test.describe("Settings sidebar navigation", () => {
 
 test.describe("Settings — compact master-detail", () => {
   test.use({ viewport: { width: 390, height: 844 } });
+
+  test("settings search opens a result on a compact screen", async ({ page }) => {
+    await gotoAppShell(page);
+    await openCompactSettings(page, buildOpenProjectRoute());
+    await page.getByTestId("settings-search").fill("scrollback");
+    await page
+      .getByTestId("settings-search-results")
+      .getByRole("button", { name: /General/ })
+      .click();
+    await expectAppRoute(page, buildSettingsSectionRoute("general"));
+    await expectSettingsSidebarHidden(page);
+    await expect(page.getByLabel("Terminal scrollback lines", { exact: true })).toBeVisible();
+    await goBackInSettings(page);
+    await expectCompactSettingsList(page);
+    await expect(page.getByTestId("settings-search")).toBeVisible();
+  });
 
   test("opens compact app and host details and returns through the settings list", async ({
     page,

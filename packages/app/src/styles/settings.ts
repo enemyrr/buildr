@@ -40,7 +40,7 @@ export const settingsStyles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: theme.spacing[4],
+    paddingVertical: { xs: theme.spacing[4], md: theme.spacing[3] },
     paddingHorizontal: theme.spacing[1],
   },
   rowBorder: {

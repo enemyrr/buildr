@@ -14,7 +14,16 @@ import { Pressable, Text, View } from "react-native";
 import type { PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Folder, FolderPlus, GitBranch, X } from "lucide-react-native";
+import {
+  ChevronDown,
+  CircleDot,
+  Folder,
+  FolderPlus,
+  GitBranch,
+  GitPullRequest,
+  Monitor,
+  X,
+} from "lucide-react-native";
 import { Composer } from "@/composer";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
@@ -243,13 +252,20 @@ function RefPickerBadgeContent({
   triggerLabel,
   iconColor,
   iconSize,
+  iconOnly = false,
 }: {
   selectedItem: PickerItem | null;
   triggerLabel: string;
   iconColor: string;
   iconSize: number;
+  iconOnly?: boolean;
 }) {
   const { t } = useTranslation();
+  if (iconOnly) {
+    const icons = { branch: GitBranch, "github-pr": GitPullRequest, issue: CircleDot };
+    const Icon = icons[selectedItem?.kind ?? "branch"];
+    return <Icon size={iconSize} color={iconColor} />;
+  }
   if (selectedItem && selectedItem.kind !== "branch") {
     const { item } = selectedItem;
     return (
@@ -324,6 +340,7 @@ function RefPickerTrigger({
   tooltipLabel,
   iconColor,
   iconSize,
+  iconOnly = false,
 }: {
   pickerAnchorRef: React.RefObject<View | null>;
   onPress: () => void;
@@ -336,7 +353,9 @@ function RefPickerTrigger({
   tooltipLabel: string;
   iconColor: string;
   iconSize: number;
+  iconOnly?: boolean;
 }) {
+  const accessibilityValue = useMemo(() => ({ text: triggerLabel }), [triggerLabel]);
   // A picked PR ends in a clear button instead of the chevron, like a removable chip.
   const isClearable = Boolean(selectedItem) && selectedItem?.kind !== "branch" && !disabled;
   const trailing = useMemo(
@@ -355,17 +374,21 @@ function RefPickerTrigger({
           style={badgePressableStyle}
           accessibilityRole="button"
           accessibilityLabel={accessibilityLabel}
+          accessibilityValue={accessibilityValue}
         >
           <RefPickerBadgeContent
             selectedItem={selectedItem}
             triggerLabel={triggerLabel}
             iconColor={iconColor}
             iconSize={iconSize}
+            iconOnly={iconOnly}
           />
         </ComboboxTrigger>
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
-        <Text style={styles.tooltipText}>{tooltipLabel}</Text>
+        <Text style={styles.tooltipText}>
+          {iconOnly ? `${tooltipLabel}: ${triggerLabel}` : tooltipLabel}
+        </Text>
       </TooltipContent>
     </Tooltip>
   );
@@ -1448,13 +1471,79 @@ interface NewWorkspaceFormParts {
   cardHeader: NewWorkspaceCardHeader | null;
 }
 
+const ThemedMonitor = withUnistyles(Monitor);
+
+function WorkspaceHostControl({
+  host,
+  isPending,
+  iconOnly,
+  badgePressableStyle,
+}: {
+  host: NewWorkspaceFormStackInput["host"];
+  isPending: boolean;
+  iconOnly: boolean;
+  badgePressableStyle: React.ComponentProps<typeof Pressable>["style"];
+}) {
+  const { t } = useTranslation();
+  const selectedHostLabel =
+    host.allHosts.find((h) => h.serverId === host.selectedServerId)?.label ?? "Host";
+  return (
+    <HostPicker
+      hosts={host.allHosts}
+      value={host.selectedServerId}
+      onSelect={host.onSelect}
+      open={host.openState}
+      onOpenChange={host.onOpenChange}
+      anchorRef={host.anchorRef}
+      searchable={false}
+      title="Host"
+      desktopPlacement="bottom-start"
+      desktopMinWidth={200}
+      hostOptionTestID={newWorkspaceHostOptionTestID}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild triggerRefProp="ref">
+          <Pressable
+            ref={host.anchorRef}
+            accessibilityRole="button"
+            accessibilityLabel="Host"
+            onPress={host.open}
+            disabled={isPending || host.allHosts.length === 0}
+            style={badgePressableStyle}
+            testID="host-picker-trigger"
+          >
+            <View style={styles.badgeIconBox}>
+              {iconOnly ? (
+                <ThemedMonitor size={ICON_SIZE.sm} uniProps={chevronMutedMapping} />
+              ) : (
+                <HostStatusDot serverId={host.selectedServerId} />
+              )}
+            </View>
+            {iconOnly ? null : (
+              <>
+                <Text style={styles.badgeText} numberOfLines={1}>
+                  {selectedHostLabel}
+                </Text>
+                {metaChevron}
+              </>
+            )}
+          </Pressable>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="center" offset={8}>
+          <Text style={styles.tooltipText}>
+            {iconOnly ? selectedHostLabel : t("newWorkspace.tooltips.host")}
+          </Text>
+        </TooltipContent>
+      </Tooltip>
+    </HostPicker>
+  );
+}
+
 function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspaceFormParts {
   const { theme } = useUnistyles();
   const { t } = useTranslation();
   const { isCompact, isDialog, isPending, project, host, isolation, base, launch } = input;
 
-  const selectedHostLabel =
-    host.allHosts.find((h) => h.serverId === host.selectedServerId)?.label ?? "Host";
   const showHostControl = host.allHosts.length > 1;
   const isolationTriggerLabel = isolationLabel(t, isolation.effectiveIsolation);
   const addProjectAction = useMemo(
@@ -1465,11 +1554,12 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
   const badgePressableStyle = useCallback(
     ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.badge,
+      isDialog && styles.dialogBadge,
       Boolean(hovered) && !isPending && styles.badgeHovered,
       pressed && !isPending && styles.badgePressed,
       isPending && styles.badgeDisabled,
     ],
-    [isPending],
+    [isPending, isDialog],
   );
 
   const desktopControlStyle = isCompact ? undefined : styles.desktopControl;
@@ -1514,44 +1604,12 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
 
   const hostControl = showHostControl ? (
     <View style={desktopControlStyle}>
-      <HostPicker
-        hosts={host.allHosts}
-        value={host.selectedServerId}
-        onSelect={host.onSelect}
-        open={host.openState}
-        onOpenChange={host.onOpenChange}
-        anchorRef={host.anchorRef}
-        searchable={false}
-        title="Host"
-        desktopPlacement="bottom-start"
-        desktopMinWidth={200}
-        hostOptionTestID={newWorkspaceHostOptionTestID}
-      >
-        <Tooltip>
-          <TooltipTrigger asChild triggerRefProp="ref">
-            <Pressable
-              ref={host.anchorRef}
-              accessibilityRole="button"
-              accessibilityLabel="Host"
-              onPress={host.open}
-              disabled={isPending || host.allHosts.length === 0}
-              style={badgePressableStyle}
-              testID="host-picker-trigger"
-            >
-              <View style={styles.badgeIconBox}>
-                <HostStatusDot serverId={host.selectedServerId} />
-              </View>
-              <Text style={styles.badgeText} numberOfLines={1}>
-                {selectedHostLabel}
-              </Text>
-              {metaChevron}
-            </Pressable>
-          </TooltipTrigger>
-          <TooltipContent side="top" align="center" offset={8}>
-            <Text style={styles.tooltipText}>{t("newWorkspace.tooltips.host")}</Text>
-          </TooltipContent>
-        </Tooltip>
-      </HostPicker>
+      <WorkspaceHostControl
+        host={host}
+        isPending={isPending}
+        iconOnly={isDialog}
+        badgePressableStyle={badgePressableStyle}
+      />
     </View>
   ) : null;
 
@@ -1590,6 +1648,7 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
         onClear={base.onClear}
         disabled={isPending || !base.selectedSourceDirectory}
         badgePressableStyle={badgePressableStyle}
+        iconOnly={isDialog}
         selectedItem={base.displayItem}
         triggerLabel={base.triggerLabel}
         accessibilityLabel={t("newWorkspace.refPicker.startingRef")}
@@ -1609,6 +1668,7 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
 
   const launchControl = (
     <LaunchControl
+      iconOnly={isDialog}
       serverId={launch.serverId}
       target={launch.target}
       onChange={launch.onChange}
@@ -1625,7 +1685,6 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
         leading: (
           <View style={styles.cardHeaderLeading} testID="new-workspace-ref-picker-row">
             {projectControl}
-            {hostControl}
             <CardHeaderOptionsMenu
               isPending={isPending}
               badgePressableStyle={badgePressableStyle}
@@ -1635,7 +1694,8 @@ function useNewWorkspaceFormParts(input: NewWorkspaceFormStackInput): NewWorkspa
           </View>
         ),
         actions: (
-          <View style={styles.cardHeaderActions}>
+          <View style={styles.cardHeaderActions} testID="new-workspace-setup-controls">
+            {hostControl}
             {baseControl}
             {launchControl}
           </View>
@@ -2690,8 +2750,7 @@ function closeNewWorkspaceDialog() {
   router.replace("/");
 }
 
-// The card is the whole create flow: the header names the project and holds the rarely touched
-// settings, the body is the prompt, and the composer's own toolbar is the footer.
+// Compact triggers keep the setup on one row while reserving room for Close.
 function NewWorkspaceDialog({
   cardHeader,
   children,
@@ -2704,9 +2763,9 @@ function NewWorkspaceDialog({
       title: "",
       leading: cardHeader.leading,
       actions: cardHeader.actions,
-      borderless: true,
+      density: "compact",
     }),
-    [cardHeader.actions, cardHeader.leading],
+    [cardHeader.leading, cardHeader.actions],
   );
   return (
     <AdaptiveModalSheet
@@ -2715,6 +2774,7 @@ function NewWorkspaceDialog({
       onClose={closeNewWorkspaceDialog}
       testID="new-workspace-dialog"
       desktopMaxWidth={720}
+      desktopCardStyle={styles.dialogCard}
       scrollable={false}
       contentStyle={styles.dialogContent}
     >
@@ -2791,23 +2851,24 @@ const styles = StyleSheet.create((theme) => ({
     paddingRight: theme.spacing[4],
     gap: theme.spacing[2],
   },
-  // The badge adds its own left padding; this inset lands the first chip's icon
-  // on the sheet title's rail.
-  // The badge carries its own left padding; pulling the row back by it lands the project avatar
-  // on the sheet header's rail.
   cardHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    flexShrink: 0,
+  },
+  cardHeaderLeading: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
     minWidth: 0,
     flexShrink: 1,
   },
-  cardHeaderLeading: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: -theme.spacing[2],
-    gap: theme.spacing[1],
-    minWidth: 0,
+  dialogCard: {
+    borderRadius: theme.borderRadius.md,
+  },
+  dialogBadge: {
+    borderRadius: theme.borderRadius.sm,
   },
   dialogContent: {
     paddingHorizontal: 0,
@@ -2827,7 +2888,7 @@ const styles = StyleSheet.create((theme) => ({
   // The card is the composer surface. The composer's own gutter plus this
   // inset puts the text on the same rail as the header's project avatar.
   dialogComposerInput: {
-    minHeight: 220,
+    minHeight: 180,
     backgroundColor: "transparent",
     borderWidth: 0,
     paddingHorizontal: theme.spacing[2],

@@ -815,6 +815,7 @@ export const ko: TranslationResources = {
     },
     git: {
       actions: {
+        menu: "Git 작업",
         moreOptions: "옵션 더 보기",
         moreActions: "작업 더 보기",
         commit: {
@@ -1015,7 +1016,7 @@ export const ko: TranslationResources = {
       },
       openInEditor: {
         open: "열기",
-        chooseEditor: "편집기 선택",
+        chooseEditor: "다음으로 열기…",
         openIn: "{{target}}에서 워크스페이스 열기",
         openFileIn: "{{target}}에서 {{fileName}} 열기",
         failedOpen: "워크스페이스를 열지 못했습니다",
@@ -1067,6 +1068,11 @@ export const ko: TranslationResources = {
           filesChanged_one: "파일 {{count}}개 변경됨",
           filesChanged_other: "파일 {{count}}개 변경됨",
           showAsTree: "트리로 보기",
+          showAsList: "목록으로 보기",
+          filterFiles: "파일 필터링",
+          filteredFiles: "{{total}}개 중 {{visible}}개",
+          noMatchingFiles: "이 필터와 일치하는 파일이 없습니다.",
+          clearFilter: "필터 지우기",
         },
         checks: {
           titlePlaceholder: "PR 제목",
@@ -1281,7 +1287,8 @@ export const ko: TranslationResources = {
       appName: "Buildr",
     },
     resources: {
-      trigger: "리소스 및 사용량",
+      unavailableProviders: "사용할 수 없는 제공자 ({{count}})",
+      trigger: "사용량",
       title: "리소스",
       cpu: "CPU",
       memory: "메모리",
@@ -2093,6 +2100,11 @@ export const ko: TranslationResources = {
     },
   },
   settings: {
+    search: {
+      placeholder: "설정 검색",
+      clear: "설정 검색 지우기",
+      noResults: "일치하는 설정이 없습니다",
+    },
     defaultModels: en.settings.defaultModels,
     title: "설정",
     loading: "설정 불러오는 중...",

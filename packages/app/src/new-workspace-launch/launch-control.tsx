@@ -83,6 +83,7 @@ export interface LaunchControlProps {
   onChange: (target: LaunchTarget) => void;
   profiles: readonly TerminalProfile[];
   disabled?: boolean;
+  iconOnly?: boolean;
   /**
    * The meta row's shared badge style. Passed in rather than redeclared so this
    * trigger stays pixel-identical to the project, host, and branch triggers it
@@ -119,6 +120,7 @@ export function LaunchControl({
   onChange,
   profiles,
   disabled = false,
+  iconOnly = false,
   badgePressableStyle,
 }: LaunchControlProps) {
   const { t } = useTranslation();
@@ -168,18 +170,24 @@ export function LaunchControl({
               <View style={styles.iconBox}>
                 <TriggerIcon target={target} profile={selectedProfile} />
               </View>
-              <Text style={styles.label} numberOfLines={1}>
-                {triggerLabel}
-                {selectedProfile ? (
-                  <Text style={styles.profileName}> {selectedProfile.name}</Text>
-                ) : null}
-              </Text>
+              {iconOnly ? null : (
+                <Text style={styles.label} numberOfLines={1}>
+                  {triggerLabel}
+                  {selectedProfile ? (
+                    <Text style={styles.profileName}> {selectedProfile.name}</Text>
+                  ) : null}
+                </Text>
+              )}
               <ThemedChevronDown size={ICON_SIZE.sm} uniProps={extraMutedColorMapping} />
             </DropdownMenuTrigger>
           </View>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" offset={8}>
-          <Text style={styles.tooltipText}>{t("newWorkspace.tooltips.launch")}</Text>
+          <Text style={styles.tooltipText}>
+            {iconOnly
+              ? `${t("newWorkspace.tooltips.launch")}: ${selectedProfile?.name ?? triggerLabel}`
+              : t("newWorkspace.tooltips.launch")}
+          </Text>
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent

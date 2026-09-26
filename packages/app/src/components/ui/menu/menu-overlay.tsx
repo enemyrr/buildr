@@ -19,7 +19,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { Keyframe, runOnJS } from "react-native-reanimated";
+import { FadeIn, Keyframe, runOnJS } from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
 import { FloatingScrollView, FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
@@ -47,6 +47,16 @@ const contentEntering = new Keyframe({
   0: { opacity: 0, transform: [{ scale: 0.97 }] },
   100: { opacity: 1, transform: [{ scale: 1 }] },
 }).duration(CONTENT_ENTERING_DURATION_MS);
+
+// Custom web keyframes restore a stale position after async content has resized the menu.
+const scrollableContentEntering = isWeb
+  ? FadeIn.duration(CONTENT_ENTERING_DURATION_MS)
+  : contentEntering;
+
+function getContentEntering(placed: boolean, scrollable: boolean) {
+  if (!placed) return undefined;
+  return scrollable ? scrollableContentEntering : contentEntering;
+}
 
 const contentExiting = new Keyframe({
   0: { opacity: 1, transform: [{ scale: 1 }] },
@@ -387,7 +397,7 @@ export function AnchoredSurface({
         dataSet={surfaceDataSet}
         style={styles.content}
         frameStyle={frameStyle}
-        entering={placed ? contentEntering : undefined}
+        entering={getContentEntering(placed, scrollable)}
         exiting={
           !placed || isWeb || !onExited
             ? undefined

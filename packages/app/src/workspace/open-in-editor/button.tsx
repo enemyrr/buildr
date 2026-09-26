@@ -1,11 +1,12 @@
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
 import { Check, ChevronDown, Copy } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditorTargetIcon } from "@/components/icons/editor-target-icon";
 import {
   DropdownMenu,
@@ -89,6 +90,7 @@ export function WorkspaceOpenInEditorButton({
   activeFile,
   hideLabels,
 }: WorkspaceOpenInEditorButtonProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const { t } = useTranslation();
   const toast = useToast();
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -225,6 +227,26 @@ export function WorkspaceOpenInEditorButton({
     }
   }, [primaryOption, handleOpenTarget]);
 
+  const openTargetTrigger = (
+    <Tooltip enabledOnDesktop={!menuOpen}>
+      <TooltipTrigger asChild>
+        <View>
+          <DropdownMenuTrigger
+            testID="workspace-open-in-editor-caret"
+            style={caretTriggerStyle}
+            accessibilityRole="button"
+            accessibilityLabel={t("workspace.git.openInEditor.chooseEditor")}
+          >
+            <ThemedChevronDown size={16} uniProps={extraMutedIconColorMapping} />
+          </DropdownMenuTrigger>
+        </View>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <Text style={styles.splitButtonText}>{t("workspace.git.openInEditor.chooseEditor")}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
+
   if (!canResolveWorkspace || !primaryOption || targets.length === 0) {
     return null;
   }
@@ -265,15 +287,8 @@ export function WorkspaceOpenInEditorButton({
           )}
         </Pressable>
         {targets.length > 0 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              testID="workspace-open-in-editor-caret"
-              style={caretTriggerStyle}
-              accessibilityRole="button"
-              accessibilityLabel={t("workspace.git.openInEditor.chooseEditor")}
-            >
-              <ThemedChevronDown size={16} uniProps={extraMutedIconColorMapping} />
-            </DropdownMenuTrigger>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            {openTargetTrigger}
             <DropdownMenuContent
               align="end"
               minWidth={148}

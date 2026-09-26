@@ -669,7 +669,7 @@ export function AppearanceSection() {
 
   return (
     <View>
-      <SettingsSection title={t("settings.appearance.theme.title")}>
+      <View style={settingsStyles.section}>
         <View style={settingsStyles.card}>
           <ThemeRow
             value={settings.theme}
@@ -679,7 +679,7 @@ export function AppearanceSection() {
             onSelectPluginTheme={handlePluginThemeChange}
           />
         </View>
-      </SettingsSection>
+      </View>
       <SettingsSection title={t("settings.appearance.detailLevel.title")}>
         <SettingsCard>
           <AutoExpandReasoningRow
