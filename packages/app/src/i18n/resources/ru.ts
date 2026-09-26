@@ -1814,6 +1814,10 @@ export const ru: TranslationResources = {
     },
   },
   pairing: {
+    hostPassword: {
+      title: "Пароль для {{host}}",
+      label: "Пароль хоста",
+    },
     connectionMethods: {
       title: "Добавить подключение",
       direct: {
@@ -2512,6 +2516,10 @@ export const ru: TranslationResources = {
       },
     },
     host: {
+      password: {
+        guidance:
+          "Удалите этот хост и добавьте его снова с паролем, который запрашивает этот демон.",
+      },
       appearance: {
         title: "Оформление",
         name: {
