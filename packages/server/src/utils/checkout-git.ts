@@ -3924,8 +3924,8 @@ async function listRemotes(cwd: string): Promise<string[]> {
 
 /**
  * Starts the next branch of work in the same checkout: fetches the base branch, then checks out a
- * fresh branch from the updated remote base. The working tree must be clean, since the switch
- * would otherwise carry uncommitted changes onto the new branch.
+ * fresh branch from the updated remote base. Uncommitted changes are stashed and reapplied on the
+ * new branch.
  */
 export async function continueOnNewBranch(
   cwd: string,
@@ -3935,11 +3935,6 @@ export async function continueOnNewBranch(
   const previousBranch = await getCurrentBranch(cwd, context);
   if (!previousBranch || previousBranch === "HEAD") {
     throw new Error("Cannot continue from a detached HEAD");
-  }
-  if (await isWorkingTreeDirty(cwd, context)) {
-    throw new Error(
-      "Working directory has uncommitted changes. Commit or stash them before continuing on a new branch.",
-    );
   }
 
   const { storedBaseRef, resolvedBaseRef } = await resolveBaseRefForCwd(cwd, context);
@@ -3968,11 +3963,34 @@ export async function continueOnNewBranch(
     branch = nextContinuationBranchName(branch);
   }
 
-  // --no-track: the new branch must not push to or compare against the base as its upstream.
-  await runGitCommand(["checkout", "--no-track", "-b", branch, startPoint], {
-    cwd,
-    timeout: 120_000,
-  });
+  const stashed = await isWorkingTreeDirty(cwd, context);
+  if (stashed) {
+    await runGitCommand(
+      ["stash", "push", "--include-untracked", "-m", `paseo: continue from ${previousBranch}`],
+      { cwd },
+    );
+  }
+  try {
+    // --no-track: the new branch must not push to or compare against the base as its upstream.
+    await runGitCommand(["checkout", "--no-track", "-b", branch, startPoint], {
+      cwd,
+      timeout: 120_000,
+    });
+  } catch (error) {
+    if (stashed) {
+      await runGitCommand(["stash", "pop"], { cwd });
+    }
+    throw error;
+  }
+  if (stashed) {
+    try {
+      await runGitCommand(["stash", "pop"], { cwd });
+    } catch {
+      throw new Error(
+        `Continued on ${branch}, but your uncommitted changes conflict with it. They are kept in the stash; resolve the conflicts, then run git stash drop.`,
+      );
+    }
+  }
   return { previousBranch, branch, startPoint };
 }
 
