@@ -107,14 +107,27 @@ export const OverviewToolCallGroupView = memo(function OverviewToolCallGroupView
   }, [group.run.id, onExpandedChange]);
 
   const isInlineExpanded = expanded === true && !isCompact;
+  // A live turn streams flat until it seals; it folds into the header once the turn ends.
+  const isLiveFlat = !group.run.isSealed && !isCompact && expanded === null;
   // On compact the sheet owns expansion, so closing it must not hide the live preview.
-  const showsLivePreview = !group.run.isSealed && (isCompact || expanded === null);
+  const showsLivePreview = !group.run.isSealed && isCompact;
   const visibleEntries = useMemo(() => {
     if (isInlineExpanded) return group.entries;
     if (showsLivePreview) return group.entries.slice(-LIVE_PREVIEW_ENTRY_COUNT);
     return [];
   }, [group.entries, isInlineExpanded, showsLivePreview]);
   const chevronStyle = isInlineExpanded ? styles.chevronExpanded : styles.chevron;
+
+  if (isLiveFlat) {
+    return (
+      <View
+        style={isLastInSequence ? styles.containerLast : styles.container}
+        testID="tool-call-group"
+      >
+        {renderEntries(group.entries, renderEntry)}
+      </View>
+    );
+  }
 
   return (
     <View
@@ -219,6 +232,7 @@ export const MergedToolCallsRow = memo(function MergedToolCallsRow({
       testID="tool-call-merged-row"
       label={`${presentation.displayName} ×${calls.length}`}
       secondaryLabel={presentation.summary}
+      secondaryLabelVariant="code"
       icon={presentation.icon}
       isExpanded={expanded}
       isLoading={states.isLoading}

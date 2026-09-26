@@ -75,7 +75,7 @@ import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { colorMarkdownLinkChildren } from "@/components/markdown/link-children";
 import { createAssistantMarkdownParser } from "@/utils/assistant-markdown-parser";
-import { formatDuration, formatMessageTimestamp } from "@/utils/time";
+import { formatDuration, formatMessageTimestamp, formatTurnDuration } from "@/utils/time";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
@@ -620,9 +620,9 @@ const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
     marginTop: 0,
   },
   meta: {
-    color: theme.colors.foregroundExtraMuted,
-    fontSize: 11,
-    fontVariant: ["tabular-nums"],
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.base,
   },
 }));
 
@@ -638,7 +638,7 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   trailing,
 }: AssistantTurnFooterProps) {
   const durationLabel =
-    durationMs !== undefined && durationMs !== null ? formatDuration(durationMs) : "";
+    durationMs !== undefined && durationMs !== null ? formatTurnDuration(durationMs) : "";
   const timestampLabel = useMemo(
     () => (completedAt ? formatMessageTimestamp(completedAt) : ""),
     [completedAt],
@@ -1155,6 +1155,10 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
   secondaryLabelPillSurface: {
     backgroundColor: theme.colors.surface2,
     overflow: "hidden",
+  },
+  // Tool arguments (commands, paths) read as code next to the sans label.
+  secondaryLabelCode: {
+    fontFamily: theme.fontFamily.mono,
   },
   shimmerText: {
     color: "transparent",
@@ -2311,7 +2315,7 @@ export const TodoListCard = memo(function TodoListCard({
 interface ExpandableBadgeProps {
   label: string;
   secondaryLabel?: string;
-  secondaryLabelVariant?: "text" | "pill";
+  secondaryLabelVariant?: "text" | "pill" | "code";
   icon?: ComponentType<{ size?: number; color?: string }>;
   isExpanded: boolean;
   style?: StyleProp<ViewStyle>;
@@ -2887,15 +2891,17 @@ export const ExpandableBadge = memo(function ExpandableBadge({
     [isActive, isLoading],
   );
 
-  const isPillSecondary = secondaryLabelVariant === "pill";
+  const isCodeSecondary = secondaryLabelVariant === "code";
+  const isPillSecondary = secondaryLabelVariant === "pill" || isCodeSecondary;
   const secondaryLabelStyle = useMemo(
     () => [
       expandableBadgeStylesheet.secondaryLabel,
       isActive && expandableBadgeStylesheet.secondaryLabelActive,
       isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillMetrics,
       isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillSurface,
+      isCodeSecondary && expandableBadgeStylesheet.secondaryLabelCode,
     ],
-    [isActive, isPillSecondary],
+    [isActive, isCodeSecondary, isPillSecondary],
   );
 
   const shimmerLabelTextStyle = useMemo(
@@ -2912,10 +2918,11 @@ export const ExpandableBadge = memo(function ExpandableBadge({
     () => [
       expandableBadgeStylesheet.secondaryLabel,
       isPillSecondary && expandableBadgeStylesheet.secondaryLabelPillMetrics,
+      isCodeSecondary && expandableBadgeStylesheet.secondaryLabelCode,
       expandableBadgeStylesheet.shimmerText,
       shimmerSecondaryStyle,
     ],
-    [isPillSecondary, shimmerSecondaryStyle],
+    [isCodeSecondary, isPillSecondary, shimmerSecondaryStyle],
   );
 
   const chevronStyle = useMemo(
@@ -3246,7 +3253,7 @@ export const ToolCall = memo(function ToolCall({
       testID="tool-call-badge"
       label={presentation.displayName}
       secondaryLabel={thoughtPreview ?? presentation.summary}
-      secondaryLabelVariant={thoughtPreview ? "pill" : "text"}
+      secondaryLabelVariant={thoughtPreview ? "pill" : "code"}
       icon={presentation.icon}
       isExpanded={shouldRenderInline && isExpanded}
       onToggle={presentation.canOpenDetails ? handleToggle : undefined}

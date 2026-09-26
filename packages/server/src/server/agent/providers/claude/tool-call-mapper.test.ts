@@ -71,6 +71,23 @@ describe("claude tool-call mapper", () => {
     }
   });
 
+  it("keeps the Bash description on shell detail", () => {
+    const item = expectMapped(
+      mapClaudeRunningToolCall({
+        callId: "claude-call-described",
+        name: "Bash",
+        input: { command: "ls fonts", description: "List usable fonts" },
+        output: null,
+      }),
+    );
+
+    expect(item.detail).toEqual({
+      type: "shell",
+      command: "ls fonts",
+      description: "List usable fonts",
+    });
+  });
+
   it("maps partial running input through the same canonical detail path", () => {
     const item = expectMapped(
       mapClaudeRunningToolCall({

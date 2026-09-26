@@ -48,7 +48,6 @@ import {
   clickSessionRow,
   expectWorkspaceTabVisible,
 } from "../support/helpers/archive-tab";
-import { expectInFlightForkAvailable } from "../support/helpers/assistant-fork";
 import {
   scrollTimelineToNewestLoadedEdge,
   scrollTimelineUntilOlderHistoryIsReachable,
@@ -358,7 +357,6 @@ async function replaySteeredSleepTurnInBrowser(
 
     await expect(page.getByText("hello", { exact: true })).toHaveCount(1);
     await expect(page.getByLabel(/^Worked for/)).toHaveCount(0);
-    await expectInFlightForkAvailable(page);
 
     await gate.waitForHeldServerMessage();
     gate.releaseHeldServerMessage();
@@ -366,7 +364,6 @@ async function replaySteeredSleepTurnInBrowser(
 
     await expect(page.getByText("hello", { exact: true })).toHaveCount(1);
     await expect(page.getByLabel(/^Worked for/)).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Fork chat" }).last()).toBeVisible();
   } finally {
     gate.restore();
     await agent.cleanup();

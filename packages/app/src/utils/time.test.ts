@@ -3,6 +3,7 @@ import {
   describeCompactTimeAgo,
   formatCompactTimeAgo,
   formatDuration,
+  formatTurnDuration,
   formatMessageTimestamp,
   formatTimeAgo,
 } from "./time";
@@ -87,6 +88,28 @@ describe("formatDuration", () => {
   it("guards against negative and NaN", () => {
     expect(formatDuration(-1)).toBe("0s");
     expect(formatDuration(Number.NaN)).toBe("0s");
+  });
+});
+
+describe("formatTurnDuration", () => {
+  it("renders tenths of a second under a minute", () => {
+    expect(formatTurnDuration(0)).toBe("0.0s");
+    expect(formatTurnDuration(4_260)).toBe("4.2s");
+    expect(formatTurnDuration(59_990)).toBe("59.9s");
+  });
+
+  it("renders minutes with the remaining seconds", () => {
+    expect(formatTurnDuration(26 * 60_000 + 4_200)).toBe("26m, 4.2s");
+    expect(formatTurnDuration(120_000)).toBe("2m, 0.0s");
+  });
+
+  it("renders hours with the remaining minutes", () => {
+    expect(formatTurnDuration(3_900_000)).toBe("1h, 5m");
+  });
+
+  it("guards against negative and NaN", () => {
+    expect(formatTurnDuration(-1)).toBe("0.0s");
+    expect(formatTurnDuration(Number.NaN)).toBe("0.0s");
   });
 });
 

@@ -139,6 +139,25 @@ export function formatMessageTimestamp(date: Date, now: Date = new Date()): stri
 }
 
 /**
+ * Format how long a turn worked, with tenths under a minute: "4.2s", "26m, 4.2s", "1h, 5m".
+ */
+export function formatTurnDuration(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return "0.0s";
+  }
+  const totalTenths = Math.floor(durationMs / 100);
+  const totalMinutes = Math.floor(totalTenths / 600);
+  const seconds = `${((totalTenths % 600) / 10).toFixed(1)}s`;
+  if (totalMinutes === 0) {
+    return seconds;
+  }
+  if (totalMinutes < 60) {
+    return `${totalMinutes}m, ${seconds}`;
+  }
+  return `${Math.floor(totalMinutes / 60)}h, ${totalMinutes % 60}m`;
+}
+
+/**
  * Format a duration as a compact human-readable string.
  * - 0-60s: whole seconds ("47s")
  * - Minutes/hours: integers only ("2m 12s", "1h 5m")

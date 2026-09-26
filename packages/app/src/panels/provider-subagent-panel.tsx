@@ -264,7 +264,6 @@ function ProviderSubagentPanel() {
         pendingPermissions={EMPTY_PERMISSIONS}
         isAuthoritativeHistoryReady
         onOpenWorkspaceFile={openFileInWorkspace}
-        readOnly
         historyPagination={historyPagination}
         bottomOverlayTailClearance={childTrackClearance.tail}
         bottomOverlayControlClearance={childTrackClearance.controls}

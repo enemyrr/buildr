@@ -73,6 +73,7 @@ export const ToolShellInputSchema = z
         command: CommandValueSchema,
         cwd: z.string().optional(),
         directory: z.string().optional(),
+        description: z.string().optional(),
       })
       .passthrough(),
     z
@@ -80,6 +81,7 @@ export const ToolShellInputSchema = z
         cmd: CommandValueSchema,
         cwd: z.string().optional(),
         directory: z.string().optional(),
+        description: z.string().optional(),
       })
       .passthrough(),
   ])
@@ -102,6 +104,7 @@ export const ToolShellInputSchema = z
     return {
       command,
       cwd: nonEmptyString(value.cwd) ?? nonEmptyString(value.directory),
+      description: nonEmptyString(value.description),
     };
   });
 
@@ -819,6 +822,7 @@ export function toShellToolDetail(
     type: "shell",
     command,
     ...(input?.cwd ? { cwd: input.cwd } : {}),
+    ...(input?.description ? { description: input.description } : {}),
     ...(output?.output ? { output: output.output } : {}),
     ...(output?.exitCode !== undefined ? { exitCode: output.exitCode } : {}),
   };

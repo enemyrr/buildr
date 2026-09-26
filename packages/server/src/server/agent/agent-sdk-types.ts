@@ -255,6 +255,8 @@ export type ToolCallDetail =
       type: "shell";
       command: string;
       cwd?: string;
+      /** What the agent says the command is for, when the provider sends one. */
+      description?: string;
       output?: string;
       exitCode?: number | null;
     }

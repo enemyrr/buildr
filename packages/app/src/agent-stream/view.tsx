@@ -80,9 +80,7 @@ import {
   CompletedTurnFooterRow,
   TurnFooter,
   TURN_FOOTER_BOTTOM_SPACING,
-  type AssistantTurnForkHandler,
   type TurnFileChipActions,
-  type InFlightTurnForkHandler,
   type TurnContentStrategy,
 } from "./turn-footer";
 import { resolveBottomOverlayTailInset } from "./bottom-overlay-inset";
@@ -111,7 +109,6 @@ import { createMessageSubmissionWriter } from "@/composer/submission/writer";
 import { useAppSettings } from "@/hooks/use-settings";
 import { formatShellOutputShare } from "@/utils/shell-output-share";
 import { INLINE_TERMINAL_SUPPORTED, InlineTerminal } from "@/components/inline-terminal";
-import { useForkAgent } from "@/hooks/use-fork-agent";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
@@ -180,7 +177,6 @@ function renderStreamItemWithTurnFooter(input: {
   layoutItem: StreamLayoutItem;
   strategy: TurnContentStrategy;
   supportsTimelineCursor: boolean;
-  onForkAssistantTurn?: AssistantTurnForkHandler;
   fileChipActions: TurnFileChipActions;
 }): ReactNode {
   if (!input.content) {
@@ -195,7 +191,6 @@ function renderStreamItemWithTurnFooter(input: {
       timing={footerHost.timing}
       startIndex={footerHost.startIndex}
       supportsTimelineCursor={input.supportsTimelineCursor}
-      onForkAssistantTurn={input.onForkAssistantTurn}
       fileChipActions={input.fileChipActions}
     />
   ) : null;
@@ -312,7 +307,6 @@ export interface AgentStreamViewProps {
   bottomOverlayControlClearance?: number;
   toast?: ToastApi | null;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
-  readOnly?: boolean;
   historyPagination?: {
     hasOlder: boolean;
     isLoadingOlder: boolean;
@@ -366,7 +360,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       bottomOverlayControlClearance,
       toast,
       onOpenWorkspaceFile,
-      readOnly = false,
       historyPagination,
     },
     ref,
@@ -408,7 +401,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       state.sessions[resolvedServerId]?.agentStreamHead?.get(agentId),
     );
     const streamHead = providedStreamHead ?? sessionStreamHead;
-    const forkAgent = useForkAgent({ serverId: resolvedServerId, toast, readOnly });
     const supportsAgentForkContextCursor = useSessionStore(
       (state) =>
         state.sessions[resolvedServerId]?.serverInfo?.features?.agentForkContextCursor === true,
@@ -565,31 +557,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const handleStopShellCommand = useStableEvent((callId: string) => {
       void client?.stopAgentShellCommand(callId).catch(reportShellError);
-    });
-
-    const handleForkAssistantTurn: AssistantTurnForkHandler = useStableEvent(
-      async ({ target, boundary }) => {
-        await forkAgent({
-          agentId,
-          agent: context,
-          workspaceId: context.workspaceId,
-          target,
-          boundary,
-        });
-      },
-    );
-
-    // The in-flight turn forks with no boundary at all: `selectForkContextRows`
-    // projects the whole timeline when neither boundary field is given, so the
-    // fork carries everything up to now, including the response still streaming
-    // in front of the user.
-    const handleForkInFlightTurn: InFlightTurnForkHandler = useStableEvent(async (target) => {
-      await forkAgent({
-        agentId,
-        agent: context,
-        workspaceId: context.workspaceId,
-        target,
-      });
     });
 
     // Freeze stream presentation while this tab slot is hidden to prevent offscreen
@@ -1062,13 +1029,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           layoutItem,
           strategy: streamRenderStrategy,
           supportsTimelineCursor: supportsAgentForkContextCursor,
-          onForkAssistantTurn: readOnly ? undefined : handleForkAssistantTurn,
           fileChipActions: turnFileChipActions,
         });
       },
       [
-        handleForkAssistantTurn,
-        readOnly,
         renderStreamItemContent,
         turnFileChipActions,
         streamRenderStrategy,
@@ -1098,16 +1062,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             host={bottomTurnFooterHost}
             strategy={streamRenderStrategy}
             supportsTimelineCursor={supportsAgentForkContextCursor}
-            onForkAssistantTurn={readOnly ? undefined : handleForkAssistantTurn}
-            onForkInFlightTurn={readOnly ? undefined : handleForkInFlightTurn}
             fileChipActions={turnFileChipActions}
           />
         ) : null,
       [
         turnFileChipActions,
-        handleForkAssistantTurn,
-        handleForkInFlightTurn,
-        readOnly,
         isTurnActive,
         baseRenderModel.turnTiming.runningStartedAt,
         bottomTurnFooterHost,
@@ -1423,7 +1382,6 @@ function agentStreamViewPropsEqual(
   }
   if (left.toast !== right.toast) reasons.push("toast");
   if (left.onOpenWorkspaceFile !== right.onOpenWorkspaceFile) reasons.push("onOpenWorkspaceFile");
-  if (left.readOnly !== right.readOnly) reasons.push("readOnly");
   if (!historyPaginationPropsEqual(left.historyPagination, right.historyPagination)) {
     reasons.push("historyPagination");
   }

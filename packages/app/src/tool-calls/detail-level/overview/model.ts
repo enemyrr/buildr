@@ -35,14 +35,18 @@ export function buildTurnActivityEntries(
   let openName: string | null = null;
   for (const item of items) {
     if (item.kind === "tool_call") {
-      const name = normalizeToolName(describeToolCall(item).name);
-      if (openCalls && openName === name) {
+      const descriptor = describeToolCall(item);
+      const name = normalizeToolName(descriptor.name);
+      // A described shell call is its own row; merging would hide what each one was for.
+      const isDescribed =
+        descriptor.detail.type === "shell" && Boolean(descriptor.detail.description);
+      if (!isDescribed && openCalls && openName === name) {
         openCalls.push(item);
         continue;
       }
-      openCalls = [item];
-      openName = name;
-      entries.push({ kind: "tools", id: item.id, name, calls: openCalls });
+      openCalls = isDescribed ? null : [item];
+      openName = isDescribed ? null : name;
+      entries.push({ kind: "tools", id: item.id, name, calls: openCalls ?? [item] });
       continue;
     }
     openCalls = null;

@@ -84,7 +84,7 @@ function buildCanonicalDetailDisplay(input: ToolCallDisplayInput): DetailDisplay
   switch (input.detail.type) {
     case "shell":
       return {
-        displayName: "Shell",
+        displayName: input.detail.description ?? "Shell",
         summary: input.detail.command,
       };
     case "read":

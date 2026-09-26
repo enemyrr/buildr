@@ -321,9 +321,9 @@ const stylesheet = StyleSheet.create((theme) => ({
     gap: theme.spacing[3],
   },
   workingElapsed: {
-    color: theme.colors.foregroundExtraMuted,
-    fontSize: 11,
-    fontVariant: ["tabular-nums"],
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.base,
   },
   workingLoader: {
     marginLeft: 2,
