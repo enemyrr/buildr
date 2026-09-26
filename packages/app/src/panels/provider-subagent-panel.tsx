@@ -5,10 +5,8 @@ import invariant from "tiny-invariant";
 import { useShallow } from "zustand/react/shallow";
 import { AgentStreamView } from "@/agent-stream/view";
 import { getProviderIcon } from "@/components/provider-icons";
-import {
-  resolveComposerTrackControlClearance,
-  resolveComposerTrackTailClearance,
-} from "@/composer/pill-styles";
+import { useSharedValue, type SharedValue } from "react-native-reanimated";
+import { resolveComposerTrackTailClearance } from "@/composer/pill-styles";
 import { ComposerTrackBar } from "@/composer/tracks";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
@@ -35,26 +33,24 @@ const EMPTY_PERMISSIONS = new Map<string, PendingPermission>();
 const EMPTY_STREAM_ITEMS: StreamItem[] = [];
 const NOOP_SUBAGENT = () => undefined;
 
-function resolveChildTrackClearance(childCount: number, isCompact: boolean) {
-  if (childCount === 0) return { tail: 0, controls: 0 };
-  return {
-    tail: resolveComposerTrackTailClearance(isCompact),
-    controls: resolveComposerTrackControlClearance(isCompact),
-  };
+function resolveChildTrackClearance(childCount: number, isCompact: boolean): number {
+  return childCount === 0 ? 0 : resolveComposerTrackTailClearance(isCompact);
 }
 
 function ProviderSubagentChildTrack({
   serverId,
   rows,
   onOpenProviderSubagent,
+  jumpToBottomShift,
 }: {
   serverId: string;
   rows: ReturnType<typeof useSubagentsForParent>;
   onOpenProviderSubagent: (parentAgentId: string, subagentId: string) => void;
+  jumpToBottomShift: SharedValue<number>;
 }) {
   if (rows.length === 0) return null;
   return (
-    <ComposerTrackBar>
+    <ComposerTrackBar jumpToBottomShift={jumpToBottomShift}>
       <SubagentsTrack
         serverId={serverId}
         rows={rows}
@@ -137,6 +133,7 @@ function ProviderSubagentPanel() {
     providerParentSubagentId: target.subagentId,
   });
   const childTrackClearance = resolveChildTrackClearance(childRows.length, isCompact);
+  const jumpToBottomShift = useSharedValue(0);
   const openProviderChild = useCallback(
     (parentAgentId: string, subagentId: string) => {
       openTab({ kind: "provider_subagent", parentAgentId, subagentId });
@@ -265,13 +262,14 @@ function ProviderSubagentPanel() {
         isAuthoritativeHistoryReady
         onOpenWorkspaceFile={openFileInWorkspace}
         historyPagination={historyPagination}
-        bottomOverlayTailClearance={childTrackClearance.tail}
-        bottomOverlayControlClearance={childTrackClearance.controls}
+        bottomOverlayTailClearance={childTrackClearance}
+        jumpToBottomShift={jumpToBottomShift}
       />
       <ProviderSubagentChildTrack
         serverId={serverId}
         rows={childRows}
         onOpenProviderSubagent={openProviderChild}
+        jumpToBottomShift={jumpToBottomShift}
       />
     </View>
   );

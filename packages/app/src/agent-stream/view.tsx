@@ -25,7 +25,12 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { useMutation } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, withTiming, type SharedValue } from "react-native-reanimated";
+import {
+  COMPOSER_PILL_CLEARANCE,
+  COMPOSER_PILL_MIN_HEIGHT,
+  composerPillStyles,
+} from "@/composer/pill-styles";
 import { Check, ChevronDown, X } from "lucide-react-native";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { openExplorerSidebarView } from "@/workspace-tabs/explorer-sidebar";
@@ -303,8 +308,11 @@ export interface AgentStreamViewProps {
   isAuthoritativeHistoryReady?: boolean;
   /** Tail space required by a transparent overlay rendered at the bottom edge. */
   bottomOverlayTailClearance?: number;
-  /** Bottom offset required for controls floating above that overlay. */
-  bottomOverlayControlClearance?: number;
+  /**
+   * Driven to 1 while the scroll-to-bottom button shows, so a composer track bar can slide its
+   * pills clear of it. The button sits in the bar's row, at its leading edge.
+   */
+  jumpToBottomShift?: SharedValue<number>;
   toast?: ToastApi | null;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
   historyPagination?: {
@@ -339,10 +347,6 @@ function useRetainedValue<T>(value: T, active: boolean): T {
 const EMPTY_PENDING_MESSAGE_SUBMISSIONS: readonly PendingMessageSubmission[] = [];
 const GROUPED_TOOL_CALL_DETAIL_MAX_HEIGHT = 200;
 
-function resolveBottomOverlayControlOffset(clearance: number | undefined): number {
-  return Math.max(16, clearance ?? 0);
-}
-
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
     {
@@ -357,7 +361,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       routeBottomAnchorRequest = null,
       isAuthoritativeHistoryReady = true,
       bottomOverlayTailClearance = 0,
-      bottomOverlayControlClearance,
+      jumpToBottomShift,
       toast,
       onOpenWorkspaceFile,
       historyPagination,
@@ -1086,13 +1090,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     }, [baseRenderModel, pendingPermissionsNode, turnFooterNode]);
 
     const emptyStateStyle = useMemo(() => [stylesheet.emptyState, stylesheet.contentWrapper], []);
-    const scrollToBottomContainerStyle = useMemo(
-      () => [
-        stylesheet.scrollToBottomContainer,
-        { bottom: resolveBottomOverlayControlOffset(bottomOverlayControlClearance) },
-      ],
-      [bottomOverlayControlClearance],
-    );
+    const showScrollToBottom = !isNearBottom || isTimelineDetached;
+    useEffect(() => {
+      if (jumpToBottomShift) {
+        jumpToBottomShift.value = withTiming(showScrollToBottom ? 1 : 0, { duration: 200 });
+      }
+    }, [jumpToBottomShift, showScrollToBottom]);
     const listEmptyComponent = useMemo(
       () =>
         renderListEmptyComponent({
@@ -1248,17 +1251,22 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               activePrompt={chatOutline.activePrompt}
               onJumpToPrompt={chatOutline.jumpToPrompt}
             />
-            {(!isNearBottom || isTimelineDetached) && (
-              <View style={scrollToBottomContainerStyle} pointerEvents="box-none">
-                <Animated.View entering={scrollIndicatorFadeIn} exiting={scrollIndicatorFadeOut}>
+            {showScrollToBottom && (
+              <View style={stylesheet.scrollToBottomContainer} pointerEvents="box-none">
+                <Animated.View
+                  style={stylesheet.scrollToBottomRail}
+                  pointerEvents="box-none"
+                  entering={scrollIndicatorFadeIn}
+                  exiting={scrollIndicatorFadeOut}
+                >
                   <Pressable
-                    style={stylesheet.scrollToBottomButton}
+                    style={scrollToBottomButtonStyle}
                     onPress={scrollToBottom}
                     accessibilityRole="button"
                     accessibilityLabel={t("agentStream.scrollToBottom")}
                     testID="scroll-to-bottom-button"
                   >
-                    <ChevronDown size={24} color={stylesheet.scrollToBottomIcon.color} />
+                    <ChevronDown size={14} color={stylesheet.scrollToBottomIcon.color} />
                   </Pressable>
                 </Animated.View>
               </View>
@@ -1502,6 +1510,15 @@ const pressableStyle = ({
   permissionStyles.optionButton,
   hovered ? permissionStyles.optionButtonHovered : null,
   pressed ? permissionStyles.optionButtonPressed : null,
+];
+
+const scrollToBottomButtonStyle = ({
+  pressed,
+  hovered = false,
+}: PressableStateCallbackType & { hovered?: boolean }) => [
+  composerPillStyles.body,
+  stylesheet.scrollToBottomButton,
+  hovered || pressed ? composerPillStyles.bodyActive : null,
 ];
 
 interface PermissionActionButtonProps {
@@ -1829,23 +1846,30 @@ const stylesheet = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     textAlign: "center",
   },
+  // Same geometry as the composer track bar, so the button lands on its row's leading edge.
   scrollToBottomContainer: {
     position: "absolute",
     left: 0,
     right: 0,
+    bottom: {
+      xs: COMPOSER_PILL_CLEARANCE.compact,
+      md: COMPOSER_PILL_CLEARANCE.wide,
+    },
     alignItems: "center",
+    paddingHorizontal: theme.spacing[4],
+  },
+  scrollToBottomRail: {
+    width: "100%",
+    maxWidth: MAX_CONTENT_WIDTH,
+    flexDirection: "row",
   },
   scrollToBottomButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.surface2,
-    alignItems: "center",
+    width: COMPOSER_PILL_MIN_HEIGHT,
+    paddingHorizontal: 0,
     justifyContent: "center",
-    ...theme.shadow.sm,
   },
   scrollToBottomIcon: {
-    color: theme.colors.foreground,
+    color: theme.colors.foregroundMuted,
   },
 }));
 
