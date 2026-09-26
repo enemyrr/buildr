@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import {
   MenuRoot,
@@ -15,8 +16,12 @@ import { isWeb } from "@/constants/platform";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geometry";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
-import type { Theme } from "@/styles/theme";
-import { COMPOSER_PILL_CLEARANCE, composerPillStyles } from "./pill-styles";
+import { SPACING, type Theme } from "@/styles/theme";
+import {
+  COMPOSER_PILL_CLEARANCE,
+  COMPOSER_PILL_MIN_HEIGHT,
+  composerPillStyles,
+} from "./pill-styles";
 
 /**
  * The strip of pills where a pane's ambient trackers and plugin actions live.
@@ -30,12 +35,25 @@ import { COMPOSER_PILL_CLEARANCE, composerPillStyles } from "./pill-styles";
  * Its host gives the scroll viewport a small bottom inset only when the bar exists; that keeps
  * the final footer clear without turning the overlay into a layout band.
  */
-export function ComposerTrackBar({ children }: { children: ReactNode }): ReactElement {
+/** The stream's scroll-to-bottom button plus the gap after it. */
+const JUMP_TO_BOTTOM_SLOT = COMPOSER_PILL_MIN_HEIGHT + SPACING[1];
+
+export function ComposerTrackBar({
+  jumpToBottomShift,
+  children,
+}: {
+  /** Pass the stream's `jumpToBottomShift` so pills slide clear of its button. */
+  jumpToBottomShift?: SharedValue<number>;
+  children: ReactNode;
+}): ReactElement {
+  const trackShiftStyle = useAnimatedStyle(() => ({
+    paddingLeft: (jumpToBottomShift?.value ?? 0) * JUMP_TO_BOTTOM_SLOT,
+  }));
   return (
     <View style={styles.bar} pointerEvents="box-none">
-      <View style={styles.track} pointerEvents="box-none">
+      <Animated.View style={[styles.track, trackShiftStyle]} pointerEvents="box-none">
         {children}
-      </View>
+      </Animated.View>
     </View>
   );
 }

@@ -75,7 +75,7 @@ import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
 import { useRevealedText } from "@/hooks/use-revealed-text";
 import { colorMarkdownLinkChildren } from "@/components/markdown/link-children";
 import { createAssistantMarkdownParser } from "@/utils/assistant-markdown-parser";
-import { formatDuration, formatMessageTimestamp, formatTurnDuration } from "@/utils/time";
+import { formatMessageTimestamp, formatTurnDuration } from "@/utils/time";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
 import { getDefaultMarkdownClipboardEnvironment } from "@/utils/rich-clipboard-default-environment";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
@@ -685,7 +685,7 @@ interface LiveElapsedProps {
 }
 
 /**
- * Ticks every second to render an elapsed duration. Isolated from parents so
+ * Ticks every tenth of a second to render an elapsed duration. Isolated from parents so
  * only this component re-renders on each tick.
  */
 export const LiveElapsed = memo(function LiveElapsed({
@@ -705,13 +705,13 @@ export const LiveElapsed = memo(function LiveElapsed({
     setElapsedMs(Math.max(0, Date.now() - startedAtMs));
     const handle = setInterval(() => {
       setElapsedMs(Math.max(0, Date.now() - startedAtMs));
-    }, 1000);
+    }, 100);
     return () => clearInterval(handle);
   }, [active, startedAtMs]);
 
   return (
     <Text style={style} testID={testID}>
-      {formatDuration(visibleElapsedMs)}
+      {formatTurnDuration(visibleElapsedMs)}
     </Text>
   );
 });

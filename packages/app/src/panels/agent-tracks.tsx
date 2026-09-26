@@ -1,4 +1,5 @@
 import { memo, useCallback, type ReactElement } from "react";
+import type { SharedValue } from "react-native-reanimated";
 import { AgentTaskList } from "@/composer/task-list";
 import { ComposerTrackBar } from "@/composer/tracks";
 import { supportsDesktopPaneSplits, useIsCompactFormFactor } from "@/constants/layout";
@@ -34,6 +35,7 @@ export const AgentTracks = memo(function AgentTracks({
   archiveFinishedStatus,
   onArchiveFinished,
   hasPluginComposerPills,
+  jumpToBottomShift,
 }: {
   serverId: string;
   workspaceId: string;
@@ -43,6 +45,7 @@ export const AgentTracks = memo(function AgentTracks({
   archiveFinishedStatus: ArchiveFinishedStatus;
   onArchiveFinished: () => void;
   hasPluginComposerPills: boolean;
+  jumpToBottomShift?: SharedValue<number>;
 }): ReactElement | null {
   const { tabId, openTab } = usePaneContext();
   const isCompact = useIsCompactFormFactor();
@@ -107,7 +110,7 @@ export const AgentTracks = memo(function AgentTracks({
   }
 
   return (
-    <ComposerTrackBar>
+    <ComposerTrackBar jumpToBottomShift={jumpToBottomShift}>
       <AgentTaskList tasks={tasks} />
       <SubagentsTrack
         serverId={serverId}

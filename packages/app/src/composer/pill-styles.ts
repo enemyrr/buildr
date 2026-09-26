@@ -17,11 +17,6 @@ export function resolveComposerTrackTailClearance(isCompact: boolean): number {
   return transcriptClearance + COMPOSER_PILL_MIN_HEIGHT + composerClearance;
 }
 
-export function resolveComposerTrackControlClearance(isCompact: boolean): number {
-  const clearance = resolveComposerPillClearance(isCompact);
-  return clearance + COMPOSER_PILL_MIN_HEIGHT + clearance;
-}
-
 /**
  * Shared visual contract for the badges immediately above the composer. Same surface and border
  * as the composer box, with a tighter radius so they read as badges rather than pills.
