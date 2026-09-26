@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
+import { ArrowLeftRight } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -87,6 +88,7 @@ export const foregroundMutedColorMapping = (theme: Theme) => ({
 });
 
 export const ThemedProviderIcon = withUnistyles(ProviderIcon, foregroundMutedColorMapping);
+const ThemedSwitchIcon = withUnistyles(ArrowLeftRight, foregroundColorMapping);
 
 function fillToneStyle(tone: ProviderUsageTone) {
   switch (tone) {
@@ -128,15 +130,17 @@ export function UsageGlanceSwitch({
           accessibilityRole="button"
           accessibilityLabel={label}
         >
-          {({ hovered }) => (
-            <Animated.View key={providerId} entering={FadeIn.duration(SWAP_FADE_MS)}>
-              <ThemedProviderIcon
-                Icon={getProviderIcon(providerId)}
-                size={ICON_SIZE.sm}
-                uniProps={hovered && next ? foregroundColorMapping : foregroundMutedColorMapping}
-              />
-            </Animated.View>
-          )}
+          {({ hovered }) =>
+            hovered && next ? (
+              <Animated.View key="switch" entering={FadeIn.duration(SWAP_FADE_MS)}>
+                <ThemedSwitchIcon size={ICON_SIZE.sm} />
+              </Animated.View>
+            ) : (
+              <Animated.View key={providerId} entering={FadeIn.duration(SWAP_FADE_MS)}>
+                <ThemedProviderIcon Icon={getProviderIcon(providerId)} size={ICON_SIZE.sm} />
+              </Animated.View>
+            )
+          }
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
