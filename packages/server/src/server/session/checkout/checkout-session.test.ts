@@ -972,12 +972,12 @@ describe("CheckoutSession", () => {
       }
     });
 
-    it("refuses uncommitted changes without touching git state", async () => {
+    it("carries uncommitted changes onto the next branch", async () => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), "checkout-session-continue-dirty-")));
       try {
         const cwd = setupClonedRepo(root);
         writeFileSync(join(cwd, "file.txt"), "changed\n");
-        const { checkout, emitted, gitMutationCalls } = makeCheckoutSession();
+        const { checkout, emitted } = makeCheckoutSession();
 
         await checkout.handleCheckoutContinueBranchRequest({
           type: "checkout.branch.continue.request",
@@ -985,20 +985,16 @@ describe("CheckoutSession", () => {
           requestId: "cont-2",
         });
 
-        expect(gitMutationCalls.notifyGitMutation).toEqual([]);
+        expect(readFileSync(join(cwd, "file.txt"), "utf8")).toBe("changed\n");
         expect(emitted).toEqual([
           {
             type: "checkout.branch.continue.response",
             payload: {
               cwd,
-              success: false,
-              previousBranch: null,
-              branch: null,
-              error: {
-                code: "UNKNOWN",
-                message:
-                  "Working directory has uncommitted changes. Commit or stash them before continuing on a new branch.",
-              },
+              success: true,
+              previousBranch: "feature",
+              branch: "feature-2",
+              error: null,
               requestId: "cont-2",
             },
           },

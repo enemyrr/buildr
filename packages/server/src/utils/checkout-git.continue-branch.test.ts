@@ -1,5 +1,5 @@
 import { execFileSync } from "child_process";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -97,13 +97,17 @@ describe("continueOnNewBranch", () => {
     expect(result.branch).toBe("andreas/feature-3");
   });
 
-  it("refuses a dirty working tree and stays on the current branch", async () => {
+  it("carries uncommitted and untracked changes onto the new branch", async () => {
     const { repoDir } = setupRepoWithAdvancedOrigin();
-    writeFileSync(join(repoDir, "feature.txt"), "uncommitted\n");
+    writeFileSync(join(repoDir, "a.txt"), "uncommitted\n");
+    writeFileSync(join(repoDir, "new.txt"), "untracked\n");
 
-    await expect(continueOnNewBranch(repoDir)).rejects.toThrow(
-      "Working directory has uncommitted changes. Commit or stash them before continuing on a new branch.",
-    );
-    expect(git(["rev-parse", "--abbrev-ref", "HEAD"], repoDir)).toBe("andreas/feature");
+    const result = await continueOnNewBranch(repoDir);
+
+    expect(result.branch).toBe("andreas/feature-2");
+    expect(git(["rev-parse", "--abbrev-ref", "HEAD"], repoDir)).toBe("andreas/feature-2");
+    expect(readFileSync(join(repoDir, "a.txt"), "utf8")).toBe("uncommitted\n");
+    expect(readFileSync(join(repoDir, "new.txt"), "utf8")).toBe("untracked\n");
+    expect(git(["stash", "list"], repoDir)).toBe("");
   });
 });
