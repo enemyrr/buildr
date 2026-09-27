@@ -96,6 +96,8 @@ export interface DesktopAttachmentsBridge {
 export interface DesktopMenuBridge {
   showContextMenu?: (input?: { kind?: "terminal"; hasSelection?: boolean }) => Promise<void>;
   setCapturingShortcut?: (capturing: boolean) => Promise<void>;
+  /** Runs the window's native undo, for a menu Undo that no app shortcut claimed. */
+  nativeUndo?: () => Promise<void>;
 }
 
 export interface DesktopWindowChromeUpdate {

@@ -42,6 +42,11 @@ import {
 } from "@/stores/navigation-active-workspace-store";
 import { dispatchTopWebOverlayKeyDown } from "@/lib/overlay-root";
 
+function isMenuUndoChord(event: KeyboardEvent, isMac: boolean): boolean {
+  const modifierHeld = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  return modifierHeld && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "z";
+}
+
 export function useKeyboardShortcuts({
   enabled,
   isMobile,
@@ -249,7 +254,7 @@ export function useKeyboardShortcuts({
     focusScope: KeyboardFocusScope;
     domEvent: KeyboardEvent | null;
     browserFocusRestoreElement?: HTMLElement | null;
-  }) => {
+  }): boolean => {
     const store = useKeyboardShortcutsStore.getState();
     const previousChordState = chordStateRef.current;
     const result = resolveKeyboardShortcut({
@@ -288,7 +293,7 @@ export function useKeyboardShortcuts({
     }
 
     if (!result.match) {
-      return;
+      return false;
     }
 
     const handled = routeAndPerformShortcut({
@@ -298,7 +303,7 @@ export function useKeyboardShortcuts({
       browserFocusRestoreElement: input.browserFocusRestoreElement,
     });
     if (!handled || !input.domEvent) {
-      return;
+      return handled;
     }
 
     if (result.match.preventDefault) {
@@ -307,6 +312,7 @@ export function useKeyboardShortcuts({
     if (result.match.stopPropagation) {
       input.domEvent.stopPropagation();
     }
+    return true;
   };
 
   // The window listeners must outlive ordinary re-renders: removing them resets
@@ -351,6 +357,12 @@ export function useKeyboardShortcuts({
       }
     }
 
+    // Leave Mod+Z to the Edit menu, which hands it back through `handleMenuUndo`. Whichever of
+    // the page and the menu sees the key first, it then resolves exactly once.
+    if (isDesktopApp && isMenuUndoChord(event, isMac)) {
+      return;
+    }
+
     const focusScope = resolveKeyboardFocusScope({
       target: event.target,
       commandCenterOpen: store.commandCenterOpen,
@@ -382,6 +394,35 @@ export function useKeyboardShortcuts({
     });
   });
 
+  // The Edit menu owns Mod+Z on desktop, because a registered menu accelerator reaches the menu
+  // before the page (see `routeMenuUndo` in packages/desktop/src/features/menu.ts). The menu hands
+  // the press back here: it runs whatever the bindings resolve for Mod+Z where focus is, and falls
+  // back to native undo when nothing claims it, so text fields keep their own undo.
+  const handleMenuUndo = useStableEvent(() => {
+    const store = useKeyboardShortcutsStore.getState();
+    const handled =
+      !store.capturingShortcut &&
+      resolveAndPerformShortcut({
+        event: {
+          key: "z",
+          code: "KeyZ",
+          altKey: false,
+          ctrlKey: !isMac,
+          metaKey: isMac,
+          shiftKey: false,
+          repeat: false,
+        },
+        focusScope: resolveKeyboardFocusScope({
+          target: document.activeElement,
+          commandCenterOpen: store.commandCenterOpen,
+        }),
+        domEvent: null,
+      });
+    if (!handled) {
+      void getDesktopHost()?.menu?.nativeUndo?.();
+    }
+  });
+
   useEffect(() => {
     if (!enabled) return;
     if (!shortcutsAvailable) return;
@@ -398,6 +439,9 @@ export function useKeyboardShortcuts({
     const browserShortcutSubscription = isElectronRuntime()
       ? getDesktopHost()?.events?.on?.("browser-shortcut-input", handleBrowserShortcutInput)
       : null;
+    const menuUndoSubscription = isElectronRuntime()
+      ? getDesktopHost()?.events?.on?.("menu-undo", handleMenuUndo)
+      : null;
     return () => {
       if (chordStateRef.current.timeoutId !== null) {
         clearTimeout(chordStateRef.current.timeoutId);
@@ -411,10 +455,12 @@ export function useKeyboardShortcuts({
       window.removeEventListener("keyup", handleKeyUp, true);
       window.removeEventListener("blur", handleBlurOrHide);
       document.removeEventListener("visibilitychange", handleBlurOrHide);
-      if (typeof browserShortcutSubscription === "function") {
-        browserShortcutSubscription();
-      } else {
-        void browserShortcutSubscription?.then((dispose) => dispose());
+      for (const subscription of [browserShortcutSubscription, menuUndoSubscription]) {
+        if (typeof subscription === "function") {
+          subscription();
+        } else {
+          void subscription?.then((dispose) => dispose());
+        }
       }
     };
   }, [
@@ -422,6 +468,7 @@ export function useKeyboardShortcuts({
     handleBrowserShortcutInput,
     handleKeyDown,
     handleKeyUp,
+    handleMenuUndo,
     resetModifiers,
     shortcutsAvailable,
   ]);
