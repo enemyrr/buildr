@@ -85,6 +85,7 @@ import { UserMessageText } from "./user-message-text";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
 import { ToolCallDetailsContent } from "./tool-call-details";
+import { type ToolCallDetailSource, useToolCallDetail } from "@/tool-calls/use-tool-call-detail";
 import {
   AssistantInlineCodePathLink,
   type AssistantFileLinkSource,
@@ -3054,6 +3055,24 @@ function summarizeThought(text: string): string | undefined {
     : line;
 }
 
+function resolveToolCallDetail(
+  detail: ToolCallDetail | undefined,
+  args: unknown,
+  result: unknown,
+): ToolCallDetail | undefined {
+  if (detail) {
+    return detail;
+  }
+  if (args !== undefined || result !== undefined) {
+    return {
+      type: "unknown",
+      input: args ?? null,
+      output: result ?? null,
+    };
+  }
+  return undefined;
+}
+
 interface ToolCallProps {
   toolName: string;
   args?: unknown;
@@ -3077,6 +3096,8 @@ interface ToolCallProps {
   onStop?: () => void;
   /** Replaces the rendered detail, such as a live terminal while a command runs. */
   detailsContent?: ReactNode;
+  /** Set when the timeline omitted the heavy detail; it loads when the call opens. */
+  detailSource?: ToolCallDetailSource;
 }
 
 export const ToolCall = memo(function ToolCall({
@@ -3099,6 +3120,7 @@ export const ToolCall = memo(function ToolCall({
   onShare,
   onStop,
   detailsContent,
+  detailSource,
 }: ToolCallProps) {
   const { t } = useTranslation();
   const { openToolCall } = useToolCallSheet();
@@ -3106,34 +3128,29 @@ export const ToolCall = memo(function ToolCall({
 
   const isMobile = useIsCompactFormFactor();
   const shouldRenderInline = !isMobile || forceInline;
+  const loaded = useToolCallDetail(detailSource, shouldRenderInline && isExpanded);
 
-  const effectiveDetail = useMemo<ToolCallDetail | undefined>(() => {
-    if (detail) {
-      return detail;
-    }
-    if (args !== undefined || result !== undefined) {
-      return {
-        type: "unknown",
-        input: args ?? null,
-        output: result ?? null,
-      };
-    }
-    return undefined;
-  }, [detail, args, result]);
-
-  const presentation = useMemo(
-    () =>
-      buildToolCallPresentation({
-        toolName,
-        status,
-        error: error ?? null,
-        detail: effectiveDetail,
-        metadata,
-        cwd,
-        resolveIcon: resolveToolCallIcon,
-      }),
-    [toolName, status, error, effectiveDetail, metadata, cwd],
+  const effectiveDetail = useMemo(
+    () => resolveToolCallDetail(loaded.detail ?? detail, args, result),
+    [loaded.detail, detail, args, result],
   );
+
+  const presentation = useMemo(() => {
+    const base = buildToolCallPresentation({
+      toolName,
+      status,
+      error: error ?? null,
+      detail: effectiveDetail,
+      metadata,
+      cwd,
+      resolveIcon: resolveToolCallIcon,
+    });
+    return {
+      ...base,
+      canOpenDetails: base.canOpenDetails || detailSource !== undefined,
+      isLoadingDetails: base.isLoadingDetails || loaded.isLoading,
+    };
+  }, [toolName, status, error, effectiveDetail, metadata, cwd, detailSource, loaded.isLoading]);
   const handleOpenFile = useMemo(() => {
     const openFilePath = presentation.openFilePath;
     if (!openFilePath || !onOpenFilePath) {
@@ -3152,6 +3169,7 @@ export const ToolCall = memo(function ToolCall({
         errorText: presentation.errorText,
         icon: presentation.icon,
         showLoadingSkeleton: presentation.isLoadingDetails,
+        detailSource,
       });
     } else {
       setIsExpanded((prev) => !prev);
@@ -3166,6 +3184,7 @@ export const ToolCall = memo(function ToolCall({
     presentation.icon,
     presentation.isLoadingDetails,
     effectiveDetail,
+    detailSource,
   ]);
 
   useEffect(() => {
@@ -3220,7 +3239,7 @@ export const ToolCall = memo(function ToolCall({
     const content = detailsContent ?? (
       <ToolCallDetailsContent
         toolName={toolName}
-        detail={effectiveDetail}
+        detail={loaded.isLoading ? undefined : effectiveDetail}
         errorText={presentation.errorText}
         maxHeight={maxDetailHeight}
         showLoadingSkeleton={presentation.isLoadingDetails}
@@ -3238,6 +3257,7 @@ export const ToolCall = memo(function ToolCall({
     toolName,
     effectiveDetail,
     presentation.errorText,
+    loaded.isLoading,
     presentation.isLoadingDetails,
     maxDetailHeight,
     detailAction,
@@ -3296,7 +3316,22 @@ function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
   if (previous.onShare !== next.onShare) return false;
   if (previous.onStop !== next.onStop) return false;
   if (previous.detailsContent !== next.detailsContent) return false;
+  if (!areToolCallDetailSourcesEqual(previous.detailSource, next.detailSource)) return false;
   return true;
+}
+
+function areToolCallDetailSourcesEqual(
+  previous: ToolCallDetailSource | undefined,
+  next: ToolCallDetailSource | undefined,
+): boolean {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+  return (
+    previous.serverId === next.serverId &&
+    previous.agentId === next.agentId &&
+    previous.callId === next.callId &&
+    previous.isRunning === next.isRunning
+  );
 }
 
 const toolCallActionStylesheet = StyleSheet.create((theme) => ({

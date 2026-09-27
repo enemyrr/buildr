@@ -141,6 +141,7 @@ import type {
   AgentProviderNotice,
   AgentProvider,
   AgentSessionConfig,
+  ToolCallDetail,
 } from "@getpaseo/protocol/agent-types";
 import type {
   AgentConfigApply,
@@ -3501,6 +3502,19 @@ export class DaemonClient {
       });
     if (payload.error) throw new Error(payload.error);
     return payload;
+  }
+
+  async getAgentToolCallDetail(
+    input: { agentId: string; callId: string },
+    requestId?: string,
+  ): Promise<ToolCallDetail> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.tool_call.get_detail.response">({
+        requestId,
+        message: { type: "agent.tool_call.get_detail.request", ...input },
+      });
+    if (payload.error || !payload.detail) throw new Error(payload.error ?? "Tool call not found");
+    return payload.detail;
   }
 
   async restoreAgentTurnFiles(

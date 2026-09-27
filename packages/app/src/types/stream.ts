@@ -3,6 +3,7 @@ import type {
   AgentTimelineItem,
   JsonValue,
   ToolCallDetail,
+  ToolCallLineStats,
 } from "@getpaseo/protocol/agent-types";
 import { timelineItemIdentity } from "@getpaseo/protocol/timeline-identity";
 import type { AgentAttachment, AgentStreamEventPayload } from "@getpaseo/protocol/messages";
@@ -752,6 +753,8 @@ export interface AgentToolCallData {
   error: unknown;
   detail: ToolCallDetail;
   metadata?: Record<string, unknown>;
+  detailOmitted?: boolean;
+  lineStats?: ToolCallLineStats;
 }
 
 export type ToolCallPayload =
@@ -1184,6 +1187,21 @@ export function mergeAgentToolCallItem(
   };
 }
 
+function isSameAgentToolCallData(a: AgentToolCallData, b: AgentToolCallData): boolean {
+  return (
+    a.provider === b.provider &&
+    a.callId === b.callId &&
+    a.name === b.name &&
+    a.status === b.status &&
+    a.error === b.error &&
+    a.detail === b.detail &&
+    a.metadata === b.metadata &&
+    a.detailOmitted === b.detailOmitted &&
+    a.lineStats?.additions === b.lineStats?.additions &&
+    a.lineStats?.deletions === b.lineStats?.deletions
+  );
+}
+
 interface AppendAgentToolCallInput {
   state: StreamItem[];
   data: AgentToolCallData;
@@ -1205,13 +1223,7 @@ function appendAgentToolCall(input: AppendAgentToolCallInput): StreamItem[] {
     const merged = mergeAgentToolCallItem(existing, data, timestamp, timelineCursor);
 
     if (
-      merged.payload.data.provider === existing.payload.data.provider &&
-      merged.payload.data.callId === existing.payload.data.callId &&
-      merged.payload.data.name === existing.payload.data.name &&
-      merged.payload.data.status === existing.payload.data.status &&
-      merged.payload.data.error === existing.payload.data.error &&
-      merged.payload.data.detail === existing.payload.data.detail &&
-      merged.payload.data.metadata === existing.payload.data.metadata &&
+      isSameAgentToolCallData(merged.payload.data, existing.payload.data) &&
       merged.timelineCursor === existing.timelineCursor
     ) {
       return state;
@@ -1446,6 +1458,8 @@ function reduceTimelineToolCall(
       error: item.error,
       detail: item.detail,
       metadata: item.metadata,
+      ...(item.detailOmitted ? { detailOmitted: true } : {}),
+      ...(item.lineStats ? { lineStats: item.lineStats } : {}),
     },
     timestamp,
     timelineCursor,

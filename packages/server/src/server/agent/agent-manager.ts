@@ -1213,6 +1213,14 @@ export class AgentManager {
     return this.timelineStore.getRows(id);
   }
 
+  getTimelineToolCall(
+    id: string,
+    callId: string,
+  ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
+    this.requireAgent(id);
+    return this.timelineStore.findToolCall(id, callId);
+  }
+
   fetchTimeline(id: string, options?: AgentTimelineFetchOptions): AgentTimelineFetchResult {
     this.requireAgent(id);
     return this.timelineStore.fetch(id, options);

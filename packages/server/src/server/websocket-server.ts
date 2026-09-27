@@ -820,6 +820,9 @@ export class VoiceAssistantWebSocketServer {
     const wss = new WebSocketServer({
       server,
       path: "/ws",
+      // Timeline JSON compresses 5-10x. Level 1 keeps deflate cheap on large frames, and the
+      // threshold leaves small frames such as terminal keystroke echoes uncompressed.
+      perMessageDeflate: { threshold: 1024, zlibDeflateOptions: { level: 1 } },
       handleProtocols: (protocols) => selectWebSocketProtocol(protocols, password),
       verifyClient: ({ req }, callback) => {
         this.verifyWsUpgrade(
