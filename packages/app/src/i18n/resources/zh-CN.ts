@@ -2023,6 +2023,7 @@ export const zhCN: TranslationResources = {
       restoreTitle: "恢复文件？",
       restoreMessage: "此工作树中的文件将恢复到此轮之前的状态。当前状态会先保存到备份 Git ref。",
       restoreSuccess: "文件已恢复",
+      restoreFailed: "无法恢复文件",
       uncommittedSubtitle: "未提交的更改",
       baseSubtitle: "与 {{baseRef}} 比较",
       directoryMissing: "未找到 workspace 目录。",

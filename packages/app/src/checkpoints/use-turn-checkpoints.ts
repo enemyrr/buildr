@@ -7,6 +7,7 @@ import type {
   AgentTurnCheckpoint,
 } from "@getpaseo/protocol/messages";
 import { useToast } from "@/contexts/toast-context";
+import { confirmDialog } from "@/utils/confirm-dialog";
 import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
@@ -106,22 +107,32 @@ export function useTurnDiff(input: UseTurnDiffInput): TurnDiffQueryResult {
   });
 }
 
-async function resolveTurnIndex(
-  client: DaemonClient,
-  agentId: string,
-  messageId: string,
-): Promise<number> {
-  const { checkpoints } = await client.listAgentCheckpoints(agentId);
-  const turn = checkpoints.find((candidate) => candidate.messageId === messageId);
-  if (!turn) throw new Error("No checkpoint exists for this turn.");
+async function resolveTurnIndex(input: {
+  client: DaemonClient;
+  agentId: string;
+  messageId: string;
+  missingMessage: string;
+}): Promise<number> {
+  const { checkpoints } = await input.client.listAgentCheckpoints(input.agentId);
+  const turn = checkpoints.find((candidate) => candidate.messageId === input.messageId);
+  if (!turn) throw new Error(input.missingMessage);
   return turn.turnIndex;
 }
 
-/** Restores the agent's worktree to the checkpoint taken before `messageId` ran. */
-export function useRestoreTurnFiles(input: { serverId: string; agentId: string }): {
-  restoreFiles: (messageId: string) => Promise<void>;
+export interface RestoreTurnFiles {
+  /** Asks for confirmation, then restores files to before `messageId` ran. */
+  confirmAndRestore: (messageId: string) => Promise<void>;
   isPending: boolean;
-} {
+}
+
+/**
+ * Owns one restore mutation for an agent. Mount it once per surface, not per
+ * timeline row.
+ */
+export function useRestoreTurnFiles(input: {
+  serverId: string;
+  agentId: string;
+}): RestoreTurnFiles {
   const { t } = useTranslation();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -129,7 +140,12 @@ export function useRestoreTurnFiles(input: { serverId: string; agentId: string }
   const { mutateAsync, isPending } = useMutation({
     mutationFn: async (messageId: string) => {
       if (!client) throw new Error(t("common.errors.daemonClientUnavailable"));
-      const turnIndex = await resolveTurnIndex(client, input.agentId, messageId);
+      const turnIndex = await resolveTurnIndex({
+        client,
+        agentId: input.agentId,
+        messageId,
+        missingMessage: t("panels.diff.turnMissing"),
+      });
       await client.restoreAgentTurnFiles({ agentId: input.agentId, turnIndex });
     },
     onSuccess: () => {
@@ -139,46 +155,21 @@ export function useRestoreTurnFiles(input: { serverId: string; agentId: string }
       });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("rewind.errors.failed"));
+      toast.error(error instanceof Error ? error.message : t("panels.diff.restoreFailed"));
     },
   });
-  const restoreFiles = useCallback(
+  const confirmAndRestore = useCallback(
     async (messageId: string) => {
+      const confirmed = await confirmDialog({
+        title: t("panels.diff.restoreTitle"),
+        message: t("panels.diff.restoreMessage"),
+        confirmLabel: t("panels.diff.restoreFiles"),
+        destructive: true,
+      });
+      if (!confirmed) return;
       await mutateAsync(messageId);
     },
-    [mutateAsync],
+    [mutateAsync, t],
   );
-  return { restoreFiles, isPending };
-}
-
-interface UseMessageCheckpointRestoreInput {
-  serverId?: string;
-  agentId?: string;
-  messageId?: string;
-}
-
-interface MessageCheckpointRestore {
-  restore: (() => Promise<void>) | undefined;
-  isPending: boolean;
-}
-
-/**
- * Returns the rewind-menu action that restores files to before `messageId`.
- * `restore` is undefined when the host or the message can't support it.
- */
-export function useMessageCheckpointRestore(
-  input: UseMessageCheckpointRestoreInput,
-): MessageCheckpointRestore {
-  const serverId = input.serverId ?? "";
-  const supported = useSupportsAgentCheckpoints(serverId);
-  const { restoreFiles, isPending } = useRestoreTurnFiles({
-    serverId,
-    agentId: input.agentId ?? "",
-  });
-  const { messageId } = input;
-  const canRestore = supported && Boolean(input.agentId && messageId);
-  const restore = useCallback(async () => {
-    if (messageId) await restoreFiles(messageId);
-  }, [messageId, restoreFiles]);
-  return { restore: canRestore ? restore : undefined, isPending };
+  return { confirmAndRestore, isPending };
 }

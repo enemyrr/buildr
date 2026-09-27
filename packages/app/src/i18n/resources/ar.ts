@@ -2045,6 +2045,7 @@ export const ar: TranslationResources = {
       restoreMessage:
         "تعود الملفات في شجرة العمل هذه إلى حالتها قبل هذه الدورة. تُحفظ الحالة الحالية أولاً في مرجع Git احتياطي.",
       restoreSuccess: "تمت استعادة الملفات",
+      restoreFailed: "تعذّرت استعادة الملفات",
       uncommittedSubtitle: "تغييرات غير ملتزم بها",
       baseSubtitle: "مقارنة مع {{baseRef}}",
       directoryMissing: "لم يتم العثور على دليل Workspace.",

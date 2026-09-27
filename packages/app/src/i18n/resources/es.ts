@@ -2096,6 +2096,7 @@ export const es: TranslationResources = {
       restoreMessage:
         "Los archivos de este worktree vuelven a su estado anterior a este turno. El estado actual se guarda primero en una ref de Git de respaldo.",
       restoreSuccess: "Archivos restaurados",
+      restoreFailed: "No se pudieron restaurar los archivos",
       uncommittedSubtitle: "Cambios sin confirmar",
       baseSubtitle: "Comparado con {{baseRef}}",
       directoryMissing: "No se encontró el directorio de Workspace.",

@@ -2067,6 +2067,7 @@ export const ja: TranslationResources = {
       restoreMessage:
         "このワークツリーのファイルがこのターンの前の状態に戻ります。現在の状態は先にバックアップ用の Git ref に保存されます。",
       restoreSuccess: "ファイルを復元しました",
+      restoreFailed: "ファイルを復元できません",
       uncommittedSubtitle: "未コミットの変更",
       baseSubtitle: "{{baseRef}} との比較",
       directoryMissing: "ワークスペースディレクトリが見つかりません。",

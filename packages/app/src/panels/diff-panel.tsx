@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiffTooLargeState } from "@/git/diff-too-large-state";
 import type { ParsedDiffFile } from "@/git/use-diff-query";
-import { confirmDialog } from "@/utils/confirm-dialog";
 import {
   useRestoreTurnFiles,
   useSupportsAgentCheckpoints,
@@ -288,18 +287,11 @@ function TurnRestoreFilesButton({
   blockedReason,
 }: TurnRestoreFilesButtonProps) {
   const { t } = useTranslation();
-  const { restoreFiles, isPending } = useRestoreTurnFiles({ serverId, agentId });
+  const { confirmAndRestore, isPending } = useRestoreTurnFiles({ serverId, agentId });
   const handlePress = useCallback(async () => {
-    const confirmed = await confirmDialog({
-      title: t("panels.diff.restoreTitle"),
-      message: t("panels.diff.restoreMessage"),
-      confirmLabel: t("panels.diff.restoreFiles"),
-      destructive: true,
-    });
-    if (!confirmed) return;
-    // useRestoreTurnFiles owns the success and failure toasts.
-    await restoreFiles(messageId).catch(() => undefined);
-  }, [messageId, restoreFiles, t]);
+    // useRestoreTurnFiles owns the confirmation and the success and failure toasts.
+    await confirmAndRestore(messageId).catch(() => undefined);
+  }, [confirmAndRestore, messageId]);
   const button = (
     <Button
       variant="outline"

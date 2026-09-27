@@ -1,11 +1,9 @@
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, Text, View } from "react-native";
 import { FileDiff } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useOptionalPaneContext } from "@/panels/pane-context";
-import { useSupportsAgentCheckpoints } from "@/checkpoints/use-turn-checkpoints";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 
 const ThemedFileDiff = withUnistyles(FileDiff);
@@ -13,28 +11,18 @@ const mutedIconColor = (theme: Theme) => ({ color: theme.colors.foregroundMuted 
 const hoveredIconColor = (theme: Theme) => ({ color: theme.colors.foreground });
 
 interface TurnChangesButtonProps {
-  serverId?: string;
-  agentId?: string;
-  messageId?: string;
+  onPress: () => void;
 }
 
-/** Opens the checkpoint diff for the turn that this user message started. */
+/**
+ * Opens the checkpoint diff for the turn a user message started. It lives in
+ * the message's hover-revealed trailing row beside copy and rewind, and
+ * shares their frame and icon colors.
+ */
 export const TurnChangesButton = memo(function TurnChangesButton({
-  serverId,
-  agentId,
-  messageId,
+  onPress,
 }: TurnChangesButtonProps) {
   const { t } = useTranslation();
-  const supported = useSupportsAgentCheckpoints(serverId ?? "");
-  const openPreferredTarget = useOptionalPaneContext()?.openPreferredTarget;
-  const handlePress = useCallback(() => {
-    if (!agentId || !messageId) return;
-    openPreferredTarget?.({ kind: "turn_diff", agentId, messageId }, "diffs");
-  }, [agentId, messageId, openPreferredTarget]);
-
-  const canOpen = supported && Boolean(agentId && messageId && openPreferredTarget);
-  if (!canOpen) return null;
-
   return (
     <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
       <TooltipTrigger asChild>
@@ -42,7 +30,7 @@ export const TurnChangesButton = memo(function TurnChangesButton({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("rewind.turnChanges")}
-            onPress={handlePress}
+            onPress={onPress}
             style={styles.trigger}
             testID="turn-changes-button"
           >

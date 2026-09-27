@@ -31,6 +31,7 @@ import { Composer } from "@/composer";
 import { resolveComposerTrackTailClearance } from "@/composer/pill-styles";
 import { getActiveMessageSubmissions } from "@/composer/submission/model";
 import { RewindComposerRestoreProvider } from "@/components/rewind/composer-restore";
+import { TurnCheckpointActionsProvider } from "@/checkpoints/turn-checkpoint-actions";
 import { getProviderIcon } from "@/components/provider-icons";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
@@ -1074,33 +1075,35 @@ function ChatAgentContent({
     viewState.sync.isRetrying;
 
   return (
-    <ChatAgentReadyContent
-      serverId={serverId}
-      workspaceId={workspaceId}
-      agentId={agentId}
-      isPaneFocused={isPaneFocused}
-      isArchivingCurrentAgent={isArchivingCurrentAgent}
-      agentState={agentState}
-      effectiveAgent={effectiveAgent}
-      routeBottomAnchorRequest={routeBottomAnchorRequest}
-      hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
-      toastApi={toastApi}
-      toast={toastState}
-      dismiss={dismissToast}
-      streamViewRef={streamViewRef}
-      handleComposerHeightChange={handleComposerHeightChange}
-      handleMessageSent={handleMessageSent}
-      handleRewindComplete={handleRewindComplete}
-      timelineSync={isPaneVisible && viewState.tag === "ready" ? viewState.sync : null}
-      showHistorySyncOverlay={showHistorySyncOverlay}
-      showHistorySyncError={showHistorySyncError}
-      isRetryingHistorySync={isRetryingHistorySync}
-      cwd={agentCwd}
-      retryTimelineSync={retryTimelineSync}
-      onAttentionInputFocus={attentionController.clearOnInputFocus}
-      onAttentionPromptSend={attentionController.clearOnPromptSend}
-      onOpenWorkspaceFile={onOpenWorkspaceFile}
-    />
+    <TurnCheckpointActionsProvider serverId={serverId} agentId={agentId}>
+      <ChatAgentReadyContent
+        serverId={serverId}
+        workspaceId={workspaceId}
+        agentId={agentId}
+        isPaneFocused={isPaneFocused}
+        isArchivingCurrentAgent={isArchivingCurrentAgent}
+        agentState={agentState}
+        effectiveAgent={effectiveAgent}
+        routeBottomAnchorRequest={routeBottomAnchorRequest}
+        hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
+        toastApi={toastApi}
+        toast={toastState}
+        dismiss={dismissToast}
+        streamViewRef={streamViewRef}
+        handleComposerHeightChange={handleComposerHeightChange}
+        handleMessageSent={handleMessageSent}
+        handleRewindComplete={handleRewindComplete}
+        timelineSync={isPaneVisible && viewState.tag === "ready" ? viewState.sync : null}
+        showHistorySyncOverlay={showHistorySyncOverlay}
+        showHistorySyncError={showHistorySyncError}
+        isRetryingHistorySync={isRetryingHistorySync}
+        cwd={agentCwd}
+        retryTimelineSync={retryTimelineSync}
+        onAttentionInputFocus={attentionController.clearOnInputFocus}
+        onAttentionPromptSend={attentionController.clearOnPromptSend}
+        onOpenWorkspaceFile={onOpenWorkspaceFile}
+      />
+    </TurnCheckpointActionsProvider>
   );
 }
 

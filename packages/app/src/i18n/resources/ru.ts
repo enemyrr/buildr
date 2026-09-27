@@ -2081,6 +2081,7 @@ export const ru: TranslationResources = {
       restoreMessage:
         "Файлы в этом worktree вернутся к состоянию до этого хода. Текущее состояние сначала сохраняется в резервную ссылку Git.",
       restoreSuccess: "Файлы восстановлены",
+      restoreFailed: "Не удалось восстановить файлы",
       uncommittedSubtitle: "Незафиксированные изменения",
       baseSubtitle: "Сравнение с {{baseRef}}",
       directoryMissing: "Каталог рабочего пространства не найден.",

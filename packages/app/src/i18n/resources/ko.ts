@@ -2056,6 +2056,7 @@ export const ko: TranslationResources = {
       restoreMessage:
         "이 워크트리의 파일이 이 턴 이전 상태로 돌아갑니다. 현재 상태는 먼저 백업 Git ref에 저장됩니다.",
       restoreSuccess: "파일을 복원했습니다",
+      restoreFailed: "파일을 복원할 수 없습니다",
       uncommittedSubtitle: "커밋되지 않은 변경 사항",
       baseSubtitle: "{{baseRef}}와 비교",
       directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",

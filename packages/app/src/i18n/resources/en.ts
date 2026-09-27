@@ -2090,6 +2090,7 @@ export const en = {
       restoreMessage:
         "Files in this worktree return to their state before this turn. The current state is saved to a backup Git ref first.",
       restoreSuccess: "Files restored",
+      restoreFailed: "Unable to restore files",
       uncommittedSubtitle: "Uncommitted changes",
       baseSubtitle: "Compared with {{baseRef}}",
       directoryMissing: "Workspace directory not found.",
