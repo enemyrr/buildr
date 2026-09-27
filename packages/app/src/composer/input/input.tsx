@@ -86,6 +86,7 @@ import {
   stopRealtimeVoice,
 } from "./state";
 import { resolveListKeyEdit } from "./list-continuation";
+import { useLargeTextPaste } from "./large-paste";
 
 const DEFAULT_SEND_KEYS: ShortcutKey[][] = [["Enter"]];
 const COMPOSER_INPUT_DATASET = { composerInput: "" } as const;
@@ -140,6 +141,8 @@ export interface MessageInputProps {
   onAttachButtonRef?: (node: View | null) => void;
   onAddImages?: (images: ImageAttachment[]) => void;
   onPasteImages?: (files: readonly NativePastedFile[]) => void;
+  /** Receives a web text paste over the large-paste threshold instead of the input. */
+  onPasteLargeText?: (text: string) => void;
   client: DaemonClient | null;
   /** Dictation start gate from host runtime (socket connected + directory ready). */
   isReadyForDictation?: boolean;
@@ -478,6 +481,17 @@ interface PasteImagesEffectArgs {
   isDictating: boolean;
   isRealtimeVoiceForCurrentAgent: boolean;
   onAddImages: ((images: ImageAttachment[]) => void) | undefined;
+}
+
+function canAcceptPaste(
+  args: Pick<
+    PasteImagesEffectArgs,
+    "isConnected" | "disabled" | "isDictating" | "isRealtimeVoiceForCurrentAgent"
+  >,
+): boolean {
+  return (
+    args.isConnected && !args.disabled && !args.isDictating && !args.isRealtimeVoiceForCurrentAgent
+  );
 }
 
 function usePasteImagesEffect(args: PasteImagesEffectArgs): void {
@@ -1053,6 +1067,7 @@ interface ResolvedMessageInputProps {
   onAttachButtonRef: ((node: View | null) => void) | undefined;
   onAddImages: ((images: ImageAttachment[]) => void) | undefined;
   onPasteImages: ((files: readonly NativePastedFile[]) => void) | undefined;
+  onPasteLargeText: ((text: string) => void) | undefined;
   client: DaemonClient | null;
   isReadyForDictation: boolean | undefined;
   placeholder: string | undefined;
@@ -1101,6 +1116,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     onAttachButtonRef: props.onAttachButtonRef,
     onAddImages: props.onAddImages,
     onPasteImages: props.onPasteImages,
+    onPasteLargeText: props.onPasteLargeText,
     client: props.client,
     isReadyForDictation: props.isReadyForDictation,
     placeholder: props.placeholder,
@@ -1157,6 +1173,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       onAttachButtonRef,
       onAddImages,
       onPasteImages,
+      onPasteLargeText,
       client,
       isReadyForDictation,
       placeholder,
@@ -1727,6 +1744,16 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       const element = getTextInputNativeElement(textInputRef.current);
       return element instanceof HTMLTextAreaElement ? element : null;
     }, []);
+    useLargeTextPaste({
+      getTextArea,
+      enabled: canAcceptPaste({
+        isConnected,
+        disabled,
+        isDictating,
+        isRealtimeVoiceForCurrentAgent,
+      }),
+      onPasteLargeText,
+    });
     const textInputStyle = useMemo(
       () => [styles.textInput, mode.isMonospace && styles.textInputMonospace, composerHeightStyle],
       [composerHeightStyle, mode.isMonospace],

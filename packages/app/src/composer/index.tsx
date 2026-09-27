@@ -153,6 +153,7 @@ import { ForgeBrandIcon } from "@/git/forge-icon";
 import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
 import { indentListItem } from "./input/list-continuation";
+import { createPastedTextFile, insertAtSelection } from "./input/large-paste";
 import {
   resolvePromptHistoryDirection,
   selectPromptHistory,
@@ -1878,12 +1879,13 @@ function ComposerContentImpl({
     [addImages, t],
   );
 
+  /** Resolves to whether every file was attached. */
   const uploadSelectedFiles = useCallback(
-    async (files: SelectedFile[]) => {
-      if (files.length === 0) return;
+    async (files: SelectedFile[]): Promise<boolean> => {
+      if (files.length === 0) return true;
       if (!client) {
         toastErrorRef.current(t("composer.errors.daemonClientDisconnected"));
-        return;
+        return false;
       }
 
       const placeholders = files.map((file) => ({ id: nextPendingFileId.current++, file }));
@@ -1891,16 +1893,30 @@ function ComposerContentImpl({
       try {
         const uploaded = await uploadFileAttachments({ client, files });
         addFiles(uploaded);
+        return true;
       } catch (error) {
         console.error("[Composer] Failed to upload file:", error);
         toastErrorRef.current(
           error instanceof Error ? error.message : t("composer.errors.uploadFailed"),
         );
+        return false;
       } finally {
         setPendingFiles((pending) => pending.filter((entry) => !placeholders.includes(entry)));
       }
     },
     [addFiles, client, t],
+  );
+
+  // A failed upload puts the text back inline, so the paste is never lost.
+  const handlePasteLargeText = useCallback(
+    async (text: string) => {
+      const attached = await uploadSelectedFiles([createPastedTextFile(text, new Date())]);
+      const input = messageInputRef.current?.getInputSnapshot();
+      if (attached || !input) return;
+      const next = insertAtSelection(input, text);
+      replaceUserInput(next.text, next.selection);
+    },
+    [replaceUserInput, uploadSelectedFiles],
   );
 
   const handlePickFile = useCallback(async () => {
@@ -2588,6 +2604,7 @@ function ComposerContentImpl({
                   onAttachButtonRef={handleAttachButtonRef}
                   onAddImages={addImages}
                   onPasteImages={handleNativePasteImages}
+                  onPasteLargeText={handlePasteLargeText}
                   client={client}
                   isReadyForDictation={isDictationReady}
                   placeholder={

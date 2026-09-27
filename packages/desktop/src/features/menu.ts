@@ -113,6 +113,8 @@ function buildApplicationMenuTemplate(
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
+        // The composer reads this chord to keep a large paste inline.
+        { role: "pasteAndMatchStyle", accelerator: "CommandOrControl+Shift+V" },
         { role: "selectAll" },
       ],
     },
