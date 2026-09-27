@@ -85,11 +85,11 @@ export function projectAgentSnapshot(agent: Agent): AgentSnapshotPayload {
     attentionReason: agent.attentionReason ?? null,
     attentionTimestamp: agent.attentionTimestamp?.toISOString() ?? null,
     archivedAt: agent.archivedAt?.toISOString() ?? null,
-    ...(agent.turnInterruption
+    ...(agent.interruptedTurn
       ? {
           interruptedTurn: {
-            startedAt: agent.turnInterruption.startedAt.toISOString(),
-            interruptedAt: agent.turnInterruption.interruptedAt.toISOString(),
+            startedAt: agent.interruptedTurn.startedAt.toISOString(),
+            interruptedAt: agent.interruptedTurn.interruptedAt.toISOString(),
           },
         }
       : {}),
@@ -106,7 +106,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     ? new Date(snapshot.attentionTimestamp)
     : null;
   const archivedAt = snapshot.archivedAt ? new Date(snapshot.archivedAt) : null;
-  const turnInterruption = snapshot.interruptedTurn
+  const interruptedTurn = snapshot.interruptedTurn
     ? {
         startedAt: new Date(snapshot.interruptedTurn.startedAt),
         interruptedAt: new Date(snapshot.interruptedTurn.interruptedAt),
@@ -146,7 +146,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     attentionReason: snapshot.attentionReason ?? null,
     attentionTimestamp,
     archivedAt,
-    ...(turnInterruption ? { turnInterruption } : {}),
+    ...(interruptedTurn ? { interruptedTurn } : {}),
     parentAgentId,
     labels: snapshot.labels,
   };

@@ -29,7 +29,7 @@ function useIsInterrupted(serverId: string, agentId: string): boolean {
   return useSessionStore((state) => {
     const session = state.sessions[serverId];
     const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId);
-    return Boolean(agent?.turnInterruption) && agent?.status !== "running";
+    return Boolean(agent?.interruptedTurn) && agent?.status !== "running";
   });
 }
 
