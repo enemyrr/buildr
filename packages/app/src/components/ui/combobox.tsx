@@ -1,5 +1,7 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -242,6 +244,15 @@ export interface ComboboxItemProps {
   testID?: string;
 }
 
+// Moving the pointer over an option makes it the active one (see docs/hover.md, "Keyboard-active
+// lists"). `OptionRow` provides the handler per row, so custom `renderOption` rows get it through
+// `ComboboxItem` or `useComboboxOptionPointerMove`.
+const ComboboxOptionPointerMoveContext = createContext<(() => void) | undefined>(undefined);
+
+export function useComboboxOptionPointerMove(): (() => void) | undefined {
+  return useContext(ComboboxOptionPointerMoveContext);
+}
+
 export function ComboboxItem({
   label,
   description,
@@ -257,6 +268,9 @@ export function ComboboxItem({
   testID,
 }: ComboboxItemProps): ReactElement {
   const { theme } = useUnistyles();
+  const activateOnPointerMove = useComboboxOptionPointerMove();
+  // An option inside a combobox list is filled by `active`, which follows the pointer.
+  const fillsOnHover = activateOnPointerMove === undefined;
 
   let leadingContent: ReactElement | null = null;
   if (leadingSlot) {
@@ -278,12 +292,14 @@ export function ComboboxItem({
   const itemPressableStyle = useCallback(
     ({ pressed, hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
       styles.comboboxItem,
-      hovered && (elevated ? styles.comboboxItemHoveredElevated : styles.comboboxItemHovered),
+      hovered &&
+        fillsOnHover &&
+        (elevated ? styles.comboboxItemHoveredElevated : styles.comboboxItemHovered),
       pressed && (elevated ? styles.comboboxItemPressedElevated : styles.comboboxItemPressed),
       active && styles.comboboxItemActive,
       disabled && styles.comboboxItemDisabled,
     ],
-    [elevated, active, disabled],
+    [elevated, active, disabled, fillsOnHover],
   );
 
   const itemContentStyle = useMemo(
@@ -295,6 +311,7 @@ export function ComboboxItem({
     <Pressable
       testID={testID}
       disabled={disabled}
+      onPointerMove={activateOnPointerMove}
       onPress={onPress}
       style={itemPressableStyle}
       accessibilityRole="button"
@@ -335,18 +352,30 @@ type RenderOptionFn = NonNullable<ComboboxProps["renderOption"]>;
 
 interface OptionRowProps {
   option: ComboboxOption;
+  index: number;
   selected: boolean;
   active: boolean;
   onSelect: (id: string) => void;
+  setActiveIndex: (index: number) => void;
   renderOption: RenderOptionFn | undefined;
 }
 
-function OptionRow({ option, selected, active, onSelect, renderOption }: OptionRowProps) {
+function OptionRow({
+  option,
+  index,
+  selected,
+  active,
+  onSelect,
+  setActiveIndex,
+  renderOption,
+}: OptionRowProps) {
   const handlePress = useCallback(() => onSelect(option.id), [onSelect, option.id]);
-  if (renderOption) {
-    return <View>{renderOption({ option, selected, active, onPress: handlePress })}</View>;
-  }
-  return (
+  const activate = useCallback(() => {
+    if (!active) setActiveIndex(index);
+  }, [active, index, setActiveIndex]);
+  const row = renderOption ? (
+    <View>{renderOption({ option, selected, active, onPress: handlePress })}</View>
+  ) : (
     <ComboboxItem
       label={option.label}
       description={option.description}
@@ -356,12 +385,18 @@ function OptionRow({ option, selected, active, onSelect, renderOption }: OptionR
       onPress={handlePress}
     />
   );
+  return (
+    <ComboboxOptionPointerMoveContext.Provider value={activate}>
+      {row}
+    </ComboboxOptionPointerMoveContext.Provider>
+  );
 }
 
 interface OptionsListProps {
   options: ComboboxOption[];
   value: string;
   activeIndex: number;
+  setActiveIndex: (index: number) => void;
   emptyText: string;
   onSelect: (id: string) => void;
   renderOption: RenderOptionFn | undefined;
@@ -371,6 +406,7 @@ function OptionsList({
   options,
   value,
   activeIndex,
+  setActiveIndex,
   emptyText,
   onSelect,
   renderOption,
@@ -384,9 +420,11 @@ function OptionsList({
         <OptionRow
           key={opt.id}
           option={opt}
+          index={index}
           selected={opt.id === value}
           active={index === activeIndex}
           onSelect={onSelect}
+          setActiveIndex={setActiveIndex}
           renderOption={renderOption}
         />
       ))}
@@ -940,6 +978,7 @@ interface MobileBodyProps {
   orderedVisibleOptions: ComboboxOption[];
   value: string;
   activeIndex: number;
+  setActiveIndex: (index: number) => void;
   emptyText: string;
   handleSelect: (id: string) => void;
   renderOption: RenderOptionFn | undefined;
@@ -976,6 +1015,7 @@ function MobileComboboxBody(props: MobileBodyProps): ReactElement {
       options={props.orderedVisibleOptions}
       value={props.value}
       activeIndex={props.activeIndex}
+      setActiveIndex={props.setActiveIndex}
       emptyText={props.emptyText}
       onSelect={props.handleSelect}
       renderOption={props.renderOption}
@@ -1067,6 +1107,7 @@ interface DesktopBodyProps {
   orderedVisibleOptions: ComboboxOption[];
   value: string;
   activeIndex: number;
+  setActiveIndex: (index: number) => void;
   emptyText: string;
   handleSelect: (id: string) => void;
   renderOption: RenderOptionFn | undefined;
@@ -1120,6 +1161,7 @@ function DesktopComboboxOptionsBody(props: {
   orderedVisibleOptions: ComboboxOption[];
   value: string;
   activeIndex: number;
+  setActiveIndex: (index: number) => void;
   emptyText: string;
   handleSelect: (id: string) => void;
   renderOption: RenderOptionFn | undefined;
@@ -1129,6 +1171,7 @@ function DesktopComboboxOptionsBody(props: {
       options={props.orderedVisibleOptions}
       value={props.value}
       activeIndex={props.activeIndex}
+      setActiveIndex={props.setActiveIndex}
       emptyText={props.emptyText}
       onSelect={props.handleSelect}
       renderOption={props.renderOption}
@@ -1245,6 +1288,7 @@ function DesktopComboboxBody(props: DesktopBodyProps): ReactElement {
               orderedVisibleOptions={props.orderedVisibleOptions}
               value={props.value}
               activeIndex={props.activeIndex}
+              setActiveIndex={props.setActiveIndex}
               emptyText={props.emptyText}
               handleSelect={props.handleSelect}
               renderOption={props.renderOption}
@@ -1600,6 +1644,7 @@ export function Combobox({
         orderedVisibleOptions={orderedVisibleOptions}
         value={value}
         activeIndex={activeIndex}
+        setActiveIndex={setActiveIndex}
         emptyText={resolvedEmptyText}
         handleSelect={handleSelect}
         renderOption={renderOption}
@@ -1637,6 +1682,7 @@ export function Combobox({
       orderedVisibleOptions={orderedVisibleOptions}
       value={value}
       activeIndex={activeIndex}
+      setActiveIndex={setActiveIndex}
       emptyText={resolvedEmptyText}
       handleSelect={handleSelect}
       renderOption={renderOption}

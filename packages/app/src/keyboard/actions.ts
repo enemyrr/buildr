@@ -16,7 +16,8 @@ export type MessageInputKeyboardActionKind =
   | "voice-mute-toggle"
   | "mode-cycle"
   | "effort-cycle"
-  | "fast-toggle";
+  | "fast-toggle"
+  | "stash";
 
 export type KeyboardActionId =
   | "agent.interrupt"
@@ -56,6 +57,7 @@ export type KeyboardActionId =
   | "worktree.new"
   | "workspace.archive"
   | "workspace.pin"
+  | "workspace.undo"
   | "view.toggle.focus"
   | "theme.cycle"
   | "message-input.action"

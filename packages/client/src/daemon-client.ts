@@ -102,6 +102,9 @@ import type {
   DaemonConfigReloadResponse,
   DiagnosticsResponse,
   AgentRewindResponseMessage,
+  AgentCheckpointListResponseMessage,
+  AgentCheckpointGetTurnDiffResponseMessage,
+  AgentCheckpointRestoreFilesResponseMessage,
   ListTerminalsResponse,
   CreateTerminalResponse,
   SubscribeTerminalResponse,
@@ -117,6 +120,7 @@ import type {
   PaseoConfigRevision,
   WorkspaceCreateRequest,
   WorkspaceRecoveryState,
+  WorkspaceSnooze,
   ArchivedWorkspaceSummary,
   PluginListItem,
   PluginLogEntry,
@@ -3025,6 +3029,26 @@ export class DaemonClient {
     return { pinnedAt: payload.pinnedAt };
   }
 
+  async setWorkspaceSnooze(
+    workspaceId: string,
+    until: string | null,
+    requestId?: string,
+  ): Promise<WorkspaceSnooze | null> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"workspace.snooze.set.response">({
+        requestId,
+        message: {
+          type: "workspace.snooze.set.request",
+          workspaceId,
+          until,
+        },
+      });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "setWorkspaceSnooze rejected");
+    }
+    return payload.snooze;
+  }
+
   async inspectWorkspaceRecovery(
     workspaceId: string,
     requestId?: string,
@@ -3208,6 +3232,30 @@ export class DaemonClient {
     }
 
     return payload;
+  }
+
+  /** Resumes the agent and resubmits the turn a daemon restart interrupted. */
+  async continueInterruptedTurn(agentId: string): Promise<void> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.interrupted_turn.continue.request", requestId, agentId },
+      responseType: "agent.interrupted_turn.continue.response",
+      // Covers the provider resume plus the daemon's 60-second run-start budget.
+      timeout: 120_000,
+    });
+    if (payload.error) throw new Error(payload.error);
+  }
+
+  /** Clears a turn that a daemon restart interrupted, without continuing it. */
+  async dismissInterruptedTurn(agentId: string): Promise<void> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.interrupted_turn.dismiss.request", requestId, agentId },
+      responseType: "agent.interrupted_turn.dismiss.response",
+    });
+    if (payload.error) throw new Error(payload.error);
   }
 
   async appendAgentTimelineItem(
@@ -3426,6 +3474,47 @@ export class DaemonClient {
 
   async sendMessage(agentId: string, text: string, options?: SendMessageOptions): Promise<void> {
     await this.sendAgentMessage(agentId, text, options);
+  }
+
+  async listAgentCheckpoints(
+    agentId: string,
+    requestId?: string,
+  ): Promise<AgentCheckpointListResponseMessage["payload"]> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.checkpoint.list.response">({
+        requestId,
+        message: { type: "agent.checkpoint.list.request", agentId },
+      });
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  }
+
+  async getAgentTurnDiff(
+    input: { agentId: string; turnIndex: number; ignoreWhitespace?: boolean },
+    requestId?: string,
+  ): Promise<AgentCheckpointGetTurnDiffResponseMessage["payload"]> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.checkpoint.get_turn_diff.response">({
+        requestId,
+        message: { type: "agent.checkpoint.get_turn_diff.request", ...input },
+        timeout: 60000,
+      });
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  }
+
+  async restoreAgentTurnFiles(
+    input: { agentId: string; turnIndex: number },
+    requestId?: string,
+  ): Promise<AgentCheckpointRestoreFilesResponseMessage["payload"]> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"agent.checkpoint.restore_files.response">({
+        requestId,
+        message: { type: "agent.checkpoint.restore_files.request", ...input },
+        timeout: 60000,
+      });
+    if (!payload.ok) throw new Error(payload.error ?? "Failed to restore files");
+    return payload;
   }
 
   async rewindAgent(

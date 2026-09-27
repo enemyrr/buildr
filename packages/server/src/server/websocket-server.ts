@@ -1689,6 +1689,8 @@ export class VoiceAssistantWebSocketServer {
         workspaceSetupRun: true,
         // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
         agentShellRun: true,
+        // COMPAT(interruptedTurnContinue): added in v0.10.2, remove gate after 2027-03-27.
+        interruptedTurnContinue: true,
         // COMPAT(projectGitSettings): added in v0.9.2, remove gate after 2027-03-22.
         projectGitSettings: true,
         // COMPAT(agentDefaults): added in v0.9.7, remove gate after 2027-03-25.
@@ -1749,6 +1751,8 @@ export class VoiceAssistantWebSocketServer {
         workspaceTerminals: true,
         // COMPAT(rewind): added in v0.1.X, drop the gate when floor >= v0.1.X.
         rewind: true,
+        // COMPAT(agentCheckpoints): added in v0.10.2, remove gate after 2027-03-27.
+        agentCheckpoints: true,
         // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
         agentTimelinePromptIndex: true,
         // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
@@ -1793,6 +1797,8 @@ export class VoiceAssistantWebSocketServer {
         providerSubagentNesting: true,
         // COMPAT(workspacePinning): added in v0.1.107, remove gate after 2027-01-12.
         workspacePinning: true,
+        // COMPAT(workspaceSnooze): added in v0.10.2, remove gate after 2027-03-27.
+        workspaceSnooze: true,
         // COMPAT(workspaceMarkUnread): added in v0.5.0, remove after 2027-08-20.
         workspaceMarkUnread: true,
         // COMPAT(hubRelationship): added in v0.1.X, drop the gate when floor >= v0.1.X.

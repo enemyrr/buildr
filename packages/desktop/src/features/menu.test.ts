@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { reloadActiveBrowserOrWindow } from "./menu.js";
+import {
+  pasteAndMatchStyleInContents,
+  reloadActiveBrowserOrWindow,
+  resolvePasteAndMatchStyleAccelerator,
+  routeMenuUndo,
+} from "./menu.js";
 
 class FakeWebContents {
   public readonly reloads: string[] = [];
@@ -66,5 +71,69 @@ describe("reloadActiveBrowserOrWindow", () => {
     expect(browserReloads.firstBrowser.reloads).toEqual([]);
     expect(browserReloads.secondBrowser.reloads).toEqual(["force-reload"]);
     expect(browserReloads.secondWindow.webContents.reloads).toEqual([]);
+  });
+});
+
+describe("pasteAndMatchStyleInContents", () => {
+  function recordingContents() {
+    const calls: string[] = [];
+    return {
+      calls,
+      send: (channel: string) => calls.push(`send:${channel}`),
+      pasteAndMatchStyle: () => calls.push("paste"),
+    };
+  }
+
+  it("tells an app window the paste is plain before pasting", () => {
+    const contents = recordingContents();
+    pasteAndMatchStyleInContents({ contents, isAppWindow: true });
+    expect(contents.calls).toEqual(["send:paseo:event:plain-paste-requested", "paste"]);
+  });
+
+  it("only pastes into a browser tab", () => {
+    const contents = recordingContents();
+    pasteAndMatchStyleInContents({ contents, isAppWindow: false });
+    expect(contents.calls).toEqual(["paste"]);
+  });
+});
+
+describe("resolvePasteAndMatchStyleAccelerator", () => {
+  it("registers Cmd+Shift+V on macOS", () => {
+    expect(resolvePasteAndMatchStyleAccelerator("darwin")).toBe("Command+Shift+V");
+  });
+
+  it("leaves Ctrl+Shift+V to the page on Windows and Linux", () => {
+    expect(resolvePasteAndMatchStyleAccelerator("win32")).toBeUndefined();
+    expect(resolvePasteAndMatchStyleAccelerator("linux")).toBeUndefined();
+  });
+});
+
+class UndoTarget {
+  public readonly calls: string[] = [];
+
+  public constructor(public readonly id: number) {}
+
+  public undo(): void {
+    this.calls.push("undo");
+  }
+
+  public send(channel: string): void {
+    this.calls.push(channel);
+  }
+}
+
+describe("routeMenuUndo", () => {
+  it("hands Undo to the app window when the window itself is focused", () => {
+    const window = new UndoTarget(101);
+    routeMenuUndo({ win: { webContents: window }, focusedContents: window });
+    expect(window.calls).toEqual(["paseo:event:menu-undo"]);
+  });
+
+  it("runs native undo in a focused browser webview", () => {
+    const window = new UndoTarget(101);
+    const browser = new UndoTarget(11);
+    routeMenuUndo({ win: { webContents: window }, focusedContents: browser });
+    expect(browser.calls).toEqual(["undo"]);
+    expect(window.calls).toEqual([]);
   });
 });

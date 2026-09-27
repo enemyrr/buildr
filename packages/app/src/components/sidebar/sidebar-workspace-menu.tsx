@@ -73,6 +73,11 @@ import {
   workspaceBoardStatusLabelKey,
   type WorkspaceStatusTarget,
 } from "@/components/sidebar/workspace-status-menu";
+import type { SnoozeTarget } from "@/workspace/snooze/actions";
+import {
+  useWorkspaceSnoozeMenuPage,
+  WorkspaceSnoozeSubTrigger,
+} from "@/workspace/snooze/menu-page";
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -195,6 +200,10 @@ function SidebarWorkspaceMenuItems({
     () => ({ workspaceKey, prHint }),
     [prHint, workspaceKey],
   );
+  const snoozeTarget = useMemo<SnoozeTarget | null>(
+    () => (serverId && workspaceId ? { serverId, workspaceId, workspaceKey } : null),
+    [serverId, workspaceId, workspaceKey],
+  );
   const prUrl = prHint?.url ?? null;
   const handleCopyLink = useCallback(() => {
     if (!prUrl) return;
@@ -234,6 +243,7 @@ function SidebarWorkspaceMenuItems({
           {isPinned ? t("sidebar.workspace.actions.unpin") : t("sidebar.workspace.actions.pin")}
         </WorkspaceMenuItem>
       ) : null}
+      {snoozeTarget ? <WorkspaceSnoozeSubTrigger target={snoozeTarget} /> : null}
       <WorkspaceStatusSubTrigger target={statusTarget} />
       {serverId && workspaceId ? (
         <DropdownMenuSubTrigger
@@ -325,17 +335,31 @@ function WorkspaceStatusSubTrigger({ target }: { target: WorkspaceStatusTarget }
   );
 }
 
-/** Label and status pages, merged so both menus declare the same set. */
+/** Label, status, and snooze pages, merged so both menus declare the same set. */
 function useWorkspaceMenuPages(
   labelTarget: WorkspaceLabelTarget | null,
   statusTarget: WorkspaceStatusTarget,
 ): readonly MenuPageDefinition[] {
   const labelPages = useWorkspaceLabelMenuPages(labelTarget);
   const statusPage = useWorkspaceStatusMenuPage(statusTarget);
-  return useMemo(
-    () => (statusPage ? [...labelPages, statusPage] : labelPages),
-    [labelPages, statusPage],
+  const snoozeTarget = useMemo<SnoozeTarget | null>(
+    () =>
+      labelTarget
+        ? {
+            serverId: labelTarget.serverId,
+            workspaceId: labelTarget.workspaceId,
+            workspaceKey: statusTarget.workspaceKey,
+          }
+        : null,
+    [labelTarget, statusTarget.workspaceKey],
   );
+  const snoozePage = useWorkspaceSnoozeMenuPage(snoozeTarget);
+  return useMemo(() => {
+    const pages = [...labelPages];
+    if (statusPage) pages.push(statusPage);
+    if (snoozePage) pages.push(snoozePage);
+    return pages;
+  }, [labelPages, snoozePage, statusPage]);
 }
 
 /**

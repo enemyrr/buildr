@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Pressable, Text } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -13,14 +12,18 @@ const foregroundMutedColorMapping = (theme: Theme) => ({
   color: theme.colors.foregroundMuted,
 });
 
-export function PinnedSectionHeader({
+/** The collapsible label over a hoisted sidebar section, such as Pinned or Snoozed. */
+export function SidebarSectionHeader({
+  title,
   collapsed,
   onToggle,
+  testID,
 }: {
+  title: string;
   collapsed: boolean;
   onToggle: () => void;
+  testID: string;
 }) {
-  const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
   const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
@@ -31,11 +34,11 @@ export function PinnedSectionHeader({
       accessibilityState={accessibilityState}
       onPress={onToggle}
       style={styles.header}
-      testID="sidebar-pinned-section-header"
+      testID={testID}
     >
       {({ hovered }) => (
         <>
-          <Text style={styles.title}>{t("sidebar.pinned.title")}</Text>
+          <Text style={styles.title}>{title}</Text>
           {hovered || isNative || isCompact ? (
             <Chevron size={12} uniProps={foregroundMutedColorMapping} />
           ) : null}

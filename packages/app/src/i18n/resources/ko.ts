@@ -115,6 +115,27 @@ export const ko: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "보관된 프롬프트",
+      triggerLabel: "보관된 프롬프트: {{count}}",
+      stashCurrent: "프롬프트 보관",
+      attachmentsOnly: "첨부 파일만",
+      stashed: "프롬프트를 보관했습니다",
+      delete: {
+        action: "보관된 프롬프트 {{label}} 삭제",
+        tooltip: "삭제",
+        confirmTitle: "보관된 프롬프트를 삭제할까요?",
+        confirmMessage: "프롬프트와 첨부 파일이 보관함에서 제거됩니다.",
+        confirm: "삭제",
+      },
+      errors: {
+        tooLarge: "프롬프트가 너무 커서 보관할 수 없습니다",
+        storageFailed:
+          "프롬프트를 보관할 수 없습니다. 로컬 저장소를 사용할 수 없거나 가득 찼습니다.",
+        restoreFailed: "프롬프트를 복원할 수 없습니다. 로컬 저장소를 사용할 수 없습니다.",
+        deleteFailed: "보관된 프롬프트를 삭제할 수 없습니다. 로컬 저장소를 사용할 수 없습니다.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "변경을 요청하거나 @로 파일을 언급하거나 /commands를 실행하세요",
@@ -254,6 +275,12 @@ export const ko: TranslationResources = {
     archived: {
       callout: "이 에이전트는 보관되었습니다",
       unarchive: "보관 해제",
+    },
+    interrupted: {
+      callout: "데몬 재시작으로 이 턴이 중단되었습니다",
+      continue: "계속",
+      description: "계속하면 에이전트가 멈춘 지점부터 다시 시작합니다.",
+      dismiss: "닫기",
     },
   },
   home: {
@@ -1260,6 +1287,32 @@ export const ko: TranslationResources = {
       description: "워크스페이스를 보려면 사이드바 필터를 변경하거나 지우세요.",
       clear: "필터 지우기",
     },
+    snooze: {
+      title: "다시 알림",
+      action: "다시 알림 설정",
+      wake: "지금 다시 표시",
+      today: "오늘",
+      laterToday: "오늘 나중에",
+      tomorrow: "내일",
+      nextMonday: "다음 주 월요일",
+      custom: "사용자 지정...",
+      customTitle: "다시 알림 시간",
+      date: "날짜",
+      time: "시간",
+      submit: "다시 알림 설정",
+      failed: "워크스페이스를 다시 알림으로 설정하지 못했습니다",
+    },
+    undo: {
+      action: "실행 취소",
+      archived: "워크스페이스를 보관했습니다",
+      pinned: "워크스페이스를 고정했습니다",
+      unpinned: "워크스페이스 고정을 해제했습니다",
+      snoozed: "{{time}}까지 다시 알림",
+      woke: "워크스페이스를 다시 표시했습니다",
+      markedRead: "읽음으로 표시했습니다",
+      markedUnread: "읽지 않음으로 표시했습니다",
+      failed: "실행 취소할 수 없습니다",
+    },
     pinned: {
       title: "고정됨",
     },
@@ -1939,11 +1992,13 @@ export const ko: TranslationResources = {
   },
   rewind: {
     tooltip: "이 메시지로 되감기",
+    turnChanges: "이 턴의 변경 사항 보기",
     warning: "이 작업은 되돌릴 수 없습니다",
     actions: {
       conversation: "대화 되감기",
       files: "파일 되감기",
       both: "대화와 파일 되감기",
+      restoreCheckpoint: "이 턴 이전으로 파일 복원",
     },
     errors: {
       failed: "에이전트를 되감지 못했습니다",
@@ -2045,6 +2100,22 @@ export const ko: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "작업 트리 diff",
       commitSubtitle: "커밋 diff",
+      turnLabel: "턴 변경 사항",
+      turnSubtitle: "에이전트 턴 하나의 변경 사항",
+      turnMissing: "이 턴에 기록된 변경 사항이 없습니다.",
+      turnCapabilityMissing: "턴 변경 사항을 보려면 호스트를 업데이트하세요.",
+      restoreBlocked: {
+        notWorktree: "파일을 복원하려면 에이전트가 자체 워크트리에서 실행되어야 합니다.",
+        sharedWorktree:
+          "다른 에이전트가 이 워크트리에서 작업 중입니다. 파일을 복원하기 전에 닫으세요.",
+        unknown: "이 에이전트에서는 파일 복원을 사용할 수 없습니다.",
+      },
+      restoreFiles: "파일 복원",
+      restoreTitle: "파일을 복원할까요?",
+      restoreMessage:
+        "이 워크트리의 파일이 이 턴 이전 상태로 돌아갑니다. 현재 상태는 먼저 백업 Git ref에 저장됩니다.",
+      restoreSuccess: "파일을 복원했습니다",
+      restoreFailed: "파일을 복원할 수 없습니다",
       uncommittedSubtitle: "커밋되지 않은 변경 사항",
       baseSubtitle: "{{baseRef}}와 비교",
       directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",
@@ -2437,7 +2508,9 @@ export const ko: TranslationResources = {
         toggleSettings: "설정 토글",
         toggleFocusMode: "집중 모드 토글",
         cycleTheme: "테마 순환",
+        undo: "마지막 워크스페이스 작업 실행 취소",
         focusMessageInput: "메시지 입력란에 포커스",
+        stashPrompt: "프롬프트 보관 또는 복원",
         cycleAgentMode: "에이전트 모드 전환",
         toggleVoiceMode: "음성 모드 토글",
         startStopDictation: "받아쓰기 시작/중지",

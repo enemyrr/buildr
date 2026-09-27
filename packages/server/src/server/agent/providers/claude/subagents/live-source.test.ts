@@ -50,6 +50,27 @@ function taskProgress(usage: Record<string, number>, taskId = "a1730a6215e1f5cf6
 }
 
 describe("ClaudeTaskProtocolSource", () => {
+  it("reports a background shell as live work until it reaches a terminal status", () => {
+    const source = new ClaudeTaskProtocolSource();
+    const shell = taskStarted({
+      task_id: "bash-1",
+      task_type: "local_bash",
+      subagent_type: undefined,
+    });
+
+    expect(source.observe(shell)).toEqual([]);
+    expect(source.hasLiveTasks).toBe(true);
+    source.observe(taskNotification("completed", "bash-1"));
+    expect(source.hasLiveTasks).toBe(false);
+  });
+
+  it("doesn't count ambient housekeeping tasks as live work", () => {
+    const source = new ClaudeTaskProtocolSource();
+
+    source.observe(taskStarted({ task_id: "ambient", skip_transcript: true }));
+    expect(source.hasLiveTasks).toBe(false);
+  });
+
   it("declares a subagent from its announcement, keyed by the Task tool_use id", () => {
     const source = new ClaudeTaskProtocolSource();
 

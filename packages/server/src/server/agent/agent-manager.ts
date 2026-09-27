@@ -56,7 +56,7 @@ import {
   type ListImportableSessionsOptions,
 } from "./agent-sdk-types.js";
 import { buildArchivedAgentRecord, type ArchivedStoredAgentRecord } from "./agent-archive.js";
-import type { StoredAgentRecord, AgentStorage } from "./agent-storage.js";
+import { toStoredPrompt, type StoredAgentRecord, type AgentStorage } from "./agent-storage.js";
 import type { AgentOwner } from "./agent-owner.js";
 import {
   InMemoryAgentTimelineStore,
@@ -79,6 +79,7 @@ import {
   type PendingForegroundRun,
 } from "./agent-run-state.js";
 import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
+import { TurnCheckpoints } from "./checkpoints/turn-checkpoints.js";
 import { isSystemInjectedEnvelope } from "./agent-prompt.js";
 import { mergeUserShellHistory, type UserShellHistoryStore } from "./user-shell-history.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
@@ -342,6 +343,8 @@ export interface AgentManagerOptions {
     agentId: string;
     expectedTurnId: string;
   }) => Promise<void>;
+  // Defaults to a live instance; production and tests share that config.
+  turnCheckpoints?: TurnCheckpoints;
   logger: Logger;
 }
 
@@ -606,6 +609,10 @@ function createAbortError(signal: AbortSignal | undefined, fallbackMessage: stri
   return Object.assign(new Error(message), { name: "AbortError" });
 }
 
+function resolveTurnCheckpoints(options: AgentManagerOptions): TurnCheckpoints {
+  return options.turnCheckpoints ?? new TurnCheckpoints({ logger: options.logger });
+}
+
 function validateAgentId(agentId: string, source: string): string {
   const result = AgentIdSchema.safeParse(agentId);
   if (!result.success) {
@@ -739,6 +746,9 @@ export class AgentManager {
   private readonly durableTimelineStore?: AgentTimelineStore;
   private readonly userShellHistory?: UserShellHistoryStore;
   private readonly previousStatuses = new Map<string, AgentLifecycleStatus>();
+  // Epoch ms at which each live runtime registered. A resumed agent keeps its stored
+  // `updatedAt`, so the idle unloader measures from whichever is later.
+  private readonly residentSince = new Map<string, number>();
   private readonly backgroundTasks = new Set<Promise<void>>();
   private readonly agentRegistrationTasks = new Set<Promise<void>>();
   private readonly inFlightAgentCloses = new Map<string, Promise<void>>();
@@ -761,6 +771,7 @@ export class AgentManager {
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
+  private readonly turnCheckpoints: TurnCheckpoints;
   private acceptingAgentRegistrations = true;
 
   constructor(options: AgentManagerOptions) {
@@ -785,6 +796,7 @@ export class AgentManager {
         options.rescueTimeouts?.interruptSessionMs ?? INTERRUPT_SESSION_TIMEOUT_MS,
     };
     this.beforeSteerUnavailableFallback = options.beforeSteerUnavailableFallback;
+    this.turnCheckpoints = resolveTurnCheckpoints(options);
     this.agentStreamCoalescer = new AgentStreamCoalescer({
       windowMs: options.agentStreamCoalesceWindowMs ?? AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
       timers: { setTimeout, clearTimeout },
@@ -1784,6 +1796,7 @@ export class AgentManager {
     const { archivedAt } = await this.markRecordArchived(stored, requestedArchivedAt);
     agent.updatedAt = new Date(archivedAt);
     await this.closeAgentRuntime(agentId);
+    await this.turnCheckpoints.discard({ agentId, cwd: agent.cwd });
     await this.syncNativeArchiveState(stored.provider, stored.persistence, "archive");
     this.discardRetainedAgentState(agentId);
 
@@ -2125,6 +2138,16 @@ export class AgentManager {
     }
     this.touchUpdatedAt(agent);
     this.emitState(agent);
+  }
+
+  /** Broadcasts the agent's state after a direct record change, whether or not it's loaded. */
+  async notifyRecordChanged(agentId: string): Promise<void> {
+    if (this.agents.has(agentId)) {
+      this.notifyAgentState(agentId);
+      return;
+    }
+    const record = await this.registry?.get(agentId);
+    if (record && !record.internal) this.dispatchStoredAgentState(record);
   }
 
   async clearAgentAttention(agentId: string): Promise<void> {
@@ -2530,9 +2553,11 @@ export class AgentManager {
 
     const pendingRun = this.runs.createPendingRun(agentId);
 
+    const runId = randomUUID();
     const streamForwarder = async function* streamForwarder(this: AgentManager) {
       let turnId: string;
       let turnStream: ReturnType<AgentRunState["createTurnStream"]> | null = null;
+      await this.beginTurnCheckpoint(agent, options?.clientMessageId);
       turnId = await this.startPendingForegroundTurn({
         agent,
         agentId,
@@ -2584,6 +2609,7 @@ export class AgentManager {
         }
         this.enqueueSessionEvent(agent.id, stagedEvent);
       }
+      this.recordRunningTurn(agent, { runId, prompt, startedAt: turnStartedAt });
       this.emitState(agent);
       this.logger.trace(
         {
@@ -2615,6 +2641,7 @@ export class AgentManager {
           this.runs.deleteWaiter(agent, turnStream.waiter);
         }
         this.runs.settleForegroundRun(agentId, pendingRun.token);
+        this.clearRunningTurn(agentId, runId);
         if (!agent.activeForegroundTurnId) {
           await this.refreshRuntimeInfo(agent);
         }
@@ -2631,6 +2658,9 @@ export class AgentManager {
     }
     mutableAgent.activeForegroundTurnId = null;
     this.applyActiveTurnTerminal(mutableAgent, turnId);
+    if (!mutableAgent.internal) {
+      this.turnCheckpoints.endTurn({ agentId: mutableAgent.id, cwd: mutableAgent.cwd });
+    }
     const terminalError = mutableAgent.lastError;
     const shouldHoldBusyForReplacement = mutableAgent.pendingReplacement && !terminalError;
     let nextLifecycle: "running" | "error" | "idle";
@@ -3159,6 +3189,132 @@ export class AgentManager {
     await this.hydrateTimelineFromLegacyProviderHistory(agent, options);
   }
 
+  /**
+   * Closes the provider runtime of every agent idle since before `idleBefore` whose close
+   * would end no work. The records stay resumable through `ensureAgentLoaded()`. Returns the
+   * unloaded agent IDs.
+   */
+  async unloadIdleAgents(idleBefore: Date): Promise<string[]> {
+    const unloaded: string[] = [];
+    for (const agent of this.agents.values()) {
+      if (!this.isUnloadable(agent, idleBefore)) continue;
+      if (await this.unloadIdleAgent(agent.id, idleBefore)) unloaded.push(agent.id);
+    }
+    return unloaded;
+  }
+
+  private unloadIdleAgent(agentId: string, idleBefore: Date): Promise<boolean> {
+    const existing = this.inFlightAgentCloses.get(agentId);
+    if (existing) return existing.then(() => false);
+    const unload = this.runLifecycleMutation(agentId, async () => {
+      await this.drainSessionEvents(agentId);
+      // Work may have started while the unload waited for the lifecycle lane.
+      const agent = this.agents.get(agentId);
+      if (!agent || !this.isUnloadable(agent, idleBefore)) return false;
+      await this.closeAgentRuntime(agentId);
+      return true;
+    });
+    const close = unload.then(() => undefined);
+    this.inFlightAgentCloses.set(agentId, close);
+    const clearClose = () => {
+      if (this.inFlightAgentCloses.get(agentId) === close) {
+        this.inFlightAgentCloses.delete(agentId);
+      }
+    };
+    void close.then(clearClose, clearClose);
+    return unload;
+  }
+
+  private isUnloadable(agent: LiveManagedAgent, idleBefore: Date): boolean {
+    const lastActivityMs = Math.max(
+      agent.updatedAt.getTime(),
+      this.residentSince.get(agent.id) ?? Number.POSITIVE_INFINITY,
+    );
+    const isIdleLongEnough =
+      agent.lifecycle === "idle" && lastActivityMs < idleBefore.getTime() && !agent.internal;
+    const hasPendingWork =
+      this.hasInFlightRun(agent.id) ||
+      agent.activeTurnId !== null ||
+      agent.pendingReplacement ||
+      agent.pendingPermissions.size > 0 ||
+      agent.inFlightPermissionResponses.size > 0;
+    return (
+      isIdleLongEnough &&
+      !hasPendingWork &&
+      !this.isObserved(agent) &&
+      !this.hasLiveDependentWork(agent)
+    );
+  }
+
+  // An agent-scoped subscriber, such as a finish notification or a wait, would read the unload's
+  // `closed` state as the agent closing. A Hub execution owns its agent's lifecycle.
+  private isObserved(agent: LiveManagedAgent): boolean {
+    if (agent.owner) return true;
+    for (const subscriber of this.subscribers) {
+      if (subscriber.agentId === agent.id) return true;
+    }
+    return false;
+  }
+
+  // Closing the runtime ends provider-owned background work and orphans the completion
+  // notifications of running Paseo subagents, so either keeps the parent resident.
+  private hasLiveDependentWork(agent: LiveManagedAgent): boolean {
+    const hasRunningProviderSubagent = this.providerSubagents
+      .list(agent.id)
+      .some((subagent) => subagent.status === "running");
+    const hasBusyChild = [...this.agents.values()].some(
+      (child) =>
+        getParentAgentIdFromLabels(child.labels) === agent.id &&
+        (child.lifecycle === "running" ||
+          child.lifecycle === "initializing" ||
+          this.hasInFlightRun(child.id)),
+    );
+    return (
+      hasRunningProviderSubagent || hasBusyChild || agent.session.hasBackgroundWork?.() === true
+    );
+  }
+
+  private recordRunningTurn(
+    agent: ActiveManagedAgent,
+    turn: { runId: string; prompt: AgentPromptInput; startedAt: Date },
+  ): void {
+    const registry = this.registry;
+    if (!registry || agent.internal) return;
+    const unfinishedTurn = {
+      state: "running" as const,
+      runId: turn.runId,
+      startedAt: turn.startedAt.toISOString(),
+      prompt: toStoredPrompt(turn.prompt),
+    };
+    this.trackBackgroundTask(
+      registry
+        .update(agent.id, (record) => ({ ...record, unfinishedTurn }))
+        .then(
+          () => undefined,
+          (err: unknown) =>
+            this.logger.warn({ err, agentId: agent.id }, "Failed to record running turn"),
+        ),
+    );
+  }
+
+  private clearRunningTurn(agentId: string, runId: string): void {
+    const registry = this.registry;
+    // Shutdown ends turns without finishing them. The marker is how the next start knows.
+    if (!registry || !this.acceptingAgentRegistrations) return;
+    this.trackBackgroundTask(
+      registry
+        .update(agentId, (record) =>
+          record.unfinishedTurn?.state === "running" && record.unfinishedTurn.runId === runId
+            ? { ...record, unfinishedTurn: null }
+            : record,
+        )
+        .then(
+          () => undefined,
+          (err: unknown) => this.logger.warn({ err, agentId }, "Failed to clear running turn"),
+        ),
+    );
+  }
+
   async rewind(agentId: string, messageId: string, mode: RewindMode): Promise<void> {
     const agent = this.requireSessionAgent(agentId);
     const submittedRow = this.timelineStore
@@ -3215,6 +3371,22 @@ export class AgentManager {
     } finally {
       this.runs.settleForegroundRun(agentId, lock.token);
     }
+  }
+
+  getTurnCheckpoints(): TurnCheckpoints {
+    return this.turnCheckpoints;
+  }
+
+  private async beginTurnCheckpoint(
+    agent: ActiveManagedAgent,
+    clientMessageId: string | undefined,
+  ): Promise<void> {
+    if (agent.internal) return;
+    await this.turnCheckpoints.beginTurn({
+      agentId: agent.id,
+      cwd: agent.cwd,
+      messageId: clientMessageId ?? null,
+    });
   }
 
   async deleteAgentState(agentId: string): Promise<void> {
@@ -3516,6 +3688,7 @@ export class AgentManager {
 
       this.assertAcceptingAgentRegistrations();
       this.agents.set(resolvedAgentId, managed);
+      this.residentSince.set(resolvedAgentId, Date.now());
       registered = true;
       // Initialize previousStatus to track transitions
       this.previousStatuses.set(resolvedAgentId, managed.lifecycle);
@@ -3701,6 +3874,7 @@ export class AgentManager {
   ): ManagedAgentClosed {
     this.agentStreamCoalescer.flushAndDiscard(agent.id);
     this.agents.delete(agent.id);
+    this.residentSince.delete(agent.id);
     this.previousStatuses.delete(agent.id);
     if (agent.unsubscribeSession) {
       agent.unsubscribeSession();

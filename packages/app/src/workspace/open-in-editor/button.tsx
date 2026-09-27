@@ -230,7 +230,7 @@ export function WorkspaceOpenInEditorButton({
   const openTargetTrigger = (
     <Tooltip enabledOnDesktop={!menuOpen}>
       <TooltipTrigger asChild>
-        <View>
+        <View style={styles.splitButtonCaretSlot}>
           <DropdownMenuTrigger
             testID="workspace-open-in-editor-caret"
             style={caretTriggerStyle}
@@ -376,6 +376,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   splitButtonSpinnerOnly: {
     transform: [{ scale: 0.8 }],
+  },
+  // The tooltip needs a wrapper View; a row lets the caret stretch to the group's full height.
+  splitButtonCaretSlot: {
+    flexDirection: "row",
   },
   splitButtonCaret: {
     width: {

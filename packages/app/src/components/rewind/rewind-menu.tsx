@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
-import { FileText, Layers, MessageSquare, Undo2 } from "lucide-react-native";
+import { FileText, History, Layers, MessageSquare, Undo2 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import {
   DropdownMenu,
@@ -20,8 +20,21 @@ interface RewindMenuProps {
   capabilities: AgentCapabilityFlags;
   rewoundText: string;
   onRewind: (input: { mode: RewindMode; rewoundText: string }) => Promise<void> | void;
+  /**
+   * Restores files from the daemon's turn checkpoint; omitted when unavailable.
+   * Ignored when the provider rewinds files natively.
+   */
+  onRestoreCheckpointFiles?: () => Promise<void>;
+  /** Disables the checkpoint restore item and shows this text as its description. */
+  restoreCheckpointBlockedReason?: string | null;
   isPending?: boolean;
   testID?: string;
+}
+
+type RewindMenuAction = RewindMode | "checkpoint";
+
+function getCheckpointIcon(color: string): ReactElement {
+  return <History size={16} color={color} />;
 }
 
 function getIcon(mode: RewindMode, color: string): ReactElement {
@@ -39,6 +52,8 @@ export const RewindMenu = memo(function RewindMenu({
   capabilities,
   rewoundText,
   onRewind,
+  onRestoreCheckpointFiles,
+  restoreCheckpointBlockedReason = null,
   isPending: isPendingProp = false,
   testID = "rewind-menu",
 }: RewindMenuProps) {
@@ -53,9 +68,13 @@ export const RewindMenu = memo(function RewindMenu({
     [t],
   );
   const items = useRewindCapabilities(capabilities, rewindLabels);
+  const hasNativeFilesRewind = items.some((item) => item.mode !== "conversation");
+  const restoreCheckpointFiles = hasNativeFilesRewind ? undefined : onRestoreCheckpointFiles;
   const [isOpen, setIsOpen] = useState(false);
-  const [pendingMode, setPendingMode] = useState<RewindMode | null>(null);
+  const [pendingMode, setPendingMode] = useState<RewindMenuAction | null>(null);
   const isLocked = isPendingProp || pendingMode !== null;
+  const isCheckpointBlocked = restoreCheckpointBlockedReason !== null;
+  const isCheckpointDisabled = isCheckpointBlocked || (isLocked && pendingMode !== "checkpoint");
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -66,11 +85,12 @@ export const RewindMenu = memo(function RewindMenu({
   );
 
   const handleSelect = useCallback(
-    (mode: RewindMode) => async () => {
+    (mode: RewindMenuAction) => async () => {
       if (isLocked) return;
       setPendingMode(mode);
       try {
-        await onRewind({ mode, rewoundText });
+        if (mode === "checkpoint") await restoreCheckpointFiles?.();
+        else await onRewind({ mode, rewoundText });
       } catch {
         // useRewindAgentMutation owns the toast; the menu only owns flow state.
       } finally {
@@ -78,7 +98,7 @@ export const RewindMenu = memo(function RewindMenu({
         setIsOpen(false);
       }
     },
-    [isLocked, onRewind, rewoundText],
+    [isLocked, restoreCheckpointFiles, onRewind, rewoundText],
   );
 
   const triggerStyle = useCallback(
@@ -95,7 +115,7 @@ export const RewindMenu = memo(function RewindMenu({
     [t],
   );
 
-  if (items.length === 0) {
+  if (items.length === 0 && !restoreCheckpointFiles) {
     return null;
   }
 
@@ -140,6 +160,19 @@ export const RewindMenu = memo(function RewindMenu({
             {item.label}
           </DropdownMenuItem>
         ))}
+        {restoreCheckpointFiles ? (
+          <DropdownMenuItem
+            closeOnSelect={false}
+            description={restoreCheckpointBlockedReason ?? undefined}
+            disabled={isCheckpointDisabled}
+            leading={getCheckpointIcon(theme.colors.foreground)}
+            onSelect={handleSelect("checkpoint")}
+            status={pendingMode === "checkpoint" ? "pending" : undefined}
+            testID="rewind-menu-checkpoint-files"
+          >
+            {t("rewind.actions.restoreCheckpoint")}
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

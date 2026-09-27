@@ -153,6 +153,9 @@ function getCloseButtonTestId(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "commit_diff") {
     return `workspace-commit-diff-close-${encodeFilePathForPathSegment(tab.target.sha)}`;
   }
+  if (tab.target.kind === "turn_diff") {
+    return `workspace-turn-diff-close-${tab.target.agentId}-${tab.target.messageId}`;
+  }
   if (tab.target.kind === "image") {
     return `workspace-image-close-${tab.target.attachment.id}`;
   }

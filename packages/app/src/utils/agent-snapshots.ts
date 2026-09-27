@@ -85,6 +85,14 @@ export function projectAgentSnapshot(agent: Agent): AgentSnapshotPayload {
     attentionReason: agent.attentionReason ?? null,
     attentionTimestamp: agent.attentionTimestamp?.toISOString() ?? null,
     archivedAt: agent.archivedAt?.toISOString() ?? null,
+    ...(agent.interruptedTurn
+      ? {
+          interruptedTurn: {
+            startedAt: agent.interruptedTurn.startedAt.toISOString(),
+            interruptedAt: agent.interruptedTurn.interruptedAt.toISOString(),
+          },
+        }
+      : {}),
   };
 }
 
@@ -98,6 +106,12 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     ? new Date(snapshot.attentionTimestamp)
     : null;
   const archivedAt = snapshot.archivedAt ? new Date(snapshot.archivedAt) : null;
+  const interruptedTurn = snapshot.interruptedTurn
+    ? {
+        startedAt: new Date(snapshot.interruptedTurn.startedAt),
+        interruptedAt: new Date(snapshot.interruptedTurn.interruptedAt),
+      }
+    : null;
   const parentAgentId = getParentAgentIdFromLabels(snapshot.labels);
   // COMPAT(agentTurnIdentity): added in v0.2.6, remove after 2027-01-31 once daemon floor >= v0.2.6.
   // Old daemons expose only status. Normalize that legacy signal once so the rest
@@ -132,6 +146,7 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     attentionReason: snapshot.attentionReason ?? null,
     attentionTimestamp,
     archivedAt,
+    ...(interruptedTurn ? { interruptedTurn } : {}),
     parentAgentId,
     labels: snapshot.labels,
   };

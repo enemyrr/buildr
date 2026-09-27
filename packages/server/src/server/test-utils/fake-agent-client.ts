@@ -748,6 +748,28 @@ class FakeAgentSession implements AgentSession {
         this.notifySubscribers(child);
       }
 
+      // Writes the prompt to provider history, as providers that persist user input on receipt do.
+      if (textPrompt.toLowerCase().includes("record this prompt")) {
+        await this.appendHistoryEvent({
+          type: "timeline",
+          provider: this.providerName,
+          item: { type: "user_message", text: textPrompt },
+        });
+      }
+
+      // Keeps the turn running until it's interrupted, like a long provider turn.
+      if (textPrompt.toLowerCase().includes("hold the turn open")) {
+        await this.interruptSignal.promise;
+        const canceled: AgentStreamEvent = {
+          type: "turn_canceled",
+          provider: this.providerName,
+          reason: "interrupted",
+        };
+        await this.appendHistoryEvent(canceled);
+        this.notifySubscribers(canceled);
+        return;
+      }
+
       if (textPrompt.toLowerCase().includes("emit a turn failure")) {
         const failed: AgentStreamEvent = {
           type: "turn_failed",

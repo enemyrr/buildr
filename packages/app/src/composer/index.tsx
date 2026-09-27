@@ -56,6 +56,7 @@ import type { DroppedItem } from "@/components/file-drop/types";
 import {
   MessageInput,
   type AttachmentMenuItem,
+  type ComposerInputSnapshot,
   type ComposerKeyPressEvent,
   type MessageInputRef,
 } from "./input/input";
@@ -152,6 +153,16 @@ import { getForgePresentation } from "@/git/forge";
 import { ForgeBrandIcon } from "@/git/forge-icon";
 import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
+import { indentListItem } from "./input/list-continuation";
+import { createPastedTextFile, insertAtSelection } from "./input/large-paste";
+import { PromptStashMenu } from "./stash/menu";
+import { usePromptStash, type StashDraft } from "./stash/use-prompt-stash";
+import {
+  resolvePromptHistoryDirection,
+  selectPromptHistory,
+  stepPromptHistory,
+  type PromptHistoryPosition,
+} from "./prompt-history";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
@@ -569,6 +580,7 @@ interface DispatchComposerKeyboardActionArgs {
   isConnected: boolean;
   handleCancelAgent: () => void;
   focusMessageInputForKeyboardAction: () => void;
+  runStashShortcut: () => void;
 }
 
 function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs): boolean {
@@ -581,8 +593,15 @@ function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs
     isConnected,
     handleCancelAgent,
     focusMessageInputForKeyboardAction,
+    runStashShortcut,
   } = args;
   if (!isPaneFocused) return false;
+
+  // Always handled, so Cmd+S in the composer never reaches the browser's Save page.
+  if (action.id === "message-input.stash") {
+    runStashShortcut();
+    return true;
+  }
 
   if (action.id === "agent.interrupt") {
     if (messageInputRef.current?.runKeyboardAction("dictation-cancel")) return true;
@@ -612,6 +631,7 @@ function ComposerKeyboardRegistration({
   isConnected,
   handleCancelAgent,
   focusMessageInputForKeyboardAction,
+  runStashShortcut,
   isMessageInputFocused,
   handlerId,
 }: Omit<DispatchComposerKeyboardActionArgs, "action" | "isPaneFocused"> & {
@@ -630,9 +650,11 @@ function ComposerKeyboardRegistration({
         isConnected,
         handleCancelAgent,
         focusMessageInputForKeyboardAction,
+        runStashShortcut,
       }),
     [
       focusMessageInputForKeyboardAction,
+      runStashShortcut,
       handleCancelAgent,
       isActiveComposer,
       isAgentRunning,
@@ -653,14 +675,35 @@ function ComposerKeyboardRegistration({
       "message-input.dictation-confirm",
       "message-input.voice-toggle",
       "message-input.voice-mute-toggle",
+      "message-input.stash",
     ],
     enabled: isActiveComposer,
     priority: resolveKeyboardPriority(isMessageInputFocused),
     isActive: () => isActiveComposer,
     handle: handleKeyboardAction,
   });
+
+  // Shift+Tab cycles the agent mode, except on a list item, where it outdents.
+  // The priority sits above the mode-cycle handler so the list item wins.
+  const handleListOutdent = useCallback((): boolean => {
+    const input = messageInputRef.current;
+    const edit = input ? indentListItem(input.getInputSnapshot(), "outdent") : null;
+    if (!input || !edit) return false;
+    input.applyEdit(edit);
+    return true;
+  }, [messageInputRef]);
+  useKeyboardActionHandler({
+    handlerId: `${handlerId}:list-outdent`,
+    actions: LIST_OUTDENT_ACTIONS,
+    enabled: isActiveComposer && isMessageInputFocused,
+    priority: LIST_OUTDENT_PRIORITY,
+    handle: handleListOutdent,
+  });
   return null;
 }
+
+const LIST_OUTDENT_ACTIONS = ["message-input.mode-cycle"] as const;
+const LIST_OUTDENT_PRIORITY = 300;
 
 function ComposerAutocomplete(props: React.ComponentProps<typeof AutocompletePopover>) {
   const { isActiveComposer } = useComposerKeyboardScope();
@@ -1072,6 +1115,7 @@ function ComposerAutocompleteBinding({
       anchorRef={anchorRef}
       options={autocomplete.options}
       selectedIndex={autocomplete.selectedIndex}
+      setSelectedIndex={autocomplete.setSelectedIndex}
       onSelect={onSelect}
       isLoading={autocomplete.isLoading}
       errorMessage={autocomplete.errorMessage}
@@ -1431,6 +1475,23 @@ function ComposerContentImpl({
         return;
       }
       onChangeText(text);
+    },
+    [onChangeText],
+  );
+
+  // Composer-made edits the user can take back with Cmd+Z.
+  const applyUserEdit = useCallback(
+    (edit: ComposerInputSnapshot) => {
+      if (messageInputRef.current) {
+        isWritingTextRef.current = true;
+        try {
+          messageInputRef.current.applyEdit(edit);
+        } finally {
+          isWritingTextRef.current = false;
+        }
+        return;
+      }
+      onChangeText(edit.text);
     },
     [onChangeText],
   );
@@ -1851,12 +1912,13 @@ function ComposerContentImpl({
     [addImages, t],
   );
 
+  /** Resolves to whether every file was attached. */
   const uploadSelectedFiles = useCallback(
-    async (files: SelectedFile[]) => {
-      if (files.length === 0) return;
+    async (files: SelectedFile[]): Promise<boolean> => {
+      if (files.length === 0) return true;
       if (!client) {
         toastErrorRef.current(t("composer.errors.daemonClientDisconnected"));
-        return;
+        return false;
       }
 
       const placeholders = files.map((file) => ({ id: nextPendingFileId.current++, file }));
@@ -1864,16 +1926,29 @@ function ComposerContentImpl({
       try {
         const uploaded = await uploadFileAttachments({ client, files });
         addFiles(uploaded);
+        return true;
       } catch (error) {
         console.error("[Composer] Failed to upload file:", error);
         toastErrorRef.current(
           error instanceof Error ? error.message : t("composer.errors.uploadFailed"),
         );
+        return false;
       } finally {
         setPendingFiles((pending) => pending.filter((entry) => !placeholders.includes(entry)));
       }
     },
     [addFiles, client, t],
+  );
+
+  // A failed upload puts the text back inline, so the paste is never lost.
+  const handlePasteLargeText = useCallback(
+    async (text: string) => {
+      const attached = await uploadSelectedFiles([createPastedTextFile(text, new Date())]);
+      const input = messageInputRef.current?.getInputSnapshot();
+      if (attached || !input) return;
+      applyUserEdit(insertAtSelection(input, text));
+    },
+    [applyUserEdit, uploadSelectedFiles],
   );
 
   const handlePickFile = useCallback(async () => {
@@ -2057,10 +2132,35 @@ function ComposerContentImpl({
 
   const hasSendableContent = hasText || selectedAttachments.length > 0;
 
-  // Handle keyboard navigation for command autocomplete.
+  const promptHistoryPositionRef = useRef<PromptHistoryPosition | null>(null);
+  const handlePromptHistoryKeyPress = useCallback(
+    (event: ComposerKeyPressEvent): boolean => {
+      const direction = resolvePromptHistoryDirection(event.key, event.modifiers);
+      if (!direction) return false;
+      const step = stepPromptHistory({
+        direction,
+        entries: selectPromptHistory(useSessionStore.getState().sessions[serverId], agentId),
+        position: promptHistoryPositionRef.current,
+        text: event.input.text,
+        selection: event.input.selection,
+      });
+      if (!step) return false;
+      event.preventDefault();
+      promptHistoryPositionRef.current = step.position;
+      applyUserEdit({
+        text: step.text,
+        selection: { start: step.text.length, end: step.text.length },
+      });
+      return true;
+    },
+    [agentId, applyUserEdit, serverId],
+  );
+
+  // Autocomplete owns the arrows while its menu is open; history gets them otherwise.
   const handleCommandKeyPress = useCallback(
-    (event: ComposerKeyPressEvent) => autocompleteRef.current?.onKeyPress(event) ?? false,
-    [],
+    (event: ComposerKeyPressEvent) =>
+      (autocompleteRef.current?.onKeyPress(event) ?? false) || handlePromptHistoryKeyPress(event),
+    [handlePromptHistoryKeyPress],
   );
 
   const isVoiceSwitching = voice?.isVoiceSwitching ?? false;
@@ -2466,6 +2566,59 @@ function ComposerContentImpl({
     { disabled: isSubmitLoadingVisible },
   );
 
+  const getStashDraft = useCallback(
+    (): StashDraft => ({
+      text: messageInputRef.current?.getText() ?? textSource.getSnapshot(),
+      attachments,
+    }),
+    [attachments, textSource],
+  );
+  const clearStashedDraft = useCallback(() => {
+    replaceUserInput("");
+    setSelectedAttachments([]);
+    resetSuppression();
+  }, [replaceUserInput, resetSuppression, setSelectedAttachments]);
+  const restoreStashedDraft = useCallback(
+    (draft: StashDraft) => {
+      applyUserEdit({
+        text: draft.text,
+        selection: { start: draft.text.length, end: draft.text.length },
+      });
+      setSelectedAttachments(draft.attachments);
+      resetSuppression();
+    },
+    [applyUserEdit, resetSuppression, setSelectedAttachments],
+  );
+  const showStashError = useCallback((message: string) => toastErrorRef.current(message), []);
+  // A stash confirmation must not evict an undo toast, whose action the user can't get back.
+  const showStashNotice = useCallback(
+    (message: string) => toast.show(message, { yieldsTo: "errors-and-keyed" }),
+    [toast],
+  );
+  const promptStash = usePromptStash({
+    getDraft: getStashDraft,
+    clearDraft: clearStashedDraft,
+    restoreDraft: restoreStashedDraft,
+    isBusy: isSubmitLoadingVisible || isComposerLocked,
+    onNotice: showStashNotice,
+    onError: showStashError,
+  });
+  const composerBeforeVoiceContent = useMemo(
+    () => (
+      <>
+        {mode.showAgentControls ? (
+          <PromptStashMenu
+            stash={promptStash}
+            hasDraft={hasSendableContent}
+            iconSize={buttonIconSize}
+          />
+        ) : null}
+        {beforeVoiceContent}
+      </>
+    ),
+    [beforeVoiceContent, buttonIconSize, hasSendableContent, mode.showAgentControls, promptStash],
+  );
+
   const messageInputAutoFocus = autoFocus && isDesktopWebBreakpoint;
   const submitLoadingPressHandler = isAgentRunning ? handleCancelAgent : undefined;
   const sendErrorNode = useMemo(
@@ -2491,6 +2644,7 @@ function ComposerContentImpl({
         isConnected={isConnected}
         handleCancelAgent={handleCancelAgent}
         focusMessageInputForKeyboardAction={focusMessageInputForKeyboardAction}
+        runStashShortcut={promptStash.runShortcut}
         isMessageInputFocused={isMessageInputFocused}
       />
       <View style={animatedStaticStyles.container}>
@@ -2539,6 +2693,7 @@ function ComposerContentImpl({
                   onAttachButtonRef={handleAttachButtonRef}
                   onAddImages={addImages}
                   onPasteImages={handleNativePasteImages}
+                  onPasteLargeText={handlePasteLargeText}
                   client={client}
                   isReadyForDictation={isDictationReady}
                   placeholder={
@@ -2550,7 +2705,7 @@ function ComposerContentImpl({
                   autoFocusKey={`${serverId}:${agentId}:${autoFocusKey ?? ""}`}
                   disabled={isSubmitLoading}
                   leftContent={leftContent}
-                  beforeVoiceContent={beforeVoiceContent}
+                  beforeVoiceContent={composerBeforeVoiceContent}
                   rightContent={rightContent}
                   activeActionContent={activeActionContent}
                   voiceServerId={serverId}

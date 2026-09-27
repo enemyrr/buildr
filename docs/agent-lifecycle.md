@@ -25,8 +25,22 @@ Reload releases the old runtime before resuming its durable session: an idle pro
 still own an exclusive writer. A close failure retains that runtime for cleanup and blocks the
 replacement. Once closure succeeds, a failed resume leaves the durable agent closed and retryable.
 
-Idle agents remain resident indefinitely. Runtime closure happens only through an explicit lifecycle
-action such as archive, replacement, reload, workspace teardown, or daemon shutdown.
+Runtime closure happens through an explicit lifecycle action such as archive, replacement, reload,
+workspace teardown, or daemon shutdown, and through the idle unloader. The unloader closes a runtime
+that has been `idle` for `daemon.idleAgentUnloadMinutes` (default 30, `0` turns it off), measured
+from the later of its last activity and its registration. It skips an agent whose close would end
+work: a run in flight, a pending permission or replacement, a running provider subagent, a running
+or initializing Paseo subagent, or provider background work reported by
+`AgentSession.hasBackgroundWork()`. Only Claude implements that method, from its task protocol, so a
+background shell keeps a Claude agent resident. It also skips an agent that has an agent-scoped
+`AgentManager` subscriber or a Hub owner: finish notifications, waits, and Hub executions read
+`closed` as the agent closing, and a parent told "was closed" would treat its subagent as gone.
+`error` agents stay resident so the error status survives.
+
+An unloaded agent is `closed`, the same status every agent has after a restart. Clients treat
+`closed` and `idle` alike: both land in the `done` workspace status bucket, show no status dot, and
+count as finished for **Archive finished**. The next open or prompt resumes the agent through
+`ensureAgentLoaded()` with its primed timeline.
 
 A provider runtime can still die on its own — crash, OOM kill, host suspend. Work the agent parked
 inside that process dies with it: Claude Code's background Bash shells, `Monitor` watches, and
@@ -36,6 +50,30 @@ between turns nothing is watching, so the agent sits at `idle` looking healthy w
 work is gone. Report that exit as a turn failure so the agent lands in `error` with a timeline entry.
 Only the Claude provider does this today; the others still report a death only when a turn happens to
 be in flight.
+
+### Turns interrupted by a restart
+
+A foreground turn is marked `unfinishedTurn.state: "running"` on the agent record while it runs,
+and only its terminal event clears the marker. Shutdown never clears it, so a crash, a graceful
+stop, and an update all look the same at the next start. At startup, before any runtime loads,
+`markInterruptedTurns()` (`packages/server/src/server/agent/interrupted-turns.ts`) turns each
+marker into `interrupted`. The interruption stays on the record until a new turn starts, so it
+survives further restarts and idle unloads.
+
+- **One surface.** The app shows the interruption only as the **Continue** / **Dismiss** callout
+  above the composer. The daemon adds no timeline item. With
+  `daemon.autoContinueInterruptedTurns` off (the default), it also sets `finished` attention so
+  the sidebar marks the agent; `error` would claim a failure the user must fix.
+- **Dismiss doesn't load the agent.** It only clears the marker.
+- **Continue never repeats a prompt the provider already has.** Many providers write the user
+  message to their history on receipt. When the resumed history already ends with the stored
+  prompt, or the prompt was over 256 KB and wasn't stored, Continue sends
+  `Continue where you left off.` instead.
+- **Continue claims the marker back to `running` before it sends.** A second Continue then fails
+  with `InterruptedTurnNotFoundError`, and a daemon stop mid-continue still leaves the turn
+  recoverable. A failed start restores the `interrupted` marker.
+- **Records written before the marker existed** show a crash only as a stale `running` status.
+  They're treated as interrupted without a prompt.
 
 ### Cancellation
 
@@ -98,7 +136,7 @@ Archiving runs through `AgentManager.archiveAgent` (`packages/server/src/server/
 1. Snapshot the current session into the registry
 2. Set `archivedAt` and normalize `lastStatus` away from `running`/`initializing`
 3. Notify subscribers
-4. Close the runtime (kills the process if still running)
+4. Close the runtime (kills the process if still running) and delete the agent's [turn checkpoint](turn-checkpoints.md) refs
 5. **Resolve children** — detach cross-workspace and open-tab children; cascade-archive the rest recursively
 
 Cascade is what keeps subagent fleets from outliving their orchestrator.
@@ -250,5 +288,6 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `labels["paseo.parent-agent-id"]`            | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
 | `labels["paseo.open-agent-tab.<client-id>"]` | `string?`     | `"true"` protects an open tab on that client; detach clears every matching label   |
 | `lastStatus`                                 | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
+| `unfinishedTurn`                             | `object?`     | [Interrupted-turn](#turns-interrupted-by-a-restart) marker                         |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

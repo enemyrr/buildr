@@ -23,6 +23,7 @@ import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { InterruptedTurnCallout } from "@/components/interrupted-turn-callout";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
 import { useRetainedPanelActive } from "@/components/retained-panel";
@@ -31,6 +32,7 @@ import { Composer } from "@/composer";
 import { resolveComposerTrackTailClearance } from "@/composer/pill-styles";
 import { getActiveMessageSubmissions } from "@/composer/submission/model";
 import { RewindComposerRestoreProvider } from "@/components/rewind/composer-restore";
+import { TurnCheckpointActionsProvider } from "@/checkpoints/turn-checkpoint-actions";
 import { getProviderIcon } from "@/components/provider-icons";
 import { useToastHost, type ToastApi, type ToastState } from "@/components/toast-host";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
@@ -1074,33 +1076,35 @@ function ChatAgentContent({
     viewState.sync.isRetrying;
 
   return (
-    <ChatAgentReadyContent
-      serverId={serverId}
-      workspaceId={workspaceId}
-      agentId={agentId}
-      isPaneFocused={isPaneFocused}
-      isArchivingCurrentAgent={isArchivingCurrentAgent}
-      agentState={agentState}
-      effectiveAgent={effectiveAgent}
-      routeBottomAnchorRequest={routeBottomAnchorRequest}
-      hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
-      toastApi={toastApi}
-      toast={toastState}
-      dismiss={dismissToast}
-      streamViewRef={streamViewRef}
-      handleComposerHeightChange={handleComposerHeightChange}
-      handleMessageSent={handleMessageSent}
-      handleRewindComplete={handleRewindComplete}
-      timelineSync={isPaneVisible && viewState.tag === "ready" ? viewState.sync : null}
-      showHistorySyncOverlay={showHistorySyncOverlay}
-      showHistorySyncError={showHistorySyncError}
-      isRetryingHistorySync={isRetryingHistorySync}
-      cwd={agentCwd}
-      retryTimelineSync={retryTimelineSync}
-      onAttentionInputFocus={attentionController.clearOnInputFocus}
-      onAttentionPromptSend={attentionController.clearOnPromptSend}
-      onOpenWorkspaceFile={onOpenWorkspaceFile}
-    />
+    <TurnCheckpointActionsProvider serverId={serverId} agentId={agentId}>
+      <ChatAgentReadyContent
+        serverId={serverId}
+        workspaceId={workspaceId}
+        agentId={agentId}
+        isPaneFocused={isPaneFocused}
+        isArchivingCurrentAgent={isArchivingCurrentAgent}
+        agentState={agentState}
+        effectiveAgent={effectiveAgent}
+        routeBottomAnchorRequest={routeBottomAnchorRequest}
+        hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
+        toastApi={toastApi}
+        toast={toastState}
+        dismiss={dismissToast}
+        streamViewRef={streamViewRef}
+        handleComposerHeightChange={handleComposerHeightChange}
+        handleMessageSent={handleMessageSent}
+        handleRewindComplete={handleRewindComplete}
+        timelineSync={isPaneVisible && viewState.tag === "ready" ? viewState.sync : null}
+        showHistorySyncOverlay={showHistorySyncOverlay}
+        showHistorySyncError={showHistorySyncError}
+        isRetryingHistorySync={isRetryingHistorySync}
+        cwd={agentCwd}
+        retryTimelineSync={retryTimelineSync}
+        onAttentionInputFocus={attentionController.clearOnInputFocus}
+        onAttentionPromptSend={attentionController.clearOnPromptSend}
+        onOpenWorkspaceFile={onOpenWorkspaceFile}
+      />
+    </TurnCheckpointActionsProvider>
   );
 }
 
@@ -1501,18 +1505,21 @@ const AgentComposerSection = memo(function AgentComposerSection({
   }
 
   return (
-    <ActiveAgentComposer
-      agentId={agentId}
-      serverId={serverId}
-      isPaneFocused={isPaneFocused}
-      cwd={cwd}
-      isSubmitLoading={isSubmitLoading}
-      agentInputDraft={agentInputDraft}
-      onAttentionInputFocus={onAttentionInputFocus}
-      onAttentionPromptSend={onAttentionPromptSend}
-      onComposerHeightChange={onComposerHeightChange}
-      onMessageSent={onMessageSent}
-    />
+    <>
+      <InterruptedTurnCallout serverId={serverId} agentId={agentId} />
+      <ActiveAgentComposer
+        agentId={agentId}
+        serverId={serverId}
+        isPaneFocused={isPaneFocused}
+        cwd={cwd}
+        isSubmitLoading={isSubmitLoading}
+        agentInputDraft={agentInputDraft}
+        onAttentionInputFocus={onAttentionInputFocus}
+        onAttentionPromptSend={onAttentionPromptSend}
+        onComposerHeightChange={onComposerHeightChange}
+        onMessageSent={onMessageSent}
+      />
+    </>
   );
 });
 

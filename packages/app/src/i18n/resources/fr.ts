@@ -118,6 +118,28 @@ export const fr: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Prompts mis de côté",
+      triggerLabel: "Prompts mis de côté : {{count}}",
+      stashCurrent: "Mettre le prompt de côté",
+      attachmentsOnly: "Pièces jointes uniquement",
+      stashed: "Prompt mis de côté",
+      delete: {
+        action: "Supprimer le prompt mis de côté {{label}}",
+        tooltip: "Supprimer",
+        confirmTitle: "Supprimer le prompt mis de côté ?",
+        confirmMessage: "Le prompt et ses pièces jointes sont retirés des prompts mis de côté.",
+        confirm: "Supprimer",
+      },
+      errors: {
+        tooLarge: "Le prompt est trop volumineux pour être mis de côté",
+        storageFailed:
+          "Impossible de mettre le prompt de côté. Le stockage local est indisponible ou plein.",
+        restoreFailed: "Impossible de restaurer le prompt. Le stockage local est indisponible.",
+        deleteFailed:
+          "Impossible de supprimer le prompt mis de côté. Le stockage local est indisponible.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Demandez des modifications, mentionnez des fichiers avec @, lancez /commands",
@@ -260,6 +282,12 @@ export const fr: TranslationResources = {
     archived: {
       callout: "Cet agent est archivé",
       unarchive: "Désarchiver",
+    },
+    interrupted: {
+      callout: "Un redémarrage du daemon a interrompu ce tour",
+      continue: "Continuer",
+      description: "Continuer reprend l'agent là où il s'est arrêté.",
+      dismiss: "Ignorer",
     },
   },
   home: {
@@ -1293,6 +1321,32 @@ export const fr: TranslationResources = {
         "Modifiez ou effacez les filtres de la barre latérale pour afficher les espaces de travail.",
       clear: "Effacer les filtres",
     },
+    snooze: {
+      title: "En pause",
+      action: "Mettre en pause",
+      wake: "Réactiver maintenant",
+      today: "Aujourd'hui",
+      laterToday: "Plus tard aujourd'hui",
+      tomorrow: "Demain",
+      nextMonday: "Lundi prochain",
+      custom: "Personnalisé...",
+      customTitle: "Mettre en pause jusqu'à",
+      date: "Date",
+      time: "Heure",
+      submit: "Mettre en pause",
+      failed: "Impossible de mettre l'espace de travail en pause",
+    },
+    undo: {
+      action: "Annuler",
+      archived: "Espace de travail archivé",
+      pinned: "Espace de travail épinglé",
+      unpinned: "Espace de travail désépinglé",
+      snoozed: "En pause jusqu'à {{time}}",
+      woke: "Espace de travail réactivé",
+      markedRead: "Marqué comme lu",
+      markedUnread: "Marqué comme non lu",
+      failed: "Impossible d'annuler",
+    },
     pinned: {
       title: "Épinglés",
     },
@@ -1985,11 +2039,13 @@ export const fr: TranslationResources = {
   },
   rewind: {
     tooltip: "Revenez à ce message",
+    turnChanges: "Voir les modifications de ce tour",
     warning: "Cette action ne peut pas être annulée",
     actions: {
       conversation: "Rembobiner la conversation",
       files: "Rembobiner les fichiers",
       both: "Rembobiner la conversation et les fichiers",
+      restoreCheckpoint: "Restaurer les fichiers avant ce tour",
     },
     errors: {
       failed: "Échec du rembobinage de l'agent",
@@ -2092,6 +2148,23 @@ export const fr: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "Différences de l'arbre de travail",
       commitSubtitle: "Différences du commit",
+      turnLabel: "Modifications du tour",
+      turnSubtitle: "Modifications d'un tour de l'agent",
+      turnMissing: "Aucune modification enregistrée pour ce tour.",
+      turnCapabilityMissing: "Mettez à jour l'hôte pour voir les modifications du tour.",
+      restoreBlocked: {
+        notWorktree:
+          "La restauration des fichiers exige que l'agent s'exécute dans son propre worktree.",
+        sharedWorktree:
+          "Un autre agent travaille dans ce worktree. Fermez-le avant de restaurer les fichiers.",
+        unknown: "La restauration des fichiers n'est pas disponible pour cet agent.",
+      },
+      restoreFiles: "Restaurer les fichiers",
+      restoreTitle: "Restaurer les fichiers ?",
+      restoreMessage:
+        "Les fichiers de ce worktree reviennent à leur état d'avant ce tour. L'état actuel est d'abord enregistré dans une ref Git de sauvegarde.",
+      restoreSuccess: "Fichiers restaurés",
+      restoreFailed: "Impossible de restaurer les fichiers",
       uncommittedSubtitle: "Modifications non validées",
       baseSubtitle: "Comparé à {{baseRef}}",
       directoryMissing: "Répertoire Workspace introuvable.",
@@ -2488,7 +2561,9 @@ export const fr: TranslationResources = {
         toggleSettings: "Basculer les paramètres",
         toggleFocusMode: "Basculer le mode de mise au point",
         cycleTheme: "Thème du cycle",
+        undo: "Annuler la dernière action sur l'espace de travail",
         focusMessageInput: "Saisie du message de focus",
+        stashPrompt: "Mettre de côté ou restaurer le prompt",
         cycleAgentMode: "Parcourir les modes de l'agent",
         toggleVoiceMode: "Changer le mode vocal",
         startStopDictation: "Démarrer la dictée/stop",

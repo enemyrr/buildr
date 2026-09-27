@@ -131,6 +131,14 @@ It is **not** fine for tracking hover to drive state **outside** that `Pressable
 
 Heuristic: if your hover state is going to be `useState`'d and read by anything other than the same `Pressable`'s own style, do not use `onHoverIn` / `onHoverOut`. Use the canonical pattern.
 
+## Keyboard-active lists
+
+A list that marks one row for the keyboard (by DOM focus or an active index) must never fill that row and a hovered row at once. The pointer moves the keyboard's row, so the arrow keys continue from where the pointer is.
+
+- **Focus-driven lists** (menus, the New tab launcher) focus the row from the row `Pressable`'s `onHoverIn` with `focusOnHover` (`packages/app/src/components/ui/focus-on-hover.ts`). Hover and focus then land on the same row.
+- **Index-driven lists with a filter** (combobox, command center, composer autocomplete, host chooser, add project flow) set the active index from the row's `onPointerMove`, and fill from the active index alone, never from `hovered`. Chromium fires hover events when a row appears or shifts under a still pointer, which happens as typing refilters the list. With `onHoverIn`, the row under a resting pointer takes the active row and Enter runs it instead of the top match. `pointermove` fires only when the pointer moves.
+- Never scroll a row into view because the pointer activated it. Scrolling moves the next row under the pointer.
+
 ## Real gaps with floating panels
 
 Sometimes the revealed content can't live inside the trigger — a hover card portals into a different layer, a tooltip floats above other content, a popover renders into a `Portal`. There's a real visual gap the user has to cross with the cursor.

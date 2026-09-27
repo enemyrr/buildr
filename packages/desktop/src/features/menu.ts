@@ -1,4 +1,4 @@
-import { app, Menu, BrowserWindow, ipcMain } from "electron";
+import { app, Menu, BrowserWindow, ipcMain, webContents } from "electron";
 import { getActivePaseoBrowserWebContentsForHostWindow } from "./browser-webviews/index.js";
 import { getAppDisplayName } from "../desktop-variant.js";
 
@@ -65,6 +65,66 @@ export function reloadActiveBrowserOrWindow({
   win.webContents.reload();
 }
 
+interface PlainPasteContents {
+  send(channel: string, payload: unknown): void;
+  pasteAndMatchStyle(): void;
+}
+
+/**
+ * Runs Paste and Match Style in the focused contents. The accelerator can take
+ * the chord before the page sees its keydown, and the paste event carries no
+ * modifiers, so an app window first hears that the coming paste is a plain one;
+ * the composer then keeps a large paste inline instead of attaching it. The
+ * message is sent before the paste so the page holds the request when the
+ * paste event fires.
+ */
+export function pasteAndMatchStyleInContents(input: {
+  contents: PlainPasteContents;
+  isAppWindow: boolean;
+}): void {
+  if (input.isAppWindow) input.contents.send("paseo:event:plain-paste-requested", {});
+  input.contents.pasteAndMatchStyle();
+}
+
+/**
+ * Returns the Paste and Match Style accelerator for `platform`. Only macOS registers one:
+ * elsewhere Ctrl+Shift+V is the terminal's paste chord, which a registered accelerator would
+ * take from xterm. Chromium pastes plain text on that chord natively, and the composer's
+ * keydown handler marks the paste as plain.
+ */
+export function resolvePasteAndMatchStyleAccelerator(
+  platform: NodeJS.Platform,
+): string | undefined {
+  return platform === "darwin" ? "Command+Shift+V" : undefined;
+}
+
+interface UndoableWebContents {
+  id: number;
+  undo(): void;
+  send(channel: string, payload: unknown): void;
+}
+
+interface RouteMenuUndoInput {
+  win: { webContents: UndoableWebContents };
+  focusedContents: Pick<UndoableWebContents, "id" | "undo"> | null;
+}
+
+/**
+ * Routes the Edit menu's Undo. A registered accelerator can reach the menu before the page's
+ * keydown, which is why the zoom items are disabled while a shortcut is captured even though the
+ * capture handler calls `preventDefault`. A plain `role: "undo"` would therefore swallow Mod+Z
+ * before the app's undo shortcut saw it. A focused browser webview keeps native undo; the app
+ * window gets the press as an event and calls back through `paseo:menu:native-undo` when no
+ * shortcut claims it.
+ */
+export function routeMenuUndo({ win, focusedContents }: RouteMenuUndoInput): void {
+  if (focusedContents && focusedContents.id !== win.webContents.id) {
+    focusedContents.undo();
+    return;
+  }
+  win.webContents.send("paseo:event:menu-undo", {});
+}
+
 function buildApplicationMenuTemplate(
   options: ApplicationMenuOptions,
   capturing: boolean,
@@ -107,12 +167,30 @@ function buildApplicationMenuTemplate(
     {
       label: "Edit",
       submenu: [
-        { role: "undo" },
+        {
+          label: "Undo",
+          accelerator: "CmdOrCtrl+Z",
+          click: withBrowserWindow((win) => {
+            routeMenuUndo({ win, focusedContents: webContents.getFocusedWebContents() });
+          }),
+        },
         { role: "redo" },
         { type: "separator" },
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
+        {
+          label: "Paste and Match Style",
+          accelerator: resolvePasteAndMatchStyleAccelerator(process.platform),
+          click: () => {
+            const focused = webContents.getFocusedWebContents();
+            if (!focused) return;
+            pasteAndMatchStyleInContents({
+              contents: focused,
+              isAppWindow: BrowserWindow.fromWebContents(focused) !== null,
+            });
+          },
+        },
         { role: "selectAll" },
       ],
     },
@@ -228,6 +306,10 @@ export function setupApplicationMenu(options: ApplicationMenuOptions): void {
     ]);
 
     contextMenu.popup({ window: win });
+  });
+
+  ipcMain.handle("paseo:menu:native-undo", (event) => {
+    event.sender.undo();
   });
 
   // Disable the zoom accelerators while capturing a shortcut so combos like

@@ -69,24 +69,8 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
       setReplacement((current) => ({ ...current, autoFocus }));
     }, []);
 
-    useImperativeHandle(ref, () => ({
-      focus: () => {
-        if (isAwaitingReplacementRef.current) {
-          setReplacementFocus(true);
-          return;
-        }
-        inputRef.current?.focus();
-      },
-      blur: () => {
-        if (isAwaitingReplacementRef.current) {
-          setReplacementFocus(false);
-          return;
-        }
-        inputRef.current?.blur();
-      },
-      isFocused: () => inputRef.current?.isFocused?.() ?? false,
-      getText: () => textRef.current,
-      replaceText: (nextText, selection) => {
+    useImperativeHandle(ref, () => {
+      const replaceText = (nextText: string, selection?: { start: number; end: number }) => {
         textRef.current = nextText;
         if (inputRef.current?.replaceText) {
           inputRef.current.replaceText(nextText, selection);
@@ -101,20 +85,41 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
           ...(selection ? { selection } : {}),
         });
         if (selection) inputRef.current?.setSelection?.(selection.start, selection.end);
-      },
-      reset: () => {
-        textRef.current = "";
-        const autoFocus = inputRef.current?.isFocused?.() ?? false;
-        if (inputRef.current?.replaceText) {
-          inputRef.current.replaceText("");
-        } else {
-          inputRef.current?.clear?.();
-        }
-        isAwaitingReplacementRef.current = true;
-        setReplacement((current) => ({ revision: current.revision + 1, autoFocus }));
-      },
-      getNativeRef: () => inputRef.current?.getNativeRef?.() ?? inputRef.current,
-    }));
+      };
+      return {
+        focus: () => {
+          if (isAwaitingReplacementRef.current) {
+            setReplacementFocus(true);
+            return;
+          }
+          inputRef.current?.focus();
+        },
+        blur: () => {
+          if (isAwaitingReplacementRef.current) {
+            setReplacementFocus(false);
+            return;
+          }
+          inputRef.current?.blur();
+        },
+        isFocused: () => inputRef.current?.isFocused?.() ?? false,
+        getText: () => textRef.current,
+        replaceText,
+        // The native input keeps no undo history to join.
+        applyEdit: replaceText,
+        reset: () => {
+          textRef.current = "";
+          const autoFocus = inputRef.current?.isFocused?.() ?? false;
+          if (inputRef.current?.replaceText) {
+            inputRef.current.replaceText("");
+          } else {
+            inputRef.current?.clear?.();
+          }
+          isAwaitingReplacementRef.current = true;
+          setReplacement((current) => ({ revision: current.revision + 1, autoFocus }));
+        },
+        getNativeRef: () => inputRef.current?.getNativeRef?.() ?? inputRef.current,
+      };
+    });
 
     const handleChangeText = useCallback(
       (nextText: string) => {

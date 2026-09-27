@@ -6,6 +6,7 @@ import {
   setProjectCollapsed,
   togglePinnedCollapsed,
   toggleProjectCollapsed,
+  toggleSnoozedExpanded,
   toggleWorkspaceGroupCollapsed,
 } from "@/stores/sidebar-collapsed-sections-store/state";
 
@@ -14,6 +15,7 @@ function emptyState(): CollapsedProjectsState {
     collapsedProjectKeys: new Set(),
     collapsedWorkspaceGroupKeys: new Set(),
     collapsedPinned: false,
+    expandedSnoozed: false,
   };
 }
 
@@ -35,12 +37,14 @@ describe("sidebar collapsed projects transitions", () => {
       collapsedProjectKeys: new Set(["project-a", "project-b"]),
       collapsedWorkspaceGroupKeys: new Set(["running"]),
       collapsedPinned: true,
+      expandedSnoozed: true,
     };
 
     expect(serializeCollapsedProjects(state)).toEqual({
       collapsedProjectKeys: ["project-a", "project-b"],
       collapsedWorkspaceGroupKeys: ["running"],
       collapsedPinned: true,
+      expandedSnoozed: true,
     });
   });
 
@@ -50,6 +54,14 @@ describe("sidebar collapsed projects transitions", () => {
 
     const restored = mergePersistedCollapsedProjects({ collapsedPinned: true }, emptyState());
     expect(restored.collapsedPinned).toBe(true);
+  });
+
+  it("keeps Snoozed collapsed until it is expanded, and restores the choice", () => {
+    expect(emptyState().expandedSnoozed).toBe(false);
+    expect(toggleSnoozedExpanded(emptyState()).expandedSnoozed).toBe(true);
+
+    const restored = mergePersistedCollapsedProjects({ expandedSnoozed: true }, emptyState());
+    expect(restored.expandedSnoozed).toBe(true);
   });
 
   it("rejects the complete value when a persisted project key is invalid", () => {

@@ -116,6 +116,29 @@ export const ptBR: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Prompts guardados",
+      triggerLabel: "Prompts guardados: {{count}}",
+      stashCurrent: "Guardar prompt",
+      attachmentsOnly: "Somente anexos",
+      stashed: "Prompt guardado",
+      delete: {
+        action: "Excluir prompt guardado {{label}}",
+        tooltip: "Excluir",
+        confirmTitle: "Excluir prompt guardado?",
+        confirmMessage: "O prompt e seus anexos são removidos dos guardados.",
+        confirm: "Excluir",
+      },
+      errors: {
+        tooLarge: "O prompt é grande demais para ser guardado",
+        storageFailed:
+          "Não foi possível guardar o prompt. O armazenamento local está indisponível ou cheio.",
+        restoreFailed:
+          "Não foi possível restaurar o prompt. O armazenamento local está indisponível.",
+        deleteFailed:
+          "Não foi possível excluir o prompt guardado. O armazenamento local está indisponível.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Peça alterações, mencione arquivos com @, execute /commands",
@@ -257,6 +280,12 @@ export const ptBR: TranslationResources = {
     archived: {
       callout: "Este agente está arquivado",
       unarchive: "Desarquivar",
+    },
+    interrupted: {
+      callout: "Uma reinicialização do daemon interrompeu este turno",
+      continue: "Continuar",
+      description: "Continuar retoma o agente de onde ele parou.",
+      dismiss: "Dispensar",
     },
   },
   home: {
@@ -1282,6 +1311,32 @@ export const ptBR: TranslationResources = {
       description: "Altere ou limpe os filtros da barra lateral para ver espaços de trabalho.",
       clear: "Limpar filtros",
     },
+    snooze: {
+      title: "Adiados",
+      action: "Adiar",
+      wake: "Reativar agora",
+      today: "Hoje",
+      laterToday: "Mais tarde hoje",
+      tomorrow: "Amanhã",
+      nextMonday: "Próxima segunda-feira",
+      custom: "Personalizado...",
+      customTitle: "Adiar até",
+      date: "Data",
+      time: "Hora",
+      submit: "Adiar",
+      failed: "Não foi possível adiar o workspace",
+    },
+    undo: {
+      action: "Desfazer",
+      archived: "Workspace arquivado",
+      pinned: "Workspace fixado",
+      unpinned: "Workspace desafixado",
+      snoozed: "Adiado até {{time}}",
+      woke: "Workspace reativado",
+      markedRead: "Marcado como lido",
+      markedUnread: "Marcado como não lido",
+      failed: "Não foi possível desfazer",
+    },
     pinned: {
       title: "Fixados",
     },
@@ -1965,11 +2020,13 @@ export const ptBR: TranslationResources = {
   },
   rewind: {
     tooltip: "Voltar para esta mensagem",
+    turnChanges: "Ver alterações deste turno",
     warning: "Esta ação não pode ser desfeita",
     actions: {
       conversation: "Reverter conversa",
       files: "Reverter arquivos",
       both: "Reverter conversa e arquivos",
+      restoreCheckpoint: "Restaurar arquivos para antes deste turno",
     },
     errors: {
       failed: "Falha ao reverter agente",
@@ -2071,6 +2128,23 @@ export const ptBR: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "Diff da árvore de trabalho",
       commitSubtitle: "Diff do commit",
+      turnLabel: "Alterações do turno",
+      turnSubtitle: "Alterações de um turno do agente",
+      turnMissing: "Nenhuma alteração registrada para este turno.",
+      turnCapabilityMissing: "Atualize o host para ver as alterações do turno.",
+      restoreBlocked: {
+        notWorktree:
+          "Restaurar arquivos exige que o agente seja executado em seu próprio worktree.",
+        sharedWorktree:
+          "Outro agente está trabalhando neste worktree. Feche-o antes de restaurar arquivos.",
+        unknown: "A restauração de arquivos não está disponível para este agente.",
+      },
+      restoreFiles: "Restaurar arquivos",
+      restoreTitle: "Restaurar arquivos?",
+      restoreMessage:
+        "Os arquivos deste worktree voltam ao estado anterior a este turno. O estado atual é salvo primeiro em uma ref Git de backup.",
+      restoreSuccess: "Arquivos restaurados",
+      restoreFailed: "Não foi possível restaurar os arquivos",
       uncommittedSubtitle: "Alterações não commitadas",
       baseSubtitle: "Comparado com {{baseRef}}",
       directoryMissing: "Diretório do workspace não encontrado.",
@@ -2465,7 +2539,9 @@ export const ptBR: TranslationResources = {
         toggleSettings: "Alternar Configurações",
         toggleFocusMode: "Alternar modo de foco",
         cycleTheme: "Alternar tema",
+        undo: "Desfazer a última ação no workspace",
         focusMessageInput: "Focar entrada de mensagem",
+        stashPrompt: "Guardar ou restaurar prompt",
         cycleAgentMode: "Alternar modo do agente",
         toggleVoiceMode: "Alternar modo de voz",
         startStopDictation: "Iniciar/parar ditado",

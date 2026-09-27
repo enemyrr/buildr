@@ -11,6 +11,43 @@ import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
 import { buildWorkspaceTabPersistenceKey } from "@/workspace-tabs/model";
 import { archiveWorkspaceOptimistically } from "@/workspace/workspace-archive";
+import { i18n } from "@/i18n/i18next";
+import { hostSupportsFeature } from "@/runtime/host-features";
+import {
+  getLastWorkspaceSelection,
+  navigateToWorkspace,
+} from "@/stores/navigation-active-workspace-store";
+import { useSessionStore } from "@/stores/session-store";
+import { registerWorkspaceUndo } from "@/workspace/undo/store";
+
+function offerArchiveUndo(input: {
+  serverId: string;
+  workspaceId: string;
+  workspaceKey: string;
+  wasViewing: boolean;
+}): void {
+  const serverInfo = useSessionStore.getState().sessions[input.serverId]?.serverInfo;
+  if (!hostSupportsFeature(serverInfo, "workspaceRecovery")) {
+    return;
+  }
+  registerWorkspaceUndo({
+    kind: "archive",
+    workspaceKey: input.workspaceKey,
+    message: i18n.t("sidebar.undo.archived"),
+    undo: async () => {
+      const client = getHostRuntimeStore().getClient(input.serverId);
+      if (!client) {
+        throw new Error(i18n.t("sidebar.workspace.toasts.hostDisconnected"));
+      }
+      // Restore recovers the workspace only; its agents stay archived, as with the route's
+      // Restore action.
+      await client.restoreWorkspace(input.workspaceId);
+      if (input.wasViewing) {
+        navigateToWorkspace({ serverId: input.serverId, workspaceId: input.workspaceId });
+      }
+    },
+  });
+}
 
 function purgeArchivedWorkspaceState(input: { serverId: string; workspaceId: string }): void {
   const workspaceKey = buildWorkspaceTabPersistenceKey(input);
@@ -59,6 +96,9 @@ export function useWorkspaceArchive(input: ArchiveWorkspaceInput): WorkspaceArch
       return;
     }
     onSetHiding?.(true);
+    const lastSelection = getLastWorkspaceSelection();
+    const wasViewing =
+      lastSelection?.serverId === serverId && lastSelection.workspaceId === workspaceId;
     try {
       onArchiveStarted();
       await archiveWorkspaceOptimistically({
@@ -69,6 +109,10 @@ export function useWorkspaceArchive(input: ArchiveWorkspaceInput): WorkspaceArch
         },
       });
       purgeArchivedWorkspaceState({ serverId, workspaceId });
+      const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
+      if (workspaceKey) {
+        offerArchiveUndo({ serverId, workspaceId, workspaceKey, wasViewing });
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : t("sidebar.workspace.toasts.archiveFailed"),

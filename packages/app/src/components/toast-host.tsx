@@ -31,7 +31,20 @@ export interface ToastShowOptions {
   durationMs?: number | null;
   nativeAndroid?: boolean;
   testID?: string;
+  /**
+   * Identifies the toast so its owner can dismiss it without closing someone else's. A keyed
+   * toast is one its owner acts on, such as an undo toast.
+   */
+  key?: string;
+  /**
+   * Drops the toast instead of replacing a visible one that outranks it: `"errors"` yields to
+   * error toasts, and `"errors-and-keyed"` also yields to keyed toasts. Default: replaces any
+   * visible toast.
+   */
+  yieldsTo?: ToastYield;
 }
+
+export type ToastYield = "errors" | "errors-and-keyed";
 
 export interface ToastState {
   id: number;
@@ -41,12 +54,15 @@ export interface ToastState {
   variant: ToastVariant;
   durationMs: number | null;
   testID?: string;
+  key?: string;
 }
 
 export interface ToastApi {
   show: (content: ReactNode, options?: ToastShowOptions) => void;
   copied: (label?: string) => void;
   error: (message: string) => void;
+  /** Dismisses the visible toast if it was shown with `key`. */
+  dismiss: (key: string) => void;
 }
 
 type ToastViewportPlacement = "app-shell" | "panel";
@@ -63,6 +79,12 @@ const infoIcon = (theme: Theme) => ({ color: theme.colors.palette.blue[300] });
 const successIcon = (theme: Theme) => ({ color: theme.colors.primary });
 const warningIcon = (theme: Theme) => ({ color: theme.colors.palette.amber[500] });
 const errorIcon = (theme: Theme) => ({ color: theme.colors.destructive });
+
+function outranks(current: ToastState, yieldsTo: ToastYield | undefined): boolean {
+  if (yieldsTo === undefined) return false;
+  if (current.variant === "error") return true;
+  return yieldsTo === "errors-and-keyed" && current.key !== undefined;
+}
 
 export function useToastHost(): {
   api: ToastApi;
@@ -91,7 +113,7 @@ export function useToastHost(): {
     }
 
     idRef.current += 1;
-    setToast({
+    const next: ToastState = {
       id: idRef.current,
       content,
       nativeMessage,
@@ -99,7 +121,18 @@ export function useToastHost(): {
       variant,
       durationMs,
       testID: options?.testID,
-    });
+      key: options?.key,
+    };
+    const yieldsTo = options?.yieldsTo;
+    setToast((current) => (current && outranks(current, yieldsTo) ? current : next));
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  const dismissByKey = useCallback((key: string) => {
+    setToast((current) => (current?.key === key ? null : current));
   }, []);
 
   const api = useMemo<ToastApi>(
@@ -111,13 +144,10 @@ export function useToastHost(): {
           icon: <ThemedCheckCircle size={18} uniProps={foregroundIcon} />,
         }),
       error: (message: string) => show(message, { variant: "error", durationMs: 3200 }),
+      dismiss: dismissByKey,
     }),
-    [show, t],
+    [dismissByKey, show, t],
   );
-
-  const dismiss = useCallback(() => {
-    setToast(null);
-  }, []);
 
   return { api, toast, dismiss };
 }

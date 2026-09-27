@@ -10,12 +10,14 @@ import {
   Pressable,
   Text,
   View,
+  type MouseEvent,
   type PressableStateCallbackType,
   type ViewStyle,
 } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check, CheckCircle } from "lucide-react-native";
 import { AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
+import { focusOnHover } from "@/components/ui/focus-on-hover";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Theme } from "@/styles/theme";
@@ -295,6 +297,15 @@ export function MenuItem({
     selectItem(onSelect, closeOnSelect);
   }, [isDisabled, selectItem, onSelect, closeOnSelect]);
 
+  // The surface focuses its first row on open for keyboard use, and focus draws the same fill as
+  // hover.
+  const handleHoverIn = useCallback(
+    (event: MouseEvent) => {
+      if (!isDisabled) focusOnHover(event);
+    },
+    [isDisabled],
+  );
+
   // A row that draws a check has to say so as well: a multi-select page is a list of things that
   // are on or off, and the check is the only thing telling a sighted user which. Rows that answer
   // no such question stay plain buttons.
@@ -343,6 +354,7 @@ export function MenuItem({
       tabIndex={-1}
       dataSet={itemDataSet}
       disabled={isDisabled}
+      onHoverIn={handleHoverIn}
       onPress={handleItemPress}
       style={itemPressableStyle}
     >

@@ -59,6 +59,7 @@ function createToast(): FakeToast {
     },
     copied: () => {},
     error: () => {},
+    dismiss: () => {},
   };
 }
 

@@ -20,6 +20,8 @@ export function buildArchivedAgentRecord(
     requiresAttention: false,
     attentionReason: null,
     attentionTimestamp: null,
+    // An archived agent has nothing left to continue.
+    ...(record.unfinishedTurn ? { unfinishedTurn: null } : {}),
   };
 }
 

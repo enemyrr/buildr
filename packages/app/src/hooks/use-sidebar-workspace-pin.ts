@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/contexts/toast-context";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { registerWorkspaceUndo } from "@/workspace/undo/store";
 
 // Everything the pin toggle actually needs. Kept narrower than SidebarWorkspaceEntry so the
 // global keyboard handler can build one from the active route selection without a sidebar row.
@@ -35,6 +36,20 @@ export function useSidebarWorkspacePinController(): ToggleSidebarWorkspacePin {
         throw new Error(t("sidebar.workspace.toasts.hostDisconnected"));
       }
       await client.setWorkspacePinned(workspace.workspaceId, pinned);
+    },
+    onSuccess: (_data, { workspace, pinned }) => {
+      registerWorkspaceUndo({
+        kind: "pin",
+        workspaceKey: workspace.workspaceKey,
+        message: t(pinned ? "sidebar.undo.pinned" : "sidebar.undo.unpinned"),
+        undo: async () => {
+          const client = getHostRuntimeStore().getClient(workspace.serverId);
+          if (!client) {
+            throw new Error(t("sidebar.workspace.toasts.hostDisconnected"));
+          }
+          await client.setWorkspacePinned(workspace.workspaceId, !pinned);
+        },
+      });
     },
     onError: (error) => {
       toast.error(

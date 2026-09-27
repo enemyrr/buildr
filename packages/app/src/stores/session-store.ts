@@ -38,6 +38,7 @@ import type {
   ProjectPlacementPayload,
   ServerCapabilities,
   WorkspaceDescriptorPayload,
+  WorkspaceSnooze,
   WorkspaceProjectDescriptorPayload,
 } from "@getpaseo/protocol/messages";
 import {
@@ -69,6 +70,12 @@ export interface AgentRuntimeInfo {
   extra?: Record<string, unknown>;
 }
 
+// The wire's `interruptedTurn` with its timestamps parsed.
+export interface AgentInterruptedTurn {
+  startedAt: Date;
+  interruptedAt: Date;
+}
+
 export interface Agent {
   serverId: string;
   id: string;
@@ -97,6 +104,8 @@ export interface Agent {
   attentionReason?: "finished" | "error" | "permission" | null;
   attentionTimestamp?: Date | null;
   archivedAt?: Date | null;
+  /** Set when a daemon restart stopped the agent's turn before it finished. */
+  interruptedTurn?: AgentInterruptedTurn | null;
   parentAgentId: string | null;
   labels: Record<string, string>;
   projectPlacement?: ProjectPlacementPayload | null;
@@ -116,6 +125,7 @@ export interface WorkspaceDescriptor {
   name: string;
   title?: string | null;
   pinnedAt?: string | null;
+  snooze?: WorkspaceSnooze | null;
   labels?: string[];
   status: WorkspaceDescriptorPayload["status"];
   statusEnteredAt: Date | null;
@@ -153,6 +163,8 @@ export function normalizeWorkspaceDescriptor(
     name: payload.name,
     title: payload.title ?? null,
     pinnedAt: payload.pinnedAt ?? null,
+    // COMPAT(workspaceSnooze): old daemons omit the field.
+    snooze: payload.snooze ?? null,
     // COMPAT(workspaceLabels): old daemons omit assignments.
     labels: payload.labels ?? [],
     status: payload.status,

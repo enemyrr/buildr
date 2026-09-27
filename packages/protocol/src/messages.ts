@@ -829,6 +829,12 @@ const AgentActiveTurnPayloadSchema = z.object({
   startedAt: z.string().nullable(),
 });
 
+/** A turn that a daemon restart stopped before it finished. */
+const AgentInterruptedTurnPayloadSchema = z.object({
+  startedAt: z.string(),
+  interruptedAt: z.string(),
+});
+
 export const AgentSnapshotPayloadSchema = z.object({
   id: z.string(),
   provider: AgentProviderSchema,
@@ -858,6 +864,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   attentionTimestamp: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),
   providerUnavailable: z.boolean().optional(),
+  // COMPAT(interruptedTurnContinue): added in v0.10.2, remove optional parsing after 2027-03-27.
+  interruptedTurn: AgentInterruptedTurnPayloadSchema.nullable().optional(),
 });
 
 export type AgentSnapshotPayload = z.infer<typeof AgentSnapshotPayloadSchema>;
@@ -1001,6 +1009,19 @@ export const WorkspacePinSetRequestSchema = z.object({
   workspaceId: z.string(),
   pinned: z.boolean(),
   requestId: z.string(),
+});
+
+export const WorkspaceSnoozeSetRequestSchema = z.object({
+  type: z.literal("workspace.snooze.set.request"),
+  workspaceId: z.string(),
+  // ISO wake time. Null wakes the workspace.
+  until: z.string().nullable(),
+  requestId: z.string(),
+});
+
+export const WorkspaceSnoozeSchema = z.object({
+  snoozedAt: z.string(),
+  until: z.string(),
 });
 
 export const WorkspaceLabelColorSchema = z.enum(WORKSPACE_LABEL_COLORS);
@@ -1561,6 +1582,18 @@ export const PluginRpcInvokeRequestSchema = z.object({
   input: z.unknown(),
 });
 
+export const AgentInterruptedTurnContinueRequestSchema = z.object({
+  type: z.literal("agent.interrupted_turn.continue.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+});
+
+export const AgentInterruptedTurnDismissRequestSchema = z.object({
+  type: z.literal("agent.interrupted_turn.dismiss.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+});
+
 export const AgentTimelineAppendRequestSchema = z.object({
   type: z.literal("agent.timeline.append.request"),
   requestId: z.string(),
@@ -2031,6 +2064,28 @@ export const AgentRewindRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentCheckpointListRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.list.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+});
+
+export const AgentCheckpointGetTurnDiffRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.get_turn_diff.request"),
+  agentId: z.string(),
+  turnIndex: z.number().int(),
+  ignoreWhitespace: z.boolean().optional(),
+  requestId: z.string(),
+});
+
+// Restores the agent's working tree to the checkpoint captured when the turn started.
+export const AgentCheckpointRestoreFilesRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.restore_files.request"),
+  agentId: z.string(),
+  turnIndex: z.number().int(),
+  requestId: z.string(),
+});
+
 export const AgentRewindResponseMessageSchema = z.object({
   type: z.literal("agent.rewind.response"),
   payload: z.object({
@@ -2106,6 +2161,19 @@ export const WorkspacePinSetResponsePayloadSchema = z.object({
 export const WorkspacePinSetResponseSchema = z.object({
   type: z.literal("workspace.pin.set.response"),
   payload: WorkspacePinSetResponsePayloadSchema,
+});
+
+export const WorkspaceSnoozeSetResponsePayloadSchema = z.object({
+  requestId: z.string(),
+  workspaceId: z.string(),
+  accepted: z.boolean(),
+  snooze: WorkspaceSnoozeSchema.nullable(),
+  error: z.string().nullable(),
+});
+
+export const WorkspaceSnoozeSetResponseSchema = z.object({
+  type: z.literal("workspace.snooze.set.response"),
+  payload: WorkspaceSnoozeSetResponsePayloadSchema,
 });
 
 export const WorkspaceRecoveryStateSchema = z.discriminatedUnion("kind", [
@@ -3257,6 +3325,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   ProjectRemoveRequestSchema,
   WorkspaceTitleSetRequestSchema,
   WorkspacePinSetRequestSchema,
+  WorkspaceSnoozeSetRequestSchema,
   WorkspaceLabelListRequestSchema,
   WorkspaceLabelAssignmentSetRequestSchema,
   WorkspaceLabelUpdateRequestSchema,
@@ -3293,6 +3362,8 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PluginRemoveRequestSchema,
   PluginRpcInvokeRequestSchema,
   AgentTimelineAppendRequestSchema,
+  AgentInterruptedTurnContinueRequestSchema,
+  AgentInterruptedTurnDismissRequestSchema,
   AgentSkillsGetStatusRequestSchema,
   AgentSkillsReconcileRequestSchema,
   AgentSkillsUninstallRequestSchema,
@@ -3336,6 +3407,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyRequestMessageSchema,
   AgentDetachRequestMessageSchema,
   AgentRewindRequestMessageSchema,
+  AgentCheckpointListRequestMessageSchema,
+  AgentCheckpointGetTurnDiffRequestMessageSchema,
+  AgentCheckpointRestoreFilesRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   CheckoutDiffGetRequestSchema,
@@ -3630,6 +3704,9 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceSetupRun: z.boolean().optional(),
         // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
         agentShellRun: z.boolean().optional(),
+        // COMPAT(interruptedTurnContinue): added in v0.10.2, remove gate after 2027-03-27.
+        // Covers both agent.interrupted_turn.continue and agent.interrupted_turn.dismiss.
+        interruptedTurnContinue: z.boolean().optional(),
         // COMPAT(workspaceTerminals): added in v0.8.0, remove gate after 2027-09-05.
         workspaceTerminals: z.boolean().optional(),
         // COMPAT(checkoutForgeSetAutoMerge): added in v0.2.0-beta.1. Remove the
@@ -3688,6 +3765,8 @@ export const ServerInfoStatusPayloadSchema = z
         "terminal-size-ownership": z.boolean().optional(),
         // COMPAT(rewind): added in v0.1.X, drop the gate when floor >= v0.1.X.
         rewind: z.boolean().optional(),
+        // COMPAT(agentCheckpoints): added in v0.10.2, remove gate after 2027-03-27.
+        agentCheckpoints: z.boolean().optional(),
         // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
         agentTimelinePromptIndex: z.boolean().optional(),
         // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
@@ -3730,6 +3809,8 @@ export const ServerInfoStatusPayloadSchema = z
         providerSubagentNesting: z.boolean().optional(),
         // COMPAT(workspacePinning): added in v0.1.107, remove gate after 2027-01-12.
         workspacePinning: z.boolean().optional(),
+        // COMPAT(workspaceSnooze): added in v0.10.2, remove gate after 2027-03-27.
+        workspaceSnooze: z.boolean().optional(),
         // COMPAT(workspaceMarkUnread): added in v0.5.0, remove after 2027-08-20.
         workspaceMarkUnread: z.boolean().optional(),
         // COMPAT(hubRelationship): added in v0.1.X, drop the gate when floor >= v0.1.X.
@@ -4095,6 +4176,8 @@ export const WorkspaceDescriptorPayloadSchema = z
     title: z.string().nullable().optional(),
     // COMPAT(workspacePinning): added in v0.1.107, remove optional after 2027-01-12.
     pinnedAt: z.string().nullable().optional(),
+    // COMPAT(workspaceSnooze): added in v0.10.2, remove optional after 2027-03-27.
+    snooze: WorkspaceSnoozeSchema.nullable().optional(),
     // COMPAT(workspaceLabels): added in v0.5.0, remove optional after 2027-08-14.
     labels: z.array(z.string()).optional(),
     archivingAt: z.string().nullable().optional().default(null),
@@ -5674,6 +5757,55 @@ export const CheckoutCommitFileDiffResponseSchema = z.object({
   }),
 });
 
+export const RESTORE_FILES_BLOCKED_REASONS = ["not_worktree", "shared_worktree"] as const;
+export type RestoreFilesBlockedReason = (typeof RESTORE_FILES_BLOCKED_REASONS)[number];
+
+const AgentTurnCheckpointSchema = z.object({
+  turnIndex: z.number().int(),
+  // The Paseo user-message ID that started the turn; null for turns started
+  // without a submitted prompt.
+  messageId: z.string().nullable(),
+  startedAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export const AgentCheckpointListResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    checkpoints: z.array(AgentTurnCheckpointSchema),
+    // Absent when the daemon can restore files for this agent. Otherwise a
+    // `RestoreFilesBlockedReason` code; clients show a generic reason for codes
+    // they don't know. Restore requests stay refused server-side.
+    restoreFilesBlockedReason: z.string().optional(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentCheckpointGetTurnDiffResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.get_turn_diff.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    turnIndex: z.number().int(),
+    files: z.array(ParsedDiffFileSchema),
+    diffTooLarge: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentCheckpointRestoreFilesResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.restore_files.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    turnIndex: z.number().int(),
+    ok: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
 const CheckoutGithubCheckAnnotationSchema = z.object({
   path: z.string().optional(),
   startLine: z.number().optional(),
@@ -6854,6 +6986,24 @@ export const AgentTimelineAppendResponseSchema = z.object({
   }),
 });
 
+export const AgentInterruptedTurnContinueResponseSchema = z.object({
+  type: z.literal("agent.interrupted_turn.continue.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentInterruptedTurnDismissResponseSchema = z.object({
+  type: z.literal("agent.interrupted_turn.dismiss.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
 function agentSkillsStatusResponse<const Type extends string>(type: Type) {
   return z.object({
     type: z.literal(type),
@@ -6909,6 +7059,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginRemoveResponseSchema,
   PluginRpcInvokeResponseSchema,
   AgentTimelineAppendResponseSchema,
+  AgentInterruptedTurnContinueResponseSchema,
+  AgentInterruptedTurnDismissResponseSchema,
   AgentSkillsGetStatusResponseSchema,
   AgentSkillsReconcileResponseSchema,
   AgentSkillsUninstallResponseSchema,
@@ -7005,12 +7157,16 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyResponseMessageSchema,
   AgentDetachResponseMessageSchema,
   AgentRewindResponseMessageSchema,
+  AgentCheckpointListResponseMessageSchema,
+  AgentCheckpointGetTurnDiffResponseMessageSchema,
+  AgentCheckpointRestoreFilesResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   ProjectRenameResponseSchema,
   ProjectIconSetResponseSchema,
   ProjectRemoveResponseSchema,
   WorkspaceTitleSetResponseSchema,
   WorkspacePinSetResponseSchema,
+  WorkspaceSnoozeSetResponseSchema,
   WorkspaceRecoveryInspectResponseSchema,
   WorkspaceRecoveryRestoreResponseSchema,
   WorkspaceArchivedListResponseSchema,
@@ -7207,6 +7363,16 @@ export type SetAgentFeatureResponseMessage = z.infer<typeof SetAgentFeatureRespo
 export type AgentConfigApplyResponseMessage = z.infer<typeof AgentConfigApplyResponseMessageSchema>;
 export type AgentDetachResponseMessage = z.infer<typeof AgentDetachResponseMessageSchema>;
 export type AgentRewindResponseMessage = z.infer<typeof AgentRewindResponseMessageSchema>;
+export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
+export type AgentCheckpointListResponseMessage = z.infer<
+  typeof AgentCheckpointListResponseMessageSchema
+>;
+export type AgentCheckpointGetTurnDiffResponseMessage = z.infer<
+  typeof AgentCheckpointGetTurnDiffResponseMessageSchema
+>;
+export type AgentCheckpointRestoreFilesResponseMessage = z.infer<
+  typeof AgentCheckpointRestoreFilesResponseMessageSchema
+>;
 export type UpdateAgentResponseMessage = z.infer<typeof UpdateAgentResponseMessageSchema>;
 export type ProjectRenameResponse = z.infer<typeof ProjectRenameResponseSchema>;
 export type ProjectIconSetResponse = z.infer<typeof ProjectIconSetResponseSchema>;
@@ -7217,6 +7383,8 @@ export type WorkspaceTitleSetResponsePayload = z.infer<
 >;
 export type WorkspacePinSetResponse = z.infer<typeof WorkspacePinSetResponseSchema>;
 export type WorkspacePinSetResponsePayload = z.infer<typeof WorkspacePinSetResponsePayloadSchema>;
+export type WorkspaceSnooze = z.infer<typeof WorkspaceSnoozeSchema>;
+export type WorkspaceSnoozeSetResponse = z.infer<typeof WorkspaceSnoozeSetResponseSchema>;
 export type WorkspaceRecoveryState = z.infer<typeof WorkspaceRecoveryStateSchema>;
 export type WorkspaceRecoveryInspectResponse = z.infer<
   typeof WorkspaceRecoveryInspectResponseSchema
@@ -7367,6 +7535,7 @@ export type ProjectIconSetRequest = z.infer<typeof ProjectIconSetRequestSchema>;
 export type ProjectRemoveRequest = z.infer<typeof ProjectRemoveRequestSchema>;
 export type WorkspaceTitleSetRequest = z.infer<typeof WorkspaceTitleSetRequestSchema>;
 export type WorkspacePinSetRequest = z.infer<typeof WorkspacePinSetRequestSchema>;
+export type WorkspaceSnoozeSetRequest = z.infer<typeof WorkspaceSnoozeSetRequestSchema>;
 export type WorkspaceRecoveryInspectRequest = z.infer<typeof WorkspaceRecoveryInspectRequestSchema>;
 export type WorkspaceRecoveryRestoreRequest = z.infer<typeof WorkspaceRecoveryRestoreRequestSchema>;
 export type WorkspaceArchivedListRequest = z.infer<typeof WorkspaceArchivedListRequestSchema>;

@@ -1,6 +1,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { TextInput } from "react-native";
 import type { EditingTextInputHandle, EditingTextInputProps } from "./types";
+import { applyUndoableTextEdit } from "./undoable-edit";
 
 interface WebTextInputElement extends TextInput {
   value?: string;
@@ -73,6 +74,14 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
         if (input && "value" in input) input.value = nextText;
         if (selection && typeof input?.setSelectionRange === "function") {
           input.setSelectionRange(selection.start, selection.end);
+        }
+      },
+      applyEdit: (nextText, selection) => {
+        // Set first: the edit fires an input event, and matching text skips the echo.
+        textRef.current = nextText;
+        const input = inputRef.current;
+        if (input instanceof HTMLTextAreaElement) {
+          applyUndoableTextEdit(input, nextText, selection);
         }
       },
       reset: () => {

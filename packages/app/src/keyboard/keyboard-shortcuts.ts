@@ -169,6 +169,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-next",
     "pin-workspace",
     "archive-workspace",
+    "undo-workspace-action",
   ],
   "tabs-panes": [
     "workspace-tab-new",
@@ -206,6 +207,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "model-slot",
     "cycle-effort",
     "toggle-fast",
+    "stash-prompt",
     "voice-toggle",
     "dictation-toggle",
     "agent-interrupt",
@@ -218,6 +220,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "new-workspace": "settings.shortcuts.help.newWorkspace",
   "switch-project": "settings.shortcuts.help.switchProject",
   "archive-workspace": "settings.shortcuts.help.archiveWorkspace",
+  "undo-workspace-action": "settings.shortcuts.help.undo",
   "workspace-tab-new": "settings.shortcuts.help.newTab",
   "workspace-tab-target-agent": "workspace.tabs.actions.newAgent",
   "workspace-tab-target-browser": "workspace.tabs.actions.newBrowser",
@@ -257,6 +260,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "model-slot": "composer.loadout.shortcuts.modelSlot",
   "cycle-effort": "composer.loadout.shortcuts.cycleEffort",
   "toggle-fast": "composer.loadout.shortcuts.toggleFast",
+  "stash-prompt": "settings.shortcuts.help.stashPrompt",
   "voice-toggle": "settings.shortcuts.help.toggleVoiceMode",
   "dictation-toggle": "settings.shortcuts.help.startStopDictation",
   "agent-interrupt": "settings.shortcuts.help.interruptAgent",
@@ -395,6 +399,31 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "pin-workspace",
       section: "workspaces",
       label: "Pin chat",
+    },
+  },
+
+  // --- Undo workspace action ---
+  // Only outside text fields, the terminal, and the browser, where Mod+Z already means undo.
+  {
+    id: "workspace-undo-cmd-z-mac",
+    action: "workspace.undo",
+    combo: "Cmd+Z",
+    when: { mac: true, commandCenter: false, focusScope: "other" },
+    help: {
+      id: "undo-workspace-action",
+      section: "workspaces",
+      label: "Undo last workspace action",
+    },
+  },
+  {
+    id: "workspace-undo-ctrl-z-non-mac",
+    action: "workspace.undo",
+    combo: "Ctrl+Z",
+    when: { mac: false, commandCenter: false, focusScope: "other" },
+    help: {
+      id: "undo-workspace-action",
+      section: "workspaces",
+      label: "Undo last workspace action",
     },
   },
 
@@ -1202,6 +1231,32 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "cycle-agent-mode",
       section: "agent-input",
       label: "Cycle agent mode",
+    },
+  },
+  {
+    id: "message-input-stash-cmd-s-mac",
+    action: "message-input.action",
+    combo: "Cmd+S",
+    repeat: false,
+    when: { mac: true, commandCenter: false, focusScope: "message-input" },
+    payload: { type: "message-input", kind: "stash" },
+    help: {
+      id: "stash-prompt",
+      section: "agent-input",
+      label: "Stash or restore prompt",
+    },
+  },
+  {
+    id: "message-input-stash-ctrl-s-non-mac",
+    action: "message-input.action",
+    combo: "Ctrl+S",
+    repeat: false,
+    when: { mac: false, commandCenter: false, focusScope: "message-input" },
+    payload: { type: "message-input", kind: "stash" },
+    help: {
+      id: "stash-prompt",
+      section: "agent-input",
+      label: "Stash or restore prompt",
     },
   },
   {

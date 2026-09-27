@@ -49,6 +49,7 @@ const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
   "workspace.project.pick": { id: "workspace.project.pick", scope: "workspace" },
   "workspace.archive": { id: "workspace.archive", scope: "sidebar" },
   "workspace.pin": { id: "workspace.pin", scope: "sidebar" },
+  "workspace.undo": { id: "workspace.undo", scope: "sidebar" },
   "worktree.new": { id: "worktree.new", scope: "sidebar" },
   "workspace.terminal.new": { id: "workspace.terminal.new", scope: "workspace" },
   "workspace.terminal.toggle": { id: "workspace.terminal.toggle", scope: "workspace" },
@@ -88,6 +89,7 @@ const MESSAGE_INPUT_DISPATCH: Record<
   "mode-cycle": { id: "message-input.mode-cycle", scope: "message-input" },
   "effort-cycle": { id: "message-input.effort-cycle", scope: "message-input" },
   "fast-toggle": { id: "message-input.fast-toggle", scope: "message-input" },
+  stash: { id: "message-input.stash", scope: "message-input" },
 };
 
 function hasPayloadKey<K extends "index" | "delta" | "kind">(

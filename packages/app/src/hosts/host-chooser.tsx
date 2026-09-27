@@ -101,21 +101,25 @@ export function useHostChooser() {
   );
 }
 
-function HostChooserRow({
-  host,
-  active,
-  onChooseHost,
-}: {
+interface HostChooserRowProps {
   host: HostProfile;
+  index: number;
   active: boolean;
+  onActivate: (index: number) => void;
   onChooseHost: (serverId: string) => void;
-}) {
+}
+
+function HostChooserRow({ host, index, active, onActivate, onChooseHost }: HostChooserRowProps) {
   const { theme } = useUnistyles();
   const handlePress = useCallback(() => onChooseHost(host.serverId), [host.serverId, onChooseHost]);
+  // The pointer moves the active row (see docs/hover.md, "Keyboard-active lists").
+  const handlePointerMove = useCallback(() => {
+    if (!active) onActivate(index);
+  }, [active, index, onActivate]);
   const rowStyle = useCallback(
-    ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+    ({ pressed }: PressableStateCallbackType) => [
       styles.row,
-      (active || hovered || pressed) && styles.rowActive,
+      (active || pressed) && styles.rowActive,
     ],
     [active],
   );
@@ -123,6 +127,7 @@ function HostChooserRow({
   return (
     <Pressable
       accessibilityRole="button"
+      onPointerMove={handlePointerMove}
       onPress={handlePress}
       style={rowStyle}
       testID={`host-chooser-row-${host.serverId}`}
@@ -271,7 +276,9 @@ export function HostChooserModal() {
               <HostChooserRow
                 key={host.serverId}
                 host={host}
+                index={index}
                 active={index === activeOptionIndex}
+                onActivate={setActiveIndex}
                 onChooseHost={chooseHost}
               />
             ))}

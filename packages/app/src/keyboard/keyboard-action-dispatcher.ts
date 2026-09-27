@@ -15,6 +15,7 @@ export type KeyboardActionId =
   | "message-input.mode-cycle"
   | "message-input.effort-cycle"
   | "message-input.fast-toggle"
+  | "message-input.stash"
   | "message-input.model-slot"
   | "workspace.agent.new"
   | "workspace.tab.menu.open"
@@ -56,6 +57,7 @@ export type KeyboardActionId =
   | "worktree.new"
   | "workspace.archive"
   | "workspace.pin"
+  | "workspace.undo"
   // Command-center only: no keybind, so these are absent from route-shortcut.ts.
   | "workspace.rename"
   | "workspace.setup.show";
@@ -72,6 +74,7 @@ export type KeyboardActionDefinition =
   | { id: "message-input.mode-cycle"; scope: KeyboardActionScope }
   | { id: "message-input.effort-cycle"; scope: KeyboardActionScope }
   | { id: "message-input.fast-toggle"; scope: KeyboardActionScope }
+  | { id: "message-input.stash"; scope: KeyboardActionScope }
   | { id: "message-input.model-slot"; scope: KeyboardActionScope; index: number }
   | { id: "workspace.agent.new"; scope: KeyboardActionScope }
   | { id: "workspace.tab.menu.open"; scope: KeyboardActionScope }
@@ -118,6 +121,7 @@ export type KeyboardActionDefinition =
   | { id: "worktree.new"; scope: KeyboardActionScope }
   | { id: "workspace.archive"; scope: KeyboardActionScope }
   | { id: "workspace.pin"; scope: KeyboardActionScope }
+  | { id: "workspace.undo"; scope: KeyboardActionScope }
   | { id: "workspace.rename"; scope: KeyboardActionScope }
   | { id: "workspace.setup.show"; scope: KeyboardActionScope };
 

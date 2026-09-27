@@ -13,13 +13,18 @@ import {
 } from "@getpaseo/protocol/agent-state-bucket";
 import { getParentAgentIdFromLabels } from "@getpaseo/protocol/agent-labels";
 import { SortablePager } from "./pagination/sortable-pager.js";
-import type { PersistedProjectRecord, PersistedWorkspaceRecord } from "./workspace-registry.js";
+import type {
+  PersistedProjectRecord,
+  PersistedWorkspaceRecord,
+  WorkspaceRegistry,
+} from "./workspace-registry.js";
 import { resolveProjectDisplayName } from "./workspace-registry.js";
 import {
   deriveTerminalActivityStatusBucket,
   type TerminalActivity,
 } from "@getpaseo/protocol/terminal-activity";
 import type { ProviderSubagentDescriptor } from "./agent/provider-subagents/store.js";
+import { hasRaisedHandWhileSnoozed, wakeWorkspace } from "./workspace-snooze.js";
 
 const FETCH_WORKSPACES_SORT_KEYS = [
   "status_priority",
@@ -73,9 +78,7 @@ export interface WorkspaceDirectoryDeps {
   projectRegistry: {
     list(): Promise<PersistedProjectRecord[]>;
   };
-  workspaceRegistry: {
-    list(): Promise<PersistedWorkspaceRecord[]>;
-  };
+  workspaceRegistry: Pick<WorkspaceRegistry, "list" | "update">;
   listAgentPayloads(): Promise<AgentSnapshotPayload[]>;
   listProviderSubagentActivity(): Promise<ProviderSubagentWorkspaceActivity[]>;
   listTerminalActivityContributions(): Promise<
@@ -308,9 +311,30 @@ export class WorkspaceDirectory {
       } else if (result.recordDelete) {
         this.bucketHistoryByWorkspaceId.delete(workspaceId);
       }
+      this.wakeIfRaisedHand(descriptor);
     }
 
     return descriptorsByWorkspaceId;
+  }
+
+  /**
+   * Wakes a snoozed workspace that needs you before its wake time. Without the clear, reading
+   * the workspace would hide it again until the original wake time. The registry mutation
+   * broadcasts the cleared snooze to every session.
+   */
+  private wakeIfRaisedHand(descriptor: WorkspaceDescriptorPayload): void {
+    const { snooze } = descriptor;
+    if (!snooze || !hasRaisedHandWhileSnoozed(descriptor)) return;
+    descriptor.snooze = null;
+    void wakeWorkspace(this.deps.workspaceRegistry, {
+      workspaceId: descriptor.id,
+      snoozedAt: snooze.snoozedAt,
+    }).catch((error: unknown) =>
+      this.deps.logger.warn(
+        { err: error, workspaceId: descriptor.id },
+        "workspace_snooze.wake_failed",
+      ),
+    );
   }
 
   private applyProviderSubagentContributions(params: {

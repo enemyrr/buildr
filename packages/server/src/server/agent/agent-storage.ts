@@ -4,10 +4,10 @@ import { z } from "zod";
 import type { Logger } from "pino";
 
 import { writeJsonFileAtomic } from "../atomic-file.js";
-import { AgentFeatureSchema, AgentStatusSchema } from "../messages.js";
+import { AgentAttachmentSchema, AgentFeatureSchema, AgentStatusSchema } from "../messages.js";
 import { toStoredAgentRecord } from "./agent-projections.js";
 import type { ManagedAgent } from "./agent-manager.js";
-import type { AgentSessionConfig } from "./agent-sdk-types.js";
+import type { AgentPromptInput, AgentSessionConfig } from "./agent-sdk-types.js";
 import { AgentOwnerSchema, daemonExecutionKey, type DaemonAgentOwner } from "./agent-owner.js";
 
 const SERIALIZABLE_CONFIG_SCHEMA = z
@@ -42,6 +42,34 @@ const PERSISTENCE_HANDLE_SCHEMA = z
   .nullable()
   .optional();
 
+// Text attachments carry a `mimeType`, so they must be tried before the plain text block.
+const STORED_PROMPT_BLOCK_SCHEMA = z.union([
+  AgentAttachmentSchema,
+  z.object({ type: z.literal("text"), text: z.string() }),
+  z.object({ type: z.literal("image"), data: z.string(), mimeType: z.string() }),
+]);
+
+const STORED_PROMPT_SCHEMA = z.union([z.string(), z.array(STORED_PROMPT_BLOCK_SCHEMA)]);
+
+// A foreground turn that hasn't reached a terminal event. The daemon writes `running` when
+// the provider accepts the turn and clears it when the turn ends. A `running` marker found at
+// startup means the daemon stopped mid-turn; reconciliation rewrites it as `interrupted`.
+// `prompt` is null when the prompt was too large to persist or the record predates the marker.
+const UNFINISHED_TURN_SCHEMA = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("running"),
+    runId: z.string(),
+    startedAt: z.string(),
+    prompt: STORED_PROMPT_SCHEMA.nullable(),
+  }),
+  z.object({
+    state: z.literal("interrupted"),
+    startedAt: z.string(),
+    interruptedAt: z.string(),
+    prompt: STORED_PROMPT_SCHEMA.nullable(),
+  }),
+]);
+
 const STORED_AGENT_SCHEMA = z.object({
   id: z.string(),
   provider: z.string(),
@@ -75,6 +103,7 @@ const STORED_AGENT_SCHEMA = z.object({
   internal: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
   owner: AgentOwnerSchema.optional(),
+  unfinishedTurn: UNFINISHED_TURN_SCHEMA.nullable().optional(),
 });
 
 export type SerializableAgentConfig = Pick<
@@ -90,6 +119,16 @@ export type SerializableAgentConfig = Pick<
 >;
 
 export type StoredAgentRecord = z.infer<typeof STORED_AGENT_SCHEMA>;
+export type UnfinishedTurn = z.infer<typeof UNFINISHED_TURN_SCHEMA>;
+export type StoredPrompt = z.infer<typeof STORED_PROMPT_SCHEMA>;
+
+// Every snapshot flush rewrites the whole record, so an inlined image would be rewritten on
+// each state change of the turn. Larger prompts persist as null.
+const MAX_STORED_PROMPT_CHARS = 256 * 1024;
+
+export function toStoredPrompt(prompt: AgentPromptInput): StoredPrompt | null {
+  return JSON.stringify(prompt).length <= MAX_STORED_PROMPT_CHARS ? prompt : null;
+}
 export function parseStoredAgentRecord(value: unknown): StoredAgentRecord {
   return STORED_AGENT_SCHEMA.parse(value);
 }
@@ -155,13 +194,33 @@ export class AgentStorage {
     await this.queueRecordWrite(record);
   }
 
+  /**
+   * Applies `mutate` to the current record inside the per-agent write queue. Returns the
+   * written record, or null when the record doesn't exist or `mutate` returns its input.
+   */
+  async update(
+    agentId: string,
+    mutate: (record: StoredAgentRecord) => StoredAgentRecord,
+  ): Promise<StoredAgentRecord | null> {
+    await this.load();
+    let written: StoredAgentRecord | null = null;
+    await this.queueRecordMutation(agentId, (existing) => {
+      if (!existing) return null;
+      const next = mutate(existing);
+      if (next === existing) return null;
+      written = next;
+      return next;
+    });
+    return written;
+  }
+
   private queueRecordWrite(record: StoredAgentRecord): Promise<void> {
     return this.queueRecordMutation(record.id, () => record);
   }
 
   private queueRecordMutation(
     agentId: string,
-    mutate: (existing: StoredAgentRecord | null) => StoredAgentRecord,
+    mutate: (existing: StoredAgentRecord | null) => StoredAgentRecord | null,
   ): Promise<void> {
     const prev = this.pendingWrites.get(agentId) ?? Promise.resolve();
     const next = prev.then(async () => {
@@ -170,7 +229,7 @@ export class AgentStorage {
       }
 
       const record = mutate(this.cache.get(agentId) ?? null);
-      await this.writeRecord(record);
+      if (record) await this.writeRecord(record);
       return undefined;
     });
 
@@ -258,6 +317,10 @@ export class AgentStorage {
       // stale pre-archive record after the archive mutation.
       if (existing && existing.archivedAt !== undefined) {
         record.archivedAt = existing.archivedAt;
+      }
+      // Only `update` writes the unfinished-turn marker.
+      if (existing?.unfinishedTurn !== undefined) {
+        record.unfinishedTurn = existing.unfinishedTurn;
       }
       return record;
     });

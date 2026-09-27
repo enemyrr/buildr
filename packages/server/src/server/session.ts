@@ -52,6 +52,7 @@ import {
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
+import { continueInterruptedTurn, dismissInterruptedTurn } from "./agent/interrupted-turns.js";
 import {
   sendPromptToAgent,
   waitForAgentRunStartWithTimeout,
@@ -115,7 +116,11 @@ import {
   setAgentModeCommand,
   updateAgentCommand,
 } from "./agent/lifecycle-command.js";
-import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
+import {
+  buildStoredAgentPayload,
+  projectInterruptedTurn,
+  toAgentPayload,
+} from "./agent/agent-projections.js";
 import {
   appendTimelineItemIfAgentKnown,
   emitLiveTimelineItemIfAgentKnown,
@@ -166,6 +171,7 @@ import {
   setProjectCustomIcon,
 } from "../utils/project-custom-icon.js";
 import { VoiceSessions } from "./session/voice/index.js";
+import { CheckpointSession } from "./session/checkpoints/checkpoint-session.js";
 import { CheckoutSession } from "./session/checkout/checkout-session.js";
 import {
   createWorkspaceGitObserverService,
@@ -784,6 +790,7 @@ export class Session {
   private readonly workspaceDirectory: WorkspaceDirectory;
   private readonly voiceSessions: VoiceSessions;
   private readonly checkoutSession: CheckoutSession;
+  private readonly checkpointSession: CheckpointSession;
   private readonly scheduleSession: ScheduleSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
@@ -925,6 +932,12 @@ export class Session {
       unarchiveWorkspace: async (workspace) => {
         await this.workspaceProvisioning.ensureWorkspaceRecordUnarchived(workspace);
       },
+    });
+    this.checkpointSession = new CheckpointSession({
+      emit: (msg) => this.emit(msg),
+      agentManager: this.agentManager,
+      workspaceRegistry: this.workspaceRegistry,
+      logger: this.sessionLogger,
     });
     this.checkoutSession = new CheckoutSession({
       host: {
@@ -2028,6 +2041,8 @@ export class Session {
     const storedRecord = await this.agentStorage.get(payload.id);
     payload.title = storedRecord?.title ?? null;
     payload.archivedAt = storedRecord?.archivedAt ?? null;
+    const interruptedTurn = storedRecord ? projectInterruptedTurn(storedRecord) : null;
+    if (interruptedTurn) payload.interruptedTurn = interruptedTurn;
     return payload;
   }
 
@@ -2603,7 +2618,7 @@ export class Session {
       case "agent.rewind.request":
         return this.handleAgentRewindRequest(msg, source);
       default:
-        return undefined;
+        return this.checkpointSession.dispatch(msg);
     }
   }
 
@@ -2625,6 +2640,10 @@ export class Session {
         return this.handleFetchAgentTimelineRequest(msg, source);
       case "agent.timeline.append.request":
         return this.handleAgentTimelineAppendRequest(msg);
+      case "agent.interrupted_turn.continue.request":
+        return this.handleAgentInterruptedTurnContinueRequest(msg);
+      case "agent.interrupted_turn.dismiss.request":
+        return this.handleAgentInterruptedTurnDismissRequest(msg);
       case "agent.shell.run.request":
         return this.handleAgentShellRunRequest(msg);
       case "agent.shell.stop.request":
@@ -2922,6 +2941,8 @@ export class Session {
         return this.handleWorkspaceTitleSetRequest(msg.workspaceId, msg.title, msg.requestId);
       case "workspace.pin.set.request":
         return this.handleWorkspacePinSetRequest(msg.workspaceId, msg.pinned, msg.requestId);
+      case "workspace.snooze.set.request":
+        return this.handleWorkspaceSnoozeSetRequest(msg.workspaceId, msg.until, msg.requestId);
       default:
         return undefined;
     }
@@ -3168,10 +3189,11 @@ export class Session {
   private async handleDeleteAgentRequest(agentId: string, requestId: string): Promise<void> {
     this.sessionLogger.info({ agentId }, `Deleting agent ${agentId} from registry`);
 
-    const knownWorkspaceId =
-      this.agentManager.getAgent(agentId)?.workspaceId ??
-      (await this.agentStorage.get(agentId))?.workspaceId ??
-      null;
+    const loadedAgent = this.agentManager.getAgent(agentId);
+    const storedAgent =
+      loadedAgent?.workspaceId === undefined ? await this.agentStorage.get(agentId) : null;
+    const knownWorkspaceId = loadedAgent?.workspaceId ?? storedAgent?.workspaceId ?? null;
+    const knownCwd = loadedAgent?.cwd ?? storedAgent?.cwd ?? null;
 
     // File-backed storage still needs an early delete fence before closeAgent().
     beginAgentDeleteIfSupported(this.agentStorage, agentId);
@@ -3192,6 +3214,7 @@ export class Session {
     try {
       await this.agentStorage.remove(agentId);
       await this.agentManager.deleteAgentState(agentId);
+      if (knownCwd) await this.checkpointSession.discardAgent({ agentId, cwd: knownCwd });
     } catch (error) {
       this.sessionLogger.error({ err: error, agentId }, `Failed to fully delete agent ${agentId}`);
     }
@@ -3799,6 +3822,51 @@ export class Session {
         },
       });
       emitResponse(false, null, getErrorMessageOr(error, "Failed to pin workspace"));
+    }
+  }
+
+  private async handleWorkspaceSnoozeSetRequest(
+    workspaceId: string,
+    until: string | null,
+    requestId: string,
+  ): Promise<void> {
+    const logContext = { workspaceId, until, requestId };
+    this.sessionLogger.info(logContext, "session: workspace.snooze.set.request");
+    const emitResponse = (
+      accepted: boolean,
+      snooze: PersistedWorkspaceRecord["snooze"],
+      error: string | null,
+    ) => {
+      this.emit({
+        type: "workspace.snooze.set.response",
+        payload: { requestId, workspaceId, accepted, snooze, error },
+      });
+    };
+
+    if (until !== null && Number.isNaN(Date.parse(until))) {
+      emitResponse(false, null, "Invalid snooze time");
+      return;
+    }
+    try {
+      const now = new Date().toISOString();
+      const nextSnooze = until === null ? null : { snoozedAt: now, until };
+      const updated = await this.workspaceRegistry.update(workspaceId, (existing) => ({
+        ...existing,
+        snooze: nextSnooze,
+        updatedAt: now,
+      }));
+      if (!updated) {
+        emitResponse(false, null, "Workspace not found");
+        return;
+      }
+      emitResponse(true, nextSnooze, null);
+      await this.emitWorkspaceUpdatesForWorkspaceIds([workspaceId]);
+    } catch (error) {
+      this.sessionLogger.error(
+        { ...logContext, err: error },
+        "session: workspace.snooze.set.request error",
+      );
+      emitResponse(false, null, getErrorMessageOr(error, "Failed to snooze workspace"));
     }
   }
 
@@ -5592,6 +5660,7 @@ export class Session {
       name: resolveWorkspaceDisplayName(workspace),
       title: workspace.title,
       pinnedAt: workspace.pinnedAt,
+      snooze: workspace.snooze,
       ...(workspace.labels && workspace.labels.length > 0 ? { labels: workspace.labels } : {}),
       archivingAt: null,
       status: "done",
@@ -5684,6 +5753,7 @@ export class Session {
       }),
       title: result.workspace.title,
       pinnedAt: result.workspace.pinnedAt,
+      snooze: result.workspace.snooze,
       ...(result.workspace.labels && result.workspace.labels.length > 0
         ? { labels: result.workspace.labels }
         : {}),
@@ -7802,6 +7872,48 @@ export class Session {
     this.emit({
       type: "agent.timeline.append.response",
       payload: { requestId: msg.requestId, seq, epoch },
+    });
+  }
+
+  private async handleAgentInterruptedTurnContinueRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.interrupted_turn.continue.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      await continueInterruptedTurn(
+        {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        },
+        msg.agentId,
+      );
+    } catch (err) {
+      this.sessionLogger.warn({ err, agentId: msg.agentId }, "Failed to continue interrupted turn");
+      error = getErrorMessageOr(err, "Failed to continue the interrupted turn");
+    }
+    this.emit({
+      type: "agent.interrupted_turn.continue.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
+    });
+  }
+
+  private async handleAgentInterruptedTurnDismissRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.interrupted_turn.dismiss.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      await dismissInterruptedTurn(
+        { agentManager: this.agentManager, agentStorage: this.agentStorage },
+        msg.agentId,
+      );
+    } catch (err) {
+      this.sessionLogger.warn({ err, agentId: msg.agentId }, "Failed to dismiss interrupted turn");
+      error = getErrorMessageOr(err, "Failed to dismiss the interrupted turn");
+    }
+    this.emit({
+      type: "agent.interrupted_turn.dismiss.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
     });
   }
 

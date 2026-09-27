@@ -158,6 +158,29 @@ describe("commit diff tab identity", () => {
   });
 });
 
+describe("turn diff tab identity", () => {
+  it("keys a turn diff tab by agent and message", () => {
+    expect(
+      buildDeterministicWorkspaceTabId({ kind: "turn_diff", agentId: "a1", messageId: "m1" }),
+    ).toBe("turn_diff_a1_m1");
+  });
+
+  it("treats turn diffs of different messages as unequal", () => {
+    expect(
+      workspaceTabTargetsEqual(
+        { kind: "turn_diff", agentId: "a1", messageId: "m1" },
+        { kind: "turn_diff", agentId: "a1", messageId: "m2" },
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a turn diff target with a blank message", () => {
+    expect(
+      normalizeWorkspaceTabTarget({ kind: "turn_diff", agentId: "a1", messageId: " " }),
+    ).toBeNull();
+  });
+});
+
 describe("plugin panel tab identity", () => {
   it("normalizes exact workspace and agent context", () => {
     expect(

@@ -55,6 +55,7 @@ interface AutocompletePopoverProps {
   anchorRef: RefObject<View | null>;
   options: readonly AutocompleteOption[];
   selectedIndex: number;
+  setSelectedIndex: (index: number) => void;
   onSelect: (option: AutocompleteOption) => void;
   isLoading?: boolean;
   errorMessage?: string;
@@ -67,6 +68,7 @@ export function AutocompletePopover({
   anchorRef,
   options,
   selectedIndex,
+  setSelectedIndex,
   onSelect,
   isLoading,
   errorMessage,
@@ -165,6 +167,7 @@ export function AutocompletePopover({
           <Autocomplete
             options={options}
             selectedIndex={selectedIndex}
+            setSelectedIndex={setSelectedIndex}
             onSelect={onSelect}
             isLoading={isLoading}
             errorMessage={errorMessage}

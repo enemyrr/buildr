@@ -116,6 +116,27 @@ export const ja: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "退避したプロンプト",
+      triggerLabel: "退避したプロンプト: {{count}}",
+      stashCurrent: "プロンプトを退避",
+      attachmentsOnly: "添付ファイルのみ",
+      stashed: "プロンプトを退避しました",
+      delete: {
+        action: "退避したプロンプト {{label}} を削除",
+        tooltip: "削除",
+        confirmTitle: "退避したプロンプトを削除しますか？",
+        confirmMessage: "プロンプトと添付ファイルが退避一覧から削除されます。",
+        confirm: "削除",
+      },
+      errors: {
+        tooLarge: "プロンプトが大きすぎて退避できません",
+        storageFailed:
+          "プロンプトを退避できません。ローカルストレージが利用できないか、容量が不足しています。",
+        restoreFailed: "プロンプトを復元できません。ローカルストレージが利用できません。",
+        deleteFailed: "退避したプロンプトを削除できません。ローカルストレージが利用できません。",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "変更を依頼、@でファイルを指定、/コマンドを実行",
@@ -258,6 +279,12 @@ export const ja: TranslationResources = {
     archived: {
       callout: "このエージェントはアーカイブされています",
       unarchive: "アーカイブ解除",
+    },
+    interrupted: {
+      callout: "デーモンの再起動によりこのターンが中断されました",
+      continue: "続行",
+      description: "続行すると、エージェントは停止した箇所から再開します。",
+      dismiss: "閉じる",
     },
   },
   home: {
@@ -1268,6 +1295,32 @@ export const ja: TranslationResources = {
         "ワークスペースを表示するにはサイドバーのフィルターを変更またはクリアしてください。",
       clear: "フィルターをクリア",
     },
+    snooze: {
+      title: "スヌーズ中",
+      action: "スヌーズ",
+      wake: "今すぐ再開",
+      today: "今日",
+      laterToday: "今日の後ほど",
+      tomorrow: "明日",
+      nextMonday: "来週の月曜日",
+      custom: "カスタム...",
+      customTitle: "スヌーズ終了日時",
+      date: "日付",
+      time: "時刻",
+      submit: "スヌーズ",
+      failed: "ワークスペースをスヌーズできませんでした",
+    },
+    undo: {
+      action: "元に戻す",
+      archived: "ワークスペースをアーカイブしました",
+      pinned: "ワークスペースを固定しました",
+      unpinned: "ワークスペースの固定を解除しました",
+      snoozed: "{{time}} までスヌーズしました",
+      woke: "ワークスペースを再開しました",
+      markedRead: "既読にしました",
+      markedUnread: "未読にしました",
+      failed: "元に戻せませんでした",
+    },
     pinned: {
       title: "固定済み",
     },
@@ -1949,11 +2002,13 @@ export const ja: TranslationResources = {
   },
   rewind: {
     tooltip: "このメッセージに巻き戻す",
+    turnChanges: "このターンの変更を表示",
     warning: "この操作は元に戻せません",
     actions: {
       conversation: "会話を巻き戻す",
       files: "ファイルを巻き戻す",
       both: "会話とファイルを巻き戻す",
+      restoreCheckpoint: "このターンの前にファイルを復元",
     },
     errors: {
       failed: "エージェントの巻き戻しに失敗しました",
@@ -2056,6 +2111,23 @@ export const ja: TranslationResources = {
       diffLabel: "差分",
       changesSubtitle: "作業ツリーの差分",
       commitSubtitle: "コミット差分",
+      turnLabel: "ターンの変更",
+      turnSubtitle: "エージェントの1ターン分の変更",
+      turnMissing: "このターンの変更は記録されていません。",
+      turnCapabilityMissing: "ターンの変更を表示するにはホストを更新してください。",
+      restoreBlocked: {
+        notWorktree:
+          "ファイルを復元するには、エージェントが専用のワークツリーで実行されている必要があります。",
+        sharedWorktree:
+          "このワークツリーでは別のエージェントが作業中です。ファイルを復元する前に閉じてください。",
+        unknown: "このエージェントではファイルを復元できません。",
+      },
+      restoreFiles: "ファイルを復元",
+      restoreTitle: "ファイルを復元しますか？",
+      restoreMessage:
+        "このワークツリーのファイルがこのターンの前の状態に戻ります。現在の状態は先にバックアップ用の Git ref に保存されます。",
+      restoreSuccess: "ファイルを復元しました",
+      restoreFailed: "ファイルを復元できません",
       uncommittedSubtitle: "未コミットの変更",
       baseSubtitle: "{{baseRef}} との比較",
       directoryMissing: "ワークスペースディレクトリが見つかりません。",
@@ -2448,7 +2520,9 @@ export const ja: TranslationResources = {
         toggleSettings: "設定を切り替え",
         toggleFocusMode: "フォーカスモードを切り替え",
         cycleTheme: "テーマを順に切り替え",
+        undo: "直前のワークスペース操作を元に戻す",
         focusMessageInput: "メッセージ入力にフォーカス",
+        stashPrompt: "プロンプトを退避または復元",
         cycleAgentMode: "エージェントモードを順に切り替え",
         toggleVoiceMode: "音声モードを切り替え",
         startStopDictation: "音声入力を開始/停止",

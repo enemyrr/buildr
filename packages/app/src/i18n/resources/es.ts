@@ -116,6 +116,29 @@ export const es: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Prompts guardados",
+      triggerLabel: "Prompts guardados: {{count}}",
+      stashCurrent: "Guardar prompt",
+      attachmentsOnly: "Solo adjuntos",
+      stashed: "Prompt guardado",
+      delete: {
+        action: "Eliminar prompt guardado {{label}}",
+        tooltip: "Eliminar",
+        confirmTitle: "¿Eliminar prompt guardado?",
+        confirmMessage: "El prompt y sus adjuntos se quitan de los guardados.",
+        confirm: "Eliminar",
+      },
+      errors: {
+        tooLarge: "El prompt es demasiado grande para guardarlo",
+        storageFailed:
+          "No se pudo guardar el prompt. El almacenamiento local no está disponible o está lleno.",
+        restoreFailed:
+          "No se pudo restaurar el prompt. El almacenamiento local no está disponible.",
+        deleteFailed:
+          "No se pudo eliminar el prompt guardado. El almacenamiento local no está disponible.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Pide cambios, menciona archivos con @, ejecuta /commands",
@@ -258,6 +281,12 @@ export const es: TranslationResources = {
     archived: {
       callout: "Este agente está archivado.",
       unarchive: "Desarchivar",
+    },
+    interrupted: {
+      callout: "Un reinicio del daemon interrumpió este turno",
+      continue: "Continuar",
+      description: "Continuar reanuda el agente donde se detuvo.",
+      dismiss: "Descartar",
     },
   },
   home: {
@@ -1291,6 +1320,32 @@ export const es: TranslationResources = {
       description: "Cambia o borra los filtros de la barra lateral para ver espacios de trabajo.",
       clear: "Borrar filtros",
     },
+    snooze: {
+      title: "Pospuestos",
+      action: "Posponer",
+      wake: "Reactivar ahora",
+      today: "Hoy",
+      laterToday: "Más tarde hoy",
+      tomorrow: "Mañana",
+      nextMonday: "El próximo lunes",
+      custom: "Personalizado...",
+      customTitle: "Posponer hasta",
+      date: "Fecha",
+      time: "Hora",
+      submit: "Posponer",
+      failed: "No se pudo posponer el espacio de trabajo",
+    },
+    undo: {
+      action: "Deshacer",
+      archived: "Espacio de trabajo archivado",
+      pinned: "Espacio de trabajo anclado",
+      unpinned: "Espacio de trabajo desanclado",
+      snoozed: "Pospuesto hasta {{time}}",
+      woke: "Espacio de trabajo reactivado",
+      markedRead: "Marcado como leído",
+      markedUnread: "Marcado como no leído",
+      failed: "No se pudo deshacer",
+    },
     pinned: {
       title: "Anclados",
     },
@@ -1979,11 +2034,13 @@ export const es: TranslationResources = {
   },
   rewind: {
     tooltip: "Rebobinar a este mensaje",
+    turnChanges: "Ver cambios de este turno",
     warning: "Esta acción no se puede deshacer.",
     actions: {
       conversation: "Rebobinar conversación",
       files: "Rebobinar archivos",
       both: "Rebobinar conversaciones y archivos",
+      restoreCheckpoint: "Restaurar archivos a antes de este turno",
     },
     errors: {
       failed: "No se pudo rebobinar el agente",
@@ -2085,6 +2142,22 @@ export const es: TranslationResources = {
       diffLabel: "Diferencia",
       changesSubtitle: "Diferencias del árbol de trabajo",
       commitSubtitle: "Diferencias del commit",
+      turnLabel: "Cambios del turno",
+      turnSubtitle: "Cambios de un turno del agente",
+      turnMissing: "No se registraron cambios para este turno.",
+      turnCapabilityMissing: "Actualiza el host para ver los cambios del turno.",
+      restoreBlocked: {
+        notWorktree: "Restaurar archivos requiere que el agente se ejecute en su propio worktree.",
+        sharedWorktree:
+          "Otro agente está trabajando en este worktree. Ciérralo antes de restaurar archivos.",
+        unknown: "La restauración de archivos no está disponible para este agente.",
+      },
+      restoreFiles: "Restaurar archivos",
+      restoreTitle: "¿Restaurar archivos?",
+      restoreMessage:
+        "Los archivos de este worktree vuelven a su estado anterior a este turno. El estado actual se guarda primero en una ref de Git de respaldo.",
+      restoreSuccess: "Archivos restaurados",
+      restoreFailed: "No se pudieron restaurar los archivos",
       uncommittedSubtitle: "Cambios sin confirmar",
       baseSubtitle: "Comparado con {{baseRef}}",
       directoryMissing: "No se encontró el directorio de Workspace.",
@@ -2483,7 +2556,9 @@ export const es: TranslationResources = {
         toggleSettings: "Alternar configuración",
         toggleFocusMode: "Alternar modo de enfoque",
         cycleTheme: "Tema del ciclo",
+        undo: "Deshacer la última acción del espacio de trabajo",
         focusMessageInput: "Entrada de mensaje de enfoque",
+        stashPrompt: "Guardar o restaurar prompt",
         cycleAgentMode: "Alternar modo del agente",
         toggleVoiceMode: "Alternar modo de voz",
         startStopDictation: "Iniciar dictado/stop",

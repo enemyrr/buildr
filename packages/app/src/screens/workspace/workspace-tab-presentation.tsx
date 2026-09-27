@@ -10,6 +10,7 @@ import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { PixelLoader } from "@/components/pixel-loader";
+import { useComboboxOptionPointerMove } from "@/components/ui/combobox";
 import {
   STATUS_INDICATOR_ALERT_SIZE,
   STATUS_INDICATOR_DOT_SIZE,
@@ -189,10 +190,12 @@ export function WorkspaceTabOptionRow({
   trailingAccessory,
 }: WorkspaceTabOptionRowProps): ReactElement {
   const { t } = useTranslation();
+  const activateOnPointerMove = useComboboxOptionPointerMove();
+  const fillsOnHover = activateOnPointerMove === undefined;
   const isOptionActive = useCallback(
     ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) =>
-      Boolean(hovered) || pressed || active,
-    [active],
+      (Boolean(hovered) && fillsOnHover) || pressed || active,
+    [active, fillsOnHover],
   );
   const pressableStyle = useCallback(
     (state: PressableStateCallbackType & { hovered?: boolean }) => [
@@ -207,7 +210,7 @@ export function WorkspaceTabOptionRow({
   );
   return (
     <View style={optionRowStyle}>
-      <Pressable onPress={onPress} style={pressableStyle}>
+      <Pressable onPointerMove={activateOnPointerMove} onPress={onPress} style={pressableStyle}>
         <View style={styles.optionLeadingSlot}>
           <WorkspaceTabIcon presentation={presentation} active={selected || active} />
         </View>
