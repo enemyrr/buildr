@@ -517,11 +517,6 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
   return persisted.daemon?.browserTools?.enabled ?? false;
 }
 
-/**
- * Both profile lists stay `undefined` when absent rather than defaulting to an
- * empty array: for terminal profiles that is what selects the built-in
- * defaults, so an empty array has to keep meaning "the user removed them all".
- */
 // Both settings are read at startup only, so changing them requires a daemon restart.
 function resolveTurnRecoveryConfig(
   persisted: ReturnType<typeof loadPersistedConfig>,
@@ -535,6 +530,11 @@ function resolveTurnRecoveryConfig(
   };
 }
 
+/**
+ * Both profile lists stay `undefined` when absent rather than defaulting to an
+ * empty array: for terminal profiles that is what selects the built-in
+ * defaults, so an empty array has to keep meaning "the user removed them all".
+ */
 function resolveProfileLists(persisted: ReturnType<typeof loadPersistedConfig>) {
   return {
     terminalProfiles: persisted.daemon?.terminalProfiles,
