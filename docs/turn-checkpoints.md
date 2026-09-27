@@ -45,7 +45,7 @@ Restore rewrites the whole worktree, so the daemon refuses it unless all of thes
 - No other live agent shares that workspace or directory.
 - The agent has no run in flight.
 
-The list response reports the refusal reason as `restoreFilesBlockedReason` so the app can disable the action and explain why. The restore RPC still checks on its own.
+The list response reports the refusal as a `restoreFilesBlockedReason` code (`RESTORE_FILES_BLOCKED_REASONS` in `packages/protocol/src/messages.ts`) so the app can disable the action and explain why in the user's language. The wire field is a plain string, so an older app shows a generic reason for a code it doesn't know instead of failing to parse the list. The restore RPC still checks on its own.
 
 ## Lifecycle
 

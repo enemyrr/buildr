@@ -48,7 +48,7 @@ describe("agent.checkpoint schemas", () => {
             },
             { turnIndex: 2, messageId: null, startedAt: "2026-09-27T10:02:00Z", completedAt: null },
           ],
-          restoreFilesBlockedReason: "File restore requires the agent to run in its own worktree.",
+          restoreFilesBlockedReason: "not_worktree",
           error: null,
         },
       },

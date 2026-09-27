@@ -1,5 +1,9 @@
 import type pino from "pino";
-import type { SessionInboundMessage, SessionOutboundMessage } from "../../messages.js";
+import type {
+  RestoreFilesBlockedReason,
+  SessionInboundMessage,
+  SessionOutboundMessage,
+} from "../../messages.js";
 import type { AgentManager, ManagedAgent } from "../../agent/agent-manager.js";
 import type { TurnCheckpoints } from "../../agent/checkpoints/turn-checkpoints.js";
 import type { WorkspaceRegistry } from "../../workspace-registry.js";
@@ -28,6 +32,11 @@ export interface CheckpointSessionOptions {
   workspaceRegistry: Pick<WorkspaceRegistry, "get">;
   logger: pino.Logger;
 }
+
+const RESTORE_BLOCKED_MESSAGES: Record<RestoreFilesBlockedReason, string> = {
+  not_worktree: "File restore requires the agent to run in its own worktree.",
+  shared_worktree: "Another agent is working in this worktree. Close it before restoring files.",
+};
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -83,12 +92,12 @@ export class CheckpointSession {
    * Restore rewrites the whole worktree, so it requires a worktree that no
    * other live agent works in.
    */
-  private async findRestoreBlocker(agent: ManagedAgent): Promise<string | null> {
+  private async findRestoreBlocker(agent: ManagedAgent): Promise<RestoreFilesBlockedReason | null> {
     const workspace = agent.workspaceId
       ? await this.options.workspaceRegistry.get(agent.workspaceId)
       : null;
     if (!workspace || workspace.kind !== "worktree") {
-      return "File restore requires the agent to run in its own worktree.";
+      return "not_worktree";
     }
     const sharing = this.options.agentManager
       .listAgents()
@@ -97,7 +106,7 @@ export class CheckpointSession {
           other.id !== agent.id && other.lifecycle !== "closed" && sharesWorkspace(agent, other),
       );
     if (sharing) {
-      return "Another agent is working in this worktree. Close it before restoring files.";
+      return "shared_worktree";
     }
     return null;
   }
@@ -116,7 +125,7 @@ export class CheckpointSession {
           requestId: msg.requestId,
           agentId: msg.agentId,
           checkpoints,
-          restoreFilesBlockedReason,
+          ...(restoreFilesBlockedReason ? { restoreFilesBlockedReason } : {}),
           error: null,
         },
       });
@@ -127,7 +136,6 @@ export class CheckpointSession {
           requestId: msg.requestId,
           agentId: msg.agentId,
           checkpoints: [],
-          restoreFilesBlockedReason: null,
           error: errorMessage(error, "Failed to list checkpoints"),
         },
       });
@@ -180,7 +188,9 @@ export class CheckpointSession {
         throw new CheckpointRestoreRefusedError(agent.id, "Stop the agent before restoring files.");
       }
       const blocker = await this.findRestoreBlocker(agent);
-      if (blocker) throw new CheckpointRestoreRefusedError(agent.id, blocker);
+      if (blocker) {
+        throw new CheckpointRestoreRefusedError(agent.id, RESTORE_BLOCKED_MESSAGES[blocker]);
+      }
       await this.checkpoints().restoreFilesToTurnStart({
         agentId: agent.id,
         cwd: agent.cwd,

@@ -2153,6 +2153,13 @@ export const fr: TranslationResources = {
       turnSubtitle: "Modifications d'un tour de l'agent",
       turnMissing: "Aucun point de contrôle n'existe pour ce tour.",
       turnCapabilityMissing: "Mettez à jour l'hôte pour voir les modifications du tour.",
+      restoreBlocked: {
+        notWorktree:
+          "La restauration des fichiers exige que l'agent s'exécute dans son propre worktree.",
+        sharedWorktree:
+          "Un autre agent travaille dans ce worktree. Fermez-le avant de restaurer les fichiers.",
+        unknown: "La restauration des fichiers n'est pas disponible pour cet agent.",
+      },
       restoreFiles: "Restaurer les fichiers",
       restoreTitle: "Restaurer les fichiers ?",
       restoreMessage:

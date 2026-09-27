@@ -2093,6 +2093,11 @@ export const ar: TranslationResources = {
       turnSubtitle: "تغييرات دورة واحدة للوكيل",
       turnMissing: "لا توجد نقطة حفظ لهذه الدورة.",
       turnCapabilityMissing: "حدّث المضيف لعرض تغييرات الدورة.",
+      restoreBlocked: {
+        notWorktree: "تتطلب استعادة الملفات تشغيل الوكيل في شجرة عمل خاصة به.",
+        sharedWorktree: "يعمل وكيل آخر في شجرة العمل هذه. أغلقه قبل استعادة الملفات.",
+        unknown: "استعادة الملفات غير متاحة لهذا الوكيل.",
+      },
       restoreFiles: "استعادة الملفات",
       restoreTitle: "استعادة الملفات؟",
       restoreMessage:

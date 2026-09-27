@@ -2,9 +2,11 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type {
-  AgentCheckpointGetTurnDiffResponseMessage,
-  AgentTurnCheckpoint,
+import {
+  RESTORE_FILES_BLOCKED_REASONS,
+  type AgentCheckpointGetTurnDiffResponseMessage,
+  type AgentTurnCheckpoint,
+  type RestoreFilesBlockedReason,
 } from "@getpaseo/protocol/messages";
 import { useToast } from "@/contexts/toast-context";
 import { confirmDialog } from "@/utils/confirm-dialog";
@@ -32,11 +34,56 @@ export function useSupportsAgentCheckpoints(serverId: string): boolean {
   );
 }
 
-interface UseTurnCheckpointInput {
+interface UseAgentCheckpointsInput {
   serverId: string;
   agentId: string;
-  messageId: string;
   enabled: boolean;
+}
+
+function useAgentCheckpoints(input: UseAgentCheckpointsInput) {
+  const client = useHostRuntimeClient(input.serverId);
+  const isConnected = useHostRuntimeIsConnected(input.serverId);
+  return useFetchQuery({
+    queryKey: agentCheckpointsQueryKey(input.serverId, input.agentId),
+    queryFn: () => {
+      if (!client) throw new Error("Host disconnected");
+      return client.listAgentCheckpoints(input.agentId);
+    },
+    enabled: input.enabled && Boolean(client) && isConnected,
+    dataShape: "value",
+    staleTimeMs: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+function isKnownBlockedReason(reason: string): reason is RestoreFilesBlockedReason {
+  return (RESTORE_FILES_BLOCKED_REASONS as readonly string[]).includes(reason);
+}
+
+/** Maps the daemon's restore-blocked code to display text, or null when restore is allowed. */
+function useRestoreFilesBlockedMessage(reason: string | undefined): string | null {
+  const { t } = useTranslation();
+  if (reason === undefined) return null;
+  if (!isKnownBlockedReason(reason)) return t("panels.diff.restoreBlocked.unknown");
+  switch (reason) {
+    case "not_worktree":
+      return t("panels.diff.restoreBlocked.notWorktree");
+    case "shared_worktree":
+      return t("panels.diff.restoreBlocked.sharedWorktree");
+  }
+}
+
+/**
+ * Returns why the daemon refuses file restore for the agent, as display text,
+ * or null when restore is allowed.
+ */
+export function useRestoreFilesBlockedReason(input: UseAgentCheckpointsInput): string | null {
+  const query = useAgentCheckpoints(input);
+  return useRestoreFilesBlockedMessage(query.data?.restoreFilesBlockedReason);
+}
+
+interface UseTurnCheckpointInput extends UseAgentCheckpointsInput {
+  messageId: string;
 }
 
 export interface TurnCheckpointResult {
@@ -48,29 +95,20 @@ export interface TurnCheckpointResult {
 
 /** Resolves the checkpointed turn that the user message `messageId` started. */
 export function useTurnCheckpoint(input: UseTurnCheckpointInput): TurnCheckpointResult {
-  const client = useHostRuntimeClient(input.serverId);
-  const isConnected = useHostRuntimeIsConnected(input.serverId);
-  const query = useFetchQuery({
-    queryKey: agentCheckpointsQueryKey(input.serverId, input.agentId),
-    queryFn: () => {
-      if (!client) throw new Error("Host disconnected");
-      return client.listAgentCheckpoints(input.agentId);
-    },
-    enabled: input.enabled && Boolean(client) && isConnected,
-    dataShape: "value",
-    staleTimeMs: 0,
-    refetchOnWindowFocus: false,
-  });
+  const query = useAgentCheckpoints(input);
+  const restoreFilesBlockedReason = useRestoreFilesBlockedMessage(
+    query.data?.restoreFilesBlockedReason,
+  );
   return useMemo(() => {
     const turn =
       query.data?.checkpoints.find((candidate) => candidate.messageId === input.messageId) ?? null;
     return {
       turn,
-      restoreFilesBlockedReason: query.data?.restoreFilesBlockedReason ?? null,
+      restoreFilesBlockedReason,
       isLoading: query.isLoading,
       error: query.error,
     };
-  }, [input.messageId, query.data, query.error, query.isLoading]);
+  }, [input.messageId, query.data, query.error, query.isLoading, restoreFilesBlockedReason]);
 }
 
 interface UseTurnDiffInput {

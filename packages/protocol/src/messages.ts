@@ -5757,6 +5757,9 @@ export const CheckoutCommitFileDiffResponseSchema = z.object({
   }),
 });
 
+export const RESTORE_FILES_BLOCKED_REASONS = ["not_worktree", "shared_worktree"] as const;
+export type RestoreFilesBlockedReason = (typeof RESTORE_FILES_BLOCKED_REASONS)[number];
+
 const AgentTurnCheckpointSchema = z.object({
   turnIndex: z.number().int(),
   // The Paseo user-message ID that started the turn; null for turns started
@@ -5772,9 +5775,10 @@ export const AgentCheckpointListResponseMessageSchema = z.object({
     requestId: z.string(),
     agentId: z.string(),
     checkpoints: z.array(AgentTurnCheckpointSchema),
-    // Null when the daemon can restore files for this agent; otherwise a
-    // user-facing reason. Restore requests stay refused server-side.
-    restoreFilesBlockedReason: z.string().nullable(),
+    // Absent when the daemon can restore files for this agent. Otherwise a
+    // `RestoreFilesBlockedReason` code; clients show a generic reason for codes
+    // they don't know. Restore requests stay refused server-side.
+    restoreFilesBlockedReason: z.string().optional(),
     error: z.string().nullable(),
   }),
 });

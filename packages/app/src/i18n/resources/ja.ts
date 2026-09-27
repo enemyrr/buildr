@@ -2116,6 +2116,13 @@ export const ja: TranslationResources = {
       turnSubtitle: "エージェントの1ターン分の変更",
       turnMissing: "このターンのチェックポイントはありません。",
       turnCapabilityMissing: "ターンの変更を表示するにはホストを更新してください。",
+      restoreBlocked: {
+        notWorktree:
+          "ファイルを復元するには、エージェントが専用のワークツリーで実行されている必要があります。",
+        sharedWorktree:
+          "このワークツリーでは別のエージェントが作業中です。ファイルを復元する前に閉じてください。",
+        unknown: "このエージェントではファイルを復元できません。",
+      },
       restoreFiles: "ファイルを復元",
       restoreTitle: "ファイルを復元しますか？",
       restoreMessage:

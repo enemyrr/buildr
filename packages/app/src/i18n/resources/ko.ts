@@ -2105,6 +2105,12 @@ export const ko: TranslationResources = {
       turnSubtitle: "에이전트 턴 하나의 변경 사항",
       turnMissing: "이 턴의 체크포인트가 없습니다.",
       turnCapabilityMissing: "턴 변경 사항을 보려면 호스트를 업데이트하세요.",
+      restoreBlocked: {
+        notWorktree: "파일을 복원하려면 에이전트가 자체 워크트리에서 실행되어야 합니다.",
+        sharedWorktree:
+          "다른 에이전트가 이 워크트리에서 작업 중입니다. 파일을 복원하기 전에 닫으세요.",
+        unknown: "이 에이전트에서는 파일 복원을 사용할 수 없습니다.",
+      },
       restoreFiles: "파일 복원",
       restoreTitle: "파일을 복원할까요?",
       restoreMessage:

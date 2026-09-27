@@ -2129,6 +2129,12 @@ export const ru: TranslationResources = {
       turnSubtitle: "Изменения за один ход агента",
       turnMissing: "Для этого хода нет контрольной точки.",
       turnCapabilityMissing: "Обновите хост, чтобы видеть изменения хода.",
+      restoreBlocked: {
+        notWorktree: "Для восстановления файлов агент должен работать в собственном worktree.",
+        sharedWorktree:
+          "В этом worktree работает другой агент. Закройте его перед восстановлением файлов.",
+        unknown: "Восстановление файлов недоступно для этого агента.",
+      },
       restoreFiles: "Восстановить файлы",
       restoreTitle: "Восстановить файлы?",
       restoreMessage:

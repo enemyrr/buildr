@@ -2072,6 +2072,11 @@ export const zhCN: TranslationResources = {
       turnSubtitle: "代理单轮的更改",
       turnMissing: "此轮没有检查点。",
       turnCapabilityMissing: "请更新主机以查看本轮更改。",
+      restoreBlocked: {
+        notWorktree: "恢复文件要求代理在自己的工作树中运行。",
+        sharedWorktree: "另一个代理正在此工作树中工作。请先关闭它再恢复文件。",
+        unknown: "此代理无法恢复文件。",
+      },
       restoreFiles: "恢复文件",
       restoreTitle: "恢复文件？",
       restoreMessage: "此工作树中的文件将恢复到此轮之前的状态。当前状态会先保存到备份 Git ref。",

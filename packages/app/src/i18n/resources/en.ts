@@ -2138,6 +2138,12 @@ export const en = {
       turnSubtitle: "Changes from one agent turn",
       turnMissing: "No checkpoint exists for this turn.",
       turnCapabilityMissing: "Update the host to view turn changes.",
+      restoreBlocked: {
+        notWorktree: "File restore requires the agent to run in its own worktree.",
+        sharedWorktree:
+          "Another agent is working in this worktree. Close it before restoring files.",
+        unknown: "File restore isn't available for this agent.",
+      },
       restoreFiles: "Restore files",
       restoreTitle: "Restore files?",
       restoreMessage:

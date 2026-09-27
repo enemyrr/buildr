@@ -2133,6 +2133,13 @@ export const ptBR: TranslationResources = {
       turnSubtitle: "Alterações de um turno do agente",
       turnMissing: "Não há ponto de controle para este turno.",
       turnCapabilityMissing: "Atualize o host para ver as alterações do turno.",
+      restoreBlocked: {
+        notWorktree:
+          "Restaurar arquivos exige que o agente seja executado em seu próprio worktree.",
+        sharedWorktree:
+          "Outro agente está trabalhando neste worktree. Feche-o antes de restaurar arquivos.",
+        unknown: "A restauração de arquivos não está disponível para este agente.",
+      },
       restoreFiles: "Restaurar arquivos",
       restoreTitle: "Restaurar arquivos?",
       restoreMessage:
