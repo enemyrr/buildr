@@ -102,7 +102,9 @@ function AutocompleteRow({
           </View>
           <View style={styles.itemMain}>
             <View style={styles.itemHeader}>
-              <Text style={styles.itemLabel}>{optionLabel}</Text>
+              <Text style={styles.itemLabel} numberOfLines={1}>
+                {optionLabel}
+              </Text>
               {removeBoltGlyphs(option.detail) ? (
                 <Text style={styles.itemDetail}>{removeBoltGlyphs(option.detail)}</Text>
               ) : null}
@@ -116,7 +118,9 @@ function AutocompleteRow({
         </>
       ) : (
         <View style={styles.itemMainRow}>
-          <Text style={styles.itemLabel}>{optionLabel}</Text>
+          <Text style={styles.itemLabel} numberOfLines={1}>
+            {optionLabel}
+          </Text>
           {optionDescription ? (
             <Text style={styles.itemDescriptionInline} numberOfLines={1}>
               {optionDescription}
@@ -392,6 +396,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing[2],
   },
   itemLabel: {
+    flexShrink: 1,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.normal,

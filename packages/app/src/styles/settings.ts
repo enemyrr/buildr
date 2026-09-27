@@ -52,6 +52,7 @@ export const settingsStyles = StyleSheet.create((theme) => ({
     marginRight: theme.spacing[3],
   },
   rowTitle: {
+    flexShrink: 1,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
   },

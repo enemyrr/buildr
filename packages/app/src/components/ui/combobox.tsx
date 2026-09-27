@@ -306,6 +306,10 @@ export function ComboboxItem({
     () => [styles.comboboxItemContent, description && styles.comboboxItemContentInline],
     [description],
   );
+  const itemLabelStyle = useMemo(
+    () => [styles.comboboxItemLabel, description && styles.comboboxItemLabelInline],
+    [description],
+  );
 
   return (
     <Pressable
@@ -319,7 +323,7 @@ export function ComboboxItem({
     >
       {leadingContent}
       <View style={itemContentStyle}>
-        <Text numberOfLines={1} style={styles.comboboxItemLabel}>
+        <Text numberOfLines={1} style={itemLabelStyle}>
           {label}
         </Text>
         {description ? (
@@ -1773,7 +1777,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
   },
   comboboxItemLeadingSlot: {
-    width: 16,
+    minWidth: 16,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1781,6 +1785,10 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.foreground,
     flexShrink: 0,
+  },
+  // Caps the label so a long one can't push the inline description to zero width.
+  comboboxItemLabelInline: {
+    maxWidth: "70%",
   },
   comboboxItemDescription: {
     fontSize: theme.fontSize.sm,
