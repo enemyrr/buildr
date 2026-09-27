@@ -152,6 +152,12 @@ import { getForgePresentation } from "@/git/forge";
 import { ForgeBrandIcon } from "@/git/forge-icon";
 import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
+import {
+  resolvePromptHistoryDirection,
+  selectPromptHistory,
+  stepPromptHistory,
+  type PromptHistoryPosition,
+} from "./prompt-history";
 import { normalizeNativePastedImages, type NativePastedFile } from "./native-pasted-image";
 import { PluginResourceAttachmentPill, usePluginAttachmentPicker } from "@/plugins";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
@@ -2057,10 +2063,32 @@ function ComposerContentImpl({
 
   const hasSendableContent = hasText || selectedAttachments.length > 0;
 
-  // Handle keyboard navigation for command autocomplete.
+  const promptHistoryPositionRef = useRef<PromptHistoryPosition | null>(null);
+  const handlePromptHistoryKeyPress = useCallback(
+    (event: ComposerKeyPressEvent): boolean => {
+      const direction = resolvePromptHistoryDirection(event.key, event.modifiers);
+      if (!direction) return false;
+      const step = stepPromptHistory({
+        direction,
+        entries: selectPromptHistory(useSessionStore.getState().sessions[serverId], agentId),
+        position: promptHistoryPositionRef.current,
+        text: event.input.text,
+        selection: event.input.selection,
+      });
+      if (!step) return false;
+      event.preventDefault();
+      promptHistoryPositionRef.current = step.position;
+      replaceUserInput(step.text, { start: step.text.length, end: step.text.length });
+      return true;
+    },
+    [agentId, replaceUserInput, serverId],
+  );
+
+  // Autocomplete owns the arrows while its menu is open; history gets them otherwise.
   const handleCommandKeyPress = useCallback(
-    (event: ComposerKeyPressEvent) => autocompleteRef.current?.onKeyPress(event) ?? false,
-    [],
+    (event: ComposerKeyPressEvent) =>
+      (autocompleteRef.current?.onKeyPress(event) ?? false) || handlePromptHistoryKeyPress(event),
+    [handlePromptHistoryKeyPress],
   );
 
   const isVoiceSwitching = voice?.isVoiceSwitching ?? false;

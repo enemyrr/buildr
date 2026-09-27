@@ -102,8 +102,16 @@ export interface ComposerInputSnapshot {
   selection: { start: number; end: number };
 }
 
+export interface ComposerKeyModifiers {
+  shiftKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+}
+
 export interface ComposerKeyPressEvent {
   key: string;
+  modifiers: ComposerKeyModifiers;
   preventDefault: () => void;
   input: ComposerInputSnapshot;
 }
@@ -204,6 +212,7 @@ type WebTextInputKeyPressEvent = NativeSyntheticEvent<
     metaKey?: boolean;
     ctrlKey?: boolean;
     shiftKey?: boolean;
+    altKey?: boolean;
     // Web-only: present on DOM KeyboardEvent during IME composition (CJK input).
     isComposing?: boolean;
     keyCode?: number;
@@ -393,22 +402,32 @@ interface DesktopKeyPressContext {
   handleDefaultSendAction: () => void;
 }
 
+function readKeyModifiers(event: WebTextInputKeyPressEvent["nativeEvent"]): ComposerKeyModifiers {
+  return {
+    shiftKey: event.shiftKey === true,
+    altKey: event.altKey === true,
+    metaKey: event.metaKey === true,
+    ctrlKey: event.ctrlKey === true,
+  };
+}
+
 function handleDesktopKeyPressImpl(
   event: WebTextInputKeyPressEvent,
   ctx: DesktopKeyPressContext,
 ): void {
   if (isImeComposingKeyboardEvent(event.nativeEvent)) return;
 
+  const modifiers = readKeyModifiers(event.nativeEvent);
+  const { shiftKey, metaKey, ctrlKey } = modifiers;
   if (ctx.onKeyPressCallback) {
     const handled = ctx.onKeyPressCallback({
       key: event.nativeEvent.key,
+      modifiers,
       preventDefault: () => event.preventDefault(),
       input: ctx.input,
     });
     if (handled) return;
   }
-
-  const { shiftKey, metaKey, ctrlKey } = event.nativeEvent;
 
   if (event.nativeEvent.key !== "Enter") return;
   if (!ctx.submitOnEnter) return;
