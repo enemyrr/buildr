@@ -364,6 +364,9 @@ function getFallbackTabOptionLabel(
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
   }
+  if (tab.target.kind === "turn_diff") {
+    return labels.changes;
+  }
   if (tab.target.kind === "image") {
     return tab.target.attachment.fileName ?? tab.target.attachment.id;
   }
@@ -408,6 +411,9 @@ function getFallbackTabOptionDescription(
   }
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
+  }
+  if (tab.target.kind === "turn_diff") {
+    return labels.changes;
   }
   if (tab.target.kind === "image") {
     return tab.target.attachment.fileName ?? tab.target.attachment.id;

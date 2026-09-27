@@ -49,6 +49,7 @@ export type WorkspaceTabTarget =
   | PluginWorkspaceTabTarget
   | { kind: "setup"; workspaceId: string }
   | { kind: "commit_diff"; sha: string }
+  | { kind: "turn_diff"; agentId: string; messageId: string }
   | { kind: "image"; attachment: AttachmentMetadata };
 
 export interface WorkspaceTab {

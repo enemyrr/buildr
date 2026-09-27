@@ -1949,11 +1949,13 @@ export const ja: TranslationResources = {
   },
   rewind: {
     tooltip: "このメッセージに巻き戻す",
+    turnChanges: "このターンの変更を表示",
     warning: "この操作は元に戻せません",
     actions: {
       conversation: "会話を巻き戻す",
       files: "ファイルを巻き戻す",
       both: "会話とファイルを巻き戻す",
+      restoreCheckpoint: "このターンの前にファイルを復元",
     },
     errors: {
       failed: "エージェントの巻き戻しに失敗しました",
@@ -2056,6 +2058,15 @@ export const ja: TranslationResources = {
       diffLabel: "差分",
       changesSubtitle: "作業ツリーの差分",
       commitSubtitle: "コミット差分",
+      turnLabel: "ターンの変更",
+      turnSubtitle: "エージェントの1ターン分の変更",
+      turnMissing: "このターンのチェックポイントはありません。",
+      turnCapabilityMissing: "ターンの変更を表示するにはホストを更新してください。",
+      restoreFiles: "ファイルを復元",
+      restoreTitle: "ファイルを復元しますか？",
+      restoreMessage:
+        "このワークツリーのファイルがこのターンの前の状態に戻ります。現在の状態は先にバックアップ用の Git ref に保存されます。",
+      restoreSuccess: "ファイルを復元しました",
       uncommittedSubtitle: "未コミットの変更",
       baseSubtitle: "{{baseRef}} との比較",
       directoryMissing: "ワークスペースディレクトリが見つかりません。",

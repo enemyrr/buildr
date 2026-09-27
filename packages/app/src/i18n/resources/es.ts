@@ -1979,11 +1979,13 @@ export const es: TranslationResources = {
   },
   rewind: {
     tooltip: "Rebobinar a este mensaje",
+    turnChanges: "Ver cambios de este turno",
     warning: "Esta acción no se puede deshacer.",
     actions: {
       conversation: "Rebobinar conversación",
       files: "Rebobinar archivos",
       both: "Rebobinar conversaciones y archivos",
+      restoreCheckpoint: "Restaurar archivos a antes de este turno",
     },
     errors: {
       failed: "No se pudo rebobinar el agente",
@@ -2085,6 +2087,15 @@ export const es: TranslationResources = {
       diffLabel: "Diferencia",
       changesSubtitle: "Diferencias del árbol de trabajo",
       commitSubtitle: "Diferencias del commit",
+      turnLabel: "Cambios del turno",
+      turnSubtitle: "Cambios de un turno del agente",
+      turnMissing: "No existe un punto de control para este turno.",
+      turnCapabilityMissing: "Actualiza el host para ver los cambios del turno.",
+      restoreFiles: "Restaurar archivos",
+      restoreTitle: "¿Restaurar archivos?",
+      restoreMessage:
+        "Los archivos de este worktree vuelven a su estado anterior a este turno. El estado actual se guarda primero en una ref de Git de respaldo.",
+      restoreSuccess: "Archivos restaurados",
       uncommittedSubtitle: "Cambios sin confirmar",
       baseSubtitle: "Comparado con {{baseRef}}",
       directoryMissing: "No se encontró el directorio de Workspace.",

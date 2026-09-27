@@ -1928,11 +1928,13 @@ export const ar: TranslationResources = {
   },
   rewind: {
     tooltip: "الترجيع إلى هذه الرسالة",
+    turnChanges: "عرض تغييرات هذه الدورة",
     warning: "لا يمكن التراجع عن هذا الإجراء",
     actions: {
       conversation: "ترجيع المحادثة",
       files: "ترجيع الملفات",
       both: "ترجيع المحادثة والملفات",
+      restoreCheckpoint: "استعادة الملفات إلى ما قبل هذه الدورة",
     },
     errors: {
       failed: "فشل في إرجاع الوكيل",
@@ -2034,6 +2036,15 @@ export const ar: TranslationResources = {
       diffLabel: "الفرق",
       changesSubtitle: "فروقات شجرة العمل",
       commitSubtitle: "فروقات الالتزام",
+      turnLabel: "تغييرات الدورة",
+      turnSubtitle: "تغييرات دورة واحدة للوكيل",
+      turnMissing: "لا توجد نقطة حفظ لهذه الدورة.",
+      turnCapabilityMissing: "حدّث المضيف لعرض تغييرات الدورة.",
+      restoreFiles: "استعادة الملفات",
+      restoreTitle: "استعادة الملفات؟",
+      restoreMessage:
+        "تعود الملفات في شجرة العمل هذه إلى حالتها قبل هذه الدورة. تُحفظ الحالة الحالية أولاً في مرجع Git احتياطي.",
+      restoreSuccess: "تمت استعادة الملفات",
       uncommittedSubtitle: "تغييرات غير ملتزم بها",
       baseSubtitle: "مقارنة مع {{baseRef}}",
       directoryMissing: "لم يتم العثور على دليل Workspace.",

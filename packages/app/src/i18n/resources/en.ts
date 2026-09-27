@@ -1973,11 +1973,13 @@ export const en = {
   },
   rewind: {
     tooltip: "Rewind to this message",
+    turnChanges: "View changes from this turn",
     warning: "This action cannot be undone",
     actions: {
       conversation: "Rewind conversation",
       files: "Rewind files",
       both: "Rewind conversation and files",
+      restoreCheckpoint: "Restore files to before this turn",
     },
     errors: {
       failed: "Failed to rewind agent",
@@ -2079,6 +2081,15 @@ export const en = {
       diffLabel: "Diff",
       changesSubtitle: "Working tree diff",
       commitSubtitle: "Commit diff",
+      turnLabel: "Turn changes",
+      turnSubtitle: "Changes from one agent turn",
+      turnMissing: "No checkpoint exists for this turn.",
+      turnCapabilityMissing: "Update the host to view turn changes.",
+      restoreFiles: "Restore files",
+      restoreTitle: "Restore files?",
+      restoreMessage:
+        "Files in this worktree return to their state before this turn. The current state is saved to a backup Git ref first.",
+      restoreSuccess: "Files restored",
       uncommittedSubtitle: "Uncommitted changes",
       baseSubtitle: "Compared with {{baseRef}}",
       directoryMissing: "Workspace directory not found.",

@@ -1107,6 +1107,7 @@ export function collectAllPanes(root: SplitNode): SplitPane[] {
 function isEphemeralTab(tab: WorkspaceTab): boolean {
   return (
     tab.target.kind === "commit_diff" ||
+    tab.target.kind === "turn_diff" ||
     tab.target.kind === "new_tab" ||
     tab.target.kind === "image"
   );

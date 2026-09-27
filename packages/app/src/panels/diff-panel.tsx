@@ -1,6 +1,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { FileDiff, GitCommitHorizontal } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import invariant from "tiny-invariant";
@@ -21,6 +22,19 @@ import type { WorkspaceTabTarget } from "@/workspace-tabs/model";
 import { defaultChangesState, changesStateSchema } from "@/panels/changes/state";
 import { usePanelState } from "@/panels/use-panel-state";
 import { RenderProfile } from "@/utils/render-profiler";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DiffTooLargeState } from "@/git/diff-too-large-state";
+import type { ParsedDiffFile } from "@/git/use-diff-query";
+import { confirmDialog } from "@/utils/confirm-dialog";
+import {
+  useRestoreTurnFiles,
+  useSupportsAgentCheckpoints,
+  useTurnCheckpoint,
+  useTurnDiff,
+  type TurnCheckpointResult,
+  type TurnDiffQueryResult,
+} from "@/checkpoints/use-turn-checkpoints";
 
 const ThemedFileDiff = withUnistyles(FileDiff);
 const ThemedGitCommitHorizontal = withUnistyles(GitCommitHorizontal);
@@ -210,6 +224,172 @@ function CommitDiffPanel() {
   );
 }
 
+interface TurnDiffBodyInput {
+  supported: boolean;
+  checkpoint: TurnCheckpointResult;
+  diff: TurnDiffQueryResult;
+}
+
+type TurnDiffBodyState =
+  | { kind: "message"; message: string; tone: "muted" | "error"; testID: string }
+  | { kind: "too_large" }
+  | { kind: "files"; files: ParsedDiffFile[] };
+
+function turnDiffMessage(
+  message: string,
+  tone: "muted" | "error",
+  testID: string,
+): TurnDiffBodyState {
+  return { kind: "message", message, tone, testID };
+}
+
+function resolveTurnDiffBody(input: TurnDiffBodyInput, t: TFunction): TurnDiffBodyState {
+  if (!input.supported) {
+    return turnDiffMessage(
+      t("panels.diff.turnCapabilityMissing"),
+      "muted",
+      "turn-diff-capability-missing",
+    );
+  }
+  if (input.checkpoint.error) {
+    return turnDiffMessage(t("panels.diff.loadError"), "error", "turn-diff-error");
+  }
+  if (input.checkpoint.isLoading) {
+    return turnDiffMessage(t("workspace.tabs.loading"), "muted", "turn-diff-loading");
+  }
+  if (!input.checkpoint.turn) {
+    return turnDiffMessage(t("panels.diff.turnMissing"), "muted", "turn-diff-missing");
+  }
+  if (input.diff.error) {
+    // The daemon's reason, such as a turn that is still running, beats a generic failure.
+    return turnDiffMessage(input.diff.error.message, "error", "turn-diff-error");
+  }
+  if (!input.diff.data) {
+    return turnDiffMessage(t("workspace.tabs.loading"), "muted", "turn-diff-loading");
+  }
+  if (input.diff.data.diffTooLarge) return { kind: "too_large" };
+  if (input.diff.data.files.length === 0) {
+    return turnDiffMessage(t("panels.diff.empty"), "muted", "turn-diff-empty");
+  }
+  return { kind: "files", files: input.diff.data.files };
+}
+
+interface TurnRestoreFilesButtonProps {
+  serverId: string;
+  agentId: string;
+  messageId: string;
+  blockedReason: string | null;
+}
+
+function TurnRestoreFilesButton({
+  serverId,
+  agentId,
+  messageId,
+  blockedReason,
+}: TurnRestoreFilesButtonProps) {
+  const { t } = useTranslation();
+  const { restoreFiles, isPending } = useRestoreTurnFiles({ serverId, agentId });
+  const handlePress = useCallback(async () => {
+    const confirmed = await confirmDialog({
+      title: t("panels.diff.restoreTitle"),
+      message: t("panels.diff.restoreMessage"),
+      confirmLabel: t("panels.diff.restoreFiles"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    // useRestoreTurnFiles owns the success and failure toasts.
+    await restoreFiles(messageId).catch(() => undefined);
+  }, [messageId, restoreFiles, t]);
+  const button = (
+    <Button
+      variant="outline"
+      size="xs"
+      disabled={blockedReason !== null}
+      loading={isPending}
+      onPress={handlePress}
+      testID="turn-diff-restore-files"
+    >
+      {t("panels.diff.restoreFiles")}
+    </Button>
+  );
+  if (!blockedReason) return button;
+  return (
+    <Tooltip delayDuration={250} enabledOnDesktop enabledOnMobile={false}>
+      <TooltipTrigger asChild>
+        <View>{button}</View>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="end" offset={8}>
+        <Text style={styles.tooltipText}>{blockedReason}</Text>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function TurnDiffPanel() {
+  const { t } = useTranslation();
+  const { serverId, target } = usePaneContext();
+  const panelPreferences = useDiffPanelPreferences();
+  invariant(target.kind === "turn_diff", "TurnDiffPanel requires turn_diff target");
+  const supported = useSupportsAgentCheckpoints(serverId);
+  const checkpoint = useTurnCheckpoint({
+    serverId,
+    agentId: target.agentId,
+    messageId: target.messageId,
+    enabled: supported,
+  });
+  const diff = useTurnDiff({
+    serverId,
+    agentId: target.agentId,
+    turnIndex: checkpoint.turn?.turnIndex ?? null,
+    ignoreWhitespace: panelPreferences.preferences.hideWhitespace,
+  });
+  const mode = useMemo(() => ({ kind: "commit" as const }), []);
+  const bodyState = resolveTurnDiffBody({ supported, checkpoint, diff }, t);
+
+  let body: ReactNode;
+  if (bodyState.kind === "message") {
+    body = (
+      <PanelState message={bodyState.message} tone={bodyState.tone} testID={bodyState.testID} />
+    );
+  } else if (bodyState.kind === "too_large") {
+    body = <DiffTooLargeState />;
+  } else {
+    body = (
+      <DiffDocument
+        files={bodyState.files}
+        displayPreferences={panelPreferences.displayPreferences}
+        mode={mode}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.container} testID="turn-diff-panel">
+      <PaneContentToolbar style={styles.toolbar} testID="turn-diff-header">
+        <View style={styles.toolbarActions} testID="turn-diff-toolbar">
+          {panelPreferences.canUseSplitLayout ? (
+            <DiffLayoutToggle
+              layout={panelPreferences.preferences.layout}
+              isMobile={panelPreferences.isCompact}
+              testID="turn-diff-toggle-layout"
+              onToggle={panelPreferences.toggleLayout}
+            />
+          ) : null}
+          {checkpoint.turn ? (
+            <TurnRestoreFilesButton
+              serverId={serverId}
+              agentId={target.agentId}
+              messageId={target.messageId}
+              blockedReason={checkpoint.restoreFilesBlockedReason}
+            />
+          ) : null}
+        </View>
+      </PaneContentToolbar>
+      <View style={styles.body}>{body}</View>
+    </View>
+  );
+}
+
 const workingDiffPresentation = {
   label: (t) => t("panels.diff.diffLabel"),
   subtitle: (t) => t("panels.diff.changesSubtitle"),
@@ -237,6 +417,18 @@ function useCommitDiffPanelDescriptor(
     statusBucket: null,
   };
 }
+
+const turnDiffPresentation = {
+  label: (t) => t("panels.diff.turnLabel"),
+  subtitle: (t) => t("panels.diff.turnSubtitle"),
+  tooltip: (t) => t("panels.diff.turnSubtitle"),
+  icon: ThemedFileDiff,
+} satisfies PanelPresentation;
+
+export const turnDiffPanelRegistration = definePanel("turn_diff", {
+  component: TurnDiffPanel,
+  presentation: turnDiffPresentation,
+});
 
 export const workingDiffPanelRegistration = definePanel("working_diff", {
   component: ChangesPanel,
@@ -291,5 +483,9 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.destructive,
     textAlign: "center",
+  },
+  tooltipText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
   },
 }));

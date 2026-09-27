@@ -92,6 +92,11 @@ const manifests = {
     supportedHosts: ["main", "explorer"],
     resourceKey: (target) => target.sha,
   },
+  turn_diff: {
+    kind: "turn_diff",
+    supportedHosts: ["main", "explorer"],
+    resourceKey: (target) => `${target.agentId}:${target.messageId}`,
+  },
   image: {
     kind: "image",
     supportedHosts: ["main", "explorer"],

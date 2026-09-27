@@ -2031,6 +2031,28 @@ export const AgentRewindRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const AgentCheckpointListRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.list.request"),
+  agentId: z.string(),
+  requestId: z.string(),
+});
+
+export const AgentCheckpointGetTurnDiffRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.get_turn_diff.request"),
+  agentId: z.string(),
+  turnIndex: z.number().int(),
+  ignoreWhitespace: z.boolean().optional(),
+  requestId: z.string(),
+});
+
+// Restores the agent's working tree to the checkpoint captured when the turn started.
+export const AgentCheckpointRestoreFilesRequestMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.restore_files.request"),
+  agentId: z.string(),
+  turnIndex: z.number().int(),
+  requestId: z.string(),
+});
+
 export const AgentRewindResponseMessageSchema = z.object({
   type: z.literal("agent.rewind.response"),
   payload: z.object({
@@ -3336,6 +3358,9 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyRequestMessageSchema,
   AgentDetachRequestMessageSchema,
   AgentRewindRequestMessageSchema,
+  AgentCheckpointListRequestMessageSchema,
+  AgentCheckpointGetTurnDiffRequestMessageSchema,
+  AgentCheckpointRestoreFilesRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   CheckoutDiffGetRequestSchema,
@@ -3688,6 +3713,8 @@ export const ServerInfoStatusPayloadSchema = z
         "terminal-size-ownership": z.boolean().optional(),
         // COMPAT(rewind): added in v0.1.X, drop the gate when floor >= v0.1.X.
         rewind: z.boolean().optional(),
+        // COMPAT(agentCheckpoints): added in v0.10.2, remove gate after 2027-03-27.
+        agentCheckpoints: z.boolean().optional(),
         // COMPAT(agentTimelinePromptIndex): added in v0.2.X, drop the gate when floor >= v0.2.X.
         agentTimelinePromptIndex: z.boolean().optional(),
         // COMPAT(agentHistorySearch): added in v0.3.0, remove gate after 2027-02-07.
@@ -5674,6 +5701,51 @@ export const CheckoutCommitFileDiffResponseSchema = z.object({
   }),
 });
 
+const AgentTurnCheckpointSchema = z.object({
+  turnIndex: z.number().int(),
+  // The Paseo user-message ID that started the turn; null for turns started
+  // without a submitted prompt.
+  messageId: z.string().nullable(),
+  startedAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+
+export const AgentCheckpointListResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    checkpoints: z.array(AgentTurnCheckpointSchema),
+    // Null when the daemon can restore files for this agent; otherwise a
+    // user-facing reason. Restore requests stay refused server-side.
+    restoreFilesBlockedReason: z.string().nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentCheckpointGetTurnDiffResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.get_turn_diff.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    turnIndex: z.number().int(),
+    files: z.array(ParsedDiffFileSchema),
+    diffTooLarge: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const AgentCheckpointRestoreFilesResponseMessageSchema = z.object({
+  type: z.literal("agent.checkpoint.restore_files.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    turnIndex: z.number().int(),
+    ok: z.boolean(),
+    error: z.string().nullable(),
+  }),
+});
+
 const CheckoutGithubCheckAnnotationSchema = z.object({
   path: z.string().optional(),
   startLine: z.number().optional(),
@@ -7005,6 +7077,9 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentConfigApplyResponseMessageSchema,
   AgentDetachResponseMessageSchema,
   AgentRewindResponseMessageSchema,
+  AgentCheckpointListResponseMessageSchema,
+  AgentCheckpointGetTurnDiffResponseMessageSchema,
+  AgentCheckpointRestoreFilesResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   ProjectRenameResponseSchema,
   ProjectIconSetResponseSchema,
@@ -7207,6 +7282,16 @@ export type SetAgentFeatureResponseMessage = z.infer<typeof SetAgentFeatureRespo
 export type AgentConfigApplyResponseMessage = z.infer<typeof AgentConfigApplyResponseMessageSchema>;
 export type AgentDetachResponseMessage = z.infer<typeof AgentDetachResponseMessageSchema>;
 export type AgentRewindResponseMessage = z.infer<typeof AgentRewindResponseMessageSchema>;
+export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
+export type AgentCheckpointListResponseMessage = z.infer<
+  typeof AgentCheckpointListResponseMessageSchema
+>;
+export type AgentCheckpointGetTurnDiffResponseMessage = z.infer<
+  typeof AgentCheckpointGetTurnDiffResponseMessageSchema
+>;
+export type AgentCheckpointRestoreFilesResponseMessage = z.infer<
+  typeof AgentCheckpointRestoreFilesResponseMessageSchema
+>;
 export type UpdateAgentResponseMessage = z.infer<typeof UpdateAgentResponseMessageSchema>;
 export type ProjectRenameResponse = z.infer<typeof ProjectRenameResponseSchema>;
 export type ProjectIconSetResponse = z.infer<typeof ProjectIconSetResponseSchema>;
