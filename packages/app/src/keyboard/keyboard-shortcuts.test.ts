@@ -1282,6 +1282,27 @@ describe("model loadout shortcuts", () => {
     });
   });
 
+  it("undoes the last sidebar action with Mod+Z only outside text, terminal, and browser", () => {
+    const macEvent = { key: "z", code: "KeyZ", metaKey: true };
+    expectShortcutResolution({
+      event: macEvent,
+      context: { isMac: true, isDesktop: true, focusScope: "other" },
+      action: "workspace.undo",
+    });
+    expectShortcutResolution({
+      event: { key: "z", code: "KeyZ", ctrlKey: true },
+      context: { isMac: false, isDesktop: true, focusScope: "other" },
+      action: "workspace.undo",
+    });
+    for (const focusScope of ["editable", "message-input", "terminal", "browser"] as const) {
+      const result = resolveShortcut({
+        event: macEvent,
+        context: { isMac: true, isDesktop: true, focusScope },
+      });
+      expect(result.match?.action).not.toBe("workspace.undo");
+    }
+  });
+
   it("toggles fast with Cmd+Shift+E only while the message input is focused", () => {
     const event = { key: "e", code: "KeyE", metaKey: true, shiftKey: true };
     expectShortcutResolution({

@@ -71,7 +71,7 @@ import {
   SidebarWorkspaceContextMenu,
   SidebarWorkspaceMenu,
 } from "@/components/sidebar/sidebar-workspace-menu";
-import { PinnedSectionHeader } from "@/components/sidebar/pinned-section-header";
+import { SidebarSectionHeader } from "@/components/sidebar/sidebar-section-header";
 import { SidebarGroupToggleRow } from "@/components/sidebar/sidebar-group-toggle-row";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
 import type { ToggleSidebarWorkspacePin } from "@/hooks/use-sidebar-workspace-pin";
@@ -113,6 +113,8 @@ function statusWorkspaceKeyExtractor(workspace: SidebarWorkspaceEntry): string {
 interface StatusWorkspaceListProps {
   groups: SidebarWorkspaceGroup[];
   pinnedWorkspaces: SidebarWorkspaceEntry[];
+  /** Snoozed workspaces in wake order, listed under a collapsed Snoozed header. */
+  snoozedWorkspaces: SidebarWorkspaceEntry[];
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
   showShortcutBadges: boolean;
@@ -131,6 +133,7 @@ interface StatusWorkspaceListProps {
 export function SidebarStatusWorkspaceList({
   groups,
   pinnedWorkspaces,
+  snoozedWorkspaces,
   projectIconByProjectViewKey,
   shortcutIndexByWorkspaceKey,
   showShortcutBadges,
@@ -151,6 +154,11 @@ export function SidebarStatusWorkspaceList({
   const togglePinnedCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.togglePinnedCollapsed,
   );
+  const snoozedExpanded = useSidebarCollapsedSectionsStore((state) => state.expandedSnoozed);
+  const toggleSnoozedExpanded = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleSnoozedExpanded,
+  );
+  const { t } = useTranslation();
   const {
     visibleItems: visiblePinnedWorkspaces,
     expanded: pinnedWorkspacesExpanded,
@@ -200,7 +208,12 @@ export function SidebarStatusWorkspaceList({
     <>
       {pinnedWorkspaces.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
-          <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />
+          <SidebarSectionHeader
+            title={t("sidebar.pinned.title")}
+            collapsed={pinnedCollapsed}
+            onToggle={togglePinnedCollapsed}
+            testID="sidebar-pinned-section-header"
+          />
           {pinnedCollapsed ? null : (
             <>
               <DraggableList
@@ -242,6 +255,35 @@ export function SidebarStatusWorkspaceList({
           onToggleWorkspacePin={onToggleWorkspacePin}
         />
       )}
+      {snoozedWorkspaces.length > 0 ? (
+        <View style={styles.snoozedSection} testID="sidebar-snoozed-section">
+          <SidebarSectionHeader
+            title={t("sidebar.snooze.title")}
+            collapsed={!snoozedExpanded}
+            onToggle={toggleSnoozedExpanded}
+            testID="sidebar-snoozed-section-header"
+          />
+          {snoozedExpanded
+            ? snoozedWorkspaces.map((workspace) => (
+                <StatusWorkspaceRow
+                  key={workspace.workspaceKey}
+                  workspace={workspace}
+                  {...buildStatusRowProjectPresentation({
+                    workspace,
+                    projectIconByProjectViewKey,
+                    hostBadgeByServerId,
+                  })}
+                  inStatusGroup={false}
+                  shortcutNumber={null}
+                  showShortcutBadge={false}
+                  canPin={supportsPinningByServerId.get(workspace.serverId) === true}
+                  onToggleWorkspacePin={onToggleWorkspacePin}
+                  onWorkspacePress={onWorkspacePress}
+                />
+              ))
+            : null}
+        </View>
+      ) : null}
     </>
   );
 
@@ -1036,6 +1078,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   pinnedSection: {
     marginBottom: theme.spacing[1],
+  },
+  // Matches `snoozedSection` in sidebar-workspace-list.tsx.
+  snoozedSection: {
+    marginTop: theme.spacing[2],
   },
   // Matches `projectBlockExpanded` in sidebar-workspace-list.tsx. See the note there.
   statusGroupBlockExpanded: {

@@ -31,6 +31,10 @@ export interface ToastShowOptions {
   durationMs?: number | null;
   nativeAndroid?: boolean;
   testID?: string;
+  /** Identifies the toast so its owner can dismiss it without closing someone else's. */
+  key?: string;
+  /** If true, the toast is dropped while an error toast is showing instead of replacing it. */
+  yieldsToErrors?: boolean;
 }
 
 export interface ToastState {
@@ -41,12 +45,15 @@ export interface ToastState {
   variant: ToastVariant;
   durationMs: number | null;
   testID?: string;
+  key?: string;
 }
 
 export interface ToastApi {
   show: (content: ReactNode, options?: ToastShowOptions) => void;
   copied: (label?: string) => void;
   error: (message: string) => void;
+  /** Dismisses the visible toast if it was shown with `key`. */
+  dismiss: (key: string) => void;
 }
 
 type ToastViewportPlacement = "app-shell" | "panel";
@@ -91,7 +98,7 @@ export function useToastHost(): {
     }
 
     idRef.current += 1;
-    setToast({
+    const next: ToastState = {
       id: idRef.current,
       content,
       nativeMessage,
@@ -99,7 +106,18 @@ export function useToastHost(): {
       variant,
       durationMs,
       testID: options?.testID,
-    });
+      key: options?.key,
+    };
+    const yieldsToErrors = options?.yieldsToErrors ?? false;
+    setToast((current) => (yieldsToErrors && current?.variant === "error" ? current : next));
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  const dismissByKey = useCallback((key: string) => {
+    setToast((current) => (current?.key === key ? null : current));
   }, []);
 
   const api = useMemo<ToastApi>(
@@ -111,13 +129,10 @@ export function useToastHost(): {
           icon: <ThemedCheckCircle size={18} uniProps={foregroundIcon} />,
         }),
       error: (message: string) => show(message, { variant: "error", durationMs: 3200 }),
+      dismiss: dismissByKey,
     }),
-    [show, t],
+    [dismissByKey, show, t],
   );
-
-  const dismiss = useCallback(() => {
-    setToast(null);
-  }, []);
 
   return { api, toast, dismiss };
 }

@@ -49,6 +49,7 @@ const PASSTHROUGH_DISPATCH: Record<string, KeyboardActionDefinition> = {
   "workspace.project.pick": { id: "workspace.project.pick", scope: "workspace" },
   "workspace.archive": { id: "workspace.archive", scope: "sidebar" },
   "workspace.pin": { id: "workspace.pin", scope: "sidebar" },
+  "workspace.undo": { id: "workspace.undo", scope: "sidebar" },
   "worktree.new": { id: "worktree.new", scope: "sidebar" },
   "workspace.terminal.new": { id: "workspace.terminal.new", scope: "workspace" },
   "workspace.terminal.toggle": { id: "workspace.terminal.toggle", scope: "workspace" },

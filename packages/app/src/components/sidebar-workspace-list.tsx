@@ -46,7 +46,7 @@ import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
 import type { DraggableListDragHandleProps } from "./draggable-list.types";
 import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
-import type { PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
+import type { SidebarSectionGroups } from "@/components/sidebar/sidebar-projection";
 import {
   useSidebarWorkspacePinController,
   type ToggleSidebarWorkspacePin,
@@ -102,7 +102,7 @@ import {
   SidebarWorkspaceMenu,
 } from "@/components/sidebar/sidebar-workspace-menu";
 import { useLongPressDragInteraction } from "@/components/sidebar/use-long-press-drag-interaction";
-import { PinnedSectionHeader } from "@/components/sidebar/pinned-section-header";
+import { SidebarSectionHeader } from "@/components/sidebar/sidebar-section-header";
 import { SidebarGroupToggleRow } from "@/components/sidebar/sidebar-group-toggle-row";
 import { useLimitedSidebarGroup } from "@/components/sidebar/use-limited-sidebar-group";
 import {
@@ -228,7 +228,7 @@ interface SidebarWorkspaceListProps {
   workspaceGroups: SidebarWorkspaceGroup[];
   /** What `useProjectIcons` is asked for, straight from the projection. See `SidebarProjection`. */
   projectIconTargets: SidebarProjectIconTarget[];
-  pinnedGroups: PinnedSidebarGroups;
+  pinnedGroups: SidebarSectionGroups;
   projects: SidebarProjectEntry[];
   hasProjectsBeforeFilter: boolean;
   /** Whether a project filter is actually being applied — the resolved list, not the stored one. */
@@ -2061,7 +2061,7 @@ function SidebarGroupedModeList({
   dragGestureHostActive,
 }: {
   workspaceGroups: SidebarWorkspaceGroup[];
-  pinnedGroups: PinnedSidebarGroups;
+  pinnedGroups: SidebarSectionGroups;
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   projectIconByProjectViewKey: ReadonlyMap<string, string | null>;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -2084,11 +2084,20 @@ function SidebarGroupedModeList({
       }),
     [pinnedGroups.pinnedChats, workspaceEntriesByKey],
   );
+  const snoozedWorkspaces = useMemo(
+    () =>
+      pinnedGroups.snoozedWorkspaces.flatMap((workspace) => {
+        const entry = workspaceEntriesByKey.get(workspace.workspaceKey);
+        return entry ? [entry] : [];
+      }),
+    [pinnedGroups.snoozedWorkspaces, workspaceEntriesByKey],
+  );
 
   return (
     <SidebarStatusWorkspaceList
       groups={workspaceGroups}
       pinnedWorkspaces={pinnedWorkspaces}
+      snoozedWorkspaces={snoozedWorkspaces}
       projectIconByProjectViewKey={projectIconByProjectViewKey}
       shortcutIndexByWorkspaceKey={_projectShortcutIndex}
       showShortcutBadges={showShortcutBadges}
@@ -2157,6 +2166,11 @@ function ProjectModeList({
   const togglePinnedCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.togglePinnedCollapsed,
   );
+  const snoozedExpanded = useSidebarCollapsedSectionsStore((state) => state.expandedSnoozed);
+  const toggleSnoozedExpanded = useSidebarCollapsedSectionsStore(
+    (state) => state.toggleSnoozedExpanded,
+  );
+  const { t } = useTranslation();
 
   const getProjectOrder = useSidebarOrderStore((state) => state.getProjectOrder);
   const setProjectOrder = useSidebarOrderStore((state) => state.setProjectOrder);
@@ -2169,7 +2183,7 @@ function ProjectModeList({
   );
   const selectionEnabled = isWorkspaceRoute;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
-  const { pinnedChats, unpinnedProjects } = pinnedGroups;
+  const { pinnedChats, unpinnedProjects, snoozedWorkspaces } = pinnedGroups;
   const {
     visibleItems: visiblePinnedChats,
     expanded: pinnedChatsExpanded,
@@ -2422,6 +2436,40 @@ function ProjectModeList({
     ],
   );
 
+  // Snoozed rows are parked, not arranged, so they carry no drag handle.
+  const renderSnoozedWorkspace = useCallback(
+    (workspace: SidebarWorkspacePlacement) => (
+      <MemoWorkspaceRowItem
+        key={workspace.workspaceKey}
+        workspace={workspace}
+        workspaceEntry={workspaceEntriesByKey.get(workspace.workspaceKey) ?? null}
+        hostBadge={hostBadgeByServerId.get(workspace.serverId) ?? null}
+        leadingProjectName={workspace.projectName}
+        leadingProjectIconDataUri={
+          projectIconByProjectViewKey.get(workspace.projectViewKey) ?? null
+        }
+        shortcutNumber={null}
+        showShortcutBadge={false}
+        canCopyBranchName={workspace.projectKind === "git"}
+        canPin={supportsPinningByServerId.get(workspace.serverId) === true}
+        onToggleWorkspacePin={onToggleWorkspacePin}
+        selectionEnabled={selectionEnabled}
+        activeWorkspaceSelection={activeWorkspaceSelection}
+        onWorkspacePress={onWorkspacePress}
+      />
+    ),
+    [
+      activeWorkspaceSelection,
+      hostBadgeByServerId,
+      onToggleWorkspacePin,
+      onWorkspacePress,
+      projectIconByProjectViewKey,
+      selectionEnabled,
+      supportsPinningByServerId,
+      workspaceEntriesByKey,
+    ],
+  );
+
   const projectBody =
     projects.length === 0 ? (
       <SidebarProjectEmptyState onAddProject={onAddProject} onImportSession={onImportSession} />
@@ -2446,7 +2494,12 @@ function ProjectModeList({
     <>
       {pinnedChats.length > 0 ? (
         <View style={styles.pinnedSection} testID="sidebar-pinned-section">
-          <PinnedSectionHeader collapsed={pinnedCollapsed} onToggle={togglePinnedCollapsed} />
+          <SidebarSectionHeader
+            title={t("sidebar.pinned.title")}
+            collapsed={pinnedCollapsed}
+            onToggle={togglePinnedCollapsed}
+            testID="sidebar-pinned-section-header"
+          />
           {pinnedCollapsed ? null : (
             <>
               <DraggableList
@@ -2487,6 +2540,17 @@ function ProjectModeList({
         ? listHeaderComponent
         : null}
       {sidebarFilterEmpty ? <SidebarFilterEmptyState /> : projectBody}
+      {snoozedWorkspaces.length > 0 ? (
+        <View style={styles.snoozedSection} testID="sidebar-snoozed-section">
+          <SidebarSectionHeader
+            title={t("sidebar.snooze.title")}
+            collapsed={!snoozedExpanded}
+            onToggle={toggleSnoozedExpanded}
+            testID="sidebar-snoozed-section-header"
+          />
+          {snoozedExpanded ? snoozedWorkspaces.map(renderSnoozedWorkspace) : null}
+        </View>
+      ) : null}
       {listFooterComponent}
     </>
   );
@@ -2536,6 +2600,9 @@ const styles = StyleSheet.create((theme) => ({
   },
   pinnedSection: {
     marginBottom: theme.spacing[1],
+  },
+  snoozedSection: {
+    marginTop: theme.spacing[2],
   },
   // Three times the gap a row keeps from its neighbour, so the break between two groups reads as
   // a break rather than as one more row of pitch. Kept equal to `statusGroupBlockExpanded` — the

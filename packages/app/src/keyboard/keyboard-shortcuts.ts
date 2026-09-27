@@ -169,6 +169,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-next",
     "pin-workspace",
     "archive-workspace",
+    "undo-workspace-action",
   ],
   "tabs-panes": [
     "workspace-tab-new",
@@ -219,6 +220,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "new-workspace": "settings.shortcuts.help.newWorkspace",
   "switch-project": "settings.shortcuts.help.switchProject",
   "archive-workspace": "settings.shortcuts.help.archiveWorkspace",
+  "undo-workspace-action": "settings.shortcuts.help.undo",
   "workspace-tab-new": "settings.shortcuts.help.newTab",
   "workspace-tab-target-agent": "workspace.tabs.actions.newAgent",
   "workspace-tab-target-browser": "workspace.tabs.actions.newBrowser",
@@ -397,6 +399,31 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       id: "pin-workspace",
       section: "workspaces",
       label: "Pin chat",
+    },
+  },
+
+  // --- Undo workspace action ---
+  // Only outside text fields, the terminal, and the browser, where Mod+Z already means undo.
+  {
+    id: "workspace-undo-cmd-z-mac",
+    action: "workspace.undo",
+    combo: "Cmd+Z",
+    when: { mac: true, commandCenter: false, focusScope: "other" },
+    help: {
+      id: "undo-workspace-action",
+      section: "workspaces",
+      label: "Undo last workspace action",
+    },
+  },
+  {
+    id: "workspace-undo-ctrl-z-non-mac",
+    action: "workspace.undo",
+    combo: "Ctrl+Z",
+    when: { mac: false, commandCenter: false, focusScope: "other" },
+    help: {
+      id: "undo-workspace-action",
+      section: "workspaces",
+      label: "Undo last workspace action",
     },
   },
 

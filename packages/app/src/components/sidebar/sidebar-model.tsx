@@ -6,7 +6,8 @@ import {
   type SidebarWorkspacesListResult,
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useSidebarWorkspaceEntries } from "@/hooks/use-sidebar-workspace-entries";
-import { usePinnedSidebarKeys, type PinnedSidebarGroups } from "@/hooks/use-sidebar-pins";
+import { usePinnedSidebarKeys } from "@/hooks/use-sidebar-pins";
+import { useSnoozedSidebarKeys } from "@/workspace/snooze/use-snoozed-sidebar-keys";
 import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
 import {
   hasActiveSidebarLabelFilter,
@@ -15,7 +16,7 @@ import {
 } from "@/stores/sidebar-view-store";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import type { SidebarShortcutModel } from "@/utils/sidebar-shortcuts";
-import { buildSidebarProjection } from "./sidebar-projection";
+import { buildSidebarProjection, type SidebarSectionGroups } from "./sidebar-projection";
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { filterWorkspacesByLabels, type SidebarWorkspaceGroup } from "./sidebar-labels";
 import { filterWorkspacesByProjects, resolveActiveProjectFilters } from "./sidebar-project-filter";
@@ -39,7 +40,7 @@ interface SidebarModel extends SidebarWorkspacesListResult {
   groupMode: SidebarGroupMode;
   workspaceGroups: SidebarWorkspaceGroup[];
   projectIconTargets: SidebarProjectIconTarget[];
-  pinnedGroups: PinnedSidebarGroups;
+  pinnedGroups: SidebarSectionGroups;
   collapsedProjectKeys: ReadonlySet<string>;
   toggleProjectCollapsed: (projectViewKey: string) => void;
   shortcutModel: SidebarShortcutModel;
@@ -142,6 +143,7 @@ export function SidebarModelProvider({
     return projects;
   }, [hasActiveProjectFilter, resolvedProjectFilters, list.projects, visibleWorkspaceKeys]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
+  const snoozedKeys = useSnoozedSidebarKeys(filteredProjects);
   // Project mode projects structure only; feeding it entries would rebuild the shortcut model and
   // every group on each status tick.
   const projectionEntriesByKey =
@@ -150,6 +152,7 @@ export function SidebarModelProvider({
     () => ({
       projects: filteredProjects,
       pinnedKeys,
+      snoozedKeys,
       pinnedWorkspaceOrder,
       workspaceEntriesByKey: projectionEntriesByKey,
       projectNamesByViewKey: list.projectNamesByViewKey,
@@ -168,6 +171,7 @@ export function SidebarModelProvider({
       pinnedKeys,
       pinnedWorkspaceOrder,
       projectionEntriesByKey,
+      snoozedKeys,
     ],
   );
   const projection = useMemo(() => buildSidebarProjection(projectionInput), [projectionInput]);

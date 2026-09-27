@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { pasteAndMatchStyleInContents, reloadActiveBrowserOrWindow } from "./menu.js";
+import {
+  pasteAndMatchStyleInContents,
+  reloadActiveBrowserOrWindow,
+  routeMenuUndo,
+} from "./menu.js";
 
 class FakeWebContents {
   public readonly reloads: string[] = [];
@@ -89,5 +93,35 @@ describe("pasteAndMatchStyleInContents", () => {
     const contents = recordingContents();
     pasteAndMatchStyleInContents({ contents, isAppWindow: false });
     expect(contents.calls).toEqual(["paste"]);
+  });
+});
+
+class UndoTarget {
+  public readonly calls: string[] = [];
+
+  public constructor(public readonly id: number) {}
+
+  public undo(): void {
+    this.calls.push("undo");
+  }
+
+  public send(channel: string): void {
+    this.calls.push(channel);
+  }
+}
+
+describe("routeMenuUndo", () => {
+  it("hands Undo to the app window when the window itself is focused", () => {
+    const window = new UndoTarget(101);
+    routeMenuUndo({ win: { webContents: window }, focusedContents: window });
+    expect(window.calls).toEqual(["paseo:event:menu-undo"]);
+  });
+
+  it("runs native undo in a focused browser webview", () => {
+    const window = new UndoTarget(101);
+    const browser = new UndoTarget(11);
+    routeMenuUndo({ win: { webContents: window }, focusedContents: browser });
+    expect(browser.calls).toEqual(["undo"]);
+    expect(window.calls).toEqual([]);
   });
 });

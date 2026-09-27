@@ -120,6 +120,7 @@ import type {
   PaseoConfigRevision,
   WorkspaceCreateRequest,
   WorkspaceRecoveryState,
+  WorkspaceSnooze,
   ArchivedWorkspaceSummary,
   PluginListItem,
   PluginLogEntry,
@@ -3026,6 +3027,26 @@ export class DaemonClient {
       throw new Error(payload.error ?? "setWorkspacePinned rejected");
     }
     return { pinnedAt: payload.pinnedAt };
+  }
+
+  async setWorkspaceSnooze(
+    workspaceId: string,
+    until: string | null,
+    requestId?: string,
+  ): Promise<WorkspaceSnooze | null> {
+    const payload =
+      await this.sendNamespacedCorrelatedSessionRequest<"workspace.snooze.set.response">({
+        requestId,
+        message: {
+          type: "workspace.snooze.set.request",
+          workspaceId,
+          until,
+        },
+      });
+    if (!payload.accepted) {
+      throw new Error(payload.error ?? "setWorkspaceSnooze rejected");
+    }
+    return payload.snooze;
   }
 
   async inspectWorkspaceRecovery(

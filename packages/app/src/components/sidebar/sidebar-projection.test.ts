@@ -75,6 +75,7 @@ function projectionInput(options?: {
       pinnedWorkspaceKeys: [pinned.placement.workspaceKey],
       pinnedAtByKey: { [pinned.placement.workspaceKey]: "2026-07-12T12:00:00.000Z" },
     },
+    snoozedKeys: { snoozedWorkspaceKeys: [] as string[], untilByKey: {} as Record<string, string> },
     pinnedWorkspaceOrder: [],
     workspaceEntriesByKey: new Map([
       [pinned.entry.workspaceKey, pinned.entry],
@@ -173,4 +174,26 @@ describe("buildSidebarProjection", () => {
       { serverId: "srv", workspaceId: "unpinned" },
     ]);
   });
+
+  for (const groupMode of ["project", "status"] as const) {
+    it(`moves snoozed workspaces out of Pinned, projects, groups, and shortcuts in ${groupMode} mode`, () => {
+      const until = "2026-07-13T09:00:00.000Z";
+      const projection = buildSidebarProjection({
+        ...projectionInput({ groupMode }),
+        snoozedKeys: {
+          snoozedWorkspaceKeys: ["srv:pinned", "srv:unpinned"],
+          untilByKey: { "srv:pinned": until, "srv:unpinned": until },
+        },
+      });
+
+      expect(projection.pinnedGroups.snoozedWorkspaces.map((entry) => entry.workspaceId)).toEqual([
+        "pinned",
+        "unpinned",
+      ]);
+      expect(projection.pinnedGroups.pinnedChats).toEqual([]);
+      expect(projection.pinnedGroups.unpinnedProjects[0]?.workspaces).toEqual([]);
+      expect(projection.workspaceGroups).toEqual([]);
+      expect(projection.shortcutModel.shortcutTargets).toEqual([]);
+    });
+  }
 });
