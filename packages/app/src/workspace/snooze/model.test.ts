@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  canSnoozeWorkspace,
+  defaultCustomSnoozeSelection,
   hasExpiredSnooze,
   isWorkspaceSnoozed,
   nextSnoozeWakeAtMs,
-  parseCustomSnooze,
+  resolveCustomSnooze,
+  resolveSnoozeDayOptions,
   resolveSnoozePresets,
   type WorkspaceSnoozeState,
 } from "./model";
@@ -85,29 +88,43 @@ describe("nextSnoozeWakeAtMs", () => {
   });
 });
 
-describe("parseCustomSnooze", () => {
-  it("parses a future local date and time", () => {
-    expect(parseCustomSnooze({ date: "2026-09-25", time: "8:30", now: WEDNESDAY_10_15 })).toEqual({
-      kind: "valid",
-      until: new Date(2026, 8, 25, 8, 30),
-    });
+describe("canSnoozeWorkspace", () => {
+  it("refuses workspaces that already need you", () => {
+    expect(canSnoozeWorkspace("needs_input")).toBe(false);
+    expect(canSnoozeWorkspace("attention")).toBe(false);
+    expect(canSnoozeWorkspace("failed")).toBe(false);
+    expect(canSnoozeWorkspace("running")).toBe(true);
+    expect(canSnoozeWorkspace("done")).toBe(true);
+  });
+});
+
+describe("custom snooze picker", () => {
+  it("starts at tomorrow 9:00 and offers two weeks of days", () => {
+    const resolved = resolveCustomSnooze(
+      defaultCustomSnoozeSelection(WEDNESDAY_10_15),
+      WEDNESDAY_10_15,
+    );
+    expect(resolved.until).toEqual(new Date(2026, 8, 24, 9, 0));
+    expect(resolved.days).toHaveLength(14);
+    expect(resolved.days[0]?.key).toBe("2026-09-23");
+    expect(resolved.times).toHaveLength(48);
   });
 
-  it("rejects malformed and impossible values", () => {
-    expect(parseCustomSnooze({ date: "25/09/2026", time: "08:30", now: WEDNESDAY_10_15 })).toEqual({
-      kind: "invalid",
-      reason: "format",
-    });
-    expect(parseCustomSnooze({ date: "2026-02-30", time: "08:30", now: WEDNESDAY_10_15 })).toEqual({
-      kind: "invalid",
-      reason: "format",
-    });
+  it("offers only future half-hour slots today", () => {
+    const resolved = resolveCustomSnooze(
+      { dayKey: "2026-09-23", timeKey: "08:00" },
+      WEDNESDAY_10_15,
+    );
+    expect(resolved.times[0]?.key).toBe("10:30");
+    expect(resolved.timeKey).toBe("10:30");
+    expect(resolved.until).toEqual(new Date(2026, 8, 23, 10, 30));
   });
 
-  it("rejects times in the past", () => {
-    expect(parseCustomSnooze({ date: "2026-09-23", time: "10:00", now: WEDNESDAY_10_15 })).toEqual({
-      kind: "invalid",
-      reason: "past",
-    });
+  it("drops today once its last slot has passed", () => {
+    const late = new Date(2026, 8, 23, 23, 40);
+    expect(resolveSnoozeDayOptions(late)[0]?.key).toBe("2026-09-24");
+    const resolved = resolveCustomSnooze({ dayKey: "2026-09-23", timeKey: "23:30" }, late);
+    expect(resolved.dayKey).toBe("2026-09-24");
+    expect(resolved.until).toEqual(new Date(2026, 8, 24, 23, 30));
   });
 });

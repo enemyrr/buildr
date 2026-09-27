@@ -1,13 +1,20 @@
 import { useCallback, useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
-import { Field, FormTextInput } from "@/components/ui/form-field";
+import { SelectField, type SelectFieldOption } from "@/components/ui/select-field";
 import { setWorkspaceSnoozeWithUndo } from "./actions";
 import { useCustomSnoozeStore, type CustomSnoozeRequest } from "./custom-snooze-store";
-import { formatCustomSnoozeFields, parseCustomSnooze, resolveSnoozePresets } from "./model";
+import {
+  defaultCustomSnoozeSelection,
+  resolveCustomSnooze,
+  type CustomSnoozeSelection,
+  type SnoozeDayOption,
+  type SnoozeTimeOption,
+} from "./model";
 
 /** Mounts the custom snooze sheet whenever a menu asks for one. */
 export function CustomSnoozeSheetHost() {
@@ -16,15 +23,29 @@ export function CustomSnoozeSheetHost() {
   if (!request) {
     return null;
   }
-  // Keyed per workspace so each open starts from a fresh draft.
+  // Keyed per workspace so each open starts from a fresh selection.
   return <CustomSnoozeSheet key={request.target.workspaceKey} request={request} onClose={close} />;
 }
 
 type SubmitState = { kind: "idle" } | { kind: "pending" } | { kind: "failed"; message: string };
 
-function defaultWake(): Date {
-  const tomorrow = resolveSnoozePresets(new Date()).find((preset) => preset.id === "tomorrow");
-  return tomorrow ? tomorrow.until : new Date();
+function dayLabel(day: SnoozeDayOption, t: TFunction): string {
+  if (day.offset === 0) {
+    return t("sidebar.snooze.today");
+  }
+  if (day.offset === 1) {
+    return t("sidebar.snooze.tomorrow");
+  }
+  return day.date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function timeLabel(time: SnoozeTimeOption): string {
+  const date = new Date(2000, 0, 1, time.hours, time.minutes);
+  return date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
 function CustomSnoozeSheet({
@@ -35,86 +56,97 @@ function CustomSnoozeSheet({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const [initialFields] = useState(() => formatCustomSnoozeFields(defaultWake()));
-  const [date, setDate] = useState(initialFields.date);
-  const [time, setTime] = useState(initialFields.time);
+  const [selection, setSelection] = useState<CustomSnoozeSelection>(() =>
+    defaultCustomSnoozeSelection(new Date()),
+  );
   const [submit, setSubmit] = useState<SubmitState>({ kind: "idle" });
-  const parsed = parseCustomSnooze({ date, time, now: new Date() });
+  const resolved = resolveCustomSnooze(selection, new Date());
   const isPending = submit.kind === "pending";
 
-  let error: string | null = null;
-  if (submit.kind === "failed") {
-    error = submit.message;
-  } else if (parsed.kind === "invalid") {
-    error =
-      parsed.reason === "past" ? t("sidebar.snooze.inPast") : t("sidebar.snooze.invalidFormat");
-  }
+  const dayOptions = useMemo<SelectFieldOption<string>[]>(
+    () =>
+      resolved.days.map((day) => ({
+        id: day.key,
+        value: day.key,
+        label: dayLabel(day, t),
+        testID: `custom-snooze-day-${day.key}`,
+      })),
+    [resolved.days, t],
+  );
+  const timeOptions = useMemo<SelectFieldOption<string>[]>(
+    () =>
+      resolved.times.map((time) => ({
+        id: time.key,
+        value: time.key,
+        label: timeLabel(time),
+        testID: `custom-snooze-time-${time.key}`,
+      })),
+    [resolved.times],
+  );
+  const selectedDay = dayOptions.find((option) => option.value === resolved.dayKey) ?? null;
+  const selectedTime = timeOptions.find((option) => option.value === resolved.timeKey) ?? null;
+
+  const handleDayChange = useCallback((dayKey: string) => {
+    setSelection((current) => ({ ...current, dayKey }));
+    setSubmit({ kind: "idle" });
+  }, []);
+  const handleTimeChange = useCallback((timeKey: string) => {
+    setSelection((current) => ({ ...current, timeKey }));
+    setSubmit({ kind: "idle" });
+  }, []);
 
   const handleSubmit = useCallback(() => {
-    if (parsed.kind !== "valid" || isPending) {
+    if (isPending) {
       return;
     }
     setSubmit({ kind: "pending" });
-    setWorkspaceSnoozeWithUndo({
-      target: request.target,
-      until: parsed.until,
-      previous: request.previous,
-    })
+    // Resolved again at submit, so a slot that passed while the sheet was open moves forward.
+    const { until } = resolveCustomSnooze(selection, new Date());
+    setWorkspaceSnoozeWithUndo({ target: request.target, until, previous: request.previous })
       .then(onClose)
       .catch((cause: unknown) => {
         const message = cause instanceof Error ? cause.message : t("sidebar.snooze.failed");
         setSubmit({ kind: "failed", message });
       });
-  }, [isPending, onClose, parsed, request, t]);
+  }, [isPending, onClose, request, selection, t]);
 
-  const handleDateChange = useCallback((value: string) => {
-    setDate(value);
-    setSubmit({ kind: "idle" });
-  }, []);
-  const handleTimeChange = useCallback((value: string) => {
-    setTime(value);
-    setSubmit({ kind: "idle" });
-  }, []);
   const header = useMemo<SheetHeader>(() => ({ title: t("sidebar.snooze.customTitle") }), [t]);
+  const error = submit.kind === "failed" ? submit.message : null;
 
   return (
     <AdaptiveModalSheet visible header={header} onClose={onClose} testID="custom-snooze-sheet">
       <View style={styles.body}>
         <View style={styles.fields}>
           <View style={styles.field}>
-            <Field label={t("sidebar.snooze.date")}>
-              <FormTextInput
-                initialValue={initialFields.date}
-                onChangeText={handleDateChange}
-                placeholder="YYYY-MM-DD"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isPending}
-                onSubmitEditing={handleSubmit}
-                testID="custom-snooze-date"
-              />
-            </Field>
+            <SelectField
+              label={t("sidebar.snooze.date")}
+              value={resolved.dayKey}
+              selectedDisplay={selectedDay}
+              options={dayOptions}
+              onChange={handleDayChange}
+              placeholder={t("sidebar.snooze.date")}
+              emptyText={t("sidebar.snooze.date")}
+              title={t("sidebar.snooze.date")}
+              disabled={isPending}
+              triggerTestID="custom-snooze-date"
+            />
           </View>
           <View style={styles.field}>
-            <Field label={t("sidebar.snooze.time")}>
-              <FormTextInput
-                initialValue={initialFields.time}
-                onChangeText={handleTimeChange}
-                placeholder="HH:MM"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isPending}
-                onSubmitEditing={handleSubmit}
-                testID="custom-snooze-time"
-              />
-            </Field>
+            <SelectField
+              label={t("sidebar.snooze.time")}
+              value={resolved.timeKey}
+              selectedDisplay={selectedTime}
+              options={timeOptions}
+              onChange={handleTimeChange}
+              placeholder={t("sidebar.snooze.time")}
+              emptyText={t("sidebar.snooze.time")}
+              title={t("sidebar.snooze.time")}
+              error={error}
+              disabled={isPending}
+              triggerTestID="custom-snooze-time"
+            />
           </View>
         </View>
-        {error ? (
-          <Text style={styles.errorText} testID="custom-snooze-error">
-            {error}
-          </Text>
-        ) : null}
         <View style={styles.actions}>
           <Button
             variant="secondary"
@@ -131,7 +163,7 @@ function CustomSnoozeSheet({
             size="sm"
             style={styles.actionButton}
             onPress={handleSubmit}
-            disabled={isPending || parsed.kind !== "valid"}
+            disabled={isPending}
             testID="custom-snooze-submit"
           >
             {t("sidebar.snooze.submit")}
@@ -153,10 +185,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   field: {
     flex: 1,
-  },
-  errorText: {
-    color: theme.colors.palette.red[300],
-    fontSize: theme.fontSize.sm,
   },
   actions: {
     flexDirection: "row",

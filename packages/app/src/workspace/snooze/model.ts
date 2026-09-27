@@ -60,6 +60,15 @@ export interface WorkspaceSnoozeState {
   statusEnteredAt: Date | null;
 }
 
+/**
+ * False while the workspace already needs you. Waking depends on a new attention event, and a
+ * workspace that is already waiting on you has none coming, so a snooze would hide it for the
+ * whole snooze. Mark it as read first.
+ */
+export function canSnoozeWorkspace(status: WorkspaceDescriptor["status"]): boolean {
+  return !RAISED_HAND_STATUSES.has(status);
+}
+
 /** True if the workspace entered an attention bucket after it was snoozed. */
 export function hasRaisedHandWhileSnoozed(state: WorkspaceSnoozeState): boolean {
   if (!state.snooze || !state.statusEnteredAt || !RAISED_HAND_STATUSES.has(state.status)) {
@@ -107,53 +116,108 @@ export function nextSnoozeWakeAtMs(
   return next;
 }
 
-export type CustomSnoozeParseResult =
-  | { kind: "valid"; until: Date }
-  | { kind: "invalid"; reason: "format" | "past" };
+const DAY_OPTION_COUNT = 14;
+const TIME_STEP_MINUTES = 30;
 
-const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const TIME_PATTERN = /^(\d{1,2}):(\d{2})$/;
+export interface SnoozeDayOption {
+  /** Local `YYYY-MM-DD`. */
+  key: string;
+  /** Days after today: 0 is today, 1 is tomorrow. */
+  offset: number;
+  date: Date;
+}
 
-/** Parses a local `YYYY-MM-DD` date and `HH:MM` time into a future wake time. */
-export function parseCustomSnooze(input: {
-  date: string;
-  time: string;
-  now: Date;
-}): CustomSnoozeParseResult {
-  const dateMatch = DATE_PATTERN.exec(input.date.trim());
-  const timeMatch = TIME_PATTERN.exec(input.time.trim());
-  if (!dateMatch || !timeMatch) {
-    return { kind: "invalid", reason: "format" };
-  }
-  const year = Number(dateMatch[1]);
-  const month = Number(dateMatch[2]) - 1;
-  const day = Number(dateMatch[3]);
-  const hours = Number(timeMatch[1]);
-  const minutes = Number(timeMatch[2]);
-  const until = new Date(year, month, day, hours, minutes, 0, 0);
-  const roundTrips =
-    until.getFullYear() === year &&
-    until.getMonth() === month &&
-    until.getDate() === day &&
-    until.getHours() === hours &&
-    until.getMinutes() === minutes;
-  if (!roundTrips) {
-    return { kind: "invalid", reason: "format" };
-  }
-  if (until.getTime() <= input.now.getTime()) {
-    return { kind: "invalid", reason: "past" };
-  }
-  return { kind: "valid", until };
+export interface SnoozeTimeOption {
+  /** Local `HH:MM`. */
+  key: string;
+  hours: number;
+  minutes: number;
+}
+
+export interface CustomSnoozeSelection {
+  dayKey: string;
+  timeKey: string;
+}
+
+export interface ResolvedCustomSnooze extends CustomSnoozeSelection {
+  days: SnoozeDayOption[];
+  times: SnoozeTimeOption[];
+  until: Date;
 }
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-/** Formats a date as the local `YYYY-MM-DD` and `HH:MM` strings the custom form edits. */
-export function formatCustomSnoozeFields(date: Date): { date: string; time: string } {
-  return {
-    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  };
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function withTime(day: Date, time: SnoozeTimeOption): Date {
+  const date = new Date(day);
+  date.setHours(time.hours, time.minutes, 0, 0);
+  return date;
+}
+
+/** Returns the half-hour slots on `day` that are still in the future at `now`. */
+export function resolveSnoozeTimeOptions(day: Date, now: Date): SnoozeTimeOption[] {
+  const options: SnoozeTimeOption[] = [];
+  for (let minuteOfDay = 0; minuteOfDay < 24 * 60; minuteOfDay += TIME_STEP_MINUTES) {
+    const option = {
+      key: `${pad(Math.floor(minuteOfDay / 60))}:${pad(minuteOfDay % 60)}`,
+      hours: Math.floor(minuteOfDay / 60),
+      minutes: minuteOfDay % 60,
+    };
+    if (withTime(day, option).getTime() > now.getTime()) {
+      options.push(option);
+    }
+  }
+  return options;
+}
+
+/** Returns the next two weeks of days, leaving out today once none of its slots remain. */
+export function resolveSnoozeDayOptions(now: Date): SnoozeDayOption[] {
+  const days: SnoozeDayOption[] = [];
+  for (let offset = 0; offset < DAY_OPTION_COUNT; offset += 1) {
+    const date = new Date(now);
+    date.setDate(date.getDate() + offset);
+    date.setHours(0, 0, 0, 0);
+    if (offset === 0 && resolveSnoozeTimeOptions(date, now).length === 0) {
+      continue;
+    }
+    days.push({ key: dayKey(date), offset, date });
+  }
+  return days;
+}
+
+/** The custom picker's starting point: tomorrow at 9:00. */
+export function defaultCustomSnoozeSelection(now: Date): CustomSnoozeSelection {
+  const tomorrow = atLocalHour(now, 1, MORNING_HOUR);
+  return { dayKey: dayKey(tomorrow), timeKey: `${pad(MORNING_HOUR)}:00` };
+}
+
+/**
+ * Resolves a picker selection against `now`. A day that is no longer offered falls back to
+ * tomorrow; a time that passed while the picker was open falls back to the next free slot.
+ */
+export function resolveCustomSnooze(
+  selection: CustomSnoozeSelection,
+  now: Date,
+): ResolvedCustomSnooze {
+  const days = resolveSnoozeDayOptions(now);
+  const fallback = defaultCustomSnoozeSelection(now);
+  const day =
+    days.find((option) => option.key === selection.dayKey) ??
+    days.find((option) => option.key === fallback.dayKey) ??
+    days[0];
+  // Tomorrow is always offered with every slot, so neither fallback is ever reached.
+  if (!day) {
+    throw new Error("No snooze day is available");
+  }
+  const times = resolveSnoozeTimeOptions(day.date, now);
+  const time = times.find((option) => option.key === selection.timeKey) ?? times[0];
+  if (!time) {
+    throw new Error("No snooze time is available");
+  }
+  return { dayKey: day.key, timeKey: time.key, days, times, until: withTime(day.date, time) };
 }

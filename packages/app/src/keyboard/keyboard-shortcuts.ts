@@ -169,7 +169,7 @@ export const SHORTCUT_HELP_ROW_ORDER: Record<ShortcutSectionId, readonly string[
     "workspace-next",
     "pin-workspace",
     "archive-workspace",
-    "undo-sidebar-action",
+    "undo-workspace-action",
   ],
   "tabs-panes": [
     "workspace-tab-new",
@@ -219,7 +219,7 @@ const SHORTCUT_HELP_LABEL_KEYS: Record<string, string> = {
   "new-workspace": "settings.shortcuts.help.newWorkspace",
   "switch-project": "settings.shortcuts.help.switchProject",
   "archive-workspace": "settings.shortcuts.help.archiveWorkspace",
-  "undo-sidebar-action": "settings.shortcuts.help.undo",
+  "undo-workspace-action": "settings.shortcuts.help.undo",
   "workspace-tab-new": "settings.shortcuts.help.newTab",
   "workspace-tab-target-agent": "workspace.tabs.actions.newAgent",
   "workspace-tab-target-browser": "workspace.tabs.actions.newBrowser",
@@ -400,7 +400,7 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
 
-  // --- Undo sidebar action ---
+  // --- Undo workspace action ---
   // Only outside text fields, the terminal, and the browser, where Mod+Z already means undo.
   {
     id: "workspace-undo-cmd-z-mac",
@@ -408,9 +408,9 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     combo: "Cmd+Z",
     when: { mac: true, commandCenter: false, focusScope: "other" },
     help: {
-      id: "undo-sidebar-action",
+      id: "undo-workspace-action",
       section: "workspaces",
-      label: "Undo last sidebar action",
+      label: "Undo last workspace action",
     },
   },
   {
@@ -419,9 +419,9 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
     combo: "Ctrl+Z",
     when: { mac: false, commandCenter: false, focusScope: "other" },
     help: {
-      id: "undo-sidebar-action",
+      id: "undo-workspace-action",
       section: "workspaces",
-      label: "Undo last sidebar action",
+      label: "Undo last workspace action",
     },
   },
 
