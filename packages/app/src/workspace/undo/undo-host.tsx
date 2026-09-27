@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { KeyboardActionId } from "@/keyboard/keyboard-action-dispatcher";
 import { i18n } from "@/i18n/i18next";
+import { toErrorMessage } from "@/utils/error-messages";
 import { UNDO_WINDOW_MS, type UndoEntry } from "./queue";
 import { getLatestWorkspaceUndo, runWorkspaceUndo, useWorkspaceUndoStore } from "./store";
 
@@ -28,7 +29,7 @@ export function WorkspaceUndoHost() {
     (entry: UndoEntry) => {
       toast.dismiss(UNDO_TOAST_KEY);
       void runWorkspaceUndo(entry.id).catch((error) => {
-        toast.error(error instanceof Error ? error.message : i18n.t("sidebar.undo.failed"));
+        toast.error(toErrorMessage(error) || i18n.t("sidebar.undo.failed"));
       });
     },
     [toast],

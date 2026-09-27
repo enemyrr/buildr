@@ -1,6 +1,5 @@
 import { useEffect } from "react";
-import { isWeb } from "@/constants/platform";
-import { getIsElectronRuntime } from "@/constants/layout";
+import { getIsElectron, isWeb } from "@/constants/platform";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { collectImageFilesFromClipboardData } from "@/utils/image-attachments-from-files";
@@ -94,7 +93,7 @@ export function createPlainPasteIntent(now: () => number): PlainPasteIntent {
 const PLAIN_PASTE_DESKTOP_EVENT = "plain-paste-requested";
 
 function listenForDesktopPlainPaste(onRequest: () => void): () => void {
-  if (!getIsElectronRuntime()) return () => {};
+  if (!getIsElectron()) return () => {};
   let isDisposed = false;
   let unlisten: (() => void) | null = null;
   void listenToDesktopEvent(PLAIN_PASTE_DESKTOP_EVENT, onRequest).then((dispose) => {

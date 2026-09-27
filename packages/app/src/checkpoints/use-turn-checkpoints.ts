@@ -13,6 +13,7 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 import { useFetchQuery } from "@/data/query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
+import { toErrorMessage } from "@/utils/error-messages";
 
 function agentCheckpointsQueryKey(serverId: string, agentId: string) {
   return ["agentCheckpoints", serverId, agentId] as const;
@@ -193,7 +194,7 @@ export function useRestoreTurnFiles(input: {
       });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t("panels.diff.restoreFailed"));
+      toast.error(toErrorMessage(error) || t("panels.diff.restoreFailed"));
     },
   });
   const confirmAndRestore = useCallback(

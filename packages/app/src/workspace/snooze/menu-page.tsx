@@ -21,6 +21,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useHostFeature } from "@/runtime/host-features";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import type { Theme } from "@/styles/theme";
+import { toErrorMessage } from "@/utils/error-messages";
 import { formatSnoozeWake, setWorkspaceSnoozeWithUndo, type SnoozeTarget } from "./actions";
 import { useCustomSnoozeStore } from "./custom-snooze-store";
 import {
@@ -140,7 +141,7 @@ function WorkspaceSnoozePage({ target }: { target: SnoozeTarget }): ReactElement
   const apply = useCallback(
     (until: Date | null) => {
       void setWorkspaceSnoozeWithUndo({ target, until, previous: snooze }).catch((error) => {
-        toast.error(error instanceof Error ? error.message : t("sidebar.snooze.failed"));
+        toast.error(toErrorMessage(error) || t("sidebar.snooze.failed"));
       });
     },
     [snooze, t, target, toast],
