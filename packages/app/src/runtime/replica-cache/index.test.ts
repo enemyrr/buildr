@@ -524,6 +524,40 @@ describe("ReplicaCache", () => {
     expect((await reader.readTimeline(SERVER_ID, "agent-1"))?.items).toEqual([pluginItem]);
   });
 
+  it("round-trips tool calls whose detail the daemon omitted", async () => {
+    const storage = new MemoryStorage();
+    const writer = createCache(storage);
+    const toolCall: StreamItem = {
+      kind: "tool_call",
+      id: "agent_tool_write-1",
+      timestamp: new Date("2026-07-18T08:02:00.000Z"),
+      timelineCursor: { epoch: "epoch-1", seq: 12 },
+      payload: {
+        source: "agent",
+        data: {
+          provider: "claude",
+          callId: "write-1",
+          name: "Write",
+          status: "completed",
+          error: null,
+          detail: { type: "write", filePath: "/repo/a.ts" },
+          detailOmitted: true,
+          lineStats: { additions: 40, deletions: 0 },
+        },
+      },
+    };
+    writer.commitTimeline(SERVER_ID, "agent-1", {
+      agentId: "agent-1",
+      items: [toolCall],
+      range: { epoch: "epoch-1", startSeq: 12, endSeq: 12 },
+      hasOlder: true,
+    });
+    await writer.flush();
+
+    const reader = createCache(storage);
+    expect((await reader.readTimeline(SERVER_ID, "agent-1"))?.items).toEqual([toolCall]);
+  });
+
   it("drops cached plugin timeline items without a plugin-local id", async () => {
     const storage = new MemoryStorage();
     const writer = createCache(storage);

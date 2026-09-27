@@ -1,4 +1,4 @@
-import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
+import { computeToolCallLineStats } from "@getpaseo/protocol/tool-call-line-stats";
 import type { StreamItem, ToolCallItem } from "@/types/stream";
 import type { StreamStrategy } from "./strategy";
 import { continuesResponse } from "./turn-membership";
@@ -10,58 +10,6 @@ export interface TurnFileChange {
   deletions: number;
 }
 
-interface LineDiffStat {
-  additions: number;
-  deletions: number;
-}
-
-function splitLines(text: string | undefined): string[] {
-  if (!text) return [];
-  const lines = text.split("\n");
-  if (lines.at(-1) === "") lines.pop();
-  return lines;
-}
-
-function countUnifiedDiff(diff: string): LineDiffStat {
-  let additions = 0;
-  let deletions = 0;
-  for (const line of diff.split("\n")) {
-    if (line.startsWith("+") && !line.startsWith("+++")) additions += 1;
-    else if (line.startsWith("-") && !line.startsWith("---")) deletions += 1;
-  }
-  return { additions, deletions };
-}
-
-/** Lines only on one side, matched as a multiset. Close to `git diff --stat` for edit hunks. */
-function countReplacement(before: string[], after: string[]): LineDiffStat {
-  const remaining = new Map<string, number>();
-  for (const line of before) {
-    remaining.set(line, (remaining.get(line) ?? 0) + 1);
-  }
-  let additions = 0;
-  for (const line of after) {
-    const count = remaining.get(line) ?? 0;
-    if (count > 0) remaining.set(line, count - 1);
-    else additions += 1;
-  }
-  let deletions = 0;
-  for (const count of remaining.values()) deletions += count;
-  return { additions, deletions };
-}
-
-export function computeLineDiffStat(detail: ToolCallDetail): LineDiffStat | null {
-  if (detail.type === "write") {
-    return { additions: splitLines(detail.content).length, deletions: 0 };
-  }
-  if (detail.type !== "edit") {
-    return null;
-  }
-  if (detail.unifiedDiff) {
-    return countUnifiedDiff(detail.unifiedDiff);
-  }
-  return countReplacement(splitLines(detail.oldString), splitLines(detail.newString));
-}
-
 function fileNameOf(filePath: string): string {
   return filePath.split(/[\\/]/).findLast((part) => part.length > 0) ?? filePath;
 }
@@ -71,10 +19,10 @@ export function collectTurnFileChanges(calls: readonly ToolCallItem[]): TurnFile
   const byPath = new Map<string, TurnFileChange>();
   for (const call of calls) {
     if (call.payload.source !== "agent") continue;
-    const { detail, status } = call.payload.data;
+    const { detail, status, lineStats } = call.payload.data;
     if (status === "failed" || status === "canceled") continue;
     if (detail.type !== "edit" && detail.type !== "write") continue;
-    const stat = computeLineDiffStat(detail);
+    const stat = lineStats ?? computeToolCallLineStats(detail);
     if (!stat) continue;
     const existing = byPath.get(detail.filePath);
     if (existing) {

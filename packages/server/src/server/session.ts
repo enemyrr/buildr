@@ -126,6 +126,8 @@ import {
   emitLiveTimelineItemIfAgentKnown,
 } from "./agent/timeline-append.js";
 import { assertPluginTimelineDataSize } from "./agent/agent-timeline-content.js";
+import { compactToolCallItem } from "./agent/tool-call-detail-compaction.js";
+import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import { parsePluginClientId } from "./plugins/plugin-session-identity.js";
 import { buildAgentForkContextAttachment } from "./agent/activity-curator.js";
 import { buildAgentPrompt } from "./agent/prompt-attachments.js";
@@ -1281,6 +1283,12 @@ export class Session {
     return owner;
   }
 
+  private supportsCompactToolCallDetails(source?: object): boolean {
+    return source
+      ? this.supportsForSource(CLIENT_CAPS.compactToolCallDetails, source)
+      : this.supports(CLIENT_CAPS.compactToolCallDetails);
+  }
+
   // COMPAT(timelineItemCapabilities): plugin items added in v0.8.0, notifications in v0.7.2.
   // Remove after 2027-03-07 once the supported client floor is >= v0.8.0.
   private supportsTimelineItem(item: { type: string }, source?: object): boolean {
@@ -1312,6 +1320,20 @@ export class Session {
       type: "agent_stream",
       payload: this.buildAgentStreamPayload(event, serializedEvent),
     };
+    let compactMessage: SessionOutboundMessage | undefined;
+    const messageForSource = (source: object): SessionOutboundMessage => {
+      if (serializedEvent.type !== "timeline" || !this.supportsCompactToolCallDetails(source)) {
+        return message;
+      }
+      compactMessage ??= {
+        type: "agent_stream",
+        payload: this.buildAgentStreamPayload(event, {
+          ...serializedEvent,
+          item: compactToolCallItem(serializedEvent.item),
+        }),
+      };
+      return compactMessage;
+    };
     for (const subscription of this.timelineSubscriptions.values()) {
       const source = subscription.owner.source;
       if (!subscription.agentIds.has(event.agentId)) continue;
@@ -1326,7 +1348,7 @@ export class Session {
         !this.supportsTimelineItem(serializedEvent.item, source)
       )
         continue;
-      subscription.owner.emit(message);
+      subscription.owner.emit(messageForSource(source));
     }
     // COMPAT(ownedSubscriptions): added in v0.8.0, remove implicit timeline delivery after 2027-03-09.
     for (const [source, { capabilities }] of this.clientSources) {
@@ -1341,7 +1363,7 @@ export class Session {
         (subscription) =>
           subscription.owner.source === source && subscription.agentIds.has(event.agentId),
       );
-      if (!alreadyDelivered) this.onMessageToSource?.(source, message);
+      if (!alreadyDelivered) this.onMessageToSource?.(source, messageForSource(source));
     }
     if (
       this.clientSources.size === 0 &&
@@ -2654,6 +2676,8 @@ export class Session {
         return Promise.resolve();
       case "agent.timeline.search.request":
         return this.handleAgentTimelineSearchRequest(msg, source);
+      case "agent.tool_call.get_detail.request":
+        return this.handleAgentToolCallGetDetailRequest(msg, source);
       case "agent.timeline.list_prompts.request":
         return this.handleAgentTimelineListPromptsRequest(msg, source);
       case "agent.provider_subagents.list.request":
@@ -7781,6 +7805,7 @@ export class Session {
       const entries = selectedTimeline.entries.filter((entry) =>
         this.supportsTimelineItem(entry.item, source),
       );
+      const compactToolCalls = this.supportsCompactToolCallDetails(source);
 
       this.emitForSource(
         {
@@ -7804,7 +7829,7 @@ export class Session {
             entries: entries.map((entry) => {
               const payloadEntry = {
                 provider: snapshot.provider,
-                item: entry.item,
+                item: compactToolCalls ? compactToolCallItem(entry.item) : entry.item,
                 timestamp: entry.timestamp,
                 seqStart: entry.seqStart,
                 seqEnd: entry.seqEnd,
@@ -7948,6 +7973,45 @@ export class Session {
       type: "agent.shell.run.response",
       payload: { requestId: msg.requestId, agentId: msg.agentId, error },
     });
+  }
+
+  private async handleAgentToolCallGetDetailRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.tool_call.get_detail.request" }>,
+    source?: object,
+  ): Promise<void> {
+    const reply = (detail: ToolCallDetail | null, error: string | null) =>
+      this.emitForSource(
+        {
+          type: "agent.tool_call.get_detail.response",
+          payload: {
+            requestId: msg.requestId,
+            agentId: msg.agentId,
+            callId: msg.callId,
+            detail,
+            error,
+          },
+        },
+        source,
+      );
+    try {
+      await ensureAgentLoaded(msg.agentId, {
+        agentManager: this.agentManager,
+        agentStorage: this.agentStorage,
+        logger: this.sessionLogger,
+      });
+      const toolCall = this.agentManager.getTimelineToolCall(msg.agentId, msg.callId);
+      if (!toolCall) {
+        reply(null, "Tool call not found");
+        return;
+      }
+      reply(toolCall.detail, null);
+    } catch (error) {
+      this.sessionLogger.error(
+        { err: error, agentId: msg.agentId, callId: msg.callId },
+        "Failed to handle agent.tool_call.get_detail.request",
+      );
+      reply(null, error instanceof Error ? error.message : "Failed to load the tool call");
+    }
   }
 
   private async handleAgentTimelineSearchRequest(

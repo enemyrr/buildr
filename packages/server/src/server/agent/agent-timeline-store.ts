@@ -148,6 +148,19 @@ export class InMemoryAgentTimelineStore {
     return cloneRow(row);
   }
 
+  /** The projected tool call, which already folds its running updates into one item. */
+  findToolCall(
+    agentId: string,
+    callId: string,
+  ): Extract<AgentTimelineItem, { type: "tool_call" }> | null {
+    const row = this.requireState(agentId)
+      .projection.getRows()
+      .findLast(
+        (candidate) => candidate.item.type === "tool_call" && candidate.item.callId === callId,
+      );
+    return row?.item.type === "tool_call" ? row.item : null;
+  }
+
   getLastItem(agentId: string): AgentTimelineItem | null {
     const state = this.requireState(agentId);
     return state.projection.getRows().find((row) => row.seqEnd === state.nextSeq - 1)?.item ?? null;

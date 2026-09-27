@@ -502,6 +502,7 @@ function createDefaultDeps(): HostRuntimeControllerDeps {
     : undefined;
   const appCapabilities = {
     ...browserAutomationCapabilities,
+    [CLIENT_CAPS.compactToolCallDetails]: true,
   };
 
   return {

@@ -10,7 +10,8 @@ For terminal output, which is a separate pipeline with separate budgets, see [te
 provider deltas (every provider streams incrementally)
   → AgentStreamCoalescer (daemon, leading + trailing, ≤1 message per 60ms per agent)
   → recordTimeline: one canonical row per flushed item
-  → agent_stream ws message
+  → compactToolCallItem (clients that advertise compact_tool_call_details)
+  → agent_stream ws message (permessage-deflate)
   → reducer queue (app, one commit per frame) → session store
   → source-item plugin transforms → native Markdown blocks / tool grouping
   → paced reveal (app, per displayed item) → paint
@@ -26,6 +27,7 @@ So arrival sets a _target_ and the reveal rate is derived from the backlog inste
 
 ## Invariants
 
+- **Tool call bodies load on demand.** File contents, diffs, command output, and MCP results are most of a timeline's bytes, and the collapsed row shows none of them. For clients that advertise `compact_tool_call_details`, the daemon drops bodies over 2 KB from live events and history pages, sets `detailOmitted`, and sends `lineStats` for edits and writes so the turn footer can still count lines. Expanding the row fetches the full detail with `agent.tool_call.get_detail`. The capability is opt-in, not a client default, because the CLI and plugins read tool output straight from the timeline. User shell commands keep their output because they render expanded. See `packages/server/src/server/agent/tool-call-detail-compaction.ts`.
 - **The coalescer is leading + trailing.** The first delta after an idle window flushes synchronously; only the rest of the burst waits for the trailing timer. Reverting to trailing-only adds a full window to the first character of every turn. Same shape and the same reason as `TerminalOutputCoalescer`.
 - **The leading flush adds a canonical row, and that is fine.** A burst's first chunk lands as its own timeline row. `mergeAssistantChunks` / `mergeReasoningChunks` in `timeline-projection.ts` join contiguous same-turn rows, and clients read the projected timeline, so history is unaffected. Tests that assert on raw rows have to account for the extra row; tests that assert on what a client sees do not.
 - **The store holds the full text; only the rendered slice is paced.** Copy, selection, the chat outline, and scroll geometry all read the same string the user can see. Pacing the store instead would leave the bottom anchor chasing a content height that is ahead of the reveal.

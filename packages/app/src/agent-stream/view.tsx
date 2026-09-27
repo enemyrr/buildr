@@ -46,7 +46,8 @@ import {
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
-import type { StreamItem, ToolCallItem } from "@/types/stream";
+import type { AgentToolCallData, StreamItem, ToolCallItem } from "@/types/stream";
+import type { ToolCallDetailSource } from "@/tool-calls/use-tool-call-detail";
 import type { PendingMessageSubmission } from "@/composer/submission/model";
 import type { TurnPresentation } from "@/timeline/turn-liveness";
 import type { PendingPermission } from "@/types/shared";
@@ -858,6 +859,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               error={data.error}
               status={data.status}
               detail={data.detail}
+              detailSource={toolCallDetailSource(resolvedServerId, agentId, data)}
               cwd={context.cwd}
               metadata={data.metadata}
               isLastInSequence={isLastInSequence}
@@ -883,6 +885,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         );
       },
       [
+        agentId,
         context.cwd,
         resolvedServerId,
         setInlineDetailsExpanded,
@@ -1439,6 +1442,15 @@ function ThoughtSlot({
       forceInline={defaultExpanded}
     />
   );
+}
+
+function toolCallDetailSource(
+  serverId: string,
+  agentId: string,
+  data: AgentToolCallData,
+): ToolCallDetailSource | undefined {
+  if (!data.detailOmitted) return undefined;
+  return { serverId, agentId, callId: data.callId, isRunning: data.status === "running" };
 }
 
 function ToolCallSlot({

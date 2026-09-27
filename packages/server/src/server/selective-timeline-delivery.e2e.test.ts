@@ -184,6 +184,7 @@ async function connect(input: {
   timelineNotifications?: boolean;
   pluginTimelineItems?: boolean;
   workspaceSetupBlocked?: boolean;
+  compactToolCallDetails?: boolean;
 }): Promise<ConnectedClient> {
   let socket!: WebSocket;
   const client = new DaemonClient({
@@ -202,6 +203,7 @@ async function connect(input: {
         ? {}
         : { [CLIENT_CAPS.timelineNotifications]: input.timelineNotifications }),
       [CLIENT_CAPS.timelineReplacementInvalidation]: input.timelineReplacementInvalidation ?? false,
+      [CLIENT_CAPS.compactToolCallDetails]: input.compactToolCallDetails ?? false,
     },
     reconnect: { enabled: false },
   });
@@ -286,6 +288,72 @@ test("notification timeline items are sent only to clients that advertise suppor
   );
   expect(legacyTimeline.window).toEqual(capableTimeline.window);
   expect(legacyTimeline.endCursor).toEqual(capableTimeline.endCursor);
+});
+
+test("large tool call bodies are omitted only for clients that load them on demand", async () => {
+  await daemon.close();
+  daemon = await createTestPaseoDaemon({
+    isDev: true,
+    agentClients: { mock: new MockLoadTestAgentClient() },
+  });
+  const compact = await connect({
+    clientId: "compact-tool-calls",
+    selective: false,
+    compactToolCallDetails: true,
+  });
+  const full = await connect({ clientId: "full-tool-calls", selective: false });
+  const agent = await compact.client.createAgent({
+    provider: "mock",
+    cwd: "/tmp",
+    title: "Compact tool calls",
+    model: "ten-second-stream",
+  });
+  compact.clear();
+  full.clear();
+  const content = "line\n".repeat(1000);
+
+  await daemon.daemon.agentManager.appendTimelineItem(agent.id, {
+    type: "tool_call",
+    callId: "read-1",
+    name: "Read",
+    status: "completed",
+    error: null,
+    detail: { type: "read", filePath: "/tmp/a.ts", content },
+  });
+  const isReadCall = (message: SessionOutboundMessage) =>
+    message.type === "agent_stream" &&
+    message.payload.event.type === "timeline" &&
+    message.payload.event.item.type === "tool_call";
+  const [compactLive, fullLive] = await Promise.all([
+    compact.next(isReadCall, "compact tool call delivery"),
+    full.next(isReadCall, "full tool call delivery"),
+  ]);
+
+  const liveItem = (message: SessionOutboundMessage) =>
+    message.type === "agent_stream" && message.payload.event.type === "timeline"
+      ? message.payload.event.item
+      : null;
+  expect(liveItem(compactLive)).toMatchObject({
+    detail: { type: "read", filePath: "/tmp/a.ts" },
+    detailOmitted: true,
+  });
+  expect(liveItem(compactLive)).not.toHaveProperty("detail.content");
+  expect(liveItem(fullLive)).toMatchObject({ detail: { content } });
+  expect(liveItem(fullLive)).not.toHaveProperty("detailOmitted");
+
+  const [compactTimeline, fullTimeline] = await Promise.all([
+    compact.client.fetchAgentTimeline(agent.id, { direction: "tail" }),
+    full.client.fetchAgentTimeline(agent.id, { direction: "tail" }),
+  ]);
+  const toolCall = (entries: typeof compactTimeline.entries) =>
+    entries.find((entry) => entry.item.type === "tool_call")?.item;
+  expect(toolCall(compactTimeline.entries)).toMatchObject({ detailOmitted: true });
+  expect(toolCall(compactTimeline.entries)).not.toHaveProperty("detail.content");
+  expect(toolCall(fullTimeline.entries)).toMatchObject({ detail: { content } });
+
+  await expect(
+    compact.client.getAgentToolCallDetail({ agentId: agent.id, callId: "read-1" }),
+  ).resolves.toEqual({ type: "read", filePath: "/tmp/a.ts", content });
 });
 
 test("plugin timeline items are sent only to clients that advertise support", async () => {

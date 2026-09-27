@@ -317,6 +317,15 @@ interface ToolCallBase {
   name: string;
   detail: ToolCallDetail;
   metadata?: Record<string, unknown>;
+  /** The daemon left out heavy detail fields; fetch them with `agent.tool_call.get_detail`. */
+  detailOmitted?: boolean;
+  /** Line counts for edit and write calls, sent when the file contents are omitted. */
+  lineStats?: ToolCallLineStats;
+}
+
+export interface ToolCallLineStats {
+  additions: number;
+  deletions: number;
 }
 
 type ToolCallRunningTimelineItem = ToolCallBase & {

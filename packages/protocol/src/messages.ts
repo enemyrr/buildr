@@ -651,6 +651,14 @@ const ToolCallBasePayloadSchema = z.object({
   name: z.string(),
   detail: ToolCallDetailPayloadSchema,
   metadata: z.record(z.string(), z.unknown()).optional(),
+  // Set only for clients that advertise compact_tool_call_details.
+  detailOmitted: z.boolean().optional(),
+  lineStats: z
+    .object({
+      additions: z.number().int().nonnegative(),
+      deletions: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 const ToolCallRunningPayloadSchema = ToolCallBasePayloadSchema.extend({
@@ -2078,6 +2086,14 @@ export const AgentCheckpointGetTurnDiffRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+// Loads the full detail of a tool call that the timeline sent with `detailOmitted`.
+export const AgentToolCallGetDetailRequestMessageSchema = z.object({
+  type: z.literal("agent.tool_call.get_detail.request"),
+  agentId: z.string(),
+  callId: z.string(),
+  requestId: z.string(),
+});
+
 // Restores the agent's working tree to the checkpoint captured when the turn started.
 export const AgentCheckpointRestoreFilesRequestMessageSchema = z.object({
   type: z.literal("agent.checkpoint.restore_files.request"),
@@ -3410,6 +3426,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   AgentCheckpointListRequestMessageSchema,
   AgentCheckpointGetTurnDiffRequestMessageSchema,
   AgentCheckpointRestoreFilesRequestMessageSchema,
+  AgentToolCallGetDetailRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   CheckoutDiffGetRequestSchema,
@@ -5795,6 +5812,17 @@ export const AgentCheckpointGetTurnDiffResponseMessageSchema = z.object({
   }),
 });
 
+export const AgentToolCallGetDetailResponseMessageSchema = z.object({
+  type: z.literal("agent.tool_call.get_detail.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    callId: z.string(),
+    detail: ToolCallDetailPayloadSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 export const AgentCheckpointRestoreFilesResponseMessageSchema = z.object({
   type: z.literal("agent.checkpoint.restore_files.response"),
   payload: z.object({
@@ -7160,6 +7188,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   AgentCheckpointListResponseMessageSchema,
   AgentCheckpointGetTurnDiffResponseMessageSchema,
   AgentCheckpointRestoreFilesResponseMessageSchema,
+  AgentToolCallGetDetailResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   ProjectRenameResponseSchema,
   ProjectIconSetResponseSchema,
@@ -7366,6 +7395,9 @@ export type AgentRewindResponseMessage = z.infer<typeof AgentRewindResponseMessa
 export type AgentTurnCheckpoint = z.infer<typeof AgentTurnCheckpointSchema>;
 export type AgentCheckpointListResponseMessage = z.infer<
   typeof AgentCheckpointListResponseMessageSchema
+>;
+export type AgentToolCallGetDetailResponseMessage = z.infer<
+  typeof AgentToolCallGetDetailResponseMessageSchema
 >;
 export type AgentCheckpointGetTurnDiffResponseMessage = z.infer<
   typeof AgentCheckpointGetTurnDiffResponseMessageSchema
@@ -7774,6 +7806,7 @@ export const WSHelloMessageSchema = z.object({
       [CLIENT_CAPS.providerSnapshotReferences]: z.boolean().optional(),
       [CLIENT_CAPS.timelineReplacementInvalidation]: z.boolean().optional(),
       [CLIENT_CAPS.timelineNotifications]: z.boolean().optional(),
+      [CLIENT_CAPS.compactToolCallDetails]: z.boolean().optional(),
       [CLIENT_CAPS.browserHost]: BrowserAutomationHostCapabilitySchema.optional(),
     })
     .passthrough()

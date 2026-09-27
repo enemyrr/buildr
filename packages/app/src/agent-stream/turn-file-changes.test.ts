@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
 import type { StreamItem, ToolCallItem } from "@/types/stream";
-import {
-  collectResponseToolCalls,
-  collectTurnFileChanges,
-  computeLineDiffStat,
-} from "./turn-file-changes";
+import { collectResponseToolCalls, collectTurnFileChanges } from "./turn-file-changes";
 
 const TIMESTAMP = new Date("2026-01-01T00:00:00.000Z");
 
@@ -30,35 +26,6 @@ const forward = {
     relation === "above" ? index - 1 : index + 1,
 };
 
-describe("computeLineDiffStat", () => {
-  it("counts a unified diff without its file headers", () => {
-    const unifiedDiff = "--- a/x\n+++ b/x\n@@ -1,2 +1,2 @@\n-old\n+new\n+more\n same";
-
-    expect(computeLineDiffStat({ type: "edit", filePath: "x", unifiedDiff })).toEqual({
-      additions: 2,
-      deletions: 1,
-    });
-  });
-
-  it("counts only the lines an edit changed", () => {
-    const detail: ToolCallDetail = {
-      type: "edit",
-      filePath: "x",
-      oldString: "a\nb\nc",
-      newString: "a\nB\nc\nd",
-    };
-
-    expect(computeLineDiffStat(detail)).toEqual({ additions: 2, deletions: 1 });
-  });
-
-  it("counts every written line as an addition", () => {
-    expect(computeLineDiffStat({ type: "write", filePath: "x", content: "1\n2\n3\n" })).toEqual({
-      additions: 3,
-      deletions: 0,
-    });
-  });
-});
-
 describe("collectTurnFileChanges", () => {
   it("sums changes per file and skips failed calls and reads", () => {
     const changes = collectTurnFileChanges([
@@ -70,6 +37,20 @@ describe("collectTurnFileChanges", () => {
 
     expect(changes).toEqual([
       { filePath: "/repo/src/a.ts", fileName: "a.ts", additions: 3, deletions: 1 },
+    ]);
+  });
+
+  it("uses the daemon's line stats when the contents were omitted", () => {
+    const write = call("1", { type: "write", filePath: "/repo/a.ts" });
+    if (write.payload.source !== "agent") throw new Error("expected an agent call");
+    write.payload.data = {
+      ...write.payload.data,
+      detailOmitted: true,
+      lineStats: { additions: 40, deletions: 2 },
+    };
+
+    expect(collectTurnFileChanges([write])).toEqual([
+      { filePath: "/repo/a.ts", fileName: "a.ts", additions: 40, deletions: 2 },
     ]);
   });
 });

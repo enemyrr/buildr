@@ -44,6 +44,9 @@ export const CLIENT_CAPS = {
   pluginTimelineItems: "plugin_timeline_items",
   // COMPAT(workspaceSetupBlocked): added in v0.8.0, remove after 2027-03-07 once client floor >= v0.8.0.
   workspaceSetupBlocked: "workspace_setup_blocked",
+  // Opt-in, not a default: the client must fetch omitted tool call details on demand with
+  // agent.tool_call.get_detail. CLIs and plugins that read tool output keep full items.
+  compactToolCallDetails: "compact_tool_call_details",
   browserHost: "browser_host",
 } as const;
 
