@@ -35,6 +35,18 @@ async function blurFocusedElement(page: Page): Promise<void> {
   });
 }
 
+// A row is filled when its background isn't transparent. Hover and keyboard focus draw the same
+// fill, so a focused row plus a hovered row counts as two.
+function countFilledMenuRows(page: Page): Promise<number> {
+  return page.locator('[data-menu-surface="true"] [data-menu-item="true"]').evaluateAll(
+    (nodes) =>
+      nodes.filter((node) => {
+        const color = getComputedStyle(node).backgroundColor;
+        return color !== "rgba(0, 0, 0, 0)" && color !== "transparent";
+      }).length,
+  );
+}
+
 test.describe("Sidebar snooze and undo", () => {
   let workspace: SeededWorkspace;
 
@@ -77,6 +89,19 @@ test.describe("Sidebar snooze and undo", () => {
     await toast.getByTestId("workspace-undo-toast-action").click();
 
     await expect(workspaceRow(page, workspace.workspaceId)).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("only the hovered workspace menu row is filled", async ({ page }) => {
+    const key = workspaceKey(workspace.workspaceId);
+    const row = workspaceRow(page, workspace.workspaceId);
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await row.click({ button: "right" });
+
+    const items = page.locator('[data-menu-surface="true"] [data-menu-item="true"]');
+    await expect(items.first()).toBeVisible();
+    await page.getByTestId(`sidebar-workspace-menu-snooze-${key}`).hover();
+
+    await expect.poll(() => countFilledMenuRows(page)).toBe(1);
   });
 
   test("Mod+Z outside text fields undoes a pin", async ({ page }) => {
