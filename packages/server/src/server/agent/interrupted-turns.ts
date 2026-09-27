@@ -33,7 +33,10 @@ export interface InterruptedTurnDeps {
 interface MarkInterruptedTurnsInput {
   agentStorage: AgentStorage;
   now: Date;
-  /** If true, flags each agent with error attention. If false, leaves attention unchanged. */
+  /**
+   * If true, flags each agent with `finished` attention so the sidebar marks it. If false,
+   * leaves attention unchanged.
+   */
   flagAttention: boolean;
 }
 
@@ -71,7 +74,7 @@ function markInterrupted(
   const attention = options.flagAttention
     ? {
         requiresAttention: true,
-        attentionReason: "error" as const,
+        attentionReason: "finished" as const,
         attentionTimestamp: options.interruptedAt,
       }
     : {};
@@ -98,7 +101,7 @@ export async function continueInterruptedTurn(
   deps: InterruptedTurnDeps,
   agentId: string,
 ): Promise<void> {
-  // Loading first lets the timeline record the interruption before the continuation starts.
+  // Loading first hydrates the provider history that `resolveContinuationPrompt` compares.
   await ensureAgentLoaded(agentId, deps);
 
   const claimRunId = `continuation-${randomUUID()}`;

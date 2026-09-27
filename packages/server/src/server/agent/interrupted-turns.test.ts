@@ -37,7 +37,7 @@ function buildRecord(id: string, overrides: Partial<StoredAgentRecord>): StoredA
   };
 }
 
-test("marks a turn left running by a crash as interrupted and flags error attention", async () => {
+test("marks a turn left running by a crash as interrupted and flags finished attention", async () => {
   await storage.upsert(
     buildRecord("crashed", {
       lastStatus: "running",
@@ -57,7 +57,7 @@ test("marks a turn left running by a crash as interrupted and flags error attent
   expect(await storage.get("crashed")).toMatchObject({
     lastStatus: "closed",
     requiresAttention: true,
-    attentionReason: "error",
+    attentionReason: "finished",
     attentionTimestamp: NOW.toISOString(),
     unfinishedTurn: {
       state: "interrupted",

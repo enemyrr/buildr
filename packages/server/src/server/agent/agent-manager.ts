@@ -557,7 +557,6 @@ interface AgentMetadataPatch {
 }
 
 const SYSTEM_ERROR_PREFIX = "[System Error]";
-export const INTERRUPTED_TURN_NOTICE = "A daemon restart interrupted this turn.";
 
 function attachPersistenceCwd(
   handle: AgentPersistenceHandle | null,
@@ -3188,7 +3187,6 @@ export class AgentManager {
   ): Promise<void> {
     const agent = this.requireSessionAgent(agentId);
     await this.hydrateTimelineFromLegacyProviderHistory(agent, options);
-    await this.appendInterruptedTurnNotice(agent);
   }
 
   /**
@@ -3273,26 +3271,6 @@ export class AgentManager {
     );
     return (
       hasRunningProviderSubagent || hasBusyChild || agent.session.hasBackgroundWork?.() === true
-    );
-  }
-
-  private async appendInterruptedTurnNotice(agent: ActiveManagedAgent): Promise<void> {
-    const record = await this.registry?.get(agent.id);
-    if (record?.unfinishedTurn?.state !== "interrupted") return;
-    const lastItem = await this.getLastItemFromStores(agent.id);
-    if (lastItem?.type === "notification" && lastItem.message === INTERRUPTED_TURN_NOTICE) {
-      return;
-    }
-    const item: AgentTimelineItem = {
-      type: "notification",
-      level: "warning",
-      message: INTERRUPTED_TURN_NOTICE,
-    };
-    const row = this.recordTimeline(agent.id, item);
-    this.dispatchStream(
-      agent.id,
-      { type: "timeline", item, provider: agent.provider },
-      { seq: row.seq, epoch: this.timelineStore.getEpoch(agent.id), timestamp: row.timestamp },
     );
   }
 

@@ -53,23 +53,27 @@ be in flight.
 
 ### Turns interrupted by a restart
 
-Accepting a foreground turn writes `unfinishedTurn: { state: "running" }` with its prompt to the
-agent record, and the turn's terminal event clears it. Shutdown doesn't clear it, so the marker
-survives both a crash and a graceful stop or update. At startup, before anything loads,
-`markInterruptedTurns()` rewrites every `running` marker as `interrupted`, sets a stale `running`
-status to `closed`, and treats a record with a `running` status and no marker (written before the
-marker existed) the same way, without a prompt. Loading the agent appends a warning notification
-to its timeline. The record carries the interruption until a new turn starts, so it survives
-further restarts and idle unloads.
+A foreground turn is marked `unfinishedTurn.state: "running"` on the agent record while it runs,
+and only its terminal event clears the marker. Shutdown never clears it, so a crash, a graceful
+stop, and an update all look the same at the next start. At startup, before any runtime loads,
+`markInterruptedTurns()` (`packages/server/src/server/agent/interrupted-turns.ts`) turns each
+marker into `interrupted`. The interruption stays on the record until a new turn starts, so it
+survives further restarts and idle unloads.
 
-With `daemon.autoContinueInterruptedTurns` off (the default), the agent also gets `error`
-attention and the app shows **Continue** and **Dismiss** above the composer. Dismiss clears the
-marker without loading the agent. Continue, or the setting at startup, runs
-`continueInterruptedTurn()`: it resumes the agent, claims the marker back to `running`, and
-resubmits the stored prompt. Many providers write the user message to their history on receipt,
-so when the last user message in the resumed timeline matches the stored prompt, it sends
-`Continue where you left off.` instead of repeating it. It sends the same text when the prompt was
-over 256 KB. A failed start restores the `interrupted` marker.
+- **One surface.** The app shows the interruption only as the **Continue** / **Dismiss** callout
+  above the composer. The daemon adds no timeline item. With
+  `daemon.autoContinueInterruptedTurns` off (the default), it also sets `finished` attention so
+  the sidebar marks the agent; `error` would claim a failure the user must fix.
+- **Dismiss doesn't load the agent.** It only clears the marker.
+- **Continue never repeats a prompt the provider already has.** Many providers write the user
+  message to their history on receipt. When the resumed history already ends with the stored
+  prompt, or the prompt was over 256 KB and wasn't stored, Continue sends
+  `Continue where you left off.` instead.
+- **Continue claims the marker back to `running` before it sends.** A second Continue then fails
+  with `InterruptedTurnNotFoundError`, and a daemon stop mid-continue still leaves the turn
+  recoverable. A failed start restores the `interrupted` marker.
+- **Records written before the marker existed** show a crash only as a stale `running` status.
+  They're treated as interrupted without a prompt.
 
 ### Cancellation
 

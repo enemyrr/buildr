@@ -6,7 +6,6 @@ import path from "node:path";
 import { createDaemonTestContext, type DaemonTestContext } from "../test-utils/index.js";
 import type { AgentSnapshotPayload, PersistenceHandle } from "@getpaseo/protocol/messages";
 import type { DaemonClient } from "../test-utils/daemon-client.js";
-import { INTERRUPTED_TURN_NOTICE } from "../agent/agent-manager.js";
 
 const HELD_PROMPT = "Please hold the turn open";
 
@@ -20,6 +19,10 @@ function hasNoInterruption(snapshot: AgentSnapshotPayload): boolean {
   return snapshot.interruptedTurn === undefined;
 }
 
+function isNotification(item: { type: string }): boolean {
+  return item.type === "notification";
+}
+
 function tmpCwd(): string {
   return mkdtempSync(path.join(tmpdir(), "daemon-restart-resume-"));
 }
@@ -31,16 +34,6 @@ async function readTimelineItems(client: DaemonClient, agentId: string) {
 
 function userMessageText(item: Awaited<ReturnType<typeof readTimelineItems>>[number]): string[] {
   return item.type === "user_message" ? [item.text] : [];
-}
-
-function indexOfNotice(items: Awaited<ReturnType<typeof readTimelineItems>>): number {
-  return items.findIndex(
-    (item) => item.type === "notification" && item.message === INTERRUPTED_TURN_NOTICE,
-  );
-}
-
-function lastIndexOfHeldPrompt(items: Awaited<ReturnType<typeof readTimelineItems>>): number {
-  return items.findLastIndex((item) => item.type === "user_message" && item.text === HELD_PROMPT);
 }
 
 describe("daemon restart resume", () => {
@@ -157,7 +150,7 @@ describe("daemon restart resume", () => {
       expect(stored?.agent).toMatchObject({
         status: "closed",
         requiresAttention: true,
-        attentionReason: "error",
+        attentionReason: "finished",
         interruptedTurn: {
           startedAt: expect.any(String),
           interruptedAt: expect.any(String),
@@ -170,8 +163,8 @@ describe("daemon restart resume", () => {
       expect(continued?.agent.status).toBe("running");
       expect(continued?.agent.interruptedTurn).toBeUndefined();
       const items = await readTimelineItems(ctx.client, agentId);
-      expect(indexOfNotice(items)).toBeGreaterThan(-1);
-      expect(lastIndexOfHeldPrompt(items)).toBeGreaterThan(indexOfNotice(items));
+      expect(items.flatMap(userMessageText).at(-1)).toBe(HELD_PROMPT);
+      expect(items.some(isNotification)).toBe(false);
       await expect(ctx.client.continueInterruptedTurn(agentId)).rejects.toThrow(
         `Agent ${agentId} has no interrupted turn`,
       );
@@ -195,8 +188,8 @@ describe("daemon restart resume", () => {
       expect(continued.interruptedTurn).toBeUndefined();
       expect(continued.requiresAttention).toBe(false);
       const items = await readTimelineItems(ctx.client, agentId);
-      expect(indexOfNotice(items)).toBeGreaterThan(-1);
-      expect(lastIndexOfHeldPrompt(items)).toBeGreaterThan(indexOfNotice(items));
+      expect(items.flatMap(userMessageText).at(-1)).toBe(HELD_PROMPT);
+      expect(items.some(isNotification)).toBe(false);
     }, 60_000);
 
     test("clears the marker when the turn finishes normally", async () => {
