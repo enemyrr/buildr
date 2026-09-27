@@ -85,6 +85,7 @@ import {
   runMessageInputKeyboardAction,
   stopRealtimeVoice,
 } from "./state";
+import { resolveListKeyEdit } from "./list-continuation";
 
 const DEFAULT_SEND_KEYS: ShortcutKey[][] = [["Enter"]];
 const COMPOSER_INPUT_DATASET = { composerInput: "" } as const;
@@ -400,6 +401,33 @@ interface DesktopKeyPressContext {
   disabled: boolean;
   handleAlternateSendAction: () => void;
   handleDefaultSendAction: () => void;
+  applyTextEdit: (edit: ComposerInputSnapshot) => void;
+}
+
+// Host interception runs first, so an open autocomplete menu keeps Enter and Tab.
+function handleEditingKeyPress(
+  event: WebTextInputKeyPressEvent,
+  ctx: DesktopKeyPressContext,
+  modifiers: ComposerKeyModifiers,
+): boolean {
+  const key = event.nativeEvent.key;
+  const handled = ctx.onKeyPressCallback?.({
+    key,
+    modifiers,
+    preventDefault: () => event.preventDefault(),
+    input: ctx.input,
+  });
+  if (handled) return true;
+  const listEdit = resolveListKeyEdit({
+    key,
+    modifiers,
+    submitOnEnter: ctx.submitOnEnter,
+    input: ctx.input,
+  });
+  if (!listEdit) return false;
+  event.preventDefault();
+  ctx.applyTextEdit(listEdit);
+  return true;
 }
 
 function readKeyModifiers(event: WebTextInputKeyPressEvent["nativeEvent"]): ComposerKeyModifiers {
@@ -419,15 +447,7 @@ function handleDesktopKeyPressImpl(
 
   const modifiers = readKeyModifiers(event.nativeEvent);
   const { shiftKey, metaKey, ctrlKey } = modifiers;
-  if (ctx.onKeyPressCallback) {
-    const handled = ctx.onKeyPressCallback({
-      key: event.nativeEvent.key,
-      modifiers,
-      preventDefault: () => event.preventDefault(),
-      input: ctx.input,
-    });
-    if (handled) return;
-  }
+  if (handleEditingKeyPress(event, ctx, modifiers)) return;
 
   if (event.nativeEvent.key !== "Enter") return;
   if (!ctx.submitOnEnter) return;
@@ -1584,6 +1604,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         disabled,
         handleAlternateSendAction,
         handleDefaultSendAction,
+        applyTextEdit: (edit) => replaceText(edit.text, edit.selection),
       });
     }
 

@@ -152,6 +152,7 @@ import { getForgePresentation } from "@/git/forge";
 import { ForgeBrandIcon } from "@/git/forge-icon";
 import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
+import { indentListItem } from "./input/list-continuation";
 import {
   resolvePromptHistoryDirection,
   selectPromptHistory,
@@ -665,8 +666,28 @@ function ComposerKeyboardRegistration({
     isActive: () => isActiveComposer,
     handle: handleKeyboardAction,
   });
+
+  // Shift+Tab cycles the agent mode, except on a list item, where it outdents.
+  // The priority sits above the mode-cycle handler so the list item wins.
+  const handleListOutdent = useCallback((): boolean => {
+    const input = messageInputRef.current;
+    const edit = input ? indentListItem(input.getInputSnapshot(), "outdent") : null;
+    if (!input || !edit) return false;
+    input.replaceText(edit.text, edit.selection);
+    return true;
+  }, [messageInputRef]);
+  useKeyboardActionHandler({
+    handlerId: `${handlerId}:list-outdent`,
+    actions: LIST_OUTDENT_ACTIONS,
+    enabled: isActiveComposer && isMessageInputFocused,
+    priority: LIST_OUTDENT_PRIORITY,
+    handle: handleListOutdent,
+  });
   return null;
 }
+
+const LIST_OUTDENT_ACTIONS = ["message-input.mode-cycle"] as const;
+const LIST_OUTDENT_PRIORITY = 300;
 
 function ComposerAutocomplete(props: React.ComponentProps<typeof AutocompletePopover>) {
   const { isActiveComposer } = useComposerKeyboardScope();
