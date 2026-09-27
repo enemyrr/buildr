@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { runWithGitCommandPriority } from "../../../utils/run-git-command.js";
 import {
   backupCheckpointRef,
   captureCheckpoint,
@@ -6,12 +7,19 @@ import {
   deleteCheckpoints,
   diffCheckpoints,
   listCheckpoints,
-  resolveCheckpointRoot,
+  publishCheckpoint,
+  resolveCheckpointRepo,
   restoreCheckpoint,
+  snapshotWorktree,
   type CheckpointDiff,
+  type CheckpointRepo,
+  type WorktreeSnapshot,
 } from "./store.js";
 
-const DEFAULT_START_CAPTURE_WAIT_MS = 2_000;
+// The provider can write files as soon as its turn starts, so the pre-turn
+// tree should exist first. A warm snapshot takes a few tens of milliseconds;
+// past this bound the turn starts anyway and the snapshot races it.
+const DEFAULT_START_SNAPSHOT_WAIT_MS = 150;
 
 export interface TurnCheckpoint {
   turnIndex: number;
@@ -37,6 +45,8 @@ export class CheckpointUnavailableError extends Error {
 }
 
 interface AgentCheckpointState {
+  repo: CheckpointRepo | null;
+  repoCwd: string | null;
   nextTurnIndex: number | null;
   openTurnIndex: number | null;
   openMessageId: string | null;
@@ -72,33 +82,43 @@ async function listTurns(root: string, agentId: string): Promise<TurnCheckpoint[
 /**
  * Captures a Git checkpoint at every foreground turn boundary and answers
  * per-turn diff and restore queries. Capture failures are logged and skipped:
- * a checkpoint never blocks or fails a turn.
+ * a checkpoint never fails a turn.
  */
 export class TurnCheckpoints {
   private readonly logger: Logger;
-  private readonly startCaptureWaitMs: number;
+  private readonly startSnapshotWaitMs: number;
   private readonly agents = new Map<string, AgentCheckpointState>();
 
-  constructor(options: { logger: Logger; startCaptureWaitMs?: number }) {
+  constructor(options: { logger: Logger; startSnapshotWaitMs?: number }) {
     this.logger = options.logger.child({ component: "turn-checkpoints" });
-    this.startCaptureWaitMs = options.startCaptureWaitMs ?? DEFAULT_START_CAPTURE_WAIT_MS;
+    this.startSnapshotWaitMs = options.startSnapshotWaitMs ?? DEFAULT_START_SNAPSHOT_WAIT_MS;
   }
 
   /**
-   * Captures the pre-turn snapshot. Waits at most `startCaptureWaitMs` so a
-   * slow repository delays the provider by a bounded amount.
+   * Starts the pre-turn capture and resolves once its tree is written, or
+   * after `startSnapshotWaitMs`, whichever comes first. Committing the tree
+   * and publishing the ref always finish in the background.
    */
   async beginTurn(input: AgentLocation & { messageId: string | null }): Promise<void> {
+    const startedAt = Date.now();
+    let markTreeWritten: () => void = () => undefined;
+    const treeWritten = new Promise<void>((resolve) => {
+      markTreeWritten = resolve;
+    });
     const capture = this.enqueue(input.agentId, async (state) => {
       state.openTurnIndex = null;
-      const root = await resolveCheckpointRoot(input.cwd);
-      if (!root) return;
-      state.nextTurnIndex ??= await this.readNextTurnIndex(root, input.agentId);
+      const repo = await this.resolveRepo(state, input.cwd);
+      if (!repo) return;
+      state.nextTurnIndex ??= await this.readNextTurnIndex(repo.root, input.agentId);
       const turnIndex = state.nextTurnIndex;
       state.nextTurnIndex += 1;
-      await captureCheckpoint({
-        root,
+      const snapshot = await runWithGitCommandPriority("high", () => snapshotWorktree(repo));
+      markTreeWritten();
+      this.logSnapshot(input.agentId, snapshot, Date.now() - startedAt);
+      await publishCheckpoint({
+        root: repo.root,
         ref: checkpointRef(input.agentId, turnIndex, "start"),
+        tree: snapshot.tree,
         metadata: { messageId: input.messageId },
       });
       state.openTurnIndex = turnIndex;
@@ -106,15 +126,9 @@ export class TurnCheckpoints {
     });
     let timer: NodeJS.Timeout | undefined;
     const waitLimit = new Promise<void>((resolve) => {
-      timer = setTimeout(() => {
-        this.logger.warn(
-          { agentId: input.agentId, waitMs: this.startCaptureWaitMs },
-          "turn_checkpoints.start_capture_slow",
-        );
-        resolve();
-      }, this.startCaptureWaitMs);
+      timer = setTimeout(resolve, this.startSnapshotWaitMs);
     });
-    await Promise.race([capture, waitLimit]);
+    await Promise.race([treeWritten, capture, waitLimit]);
     clearTimeout(timer);
   }
 
@@ -124,27 +138,28 @@ export class TurnCheckpoints {
       const turnIndex = state.openTurnIndex;
       if (turnIndex === null) return;
       state.openTurnIndex = null;
-      const root = await resolveCheckpointRoot(input.cwd);
-      if (!root) return;
-      await captureCheckpoint({
-        root,
+      const repo = await this.resolveRepo(state, input.cwd);
+      if (!repo) return;
+      const snapshot = await captureCheckpoint({
+        repo,
         ref: checkpointRef(input.agentId, turnIndex, "end"),
         metadata: { messageId: state.openMessageId },
       });
+      this.logSkippedFiles(input.agentId, snapshot);
     });
   }
 
   /** Lists the agent's turns after any queued capture settles. */
   async list(input: AgentLocation): Promise<TurnCheckpoint[]> {
     await this.agents.get(input.agentId)?.queue;
-    return listTurns(await this.requireRoot(input), input.agentId);
+    return listTurns((await this.requireRepo(input)).root, input.agentId);
   }
 
   async getTurnDiff(
     input: AgentLocation & { turnIndex: number; ignoreWhitespace: boolean },
   ): Promise<CheckpointDiff> {
     await this.agents.get(input.agentId)?.queue;
-    const root = await this.requireRoot(input);
+    const { root } = await this.requireRepo(input);
     const turn = await this.requireTurn(root, input);
     if (turn.completedAt === null) {
       throw new CheckpointUnavailableError(input.agentId, "turn_incomplete");
@@ -159,13 +174,14 @@ export class TurnCheckpoints {
 
   /** Restores the worktree to the snapshot taken when turn `turnIndex` started. */
   async restoreFilesToTurnStart(input: AgentLocation & { turnIndex: number }): Promise<void> {
-    const root = await this.requireRoot(input);
-    await this.requireTurn(root, input);
+    await this.agents.get(input.agentId)?.queue;
+    const repo = await this.requireRepo(input);
+    await this.requireTurn(repo.root, input);
     await this.enqueue(
       input.agentId,
       () =>
         restoreCheckpoint({
-          root,
+          repo,
           ref: checkpointRef(input.agentId, input.turnIndex, "start"),
           backupRef: backupCheckpointRef(input.agentId),
         }),
@@ -176,10 +192,44 @@ export class TurnCheckpoints {
   /** Deletes the agent's checkpoint refs. */
   async discard(input: AgentLocation): Promise<void> {
     await this.enqueue(input.agentId, async () => {
-      const root = await resolveCheckpointRoot(input.cwd);
-      if (root) await deleteCheckpoints({ root, agentId: input.agentId });
+      const repo = await resolveCheckpointRepo(input.cwd);
+      if (repo) await deleteCheckpoints({ root: repo.root, agentId: input.agentId });
     });
     this.agents.delete(input.agentId);
+  }
+
+  private async resolveRepo(
+    state: AgentCheckpointState,
+    cwd: string,
+  ): Promise<CheckpointRepo | null> {
+    // A Git root is cached per agent; a non-Git directory is rechecked each
+    // turn so `git init` mid-session starts producing checkpoints.
+    if (state.repo && state.repoCwd === cwd) return state.repo;
+    state.repo = await resolveCheckpointRepo(cwd);
+    state.repoCwd = cwd;
+    return state.repo;
+  }
+
+  private logSnapshot(agentId: string, snapshot: WorktreeSnapshot, elapsedMs: number): void {
+    if (elapsedMs > this.startSnapshotWaitMs) {
+      this.logger.warn(
+        { agentId, elapsedMs, waitMs: this.startSnapshotWaitMs },
+        "turn_checkpoints.start_snapshot_late",
+      );
+    }
+    this.logSkippedFiles(agentId, snapshot);
+  }
+
+  private logSkippedFiles(agentId: string, snapshot: WorktreeSnapshot): void {
+    if (snapshot.skippedLargeFiles.length === 0) return;
+    this.logger.info(
+      {
+        agentId,
+        paths: snapshot.skippedLargeFiles.slice(0, 20),
+        count: snapshot.skippedLargeFiles.length,
+      },
+      "turn_checkpoints.skipped_large_untracked_files",
+    );
   }
 
   private async readNextTurnIndex(root: string, agentId: string): Promise<number> {
@@ -187,10 +237,10 @@ export class TurnCheckpoints {
     return stored.reduce((max, checkpoint) => Math.max(max, checkpoint.turnIndex), 0) + 1;
   }
 
-  private async requireRoot(input: AgentLocation): Promise<string> {
-    const root = await resolveCheckpointRoot(input.cwd);
-    if (!root) throw new CheckpointUnavailableError(input.agentId, "not_git");
-    return root;
+  private async requireRepo(input: AgentLocation): Promise<CheckpointRepo> {
+    const repo = await resolveCheckpointRepo(input.cwd);
+    if (!repo) throw new CheckpointUnavailableError(input.agentId, "not_git");
+    return repo;
   }
 
   private async requireTurn(
@@ -212,6 +262,8 @@ export class TurnCheckpoints {
     let state = this.agents.get(agentId);
     if (!state) {
       state = {
+        repo: null,
+        repoCwd: null,
         nextTurnIndex: null,
         openTurnIndex: null,
         openMessageId: null,

@@ -65,13 +65,11 @@ export class CheckpointSession {
 
   /** Deletes the agent's checkpoint refs after the agent itself is deleted. */
   async discardAgent(input: { agentId: string; cwd: string }): Promise<void> {
-    await this.options.agentManager.getTurnCheckpoints()?.discard(input);
+    await this.checkpoints().discard(input);
   }
 
-  private requireCheckpoints(): TurnCheckpoints {
-    const checkpoints = this.options.agentManager.getTurnCheckpoints();
-    if (!checkpoints) throw new Error("Turn checkpoints are disabled on this host");
-    return checkpoints;
+  private checkpoints(): TurnCheckpoints {
+    return this.options.agentManager.getTurnCheckpoints();
   }
 
   private requireAgent(agentId: string): ManagedAgent {
@@ -107,7 +105,7 @@ export class CheckpointSession {
   private async handleList(msg: CheckpointRequest<"agent.checkpoint.list.request">) {
     try {
       const agent = this.requireAgent(msg.agentId);
-      const checkpoints = await this.requireCheckpoints().list({
+      const checkpoints = await this.checkpoints().list({
         agentId: agent.id,
         cwd: agent.cwd,
       });
@@ -141,7 +139,7 @@ export class CheckpointSession {
   ) {
     try {
       const agent = this.requireAgent(msg.agentId);
-      const diff = await this.requireCheckpoints().getTurnDiff({
+      const diff = await this.checkpoints().getTurnDiff({
         agentId: agent.id,
         cwd: agent.cwd,
         turnIndex: msg.turnIndex,
@@ -183,7 +181,7 @@ export class CheckpointSession {
       }
       const blocker = await this.findRestoreBlocker(agent);
       if (blocker) throw new CheckpointRestoreRefusedError(agent.id, blocker);
-      await this.requireCheckpoints().restoreFilesToTurnStart({
+      await this.checkpoints().restoreFilesToTurnStart({
         agentId: agent.id,
         cwd: agent.cwd,
         turnIndex: msg.turnIndex,

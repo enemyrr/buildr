@@ -19,7 +19,9 @@ import {
   deleteCheckpoints,
   diffCheckpoints,
   listCheckpoints,
-  resolveCheckpointRoot,
+  resolveCheckpointRepo,
+  UNTRACKED_FILE_MAX_BYTES,
+  type CheckpointRepo,
   restoreCheckpoint,
 } from "./store.js";
 
@@ -55,6 +57,10 @@ function initRepo(): string {
   return repo;
 }
 
+function repoOf(root: string): CheckpointRepo {
+  return { root, indexPath: join(root, ".git", "index") };
+}
+
 interface RepoState {
   head: string;
   index: string;
@@ -73,8 +79,31 @@ describe("checkpoint store", () => {
   it("resolves the worktree root and rejects non-repositories", async () => {
     const repo = initRepo();
     mkdirSync(join(repo, "nested"));
-    await expect(resolveCheckpointRoot(join(repo, "nested"))).resolves.toBe(repo);
-    await expect(resolveCheckpointRoot(makeTempDir())).resolves.toBeNull();
+    await expect(resolveCheckpointRepo(join(repo, "nested"))).resolves.toEqual(repoOf(repo));
+    await expect(resolveCheckpointRepo(makeTempDir())).resolves.toBeNull();
+  });
+
+  it("skips untracked files above the size limit and keeps tracked large files", async () => {
+    const repo = initRepo();
+    const large = Buffer.alloc(UNTRACKED_FILE_MAX_BYTES + 1, 97);
+    writeFileSync(join(repo, "tracked-large.bin"), large);
+    git(["add", "tracked-large.bin"], repo);
+    git(["-c", "commit.gpgsign=false", "commit", "-m", "large"], repo);
+    writeFileSync(join(repo, "download.bin"), large);
+    writeFileSync(join(repo, "small.txt"), "small\n");
+
+    const ref = checkpointRef(AGENT_ID, 1, "start");
+    const snapshot = await captureCheckpoint({
+      repo: repoOf(repo),
+      ref,
+      metadata: { messageId: null },
+    });
+
+    expect(snapshot.skippedLargeFiles).toEqual(["download.bin"]);
+    const files = git(["ls-tree", "--name-only", ref], repo).split("\n");
+    expect(files).toContain("small.txt");
+    expect(files).toContain("tracked-large.bin");
+    expect(files).not.toContain("download.bin");
   });
 
   it("captures untracked files without touching HEAD, the index, or the worktree", async () => {
@@ -87,7 +116,7 @@ describe("checkpoint store", () => {
     const before = readRepoState(repo);
 
     const ref = checkpointRef(AGENT_ID, 1, "start");
-    await captureCheckpoint({ root: repo, ref, metadata: { messageId: "msg-1" } });
+    await captureCheckpoint({ repo: repoOf(repo), ref, metadata: { messageId: "msg-1" } });
 
     expect(readRepoState(repo)).toEqual(before);
     expect(git(["show", `${ref}:tracked.txt`], repo)).toBe("one\nstaged\nunstaged\n");
@@ -109,7 +138,7 @@ describe("checkpoint store", () => {
     utimesSync(join(repo, ".git", "index"), instant, instant);
 
     const ref = checkpointRef(AGENT_ID, 1, "start");
-    await captureCheckpoint({ root: repo, ref, metadata: { messageId: null } });
+    await captureCheckpoint({ repo: repoOf(repo), ref, metadata: { messageId: null } });
 
     expect(git(["show", `${ref}:tracked.txt`], repo)).toBe("two\n");
   });
@@ -117,17 +146,17 @@ describe("checkpoint store", () => {
   it("lists checkpoints in turn order with their metadata", async () => {
     const repo = initRepo();
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: checkpointRef(AGENT_ID, 2, "start"),
       metadata: { messageId: "msg-2" },
     });
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: checkpointRef(AGENT_ID, 1, "end"),
       metadata: { messageId: "msg-1" },
     });
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: checkpointRef(AGENT_ID, 1, "start"),
       metadata: { messageId: "msg-1" },
     });
@@ -145,11 +174,11 @@ describe("checkpoint store", () => {
     const repo = initRepo();
     const start = checkpointRef(AGENT_ID, 1, "start");
     const end = checkpointRef(AGENT_ID, 1, "end");
-    await captureCheckpoint({ root: repo, ref: start, metadata: { messageId: null } });
+    await captureCheckpoint({ repo: repoOf(repo), ref: start, metadata: { messageId: null } });
     writeFileSync(join(repo, "tracked.txt"), "one\ntwo\n");
     writeFileSync(join(repo, "created.txt"), "hello\n");
     rmSync(join(repo, ".gitignore"));
-    await captureCheckpoint({ root: repo, ref: end, metadata: { messageId: null } });
+    await captureCheckpoint({ repo: repoOf(repo), ref: end, metadata: { messageId: null } });
 
     const diff = await diffCheckpoints({
       root: repo,
@@ -180,7 +209,7 @@ describe("checkpoint store", () => {
     mkdirSync(join(repo, "keep"));
     writeFileSync(join(repo, "keep", "note.txt"), "keep\n");
     const target = checkpointRef(AGENT_ID, 1, "start");
-    await captureCheckpoint({ root: repo, ref: target, metadata: { messageId: null } });
+    await captureCheckpoint({ repo: repoOf(repo), ref: target, metadata: { messageId: null } });
     const headBefore = git(["rev-parse", "HEAD"], repo);
     const indexBefore = git(["ls-files", "--stage"], repo);
 
@@ -190,7 +219,11 @@ describe("checkpoint store", () => {
     writeFileSync(join(repo, "added", "deep", "file.txt"), "agent output\n");
     writeFileSync(join(repo, "ignored.log"), "noise\n");
 
-    await restoreCheckpoint({ root: repo, ref: target, backupRef: backupCheckpointRef(AGENT_ID) });
+    await restoreCheckpoint({
+      repo: repoOf(repo),
+      ref: target,
+      backupRef: backupCheckpointRef(AGENT_ID),
+    });
 
     expect(readFileSync(join(repo, "tracked.txt"), "utf8")).toBe("one\n");
     expect(readFileSync(join(repo, "keep", "note.txt"), "utf8")).toBe("keep\n");
@@ -205,17 +238,17 @@ describe("checkpoint store", () => {
     const repo = initRepo();
     const otherAgentId = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: checkpointRef(AGENT_ID, 1, "start"),
       metadata: { messageId: null },
     });
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: backupCheckpointRef(AGENT_ID),
       metadata: { messageId: null },
     });
     await captureCheckpoint({
-      root: repo,
+      repo: repoOf(repo),
       ref: checkpointRef(otherAgentId, 1, "start"),
       metadata: { messageId: null },
     });

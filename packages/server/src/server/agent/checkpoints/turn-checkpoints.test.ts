@@ -37,8 +37,10 @@ function initRepo(): string {
   return repo;
 }
 
-function createCheckpoints(): TurnCheckpoints {
-  return new TurnCheckpoints({ logger: pino({ level: "silent" }) });
+// These tests edit files right after `beginTurn` resolves, so they wait for
+// the pre-turn tree however slow the machine is. Production uses the default.
+function createCheckpoints(startSnapshotWaitMs = 60_000): TurnCheckpoints {
+  return new TurnCheckpoints({ logger: pino({ level: "silent" }), startSnapshotWaitMs });
 }
 
 describe("turn checkpoints", () => {
@@ -70,6 +72,17 @@ describe("turn checkpoints", () => {
       ignoreWhitespace: false,
     });
     expect(secondTurn.files.map((file) => file.path)).toEqual(["feature.ts"]);
+  });
+
+  it("finishes a capture in the background when the turn starts without waiting", async () => {
+    const repo = initRepo();
+    const checkpoints = createCheckpoints(0);
+
+    await checkpoints.beginTurn({ agentId: AGENT_ID, cwd: repo, messageId: "msg-1" });
+    checkpoints.endTurn({ agentId: AGENT_ID, cwd: repo });
+
+    const turns = await checkpoints.list({ agentId: AGENT_ID, cwd: repo });
+    expect(turns.map((turn) => [turn.turnIndex, turn.completedAt !== null])).toEqual([[1, true]]);
   });
 
   it("continues turn numbering after the daemon restarts", async () => {

@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, readdir, rm, rmdir, stat, utimes } from "node:fs/promises";
+import { copyFile, lstat, mkdtemp, readdir, rm, rmdir, stat, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
@@ -13,6 +13,9 @@ import { runGitCommand } from "../../../utils/run-git-command.js";
 const REF_ROOT = "refs/buildr/checkpoints";
 const SUBJECT_PREFIX = "buildr-checkpoint ";
 const DIFF_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+// Larger untracked files are usually build output or downloaded data; hashing
+// them on every turn bloats the object store.
+export const UNTRACKED_FILE_MAX_BYTES = 5 * 1024 * 1024;
 
 const READ_ONLY_ENV = { GIT_OPTIONAL_LOCKS: "0", LC_ALL: "C" } as const;
 const CHECKPOINT_IDENTITY_ENV = {
@@ -67,16 +70,26 @@ export function backupCheckpointRef(agentId: string): string {
   return `${agentCheckpointRefPrefix(agentId)}backup`;
 }
 
-/** Returns the worktree root that contains `cwd`, or null when `cwd` isn't in a Git worktree. */
-export async function resolveCheckpointRoot(cwd: string): Promise<string | null> {
-  const result = await runGitCommand(["rev-parse", "--show-toplevel"], {
-    cwd,
-    envOverlay: READ_ONLY_ENV,
-    acceptExitCodes: [0, 128],
-  }).catch(() => null);
+export interface CheckpointRepo {
+  root: string;
+  indexPath: string;
+}
+
+export interface WorktreeSnapshot {
+  tree: string;
+  // Untracked files left out because they exceed UNTRACKED_FILE_MAX_BYTES.
+  skippedLargeFiles: string[];
+}
+
+/** Resolves the worktree that contains `cwd`, or null when `cwd` isn't in a Git worktree. */
+export async function resolveCheckpointRepo(cwd: string): Promise<CheckpointRepo | null> {
+  const result = await runGitCommand(
+    ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-path", "index"],
+    { cwd, envOverlay: READ_ONLY_ENV, acceptExitCodes: [0, 128] },
+  ).catch(() => null);
   if (!result || result.exitCode !== 0) return null;
-  const root = result.stdout.trim();
-  return root.length > 0 ? root : null;
+  const [root, indexPath] = result.stdout.trim().split("\n");
+  return root && indexPath ? { root, indexPath } : null;
 }
 
 async function withPrivateIndex<T>(operation: (indexPath: string) => Promise<T>): Promise<T> {
@@ -88,55 +101,94 @@ async function withPrivateIndex<T>(operation: (indexPath: string) => Promise<T>)
   }
 }
 
-async function seedPrivateIndex(root: string, indexPath: string): Promise<void> {
-  const { stdout } = await runGitCommand(
-    ["rev-parse", "--path-format=absolute", "--git-path", "index"],
-    { cwd: root, envOverlay: READ_ONLY_ENV },
-  );
-  const userIndexPath = stdout.trim();
+async function seedPrivateIndex(repo: CheckpointRepo, indexPath: string): Promise<void> {
   // Copying the user's index keeps its stat cache, so `git add` rehashes only
   // changed files. A repository without an index starts from an empty one.
-  const userIndex = await stat(userIndexPath).catch((error: NodeJS.ErrnoException) => {
+  const userIndex = await stat(repo.indexPath).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return null;
     throw error;
   });
   if (!userIndex) return;
-  await copyFile(userIndexPath, indexPath);
+  await copyFile(repo.indexPath, indexPath);
   // Git treats an entry as possibly stale when the file changed in the same
   // instant the index was written. The copy must keep the original timestamp,
   // or a same-size edit made in that instant looks unchanged.
   await utimes(indexPath, userIndex.atime, userIndex.mtime);
 }
 
-async function writeWorktreeTree(root: string, indexPath: string): Promise<string> {
-  await seedPrivateIndex(root, indexPath);
-  const env = { GIT_INDEX_FILE: indexPath };
-  await runGitCommand([...CAPTURE_CONFIG, "add", "-A", "--", "."], { cwd: root, envOverlay: env });
-  const { stdout } = await runGitCommand([...CAPTURE_CONFIG, "write-tree"], {
+async function findLargeUntrackedFiles(root: string): Promise<string[]> {
+  const { stdout } = await runGitCommand(["ls-files", "--others", "--exclude-standard", "-z"], {
     cwd: root,
-    envOverlay: env,
+    envOverlay: READ_ONLY_ENV,
   });
-  return stdout.trim();
+  const paths = stdout.split("\0").filter((path) => path.length > 0);
+  const sizes = await Promise.all(
+    paths.map((path) =>
+      lstat(join(root, path)).then(
+        (entry) => (entry.isFile() ? entry.size : 0),
+        () => 0,
+      ),
+    ),
+  );
+  return paths.filter((_path, index) => sizes[index] > UNTRACKED_FILE_MAX_BYTES);
 }
 
 /**
- * Snapshots the whole worktree at `root`, including untracked files that
- * .gitignore doesn't exclude, and points `ref` at the snapshot commit.
+ * Writes a tree object for the whole worktree at `repo.root`, including
+ * untracked files that .gitignore doesn't exclude. Untracked files above
+ * UNTRACKED_FILE_MAX_BYTES are left out.
  */
-export async function captureCheckpoint(input: {
+export async function snapshotWorktree(repo: CheckpointRepo): Promise<WorktreeSnapshot> {
+  return withPrivateIndex(async (indexPath) => {
+    const [, skippedLargeFiles] = await Promise.all([
+      seedPrivateIndex(repo, indexPath),
+      findLargeUntrackedFiles(repo.root),
+    ]);
+    const env = { GIT_INDEX_FILE: indexPath };
+    const pathspecs = [".", ...skippedLargeFiles.map((path) => `:(exclude,literal)${path}`)];
+    await runGitCommand(
+      [...CAPTURE_CONFIG, "add", "-A", "--pathspec-from-file=-", "--pathspec-file-nul"],
+      { cwd: repo.root, envOverlay: env, input: `${pathspecs.join("\0")}\0` },
+    );
+    const { stdout } = await runGitCommand([...CAPTURE_CONFIG, "write-tree"], {
+      cwd: repo.root,
+      envOverlay: env,
+    });
+    return { tree: stdout.trim(), skippedLargeFiles };
+  });
+}
+
+/** Commits a snapshot tree and points `ref` at the commit. */
+export async function publishCheckpoint(input: {
   root: string;
   ref: string;
+  tree: string;
   metadata: CheckpointMetadata;
 }): Promise<void> {
-  const tree = await withPrivateIndex((indexPath) => writeWorktreeTree(input.root, indexPath));
   const subject = `${SUBJECT_PREFIX}${JSON.stringify(input.metadata)}`;
-  const { stdout } = await runGitCommand([...CAPTURE_CONFIG, "commit-tree", tree, "-m", subject], {
-    cwd: input.root,
-    envOverlay: CHECKPOINT_IDENTITY_ENV,
-  });
+  const { stdout } = await runGitCommand(
+    [...CAPTURE_CONFIG, "commit-tree", input.tree, "-m", subject],
+    { cwd: input.root, envOverlay: CHECKPOINT_IDENTITY_ENV },
+  );
   await runGitCommand([...CAPTURE_CONFIG, "update-ref", input.ref, stdout.trim()], {
     cwd: input.root,
   });
+}
+
+/** Snapshots the worktree and publishes it at `ref` in one step. */
+export async function captureCheckpoint(input: {
+  repo: CheckpointRepo;
+  ref: string;
+  metadata: CheckpointMetadata;
+}): Promise<WorktreeSnapshot> {
+  const snapshot = await snapshotWorktree(input.repo);
+  await publishCheckpoint({
+    root: input.repo.root,
+    ref: input.ref,
+    tree: snapshot.tree,
+    metadata: input.metadata,
+  });
+  return snapshot;
 }
 
 function parseStoredCheckpoint(agentId: string, line: string): StoredCheckpoint | null {
@@ -278,26 +330,27 @@ async function removeEmptyParents(root: string, path: string): Promise<void> {
  * can be undone from Git.
  */
 export async function restoreCheckpoint(input: {
-  root: string;
+  repo: CheckpointRepo;
   ref: string;
   backupRef: string;
 }): Promise<void> {
+  const { root } = input.repo;
   await captureCheckpoint({
-    root: input.root,
+    repo: input.repo,
     ref: input.backupRef,
     metadata: { messageId: null },
   });
-  const changes = await listRestoreChanges(input.root, input.ref, input.backupRef);
+  const changes = await listRestoreChanges(root, input.ref, input.backupRef);
   for (const path of changes.toRemove) {
-    await rm(join(input.root, path), { force: true });
-    await removeEmptyParents(input.root, path);
+    await rm(join(root, path), { force: true });
+    await removeEmptyParents(root, path);
   }
   if (changes.toWrite.length === 0) return;
   await withPrivateIndex(async (indexPath) => {
     const env = { GIT_INDEX_FILE: indexPath };
-    await runGitCommand(["read-tree", `${input.ref}^{tree}`], { cwd: input.root, envOverlay: env });
+    await runGitCommand(["read-tree", `${input.ref}^{tree}`], { cwd: root, envOverlay: env });
     await runGitCommand(["checkout-index", "-f", "-z", "--stdin"], {
-      cwd: input.root,
+      cwd: root,
       envOverlay: env,
       input: `${changes.toWrite.join("\0")}\0`,
     });

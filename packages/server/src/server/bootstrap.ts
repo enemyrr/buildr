@@ -130,7 +130,6 @@ import type { LocalSpeechProviderConfig } from "./speech/providers/local/config.
 import type { RequestedSpeechProviders } from "./speech/speech-types.js";
 import { createSpeechService } from "./speech/speech-runtime.js";
 import { AgentManager } from "./agent/agent-manager.js";
-import { TurnCheckpoints } from "./agent/checkpoints/turn-checkpoints.js";
 import { UserShellHistoryStore } from "./agent/user-shell-history.js";
 import { AgentStorage } from "./agent/agent-storage.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
@@ -933,7 +932,6 @@ export async function createPaseoDaemon(
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     userShellHistory: new UserShellHistoryStore(path.join(config.paseoHome, "user-shell-history")),
-    turnCheckpoints: new TurnCheckpoints({ logger }),
     appendSystemPrompt: config.appendSystemPrompt,
     agentDefaults: config.agentDefaults,
     onWorkspaceStateMayHaveChanged: ({ cwd }) => {

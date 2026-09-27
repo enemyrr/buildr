@@ -16,18 +16,21 @@ refs/buildr/checkpoints/<agentId>/backup
 
 The refs are the only record. The commit subject carries the Paseo user-message ID that started the turn, so a daemon restart rebuilds the turn list and the next turn index from `git for-each-ref`. Nothing is persisted under `$PASEO_HOME`.
 
-Capture stages the whole worktree into a throwaway index (`GIT_INDEX_FILE` in a temp directory), then runs `write-tree`, `commit-tree`, and `update-ref`. HEAD, the user's index, and the working tree are never written, so staged work survives. Untracked files are included and `.gitignore` is respected, because the capture is `git add -A` against the private index.
+Capture has two phases. The snapshot stages the whole worktree into a throwaway index (`GIT_INDEX_FILE` in a temp directory) and runs `write-tree`. Publishing runs `commit-tree` and `update-ref`. HEAD, the user's index, and the working tree are never written, so staged work survives. Untracked files are included and `.gitignore` is respected, because the snapshot is `git add -A` against the private index.
+
+Untracked files over 5 MB are left out of the snapshot and logged as `turn_checkpoints.skipped_large_untracked_files`. They are usually build output or downloaded data, and hashing them on every turn bloats the object store. Tracked files of any size are captured, because their blobs already exist. Restore never touches a skipped file: it is absent from both the target and the backup snapshot.
 
 The private index starts as a copy of the user's index so `git add` rehashes only changed files. The copy must keep the original file's timestamp. Git rehashes an entry when the file changed in the same instant the index was written; a copy stamped "now" hides that, and a same-size edit made in that instant gets captured as unchanged. `store.test.ts` pins this case.
 
 ## Turn boundaries
 
-`AgentManager.streamAgent` captures `start` before it calls the provider's `startTurn`, and `finalizeForegroundTurn` captures `end`. Internal agents and autonomous (provider-initiated) turns get no checkpoints. Steered prompts join the active turn.
+`AgentManager.streamAgent` starts the `start` capture before it calls the provider's `startTurn`, and `finalizeForegroundTurn` captures `end`. Internal agents and autonomous (provider-initiated) turns get no checkpoints. Steered prompts join the active turn. Checkpoints are on in every `AgentManager`, including the test harnesses, so tests run the production turn path.
 
-Checkpoints never block or fail a turn:
+The provider can write files as soon as `startTurn` runs, so the pre-turn tree must exist first; running the two fully in parallel lets early edits land in the `start` snapshot and drop out of the turn's diff. Turn start therefore waits for the snapshot phase only, and at most 150 ms:
 
-- The start capture waits at most 2 seconds, then the turn proceeds while the capture finishes in the background.
-- The end capture is fire-and-forget.
+- A warm snapshot takes a few tens of milliseconds: the repository root and index path are cached per agent, the index copy and the untracked-file scan run in parallel, and the snapshot's Git processes run at high scheduler priority.
+- Past 150 ms the turn starts anyway, and the snapshot races the provider. The daemon logs `turn_checkpoints.start_snapshot_late` with the elapsed time.
+- Publishing the refs and the whole `end` capture finish in the background.
 - A failed capture is logged as `turn_checkpoints.operation_failed` and skipped. A directory that isn't a Git worktree skips capture silently.
 
 All Git work for one agent runs through one queue, so an end capture can't overtake its start.
@@ -56,5 +59,5 @@ The RPCs are `agent.checkpoint.list`, `agent.checkpoint.get_turn_diff`, and `age
 
 - Sparse checkouts and files marked `assume-unchanged` or `skip-worktree` capture their index state, not their worktree content.
 - Nested repositories without a commit make `git add -A` fail, and the turn gets no checkpoint.
-- Large untracked files that `.gitignore` doesn't exclude are hashed into the object store on every capture.
+- A snapshot that finishes after the 150 ms bound can include the provider's first edits, which then drop out of that turn's diff.
 - Turn diffs don't detect renames; a rename shows as a delete and an add.

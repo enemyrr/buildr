@@ -1,3 +1,4 @@
+import { tmpdir } from "node:os";
 import { describe, expect, test } from "vitest";
 
 import { createTestLogger } from "../../../test-utils/test-logger.js";
@@ -59,7 +60,7 @@ async function createRewindHarness(options: { historyGate?: RewindHistoryGate } 
   const agent = await manager.createAgent(
     {
       provider: "claude",
-      cwd: process.cwd(),
+      cwd: tmpdir(),
     },
     undefined,
     { workspaceId: undefined },
@@ -146,7 +147,7 @@ describe("AgentManager rewind", () => {
       logger: createTestLogger(),
       idFactory: () => "00000000-0000-4000-8000-000000000902",
     });
-    const agent = await manager.createAgent({ provider: "claude", cwd: process.cwd() }, undefined, {
+    const agent = await manager.createAgent({ provider: "claude", cwd: tmpdir() }, undefined, {
       workspaceId: undefined,
     });
     const run = manager.streamAgent(agent.id, "keep working");
