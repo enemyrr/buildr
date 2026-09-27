@@ -118,15 +118,26 @@ export const ptBR: TranslationResources = {
   composer: {
     stash: {
       menuLabel: "Prompts guardados",
+      triggerLabel: "Prompts guardados: {{count}}",
       stashCurrent: "Guardar prompt",
       attachmentsOnly: "Somente anexos",
       stashed: "Prompt guardado",
+      nothingToStash: "Nada para guardar",
+      delete: {
+        action: "Excluir prompt guardado {{label}}",
+        tooltip: "Excluir",
+        confirmTitle: "Excluir prompt guardado?",
+        confirmMessage: "O prompt e seus anexos são removidos dos guardados.",
+        confirm: "Excluir",
+      },
       errors: {
-        tooLarge: "Este prompt é grande demais para ser guardado.",
+        tooLarge: "O prompt é grande demais para ser guardado",
         storageFailed:
           "Não foi possível guardar o prompt. O armazenamento local está indisponível ou cheio.",
         restoreFailed:
           "Não foi possível restaurar o prompt. O armazenamento local está indisponível.",
+        deleteFailed:
+          "Não foi possível excluir o prompt guardado. O armazenamento local está indisponível.",
       },
     },
     loadout: en.composer.loadout,

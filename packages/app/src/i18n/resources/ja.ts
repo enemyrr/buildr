@@ -118,14 +118,24 @@ export const ja: TranslationResources = {
   composer: {
     stash: {
       menuLabel: "退避したプロンプト",
+      triggerLabel: "退避したプロンプト: {{count}}",
       stashCurrent: "プロンプトを退避",
       attachmentsOnly: "添付ファイルのみ",
       stashed: "プロンプトを退避しました",
+      nothingToStash: "退避するものがありません",
+      delete: {
+        action: "退避したプロンプト {{label}} を削除",
+        tooltip: "削除",
+        confirmTitle: "退避したプロンプトを削除しますか？",
+        confirmMessage: "プロンプトと添付ファイルが退避一覧から削除されます。",
+        confirm: "削除",
+      },
       errors: {
-        tooLarge: "このプロンプトは大きすぎて退避できません。",
+        tooLarge: "プロンプトが大きすぎて退避できません",
         storageFailed:
-          "プロンプトを退避できませんでした。ローカルストレージが利用できないか、容量が不足しています。",
-        restoreFailed: "プロンプトを復元できませんでした。ローカルストレージが利用できません。",
+          "プロンプトを退避できません。ローカルストレージが利用できないか、容量が不足しています。",
+        restoreFailed: "プロンプトを復元できません。ローカルストレージが利用できません。",
+        deleteFailed: "退避したプロンプトを削除できません。ローカルストレージが利用できません。",
       },
     },
     loadout: en.composer.loadout,

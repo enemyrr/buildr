@@ -117,13 +117,23 @@ export const zhCN: TranslationResources = {
   composer: {
     stash: {
       menuLabel: "已暂存的提示词",
+      triggerLabel: "已暂存的提示词：{{count}}",
       stashCurrent: "暂存提示词",
       attachmentsOnly: "仅附件",
       stashed: "已暂存提示词",
+      nothingToStash: "没有可暂存的内容",
+      delete: {
+        action: "删除暂存的提示词 {{label}}",
+        tooltip: "删除",
+        confirmTitle: "删除暂存的提示词？",
+        confirmMessage: "该提示词及其附件将从暂存中移除。",
+        confirm: "删除",
+      },
       errors: {
-        tooLarge: "此提示词过大，无法暂存。",
+        tooLarge: "提示词过大，无法暂存",
         storageFailed: "无法暂存提示词。本地存储不可用或已满。",
         restoreFailed: "无法恢复提示词。本地存储不可用。",
+        deleteFailed: "无法删除暂存的提示词。本地存储不可用。",
       },
     },
     loadout: en.composer.loadout,

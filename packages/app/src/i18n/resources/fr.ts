@@ -120,14 +120,25 @@ export const fr: TranslationResources = {
   composer: {
     stash: {
       menuLabel: "Prompts mis de côté",
+      triggerLabel: "Prompts mis de côté : {{count}}",
       stashCurrent: "Mettre le prompt de côté",
       attachmentsOnly: "Pièces jointes uniquement",
       stashed: "Prompt mis de côté",
+      nothingToStash: "Rien à mettre de côté",
+      delete: {
+        action: "Supprimer le prompt mis de côté {{label}}",
+        tooltip: "Supprimer",
+        confirmTitle: "Supprimer le prompt mis de côté ?",
+        confirmMessage: "Le prompt et ses pièces jointes sont retirés des prompts mis de côté.",
+        confirm: "Supprimer",
+      },
       errors: {
-        tooLarge: "Ce prompt est trop volumineux pour être mis de côté.",
+        tooLarge: "Le prompt est trop volumineux pour être mis de côté",
         storageFailed:
           "Impossible de mettre le prompt de côté. Le stockage local est indisponible ou plein.",
         restoreFailed: "Impossible de restaurer le prompt. Le stockage local est indisponible.",
+        deleteFailed:
+          "Impossible de supprimer le prompt mis de côté. Le stockage local est indisponible.",
       },
     },
     loadout: en.composer.loadout,

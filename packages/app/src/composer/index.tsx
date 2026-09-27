@@ -56,6 +56,7 @@ import type { DroppedItem } from "@/components/file-drop/types";
 import {
   MessageInput,
   type AttachmentMenuItem,
+  type ComposerInputSnapshot,
   type ComposerKeyPressEvent,
   type MessageInputRef,
 } from "./input/input";
@@ -579,7 +580,7 @@ interface DispatchComposerKeyboardActionArgs {
   isConnected: boolean;
   handleCancelAgent: () => void;
   focusMessageInputForKeyboardAction: () => void;
-  runStashShortcut: () => boolean;
+  runStashShortcut: () => void;
 }
 
 function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs): boolean {
@@ -596,7 +597,11 @@ function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs
   } = args;
   if (!isPaneFocused) return false;
 
-  if (action.id === "message-input.stash") return runStashShortcut();
+  // Always handled, so Cmd+S in the composer never reaches the browser's Save page.
+  if (action.id === "message-input.stash") {
+    runStashShortcut();
+    return true;
+  }
 
   if (action.id === "agent.interrupt") {
     if (messageInputRef.current?.runKeyboardAction("dictation-cancel")) return true;
@@ -684,7 +689,7 @@ function ComposerKeyboardRegistration({
     const input = messageInputRef.current;
     const edit = input ? indentListItem(input.getInputSnapshot(), "outdent") : null;
     if (!input || !edit) return false;
-    input.replaceText(edit.text, edit.selection);
+    input.applyEdit(edit);
     return true;
   }, [messageInputRef]);
   useKeyboardActionHandler({
@@ -1473,6 +1478,23 @@ function ComposerContentImpl({
     [onChangeText],
   );
 
+  // Composer-made edits the user can take back with Cmd+Z.
+  const applyUserEdit = useCallback(
+    (edit: ComposerInputSnapshot) => {
+      if (messageInputRef.current) {
+        isWritingTextRef.current = true;
+        try {
+          messageInputRef.current.applyEdit(edit);
+        } finally {
+          isWritingTextRef.current = false;
+        }
+        return;
+      }
+      onChangeText(edit.text);
+    },
+    [onChangeText],
+  );
+
   const runClientSlashCommand = useCallback(
     (command: ClientSlashCommand): boolean => {
       if (command.execution !== "immediate" || !onClientSlashCommand) {
@@ -1923,10 +1945,9 @@ function ComposerContentImpl({
       const attached = await uploadSelectedFiles([createPastedTextFile(text, new Date())]);
       const input = messageInputRef.current?.getInputSnapshot();
       if (attached || !input) return;
-      const next = insertAtSelection(input, text);
-      replaceUserInput(next.text, next.selection);
+      applyUserEdit(insertAtSelection(input, text));
     },
-    [replaceUserInput, uploadSelectedFiles],
+    [applyUserEdit, uploadSelectedFiles],
   );
 
   const handlePickFile = useCallback(async () => {
@@ -2125,10 +2146,13 @@ function ComposerContentImpl({
       if (!step) return false;
       event.preventDefault();
       promptHistoryPositionRef.current = step.position;
-      replaceUserInput(step.text, { start: step.text.length, end: step.text.length });
+      applyUserEdit({
+        text: step.text,
+        selection: { start: step.text.length, end: step.text.length },
+      });
       return true;
     },
-    [agentId, replaceUserInput, serverId],
+    [agentId, applyUserEdit, serverId],
   );
 
   // Autocomplete owns the arrows while its menu is open; history gets them otherwise.
@@ -2548,20 +2572,29 @@ function ComposerContentImpl({
     }),
     [attachments, textSource],
   );
-  const replaceStashDraft = useCallback(
+  const clearStashedDraft = useCallback(() => {
+    replaceUserInput("");
+    setSelectedAttachments([]);
+    resetSuppression();
+  }, [replaceUserInput, resetSuppression, setSelectedAttachments]);
+  const restoreStashedDraft = useCallback(
     (draft: StashDraft) => {
-      replaceUserInput(draft.text, { start: draft.text.length, end: draft.text.length });
+      applyUserEdit({
+        text: draft.text,
+        selection: { start: draft.text.length, end: draft.text.length },
+      });
       setSelectedAttachments(draft.attachments);
       resetSuppression();
     },
-    [replaceUserInput, resetSuppression, setSelectedAttachments],
+    [applyUserEdit, resetSuppression, setSelectedAttachments],
   );
   const showStashError = useCallback((message: string) => toastErrorRef.current(message), []);
   const promptStash = usePromptStash({
     getDraft: getStashDraft,
-    replaceDraft: replaceStashDraft,
+    clearDraft: clearStashedDraft,
+    restoreDraft: restoreStashedDraft,
     isBusy: isSubmitLoadingVisible || isComposerLocked,
-    onSuccess: toast.show,
+    onNotice: toast.show,
     onError: showStashError,
   });
   const composerBeforeVoiceContent = useMemo(

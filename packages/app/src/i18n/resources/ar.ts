@@ -117,13 +117,23 @@ export const ar: TranslationResources = {
   composer: {
     stash: {
       menuLabel: "الطلبات المحفوظة جانبًا",
+      triggerLabel: "الطلبات المحفوظة جانبًا: {{count}}",
       stashCurrent: "حفظ الطلب جانبًا",
       attachmentsOnly: "مرفقات فقط",
       stashed: "تم حفظ الطلب جانبًا",
+      nothingToStash: "لا يوجد ما يُحفظ جانبًا",
+      delete: {
+        action: "حذف الطلب المحفوظ {{label}}",
+        tooltip: "حذف",
+        confirmTitle: "حذف الطلب المحفوظ؟",
+        confirmMessage: "ستتم إزالة الطلب ومرفقاته من المحفوظات.",
+        confirm: "حذف",
+      },
       errors: {
-        tooLarge: "هذا الطلب أكبر من أن يُحفظ جانبًا.",
+        tooLarge: "الطلب أكبر من أن يُحفظ جانبًا",
         storageFailed: "تعذر حفظ الطلب جانبًا. التخزين المحلي غير متاح أو ممتلئ.",
         restoreFailed: "تعذرت استعادة الطلب. التخزين المحلي غير متاح.",
+        deleteFailed: "تعذر حذف الطلب المحفوظ. التخزين المحلي غير متاح.",
       },
     },
     loadout: en.composer.loadout,

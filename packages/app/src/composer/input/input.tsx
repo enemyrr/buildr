@@ -198,6 +198,8 @@ export interface MessageInputRef {
   getText: () => string;
   getInputSnapshot: () => ComposerInputSnapshot;
   replaceText: (text: string, selection?: { start: number; end: number }) => void;
+  /** Replaces the text as one step on the input's native undo history. */
+  applyEdit: (edit: ComposerInputSnapshot) => void;
   runKeyboardAction: (action: MessageInputKeyboardActionKind) => boolean;
   /**
    * Web-only: return the underlying DOM element for focus assertions/retries.
@@ -1267,6 +1269,18 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       [onChangeText, updateComposerHeightForText, updateLiveTextPresence],
     );
 
+    const applyEdit = useCallback(
+      (edit: ComposerInputSnapshot) => {
+        updateComposerHeightForText?.(valueRef.current, edit.text);
+        valueRef.current = edit.text;
+        updateLiveTextPresence(edit.text);
+        selectionRef.current = edit.selection;
+        textInputRef.current?.applyEdit(edit.text, edit.selection);
+        onChangeText(edit.text);
+      },
+      [onChangeText, updateComposerHeightForText, updateLiveTextPresence],
+    );
+
     useImperativeHandle(ref, () => ({
       focus: () => {
         textInputRef.current?.focus();
@@ -1278,6 +1292,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       getInputSnapshot: () =>
         getComposerInputSnapshot(textInputRef.current, valueRef.current, selectionRef.current),
       replaceText,
+      applyEdit,
       runKeyboardAction: (action) =>
         runMessageInputKeyboardAction(action, {
           focusInput: () => textInputRef.current?.focus(),
@@ -1621,7 +1636,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         disabled,
         handleAlternateSendAction,
         handleDefaultSendAction,
-        applyTextEdit: (edit) => replaceText(edit.text, edit.selection),
+        applyTextEdit: applyEdit,
       });
     }
 
