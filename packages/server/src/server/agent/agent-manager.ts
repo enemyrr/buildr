@@ -79,6 +79,7 @@ import {
   type PendingForegroundRun,
 } from "./agent-run-state.js";
 import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
+import { TurnCheckpoints } from "./checkpoints/turn-checkpoints.js";
 import { isSystemInjectedEnvelope } from "./agent-prompt.js";
 import { mergeUserShellHistory, type UserShellHistoryStore } from "./user-shell-history.js";
 import { isStaleProviderSessionError } from "./stale-provider-session-error.js";
@@ -342,6 +343,8 @@ export interface AgentManagerOptions {
     agentId: string;
     expectedTurnId: string;
   }) => Promise<void>;
+  // Defaults to a live instance; production and tests share that config.
+  turnCheckpoints?: TurnCheckpoints;
   logger: Logger;
 }
 
@@ -607,6 +610,10 @@ function createAbortError(signal: AbortSignal | undefined, fallbackMessage: stri
   return Object.assign(new Error(message), { name: "AbortError" });
 }
 
+function resolveTurnCheckpoints(options: AgentManagerOptions): TurnCheckpoints {
+  return options.turnCheckpoints ?? new TurnCheckpoints({ logger: options.logger });
+}
+
 function validateAgentId(agentId: string, source: string): string {
   const result = AgentIdSchema.safeParse(agentId);
   if (!result.success) {
@@ -765,6 +772,7 @@ export class AgentManager {
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
   private readonly beforeSteerUnavailableFallback?: AgentManagerOptions["beforeSteerUnavailableFallback"];
+  private readonly turnCheckpoints: TurnCheckpoints;
   private acceptingAgentRegistrations = true;
 
   constructor(options: AgentManagerOptions) {
@@ -789,6 +797,7 @@ export class AgentManager {
         options.rescueTimeouts?.interruptSessionMs ?? INTERRUPT_SESSION_TIMEOUT_MS,
     };
     this.beforeSteerUnavailableFallback = options.beforeSteerUnavailableFallback;
+    this.turnCheckpoints = resolveTurnCheckpoints(options);
     this.agentStreamCoalescer = new AgentStreamCoalescer({
       windowMs: options.agentStreamCoalesceWindowMs ?? AGENT_STREAM_COALESCE_DEFAULT_WINDOW_MS,
       timers: { setTimeout, clearTimeout },
@@ -1788,6 +1797,7 @@ export class AgentManager {
     const { archivedAt } = await this.markRecordArchived(stored, requestedArchivedAt);
     agent.updatedAt = new Date(archivedAt);
     await this.closeAgentRuntime(agentId);
+    await this.turnCheckpoints.discard({ agentId, cwd: agent.cwd });
     await this.syncNativeArchiveState(stored.provider, stored.persistence, "archive");
     this.discardRetainedAgentState(agentId);
 
@@ -2548,6 +2558,7 @@ export class AgentManager {
     const streamForwarder = async function* streamForwarder(this: AgentManager) {
       let turnId: string;
       let turnStream: ReturnType<AgentRunState["createTurnStream"]> | null = null;
+      await this.beginTurnCheckpoint(agent, options?.clientMessageId);
       turnId = await this.startPendingForegroundTurn({
         agent,
         agentId,
@@ -2648,6 +2659,9 @@ export class AgentManager {
     }
     mutableAgent.activeForegroundTurnId = null;
     this.applyActiveTurnTerminal(mutableAgent, turnId);
+    if (!mutableAgent.internal) {
+      this.turnCheckpoints.endTurn({ agentId: mutableAgent.id, cwd: mutableAgent.cwd });
+    }
     const terminalError = mutableAgent.lastError;
     const shouldHoldBusyForReplacement = mutableAgent.pendingReplacement && !terminalError;
     let nextLifecycle: "running" | "error" | "idle";
@@ -3379,6 +3393,22 @@ export class AgentManager {
     } finally {
       this.runs.settleForegroundRun(agentId, lock.token);
     }
+  }
+
+  getTurnCheckpoints(): TurnCheckpoints {
+    return this.turnCheckpoints;
+  }
+
+  private async beginTurnCheckpoint(
+    agent: ActiveManagedAgent,
+    clientMessageId: string | undefined,
+  ): Promise<void> {
+    if (agent.internal) return;
+    await this.turnCheckpoints.beginTurn({
+      agentId: agent.id,
+      cwd: agent.cwd,
+      messageId: clientMessageId ?? null,
+    });
   }
 
   async deleteAgentState(agentId: string): Promise<void> {

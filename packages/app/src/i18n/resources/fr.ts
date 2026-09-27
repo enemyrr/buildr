@@ -1991,11 +1991,13 @@ export const fr: TranslationResources = {
   },
   rewind: {
     tooltip: "Revenez à ce message",
+    turnChanges: "Voir les modifications de ce tour",
     warning: "Cette action ne peut pas être annulée",
     actions: {
       conversation: "Rembobiner la conversation",
       files: "Rembobiner les fichiers",
       both: "Rembobiner la conversation et les fichiers",
+      restoreCheckpoint: "Restaurer les fichiers avant ce tour",
     },
     errors: {
       failed: "Échec du rembobinage de l'agent",
@@ -2098,6 +2100,16 @@ export const fr: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "Différences de l'arbre de travail",
       commitSubtitle: "Différences du commit",
+      turnLabel: "Modifications du tour",
+      turnSubtitle: "Modifications d'un tour de l'agent",
+      turnMissing: "Aucun point de contrôle n'existe pour ce tour.",
+      turnCapabilityMissing: "Mettez à jour l'hôte pour voir les modifications du tour.",
+      restoreFiles: "Restaurer les fichiers",
+      restoreTitle: "Restaurer les fichiers ?",
+      restoreMessage:
+        "Les fichiers de ce worktree reviennent à leur état d'avant ce tour. L'état actuel est d'abord enregistré dans une ref Git de sauvegarde.",
+      restoreSuccess: "Fichiers restaurés",
+      restoreFailed: "Impossible de restaurer les fichiers",
       uncommittedSubtitle: "Modifications non validées",
       baseSubtitle: "Comparé à {{baseRef}}",
       directoryMissing: "Répertoire Workspace introuvable.",

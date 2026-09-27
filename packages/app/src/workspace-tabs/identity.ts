@@ -41,6 +41,14 @@ export function normalizeWorkspaceTabTarget(
   return normalizeSimpleWorkspaceTabTarget(value);
 }
 
+function normalizeTurnDiffTarget(
+  value: Extract<WorkspaceTabTarget, { kind: "turn_diff" }>,
+): WorkspaceTabTarget | null {
+  const agentId = trimNonEmpty(value.agentId);
+  const messageId = trimNonEmpty(value.messageId);
+  return agentId && messageId ? { kind: "turn_diff", agentId, messageId } : null;
+}
+
 function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): WorkspaceTabTarget | null {
   switch (value.kind) {
     case "agent": {
@@ -68,6 +76,8 @@ function normalizeSimpleWorkspaceTabTarget(value: WorkspaceTabTarget): Workspace
       const sha = trimNonEmpty(value.sha);
       return sha ? { kind: "commit_diff", sha } : null;
     }
+    case "turn_diff":
+      return normalizeTurnDiffTarget(value);
     case "image":
       return trimNonEmpty(value.attachment?.id)
         ? { kind: "image", attachment: value.attachment }
@@ -162,6 +172,9 @@ function secondaryWorkspaceTabTargetsEqual(
   if (left.kind === "commit_diff" && right.kind === "commit_diff") {
     return left.sha === right.sha;
   }
+  if (left.kind === "turn_diff" && right.kind === "turn_diff") {
+    return left.agentId === right.agentId && left.messageId === right.messageId;
+  }
   if (left.kind === "image" && right.kind === "image") {
     return left.attachment.id === right.attachment.id;
   }
@@ -225,6 +238,9 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   }
   if (target.kind === "commit_diff") {
     return `commit_diff_${target.sha}`;
+  }
+  if (target.kind === "turn_diff") {
+    return `turn_diff_${target.agentId}_${target.messageId}`;
   }
   if (target.kind === "image") {
     return `image_${target.attachment.id}`;

@@ -132,7 +132,7 @@ Archiving runs through `AgentManager.archiveAgent` (`packages/server/src/server/
 1. Snapshot the current session into the registry
 2. Set `archivedAt` and normalize `lastStatus` away from `running`/`initializing`
 3. Notify subscribers
-4. Close the runtime (kills the process if still running)
+4. Close the runtime (kills the process if still running) and delete the agent's [turn checkpoint](turn-checkpoints.md) refs
 5. **Resolve children** — detach cross-workspace and open-tab children; cascade-archive the rest recursively
 
 Cascade is what keeps subagent fleets from outliving their orchestrator.

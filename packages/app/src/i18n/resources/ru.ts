@@ -1969,11 +1969,13 @@ export const ru: TranslationResources = {
   },
   rewind: {
     tooltip: "Вернуться к этому сообщению",
+    turnChanges: "Показать изменения этого хода",
     warning: "Это действие нельзя отменить.",
     actions: {
       conversation: "Откатить диалог",
       files: "Откатить файлы",
       both: "Откатить диалог и файлы",
+      restoreCheckpoint: "Восстановить файлы до этого хода",
     },
     errors: {
       failed: "Не удалось откатить состояние агента",
@@ -2076,6 +2078,16 @@ export const ru: TranslationResources = {
       diffLabel: "Дифф",
       changesSubtitle: "Изменения в worktree",
       commitSubtitle: "Изменения в коммите",
+      turnLabel: "Изменения хода",
+      turnSubtitle: "Изменения за один ход агента",
+      turnMissing: "Для этого хода нет контрольной точки.",
+      turnCapabilityMissing: "Обновите хост, чтобы видеть изменения хода.",
+      restoreFiles: "Восстановить файлы",
+      restoreTitle: "Восстановить файлы?",
+      restoreMessage:
+        "Файлы в этом worktree вернутся к состоянию до этого хода. Текущее состояние сначала сохраняется в резервную ссылку Git.",
+      restoreSuccess: "Файлы восстановлены",
+      restoreFailed: "Не удалось восстановить файлы",
       uncommittedSubtitle: "Незафиксированные изменения",
       baseSubtitle: "Сравнение с {{baseRef}}",
       directoryMissing: "Каталог рабочего пространства не найден.",

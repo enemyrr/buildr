@@ -108,6 +108,8 @@ import { isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
 import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
+import { TurnChangesButton } from "@/components/rewind/turn-changes-button";
+import { useMessageTurnCheckpointActions } from "@/checkpoints/turn-checkpoint-actions";
 import { AssistantForkMenu, type AssistantForkTarget } from "@/components/assistant-fork-menu";
 import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Button } from "@/components/ui/button";
@@ -495,6 +497,7 @@ export const UserMessage = memo(function UserMessage({
     [timestamp],
   );
   const rewindMutation = useRewindAgentMutation({ serverId, agentId, client, messageId });
+  const checkpointActions = useMessageTurnCheckpointActions(messageId);
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
@@ -577,7 +580,11 @@ export const UserMessage = memo(function UserMessage({
                 isPending={rewindMutation.isPending}
                 rewoundText={message}
                 onRewind={handleRewind}
+                onRestoreCheckpointFiles={checkpointActions?.restoreFiles}
               />
+            ) : null}
+            {checkpointActions ? (
+              <TurnChangesButton onPress={checkpointActions.openChanges} />
             ) : null}
             <TurnCopyButton
               getContent={getMessageContent}

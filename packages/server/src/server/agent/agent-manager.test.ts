@@ -660,6 +660,9 @@ async function startAndSteerThroughManager(
     activeTurnBehavior: behavior,
     runOptions: { clientMessageId: "replacement-client" },
   });
+  // A replacement turn starts after the pre-turn checkpoint, so wait for the
+  // start milestone rather than assuming the dispatch already reached it.
+  await manager.waitForAgentRunStart(agent.id);
   return { manager, agentId: agent.id, workdir };
 }
 

@@ -1971,11 +1971,13 @@ export const ptBR: TranslationResources = {
   },
   rewind: {
     tooltip: "Voltar para esta mensagem",
+    turnChanges: "Ver alterações deste turno",
     warning: "Esta ação não pode ser desfeita",
     actions: {
       conversation: "Reverter conversa",
       files: "Reverter arquivos",
       both: "Reverter conversa e arquivos",
+      restoreCheckpoint: "Restaurar arquivos para antes deste turno",
     },
     errors: {
       failed: "Falha ao reverter agente",
@@ -2077,6 +2079,16 @@ export const ptBR: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "Diff da árvore de trabalho",
       commitSubtitle: "Diff do commit",
+      turnLabel: "Alterações do turno",
+      turnSubtitle: "Alterações de um turno do agente",
+      turnMissing: "Não há ponto de controle para este turno.",
+      turnCapabilityMissing: "Atualize o host para ver as alterações do turno.",
+      restoreFiles: "Restaurar arquivos",
+      restoreTitle: "Restaurar arquivos?",
+      restoreMessage:
+        "Os arquivos deste worktree voltam ao estado anterior a este turno. O estado atual é salvo primeiro em uma ref Git de backup.",
+      restoreSuccess: "Arquivos restaurados",
+      restoreFailed: "Não foi possível restaurar os arquivos",
       uncommittedSubtitle: "Alterações não commitadas",
       baseSubtitle: "Comparado com {{baseRef}}",
       directoryMissing: "Diretório do workspace não encontrado.",

@@ -1945,11 +1945,13 @@ export const ko: TranslationResources = {
   },
   rewind: {
     tooltip: "이 메시지로 되감기",
+    turnChanges: "이 턴의 변경 사항 보기",
     warning: "이 작업은 되돌릴 수 없습니다",
     actions: {
       conversation: "대화 되감기",
       files: "파일 되감기",
       both: "대화와 파일 되감기",
+      restoreCheckpoint: "이 턴 이전으로 파일 복원",
     },
     errors: {
       failed: "에이전트를 되감지 못했습니다",
@@ -2051,6 +2053,16 @@ export const ko: TranslationResources = {
       diffLabel: "Diff",
       changesSubtitle: "작업 트리 diff",
       commitSubtitle: "커밋 diff",
+      turnLabel: "턴 변경 사항",
+      turnSubtitle: "에이전트 턴 하나의 변경 사항",
+      turnMissing: "이 턴의 체크포인트가 없습니다.",
+      turnCapabilityMissing: "턴 변경 사항을 보려면 호스트를 업데이트하세요.",
+      restoreFiles: "파일 복원",
+      restoreTitle: "파일을 복원할까요?",
+      restoreMessage:
+        "이 워크트리의 파일이 이 턴 이전 상태로 돌아갑니다. 현재 상태는 먼저 백업 Git ref에 저장됩니다.",
+      restoreSuccess: "파일을 복원했습니다",
+      restoreFailed: "파일을 복원할 수 없습니다",
       uncommittedSubtitle: "커밋되지 않은 변경 사항",
       baseSubtitle: "{{baseRef}}와 비교",
       directoryMissing: "워크스페이스 디렉터리를 찾을 수 없습니다.",

@@ -326,6 +326,7 @@ function getFallbackTabOptionLabel(
     browser: string;
     agent: string;
     changes: string;
+    turnChanges: string;
     files: string;
     pullRequest: string;
     commits: string;
@@ -364,6 +365,9 @@ function getFallbackTabOptionLabel(
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
   }
+  if (tab.target.kind === "turn_diff") {
+    return labels.turnChanges;
+  }
   if (tab.target.kind === "image") {
     return tab.target.attachment.fileName ?? tab.target.attachment.id;
   }
@@ -380,6 +384,7 @@ function getFallbackTabOptionDescription(
     terminal: string;
     browser: string;
     changes: string;
+    turnChanges: string;
     files: string;
     pullRequest: string;
     commits: string;
@@ -408,6 +413,9 @@ function getFallbackTabOptionDescription(
   }
   if (tab.target.kind === "commit_diff") {
     return tab.target.sha.slice(0, 7);
+  }
+  if (tab.target.kind === "turn_diff") {
+    return labels.turnChanges;
   }
   if (tab.target.kind === "image") {
     return tab.target.attachment.fileName ?? tab.target.attachment.id;
@@ -619,6 +627,7 @@ function MobileWorkspaceTabOption({
       browser: t("workspace.tabs.fallback.browser"),
       agent: t("workspace.tabs.fallback.agent"),
       changes: t("panels.diff.changesLabel"),
+      turnChanges: t("panels.diff.turnLabel"),
       files: t("panels.files.label"),
       pullRequest: t("panels.pullRequest.label"),
       commits: t("workspace.git.prFlow.tabs.commits"),
@@ -2558,6 +2567,7 @@ function WorkspaceScreenContent({
       browser: t("workspace.tabs.fallback.browser"),
       agent: t("workspace.tabs.fallback.agent"),
       changes: t("panels.diff.changesLabel"),
+      turnChanges: t("panels.diff.turnLabel"),
       files: t("panels.files.label"),
       pullRequest: t("panels.pullRequest.label"),
       commits: t("workspace.git.prFlow.tabs.commits"),

@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { Text, View } from "react-native";
-import { FileText, Layers, MessageSquare, Undo2 } from "lucide-react-native";
+import { FileText, History, Layers, MessageSquare, Undo2 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import {
   DropdownMenu,
@@ -20,8 +20,16 @@ interface RewindMenuProps {
   capabilities: AgentCapabilityFlags;
   rewoundText: string;
   onRewind: (input: { mode: RewindMode; rewoundText: string }) => Promise<void> | void;
+  /** Restores files from the daemon's turn checkpoint; omitted when unavailable. */
+  onRestoreCheckpointFiles?: () => Promise<void>;
   isPending?: boolean;
   testID?: string;
+}
+
+type RewindMenuAction = RewindMode | "checkpoint";
+
+function getCheckpointIcon(color: string): ReactElement {
+  return <History size={16} color={color} />;
 }
 
 function getIcon(mode: RewindMode, color: string): ReactElement {
@@ -39,6 +47,7 @@ export const RewindMenu = memo(function RewindMenu({
   capabilities,
   rewoundText,
   onRewind,
+  onRestoreCheckpointFiles,
   isPending: isPendingProp = false,
   testID = "rewind-menu",
 }: RewindMenuProps) {
@@ -54,7 +63,7 @@ export const RewindMenu = memo(function RewindMenu({
   );
   const items = useRewindCapabilities(capabilities, rewindLabels);
   const [isOpen, setIsOpen] = useState(false);
-  const [pendingMode, setPendingMode] = useState<RewindMode | null>(null);
+  const [pendingMode, setPendingMode] = useState<RewindMenuAction | null>(null);
   const isLocked = isPendingProp || pendingMode !== null;
 
   const handleOpenChange = useCallback(
@@ -66,11 +75,12 @@ export const RewindMenu = memo(function RewindMenu({
   );
 
   const handleSelect = useCallback(
-    (mode: RewindMode) => async () => {
+    (mode: RewindMenuAction) => async () => {
       if (isLocked) return;
       setPendingMode(mode);
       try {
-        await onRewind({ mode, rewoundText });
+        if (mode === "checkpoint") await onRestoreCheckpointFiles?.();
+        else await onRewind({ mode, rewoundText });
       } catch {
         // useRewindAgentMutation owns the toast; the menu only owns flow state.
       } finally {
@@ -78,7 +88,7 @@ export const RewindMenu = memo(function RewindMenu({
         setIsOpen(false);
       }
     },
-    [isLocked, onRewind, rewoundText],
+    [isLocked, onRestoreCheckpointFiles, onRewind, rewoundText],
   );
 
   const triggerStyle = useCallback(
@@ -95,7 +105,7 @@ export const RewindMenu = memo(function RewindMenu({
     [t],
   );
 
-  if (items.length === 0) {
+  if (items.length === 0 && !onRestoreCheckpointFiles) {
     return null;
   }
 
@@ -140,6 +150,18 @@ export const RewindMenu = memo(function RewindMenu({
             {item.label}
           </DropdownMenuItem>
         ))}
+        {onRestoreCheckpointFiles ? (
+          <DropdownMenuItem
+            closeOnSelect={false}
+            disabled={isLocked && pendingMode !== "checkpoint"}
+            leading={getCheckpointIcon(theme.colors.foreground)}
+            onSelect={handleSelect("checkpoint")}
+            status={pendingMode === "checkpoint" ? "pending" : undefined}
+            testID="rewind-menu-checkpoint-files"
+          >
+            {t("rewind.actions.restoreCheckpoint")}
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

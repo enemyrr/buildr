@@ -171,6 +171,7 @@ import {
   setProjectCustomIcon,
 } from "../utils/project-custom-icon.js";
 import { VoiceSessions } from "./session/voice/index.js";
+import { CheckpointSession } from "./session/checkpoints/checkpoint-session.js";
 import { CheckoutSession } from "./session/checkout/checkout-session.js";
 import {
   createWorkspaceGitObserverService,
@@ -789,6 +790,7 @@ export class Session {
   private readonly workspaceDirectory: WorkspaceDirectory;
   private readonly voiceSessions: VoiceSessions;
   private readonly checkoutSession: CheckoutSession;
+  private readonly checkpointSession: CheckpointSession;
   private readonly scheduleSession: ScheduleSession;
   private readonly providerCatalogSession: ProviderCatalogSession;
   private readonly workspaceFilesSession: WorkspaceFilesSession;
@@ -930,6 +932,12 @@ export class Session {
       unarchiveWorkspace: async (workspace) => {
         await this.workspaceProvisioning.ensureWorkspaceRecordUnarchived(workspace);
       },
+    });
+    this.checkpointSession = new CheckpointSession({
+      emit: (msg) => this.emit(msg),
+      agentManager: this.agentManager,
+      workspaceRegistry: this.workspaceRegistry,
+      logger: this.sessionLogger,
     });
     this.checkoutSession = new CheckoutSession({
       host: {
@@ -2610,7 +2618,7 @@ export class Session {
       case "agent.rewind.request":
         return this.handleAgentRewindRequest(msg, source);
       default:
-        return undefined;
+        return this.checkpointSession.dispatch(msg);
     }
   }
 
@@ -3179,10 +3187,11 @@ export class Session {
   private async handleDeleteAgentRequest(agentId: string, requestId: string): Promise<void> {
     this.sessionLogger.info({ agentId }, `Deleting agent ${agentId} from registry`);
 
-    const knownWorkspaceId =
-      this.agentManager.getAgent(agentId)?.workspaceId ??
-      (await this.agentStorage.get(agentId))?.workspaceId ??
-      null;
+    const loadedAgent = this.agentManager.getAgent(agentId);
+    const storedAgent =
+      loadedAgent?.workspaceId === undefined ? await this.agentStorage.get(agentId) : null;
+    const knownWorkspaceId = loadedAgent?.workspaceId ?? storedAgent?.workspaceId ?? null;
+    const knownCwd = loadedAgent?.cwd ?? storedAgent?.cwd ?? null;
 
     // File-backed storage still needs an early delete fence before closeAgent().
     beginAgentDeleteIfSupported(this.agentStorage, agentId);
@@ -3203,6 +3212,7 @@ export class Session {
     try {
       await this.agentStorage.remove(agentId);
       await this.agentManager.deleteAgentState(agentId);
+      if (knownCwd) await this.checkpointSession.discardAgent({ agentId, cwd: knownCwd });
     } catch (error) {
       this.sessionLogger.error({ err: error, agentId }, `Failed to fully delete agent ${agentId}`);
     }
