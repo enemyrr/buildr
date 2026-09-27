@@ -252,15 +252,26 @@ function pathTestId(path: string): string {
   return `add-project-flow-path-${encodeURIComponent(path)}`;
 }
 
-function FlowRow({ option, active }: { option: FlowRowOption; active: boolean }) {
+interface FlowRowProps {
+  option: FlowRowOption;
+  index: number;
+  active: boolean;
+  onActivate: (index: number) => void;
+}
+
+function FlowRow({ option, index, active, onActivate }: FlowRowProps) {
+  // The pointer moves the active row (see docs/hover.md, "Keyboard-active lists").
+  const handlePointerMove = useCallback(() => {
+    if (!active && !option.disabled) onActivate(index);
+  }, [active, index, onActivate, option.disabled]);
   const accessibilityState = useMemo(
     () => ({ disabled: option.disabled === true, selected: active }),
     [active, option.disabled],
   );
   const rowStyle = useCallback(
-    ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+    ({ pressed }: PressableStateCallbackType) => [
       styles.row,
-      (active || hovered || pressed) && styles.rowActive,
+      (active || pressed) && styles.rowActive,
       option.disabled && styles.disabled,
     ],
     [active, option.disabled],
@@ -270,6 +281,7 @@ function FlowRow({ option, active }: { option: FlowRowOption; active: boolean })
       accessibilityRole="button"
       accessibilityState={accessibilityState}
       disabled={option.disabled}
+      onPointerMove={handlePointerMove}
       onPress={option.select}
       style={rowStyle}
       testID={option.testID}
@@ -793,6 +805,10 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
     [activeIndex, handleBack, rows, submitActive],
   );
 
+  const activateRow = useCallback((index: number) => {
+    setState((current) => setAddProjectActiveIndex(current, index));
+  }, []);
+
   const modalLayer = useGlobalWebOverlayLayer("modal", isWeb);
   const handleWebOverlayKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -940,7 +956,13 @@ export function AddProjectFlow({ request, onClose }: AddProjectFlowProps) {
             (!loading || page.kind === "github-search") &&
             (!queryError || page.kind === "github-search")
               ? rows.map((option, index) => (
-                  <FlowRow key={option.id} option={option} active={index === activeIndex} />
+                  <FlowRow
+                    key={option.id}
+                    option={option}
+                    index={index}
+                    active={index === activeIndex}
+                    onActivate={activateRow}
+                  />
                 ))
               : null}
             {!isSubmitting &&

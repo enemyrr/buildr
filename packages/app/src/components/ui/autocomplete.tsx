@@ -26,6 +26,7 @@ export interface AutocompleteOption {
 interface AutocompleteProps {
   options: readonly AutocompleteOption[];
   selectedIndex: number;
+  setSelectedIndex: (index: number) => void;
   onSelect: (option: AutocompleteOption) => void;
   isLoading?: boolean;
   errorMessage?: string;
@@ -50,6 +51,7 @@ interface AutocompleteRowProps {
   isSelected: boolean;
   mutedColor: string;
   onSelect: (option: AutocompleteOption) => void;
+  onHover: (index: number) => void;
   onRowLayout: (index: number, event: LayoutChangeEvent) => void;
 }
 
@@ -59,6 +61,7 @@ function AutocompleteRow({
   isSelected,
   mutedColor,
   onSelect,
+  onHover,
   onRowLayout,
 }: AutocompleteRowProps) {
   const optionLabel = removeBoltGlyphs(option.label) ?? option.label;
@@ -70,16 +73,24 @@ function AutocompleteRow({
     [index, onRowLayout],
   );
   const handlePress = useCallback(() => onSelect(option), [onSelect, option]);
+  const handlePointerMove = useCallback(() => {
+    if (!isSelected) onHover(index);
+  }, [index, isSelected, onHover]);
   const pressableStyle = useCallback(
-    ({ hovered = false, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+    ({ pressed }: PressableStateCallbackType) => [
       styles.item,
-      (hovered || pressed || isSelected) && styles.itemActive,
+      (pressed || isSelected) && styles.itemActive,
     ],
     [isSelected],
   );
 
   return (
-    <Pressable onLayout={handleLayout} onPress={handlePress} style={pressableStyle}>
+    <Pressable
+      onPointerMove={handlePointerMove}
+      onLayout={handleLayout}
+      onPress={handlePress}
+      style={pressableStyle}
+    >
       {isFileOrDir ? (
         <>
           <View style={styles.itemLeading}>
@@ -120,6 +131,7 @@ function AutocompleteRow({
 export function Autocomplete({
   options,
   selectedIndex,
+  setSelectedIndex,
   onSelect,
   isLoading = false,
   errorMessage,
@@ -135,11 +147,23 @@ export function Autocomplete({
   const rowLayoutsRef = useRef<Map<number, { top: number; height: number }>>(new Map());
   const viewportHeightRef = useRef(0);
   const scrollOffsetRef = useRef(0);
+  // The pointer moves the selected row (see docs/hover.md, "Keyboard-active lists"). A row the
+  // pointer selected is never scrolled into view.
+  const hoveredIndexRef = useRef<number | null>(null);
+
+  const hoverRow = useCallback(
+    (index: number) => {
+      hoveredIndexRef.current = index;
+      setSelectedIndex(index);
+    },
+    [setSelectedIndex],
+  );
 
   const ensureActiveItemVisible = useCallback(() => {
-    if (selectedIndex < 0) {
+    if (selectedIndex < 0 || selectedIndex === hoveredIndexRef.current) {
       return;
     }
+    hoveredIndexRef.current = null;
 
     const layout = rowLayoutsRef.current.get(selectedIndex);
     if (!layout) {
@@ -171,6 +195,7 @@ export function Autocomplete({
   useEffect(() => {
     rowLayoutsRef.current.clear();
     scrollOffsetRef.current = 0;
+    hoveredIndexRef.current = null;
   }, [options]);
 
   useEffect(() => {
@@ -277,6 +302,7 @@ export function Autocomplete({
               isSelected={index === selectedIndex}
               mutedColor={theme.colors.foregroundMuted}
               onSelect={onSelect}
+              onHover={hoverRow}
               onRowLayout={handleRowLayout}
             />
           ))}

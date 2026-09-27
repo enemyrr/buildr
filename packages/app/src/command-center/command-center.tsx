@@ -238,6 +238,7 @@ interface CommandCenterState {
   fileSearchError: string | null;
   close(): void;
   select(result: CommandCenterResult): void;
+  activate(resultId: string): void;
   key(key: string): boolean;
 }
 
@@ -380,6 +381,7 @@ function useCommandCenterState(): CommandCenterState {
     fileSearchError,
     close,
     select,
+    activate: setActiveId,
     key,
   };
 }
@@ -388,10 +390,14 @@ interface ResultRowProps {
   result: CommandCenterResult;
   active: boolean;
   onSelect(result: CommandCenterResult): void;
+  onHover(resultId: string): void;
 }
 
-const ResultRow = memo(function ResultRow({ result, active, onSelect }: ResultRowProps) {
+const ResultRow = memo(function ResultRow({ result, active, onSelect, onHover }: ResultRowProps) {
   const press = useCallback(() => onSelect(result), [onSelect, result]);
+  const pointerMove = useCallback(() => {
+    if (!active) onHover(result.id);
+  }, [active, onHover, result.id]);
   const choice =
     result.kind === "contribution" && result.contribution.presentation.kind === "choice"
       ? result.contribution.presentation
@@ -405,7 +411,7 @@ const ResultRow = memo(function ResultRow({ result, active, onSelect }: ResultRo
     [choice],
   );
   const style = useCallback(
-    ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
+    ({ pressed }: PressableStateCallbackType) => [
       styles.row,
       (result.kind === "agent" ||
         result.kind === "workspace" ||
@@ -413,13 +419,14 @@ const ResultRow = memo(function ResultRow({ result, active, onSelect }: ResultRo
           result.contribution.presentation.kind === "action" &&
           Boolean(result.contribution.presentation.subtitle))) &&
         styles.tallRow,
-      (Boolean(hovered) || pressed || active) && styles.activeRow,
+      (pressed || active) && styles.activeRow,
     ],
     [active, result],
   );
   return (
     <Pressable
       style={style}
+      onPointerMove={pointerMove}
       onPress={press}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -595,8 +602,21 @@ export function CommandCenter() {
     onClose: state.close,
   });
 
+  // The pointer moves the active row (see docs/hover.md, "Keyboard-active lists"). A row the
+  // pointer activated is never scrolled into view.
+  const hoveredResultIdRef = useRef<string | null>(null);
+  const { activate } = state;
+  const hoverResult = useCallback(
+    (resultId: string) => {
+      hoveredResultIdRef.current = resultId;
+      activate(resultId);
+    },
+    [activate],
+  );
   const revealActiveResult = useCallback(() => {
     if (!state.open || !state.activeId) return;
+    if (state.activeId === hoveredResultIdRef.current) return;
+    hoveredResultIdRef.current = null;
     const index = state.rowIndexByResultId.get(state.activeId);
     if (index === undefined) return;
     const { offset, visibleLength } = scrollMetricsRef.current;
@@ -651,9 +671,10 @@ export function CommandCenter() {
           result={item.result}
           active={item.result.id === state.activeId}
           onSelect={state.select}
+          onHover={hoverResult}
         />
       ),
-    [state.activeId, state.select],
+    [hoverResult, state.activeId, state.select],
   );
   const getItemLayout = useCallback(
     (_data: ArrayLike<CommandCenterListRow> | null | undefined, index: number) => ({

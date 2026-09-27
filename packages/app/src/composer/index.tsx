@@ -1115,6 +1115,7 @@ function ComposerAutocompleteBinding({
       anchorRef={anchorRef}
       options={autocomplete.options}
       selectedIndex={autocomplete.selectedIndex}
+      setSelectedIndex={autocomplete.setSelectedIndex}
       onSelect={onSelect}
       isLoading={autocomplete.isLoading}
       errorMessage={autocomplete.errorMessage}

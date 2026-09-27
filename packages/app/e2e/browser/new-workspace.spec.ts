@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { buildHostWorkspaceRoute } from "@/utils/host-routes";
+import type { Locator } from "@playwright/test";
 import { expect, test } from "../support/fixtures";
 import { gotoAppShell } from "../support/helpers/app";
 import {
@@ -208,6 +209,23 @@ async function submitNewWorkspaceWithoutPrompt(page: import("@playwright/test").
     .getByRole("button", { name: "Create" });
   await expect(createButton).toBeVisible({ timeout: 30_000 });
   await createButton.click();
+}
+
+// A row is filled when its background isn't transparent. The active row and a hovered row draw
+// the same fill, so an active row plus a hovered one counts as two.
+function rowTestIds(rows: Locator): Promise<string[]> {
+  return rows.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid") ?? ""));
+}
+
+function filledTestIds(rows: Locator): Promise<string[]> {
+  return rows.evaluateAll((nodes) =>
+    nodes
+      .filter((node) => {
+        const color = getComputedStyle(node).backgroundColor;
+        return color !== "rgba(0, 0, 0, 0)" && color !== "transparent";
+      })
+      .map((node) => node.getAttribute("data-testid") ?? ""),
+  );
 }
 
 test.describe("New workspace flow", () => {
@@ -912,6 +930,48 @@ test.describe("New workspace flow", () => {
       await selectPickerOptionByKeyboard(page, "dev");
       await expectPickerSelected(page, "dev");
       await expectPickerClosed(page);
+    } finally {
+      await tempRepo.cleanup();
+    }
+  });
+
+  test("the pointer moves the branch picker's single active row", async ({ page }) => {
+    const tempRepo = await createTempGitRepo("picker-pointer-", {
+      branches: ["main", "dev", "feature"],
+    });
+
+    try {
+      const openedProject = await openProjectViaDaemon(client, tempRepo.path);
+      localWorkspaceIds.add(openedProject.workspaceId);
+
+      await gotoAppShell(page);
+      await waitForSidebarHydration(page);
+      await openNewWorkspaceComposer(page, {
+        projectKey: openedProject.projectKey,
+        projectDisplayName: openedProject.projectDisplayName,
+      });
+      await selectWorkspaceIsolation(page, "worktree");
+
+      await openBranchPicker(page);
+      await expectPickerOpen(page);
+      const rows = page
+        .getByTestId("combobox-desktop-container")
+        .locator('[data-testid^="new-workspace-ref-picker-branch-"]');
+      await expect(rows.nth(2)).toBeVisible({ timeout: 30_000 });
+      await expect.poll(() => filledTestIds(rows)).toHaveLength(1);
+
+      // Hover the last row that isn't active, so ArrowUp has a different row to reach.
+      const [initial] = await filledTestIds(rows);
+      const ids = await rowTestIds(rows);
+      const hovered = ids.findLast((id, index) => index > 0 && id !== initial);
+      if (!hovered) throw new Error(`No row to hover among ${ids.join(", ")}`);
+      await page.getByTestId(hovered).hover();
+      await expect.poll(() => filledTestIds(rows)).toEqual([hovered]);
+
+      // Arrow keys continue from the hovered row.
+      await page.mouse.move(0, 0);
+      await page.keyboard.press("ArrowUp");
+      await expect.poll(() => filledTestIds(rows)).toEqual([ids[ids.indexOf(hovered) - 1]]);
     } finally {
       await tempRepo.cleanup();
     }
