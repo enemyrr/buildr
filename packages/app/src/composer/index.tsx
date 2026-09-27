@@ -154,6 +154,8 @@ import { useComposerForgeAutoAttach } from "./forge-auto-attach";
 import { readClipboardImage } from "./clipboard-image";
 import { indentListItem } from "./input/list-continuation";
 import { createPastedTextFile, insertAtSelection } from "./input/large-paste";
+import { PromptStashMenu } from "./stash/menu";
+import { usePromptStash, type StashDraft } from "./stash/use-prompt-stash";
 import {
   resolvePromptHistoryDirection,
   selectPromptHistory,
@@ -577,6 +579,7 @@ interface DispatchComposerKeyboardActionArgs {
   isConnected: boolean;
   handleCancelAgent: () => void;
   focusMessageInputForKeyboardAction: () => void;
+  runStashShortcut: () => boolean;
 }
 
 function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs): boolean {
@@ -589,8 +592,11 @@ function dispatchComposerKeyboardAction(args: DispatchComposerKeyboardActionArgs
     isConnected,
     handleCancelAgent,
     focusMessageInputForKeyboardAction,
+    runStashShortcut,
   } = args;
   if (!isPaneFocused) return false;
+
+  if (action.id === "message-input.stash") return runStashShortcut();
 
   if (action.id === "agent.interrupt") {
     if (messageInputRef.current?.runKeyboardAction("dictation-cancel")) return true;
@@ -620,6 +626,7 @@ function ComposerKeyboardRegistration({
   isConnected,
   handleCancelAgent,
   focusMessageInputForKeyboardAction,
+  runStashShortcut,
   isMessageInputFocused,
   handlerId,
 }: Omit<DispatchComposerKeyboardActionArgs, "action" | "isPaneFocused"> & {
@@ -638,9 +645,11 @@ function ComposerKeyboardRegistration({
         isConnected,
         handleCancelAgent,
         focusMessageInputForKeyboardAction,
+        runStashShortcut,
       }),
     [
       focusMessageInputForKeyboardAction,
+      runStashShortcut,
       handleCancelAgent,
       isActiveComposer,
       isAgentRunning,
@@ -661,6 +670,7 @@ function ComposerKeyboardRegistration({
       "message-input.dictation-confirm",
       "message-input.voice-toggle",
       "message-input.voice-mute-toggle",
+      "message-input.stash",
     ],
     enabled: isActiveComposer,
     priority: resolveKeyboardPriority(isMessageInputFocused),
@@ -2531,6 +2541,45 @@ function ComposerContentImpl({
     { disabled: isSubmitLoadingVisible },
   );
 
+  const getStashDraft = useCallback(
+    (): StashDraft => ({
+      text: messageInputRef.current?.getText() ?? textSource.getSnapshot(),
+      attachments,
+    }),
+    [attachments, textSource],
+  );
+  const replaceStashDraft = useCallback(
+    (draft: StashDraft) => {
+      replaceUserInput(draft.text, { start: draft.text.length, end: draft.text.length });
+      setSelectedAttachments(draft.attachments);
+      resetSuppression();
+    },
+    [replaceUserInput, resetSuppression, setSelectedAttachments],
+  );
+  const showStashError = useCallback((message: string) => toastErrorRef.current(message), []);
+  const promptStash = usePromptStash({
+    getDraft: getStashDraft,
+    replaceDraft: replaceStashDraft,
+    isBusy: isSubmitLoadingVisible || isComposerLocked,
+    onSuccess: toast.show,
+    onError: showStashError,
+  });
+  const composerBeforeVoiceContent = useMemo(
+    () => (
+      <>
+        {mode.showAgentControls ? (
+          <PromptStashMenu
+            stash={promptStash}
+            hasDraft={hasSendableContent}
+            iconSize={buttonIconSize}
+          />
+        ) : null}
+        {beforeVoiceContent}
+      </>
+    ),
+    [beforeVoiceContent, buttonIconSize, hasSendableContent, mode.showAgentControls, promptStash],
+  );
+
   const messageInputAutoFocus = autoFocus && isDesktopWebBreakpoint;
   const submitLoadingPressHandler = isAgentRunning ? handleCancelAgent : undefined;
   const sendErrorNode = useMemo(
@@ -2556,6 +2605,7 @@ function ComposerContentImpl({
         isConnected={isConnected}
         handleCancelAgent={handleCancelAgent}
         focusMessageInputForKeyboardAction={focusMessageInputForKeyboardAction}
+        runStashShortcut={promptStash.runShortcut}
         isMessageInputFocused={isMessageInputFocused}
       />
       <View style={animatedStaticStyles.container}>
@@ -2616,7 +2666,7 @@ function ComposerContentImpl({
                   autoFocusKey={`${serverId}:${agentId}:${autoFocusKey ?? ""}`}
                   disabled={isSubmitLoading}
                   leftContent={leftContent}
-                  beforeVoiceContent={beforeVoiceContent}
+                  beforeVoiceContent={composerBeforeVoiceContent}
                   rightContent={rightContent}
                   activeActionContent={activeActionContent}
                   voiceServerId={serverId}

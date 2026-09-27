@@ -116,6 +116,18 @@ export const ja: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "退避したプロンプト",
+      stashCurrent: "プロンプトを退避",
+      attachmentsOnly: "添付ファイルのみ",
+      stashed: "プロンプトを退避しました",
+      errors: {
+        tooLarge: "このプロンプトは大きすぎて退避できません。",
+        storageFailed:
+          "プロンプトを退避できませんでした。ローカルストレージが利用できないか、容量が不足しています。",
+        restoreFailed: "プロンプトを復元できませんでした。ローカルストレージが利用できません。",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "変更を依頼、@でファイルを指定、/コマンドを実行",
@@ -2449,6 +2461,7 @@ export const ja: TranslationResources = {
         toggleFocusMode: "フォーカスモードを切り替え",
         cycleTheme: "テーマを順に切り替え",
         focusMessageInput: "メッセージ入力にフォーカス",
+        stashPrompt: "プロンプトを退避または復元",
         cycleAgentMode: "エージェントモードを順に切り替え",
         toggleVoiceMode: "音声モードを切り替え",
         startStopDictation: "音声入力を開始/停止",

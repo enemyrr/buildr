@@ -118,6 +118,18 @@ export const fr: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Prompts mis de côté",
+      stashCurrent: "Mettre le prompt de côté",
+      attachmentsOnly: "Pièces jointes uniquement",
+      stashed: "Prompt mis de côté",
+      errors: {
+        tooLarge: "Ce prompt est trop volumineux pour être mis de côté.",
+        storageFailed:
+          "Impossible de mettre le prompt de côté. Le stockage local est indisponible ou plein.",
+        restoreFailed: "Impossible de restaurer le prompt. Le stockage local est indisponible.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Demandez des modifications, mentionnez des fichiers avec @, lancez /commands",
@@ -2489,6 +2501,7 @@ export const fr: TranslationResources = {
         toggleFocusMode: "Basculer le mode de mise au point",
         cycleTheme: "Thème du cycle",
         focusMessageInput: "Saisie du message de focus",
+        stashPrompt: "Mettre de côté ou restaurer le prompt",
         cycleAgentMode: "Parcourir les modes de l'agent",
         toggleVoiceMode: "Changer le mode vocal",
         startStopDictation: "Démarrer la dictée/stop",

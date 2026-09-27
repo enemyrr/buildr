@@ -111,6 +111,17 @@ export const en = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Stashed prompts",
+      stashCurrent: "Stash prompt",
+      attachmentsOnly: "Attachments only",
+      stashed: "Prompt stashed",
+      errors: {
+        tooLarge: "This prompt is too large to stash.",
+        storageFailed: "Couldn't stash the prompt. Local storage is unavailable or full.",
+        restoreFailed: "Couldn't restore the prompt. Local storage is unavailable.",
+      },
+    },
     loadout: {
       title: "Model",
       effort: "Effort",
@@ -2622,6 +2633,7 @@ export const en = {
         toggleFocusMode: "Toggle focus mode",
         cycleTheme: "Cycle theme",
         focusMessageInput: "Focus message input",
+        stashPrompt: "Stash or restore prompt",
         cycleAgentMode: "Cycle agent mode",
         toggleVoiceMode: "Toggle voice mode",
         startStopDictation: "Start/stop dictation",

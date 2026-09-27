@@ -115,6 +115,17 @@ export const zhCN: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "已暂存的提示词",
+      stashCurrent: "暂存提示词",
+      attachmentsOnly: "仅附件",
+      stashed: "已暂存提示词",
+      errors: {
+        tooLarge: "此提示词过大，无法暂存。",
+        storageFailed: "无法暂存提示词。本地存储不可用或已满。",
+        restoreFailed: "无法恢复提示词。本地存储不可用。",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "请求修改，用 @ 提及文件，运行 /commands",
@@ -2401,6 +2412,7 @@ export const zhCN: TranslationResources = {
         toggleFocusMode: "切换专注模式",
         cycleTheme: "循环切换主题",
         focusMessageInput: "聚焦消息输入框",
+        stashPrompt: "暂存或恢复提示词",
         cycleAgentMode: "循环切换代理模式",
         toggleVoiceMode: "切换语音模式",
         startStopDictation: "开始/停止听写",

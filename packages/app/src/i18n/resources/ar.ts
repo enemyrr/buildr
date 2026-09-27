@@ -115,6 +115,17 @@ export const ar: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "الطلبات المحفوظة جانبًا",
+      stashCurrent: "حفظ الطلب جانبًا",
+      attachmentsOnly: "مرفقات فقط",
+      stashed: "تم حفظ الطلب جانبًا",
+      errors: {
+        tooLarge: "هذا الطلب أكبر من أن يُحفظ جانبًا.",
+        storageFailed: "تعذر حفظ الطلب جانبًا. التخزين المحلي غير متاح أو ممتلئ.",
+        restoreFailed: "تعذرت استعادة الطلب. التخزين المحلي غير متاح.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "اطلب إجراء تغييرات، أو أشِر إلى الملفات بـ @، أو شغّل /commands",
@@ -2427,6 +2438,7 @@ export const ar: TranslationResources = {
         toggleFocusMode: "تبديل وضع التركيز",
         cycleTheme: "موضوع الدورة",
         focusMessageInput: "التركيز على إدخال الرسالة",
+        stashPrompt: "حفظ الطلب جانبًا أو استعادته",
         cycleAgentMode: "تبديل وضع الوكيل",
         toggleVoiceMode: "تبديل الوضع الصوتي",
         startStopDictation: "بدء إملاء /stop",

@@ -115,6 +115,18 @@ export const ko: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "보관된 프롬프트",
+      stashCurrent: "프롬프트 보관",
+      attachmentsOnly: "첨부 파일만",
+      stashed: "프롬프트를 보관했습니다",
+      errors: {
+        tooLarge: "이 프롬프트는 너무 커서 보관할 수 없습니다.",
+        storageFailed:
+          "프롬프트를 보관할 수 없습니다. 로컬 저장소를 사용할 수 없거나 가득 찼습니다.",
+        restoreFailed: "프롬프트를 복원할 수 없습니다. 로컬 저장소를 사용할 수 없습니다.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "변경을 요청하거나 @로 파일을 언급하거나 /commands를 실행하세요",
@@ -2438,6 +2450,7 @@ export const ko: TranslationResources = {
         toggleFocusMode: "집중 모드 토글",
         cycleTheme: "테마 순환",
         focusMessageInput: "메시지 입력란에 포커스",
+        stashPrompt: "프롬프트 보관 또는 복원",
         cycleAgentMode: "에이전트 모드 전환",
         toggleVoiceMode: "음성 모드 토글",
         startStopDictation: "받아쓰기 시작/중지",
