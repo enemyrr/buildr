@@ -86,6 +86,18 @@ export function pasteAndMatchStyleInContents(input: {
   input.contents.pasteAndMatchStyle();
 }
 
+/**
+ * Returns the Paste and Match Style accelerator for `platform`. Only macOS registers one:
+ * elsewhere Ctrl+Shift+V is the terminal's paste chord, which a registered accelerator would
+ * take from xterm. Chromium pastes plain text on that chord natively, and the composer's
+ * keydown handler marks the paste as plain.
+ */
+export function resolvePasteAndMatchStyleAccelerator(
+  platform: NodeJS.Platform,
+): string | undefined {
+  return platform === "darwin" ? "Command+Shift+V" : undefined;
+}
+
 interface UndoableWebContents {
   id: number;
   undo(): void;
@@ -169,7 +181,7 @@ function buildApplicationMenuTemplate(
         { role: "paste" },
         {
           label: "Paste and Match Style",
-          accelerator: "CommandOrControl+Shift+V",
+          accelerator: resolvePasteAndMatchStyleAccelerator(process.platform),
           click: () => {
             const focused = webContents.getFocusedWebContents();
             if (!focused) return;

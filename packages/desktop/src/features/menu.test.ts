@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   pasteAndMatchStyleInContents,
   reloadActiveBrowserOrWindow,
+  resolvePasteAndMatchStyleAccelerator,
   routeMenuUndo,
 } from "./menu.js";
 
@@ -93,6 +94,17 @@ describe("pasteAndMatchStyleInContents", () => {
     const contents = recordingContents();
     pasteAndMatchStyleInContents({ contents, isAppWindow: false });
     expect(contents.calls).toEqual(["paste"]);
+  });
+});
+
+describe("resolvePasteAndMatchStyleAccelerator", () => {
+  it("registers Cmd+Shift+V on macOS", () => {
+    expect(resolvePasteAndMatchStyleAccelerator("darwin")).toBe("Command+Shift+V");
+  });
+
+  it("leaves Ctrl+Shift+V to the page on Windows and Linux", () => {
+    expect(resolvePasteAndMatchStyleAccelerator("win32")).toBeUndefined();
+    expect(resolvePasteAndMatchStyleAccelerator("linux")).toBeUndefined();
   });
 });
 
