@@ -1,9 +1,15 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useOptionalPaneContext } from "@/panels/pane-context";
-import { useRestoreTurnFiles, useSupportsAgentCheckpoints } from "./use-turn-checkpoints";
+import {
+  useRestoreFilesBlockedReason,
+  useRestoreTurnFiles,
+  useSupportsAgentCheckpoints,
+} from "./use-turn-checkpoints";
 
 export interface TurnCheckpointActions {
   restoreFilesBeforeMessage: (messageId: string) => Promise<void>;
+  /** Why the daemon refuses file restore for this agent, or null when it allows it. */
+  restoreFilesBlockedReason: string | null;
   openTurnChanges: (messageId: string) => void;
 }
 
@@ -27,15 +33,21 @@ export function TurnCheckpointActionsProvider({
 }: TurnCheckpointActionsProviderProps) {
   const supported = useSupportsAgentCheckpoints(serverId);
   const { confirmAndRestore } = useRestoreTurnFiles({ serverId, agentId });
+  const restoreFilesBlockedReason = useRestoreFilesBlockedReason({
+    serverId,
+    agentId,
+    enabled: supported,
+  });
   const openPreferredTarget = useOptionalPaneContext()?.openPreferredTarget;
   const value = useMemo<TurnCheckpointActions | null>(() => {
     if (!supported || !openPreferredTarget) return null;
     return {
       restoreFilesBeforeMessage: confirmAndRestore,
+      restoreFilesBlockedReason,
       openTurnChanges: (messageId) =>
         openPreferredTarget({ kind: "turn_diff", agentId, messageId }, "diffs"),
     };
-  }, [agentId, confirmAndRestore, openPreferredTarget, supported]);
+  }, [agentId, confirmAndRestore, openPreferredTarget, restoreFilesBlockedReason, supported]);
   return (
     <TurnCheckpointActionsContext.Provider value={value}>
       {children}
@@ -45,6 +57,7 @@ export function TurnCheckpointActionsProvider({
 
 export interface MessageTurnCheckpointActions {
   restoreFiles: () => Promise<void>;
+  restoreFilesBlockedReason: string | null;
   openChanges: () => void;
 }
 
@@ -57,6 +70,7 @@ export function useMessageTurnCheckpointActions(
     if (!actions || !messageId) return null;
     return {
       restoreFiles: () => actions.restoreFilesBeforeMessage(messageId),
+      restoreFilesBlockedReason: actions.restoreFilesBlockedReason,
       openChanges: () => actions.openTurnChanges(messageId),
     };
   }, [actions, messageId]);

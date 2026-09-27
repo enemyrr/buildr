@@ -20,8 +20,13 @@ interface RewindMenuProps {
   capabilities: AgentCapabilityFlags;
   rewoundText: string;
   onRewind: (input: { mode: RewindMode; rewoundText: string }) => Promise<void> | void;
-  /** Restores files from the daemon's turn checkpoint; omitted when unavailable. */
+  /**
+   * Restores files from the daemon's turn checkpoint; omitted when unavailable.
+   * Ignored when the provider rewinds files natively.
+   */
   onRestoreCheckpointFiles?: () => Promise<void>;
+  /** Disables the checkpoint restore item and shows this text as its description. */
+  restoreCheckpointBlockedReason?: string | null;
   isPending?: boolean;
   testID?: string;
 }
@@ -48,6 +53,7 @@ export const RewindMenu = memo(function RewindMenu({
   rewoundText,
   onRewind,
   onRestoreCheckpointFiles,
+  restoreCheckpointBlockedReason = null,
   isPending: isPendingProp = false,
   testID = "rewind-menu",
 }: RewindMenuProps) {
@@ -62,9 +68,13 @@ export const RewindMenu = memo(function RewindMenu({
     [t],
   );
   const items = useRewindCapabilities(capabilities, rewindLabels);
+  const hasNativeFilesRewind = items.some((item) => item.mode !== "conversation");
+  const restoreCheckpointFiles = hasNativeFilesRewind ? undefined : onRestoreCheckpointFiles;
   const [isOpen, setIsOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<RewindMenuAction | null>(null);
   const isLocked = isPendingProp || pendingMode !== null;
+  const isCheckpointBlocked = restoreCheckpointBlockedReason !== null;
+  const isCheckpointDisabled = isCheckpointBlocked || (isLocked && pendingMode !== "checkpoint");
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -79,7 +89,7 @@ export const RewindMenu = memo(function RewindMenu({
       if (isLocked) return;
       setPendingMode(mode);
       try {
-        if (mode === "checkpoint") await onRestoreCheckpointFiles?.();
+        if (mode === "checkpoint") await restoreCheckpointFiles?.();
         else await onRewind({ mode, rewoundText });
       } catch {
         // useRewindAgentMutation owns the toast; the menu only owns flow state.
@@ -88,7 +98,7 @@ export const RewindMenu = memo(function RewindMenu({
         setIsOpen(false);
       }
     },
-    [isLocked, onRestoreCheckpointFiles, onRewind, rewoundText],
+    [isLocked, restoreCheckpointFiles, onRewind, rewoundText],
   );
 
   const triggerStyle = useCallback(
@@ -105,7 +115,7 @@ export const RewindMenu = memo(function RewindMenu({
     [t],
   );
 
-  if (items.length === 0 && !onRestoreCheckpointFiles) {
+  if (items.length === 0 && !restoreCheckpointFiles) {
     return null;
   }
 
@@ -150,10 +160,11 @@ export const RewindMenu = memo(function RewindMenu({
             {item.label}
           </DropdownMenuItem>
         ))}
-        {onRestoreCheckpointFiles ? (
+        {restoreCheckpointFiles ? (
           <DropdownMenuItem
             closeOnSelect={false}
-            disabled={isLocked && pendingMode !== "checkpoint"}
+            description={restoreCheckpointBlockedReason ?? undefined}
+            disabled={isCheckpointDisabled}
             leading={getCheckpointIcon(theme.colors.foreground)}
             onSelect={handleSelect("checkpoint")}
             status={pendingMode === "checkpoint" ? "pending" : undefined}

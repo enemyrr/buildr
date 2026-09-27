@@ -581,6 +581,7 @@ export const UserMessage = memo(function UserMessage({
                 rewoundText={message}
                 onRewind={handleRewind}
                 onRestoreCheckpointFiles={checkpointActions?.restoreFiles}
+                restoreCheckpointBlockedReason={checkpointActions?.restoreFilesBlockedReason}
               />
             ) : null}
             {checkpointActions ? (
