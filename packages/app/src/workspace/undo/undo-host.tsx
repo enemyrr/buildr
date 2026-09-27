@@ -11,24 +11,22 @@ import { UNDO_WINDOW_MS, type UndoEntry } from "./queue";
 import { getLatestWorkspaceUndo, runWorkspaceUndo, useWorkspaceUndoStore } from "./store";
 
 const UNDO_ACTIONS: readonly KeyboardActionId[] = ["workspace.undo"];
+const UNDO_TOAST_KEY = "workspace-undo";
 
 /**
  * Shows the newest undoable sidebar action as a toast and handles the undo shortcut. A newer
  * action replaces the toast; the older one stays undoable from the shortcut until it expires.
+ * The toast never covers an error, which carries information the user can't get back.
  */
 export function WorkspaceUndoHost() {
   const toast = useToast();
   const latest = useWorkspaceUndoStore((state) => state.entries.at(-1) ?? null);
-  const shownIdRef = useRef<number | null>(null);
   // Entry ids only grow. Removing the newest entry must not resurface an older one's toast.
   const newestShownIdRef = useRef(0);
 
   const undo = useCallback(
     (entry: UndoEntry) => {
-      if (shownIdRef.current === entry.id) {
-        shownIdRef.current = null;
-        toast.dismiss();
-      }
+      toast.dismiss(UNDO_TOAST_KEY);
       void runWorkspaceUndo(entry.id).catch((error) => {
         toast.error(error instanceof Error ? error.message : i18n.t("sidebar.undo.failed"));
       });
@@ -40,11 +38,12 @@ export function WorkspaceUndoHost() {
     if (!latest || latest.id <= newestShownIdRef.current) {
       return;
     }
-    shownIdRef.current = latest.id;
     newestShownIdRef.current = latest.id;
     toast.show(<UndoToastContent entry={latest} onUndo={undo} />, {
       durationMs: UNDO_WINDOW_MS,
       testID: "workspace-undo-toast",
+      key: UNDO_TOAST_KEY,
+      yieldsToErrors: true,
     });
   }, [latest, toast, undo]);
 
@@ -82,7 +81,12 @@ function UndoToastContent({
       <Text style={styles.message} numberOfLines={1}>
         {entry.message}
       </Text>
-      <Button variant="ghost" size="xs" onPress={handlePress} testID="workspace-undo-toast-action">
+      <Button
+        variant="outline"
+        size="sm"
+        onPress={handlePress}
+        testID="workspace-undo-toast-action"
+      >
         {t("sidebar.undo.action")}
       </Button>
     </View>
