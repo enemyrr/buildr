@@ -229,7 +229,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
   },
   rowNumber: {
-    minWidth: 36,
+    minWidth: 44,
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
     fontVariant: ["tabular-nums"],

@@ -1126,6 +1126,8 @@ const expandableBadgeStylesheet = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.normal,
     flexShrink: 0,
+    // Long MCP tool names would otherwise push the summary to zero width.
+    maxWidth: "60%",
   },
   labelActive: {
     color: theme.colors.foreground,

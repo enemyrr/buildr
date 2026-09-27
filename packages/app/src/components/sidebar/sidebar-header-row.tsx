@@ -112,7 +112,11 @@ function SidebarHeaderRowLabel({
     () => [styles.label, isHighlighted && styles.labelHighlighted],
     [isHighlighted],
   );
-  return <Text style={labelStyle}>{label}</Text>;
+  return (
+    <Text style={labelStyle} numberOfLines={1}>
+      {label}
+    </Text>
+  );
 }
 
 const styles = StyleSheet.create((theme) => ({

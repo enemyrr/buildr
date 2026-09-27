@@ -100,12 +100,14 @@ export function HostFilter({
 const styles = StyleSheet.create((theme) => ({
   filterTriggerWrap: {
     alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   filterTrigger: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1.5],
     alignSelf: "flex-start",
+    maxWidth: "100%",
     paddingVertical: theme.spacing[1.5],
     paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.md,
@@ -120,6 +122,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface3,
   },
   filterTriggerText: {
+    flexShrink: 1,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,

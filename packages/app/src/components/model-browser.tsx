@@ -570,6 +570,13 @@ function ModelBrowserRow({
     () => [styles.browserRowText, description && styles.browserRowTextInline],
     [description],
   );
+  const labelStyle = useMemo(
+    () => [
+      labelMuted ? styles.browserRowLabelMuted : styles.browserRowLabel,
+      description && styles.browserRowLabelInline,
+    ],
+    [description, labelMuted],
+  );
   const hasTrailing = selected || trailingSlot;
 
   return (
@@ -584,10 +591,7 @@ function ModelBrowserRow({
       <View style={styles.browserRowContent}>
         <View style={styles.browserRowLeading}>{leadingSlot}</View>
         <View style={contentStyle}>
-          <Text
-            numberOfLines={1}
-            style={labelMuted ? styles.browserRowLabelMuted : styles.browserRowLabel}
-          >
+          <Text numberOfLines={1} style={labelStyle}>
             {label}
           </Text>
           {description ? (
@@ -1647,6 +1651,10 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.base,
     color: theme.colors.foregroundMuted,
     flexShrink: 0,
+  },
+  // Caps the label so a long one can't push the inline description to zero width.
+  browserRowLabelInline: {
+    maxWidth: "70%",
   },
   browserRowDescription: {
     fontSize: theme.fontSize.sm,

@@ -170,6 +170,8 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
   },
   label: {
+    minWidth: 0,
+    flexShrink: 1,
     height: CHIP_INNER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
@@ -188,6 +190,8 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
   },
   thumbnailLabel: {
+    minWidth: 0,
+    flexShrink: 1,
     height: CHIP_INNER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
