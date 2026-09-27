@@ -7,6 +7,8 @@ export interface EditingTextInputHandle {
   isFocused(): boolean;
   getText(): string;
   replaceText(text: string, selection?: { start: number; end: number }): void;
+  /** Like `replaceText`, but the change joins the input's native undo history where it has one. */
+  applyEdit(text: string, selection: { start: number; end: number }): void;
   /** Clear the editor and reset its intrinsic layout, preserving focus intent. */
   reset(): void;
   getNativeRef(): unknown;

@@ -111,6 +111,27 @@ export const en = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Stashed prompts",
+      triggerLabel: "Stashed prompts: {{count}}",
+      stashCurrent: "Stash prompt",
+      attachmentsOnly: "Attachments only",
+      stashed: "Prompt stashed",
+      nothingToStash: "Nothing to stash",
+      delete: {
+        action: "Delete stashed prompt {{label}}",
+        tooltip: "Delete",
+        confirmTitle: "Delete stashed prompt?",
+        confirmMessage: "The prompt and its attachments are removed from the stash.",
+        confirm: "Delete",
+      },
+      errors: {
+        tooLarge: "Prompt is too large to stash",
+        storageFailed: "Unable to stash prompt. Local storage is unavailable or full.",
+        restoreFailed: "Unable to restore prompt. Local storage is unavailable.",
+        deleteFailed: "Unable to delete stashed prompt. Local storage is unavailable.",
+      },
+    },
     loadout: {
       title: "Model",
       effort: "Effort",
@@ -2640,6 +2661,7 @@ export const en = {
         toggleFocusMode: "Toggle focus mode",
         cycleTheme: "Cycle theme",
         focusMessageInput: "Focus message input",
+        stashPrompt: "Stash or restore prompt",
         cycleAgentMode: "Cycle agent mode",
         toggleVoiceMode: "Toggle voice mode",
         startStopDictation: "Start/stop dictation",

@@ -16,7 +16,8 @@ export type MessageInputKeyboardActionKind =
   | "voice-mute-toggle"
   | "mode-cycle"
   | "effort-cycle"
-  | "fast-toggle";
+  | "fast-toggle"
+  | "stash";
 
 export type KeyboardActionId =
   | "agent.interrupt"

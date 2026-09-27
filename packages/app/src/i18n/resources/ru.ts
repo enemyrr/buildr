@@ -116,6 +116,27 @@ export const ru: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Отложенные запросы",
+      triggerLabel: "Отложенные запросы: {{count}}",
+      stashCurrent: "Отложить запрос",
+      attachmentsOnly: "Только вложения",
+      stashed: "Запрос отложен",
+      nothingToStash: "Нечего откладывать",
+      delete: {
+        action: "Удалить отложенный запрос {{label}}",
+        tooltip: "Удалить",
+        confirmTitle: "Удалить отложенный запрос?",
+        confirmMessage: "Запрос и его вложения будут удалены из отложенных.",
+        confirm: "Удалить",
+      },
+      errors: {
+        tooLarge: "Запрос слишком большой, чтобы его отложить",
+        storageFailed: "Не удалось отложить запрос. Локальное хранилище недоступно или заполнено.",
+        restoreFailed: "Не удалось восстановить запрос. Локальное хранилище недоступно.",
+        deleteFailed: "Не удалось удалить отложенный запрос. Локальное хранилище недоступно.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Попросите внести изменения, упомяните файлы через @, запустите /commands",
@@ -2488,6 +2509,7 @@ export const ru: TranslationResources = {
         toggleFocusMode: "Переключить режим фокусировки",
         cycleTheme: "Переключить тему",
         focusMessageInput: "Перейти к полю ввода сообщения",
+        stashPrompt: "Отложить или восстановить запрос",
         cycleAgentMode: "Переключить режим агента",
         toggleVoiceMode: "Переключить голосовой режим",
         startStopDictation: "Начать/остановить диктовку",

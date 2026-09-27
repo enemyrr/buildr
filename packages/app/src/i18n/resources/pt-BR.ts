@@ -116,6 +116,30 @@ export const ptBR: TranslationResources = {
     },
   },
   composer: {
+    stash: {
+      menuLabel: "Prompts guardados",
+      triggerLabel: "Prompts guardados: {{count}}",
+      stashCurrent: "Guardar prompt",
+      attachmentsOnly: "Somente anexos",
+      stashed: "Prompt guardado",
+      nothingToStash: "Nada para guardar",
+      delete: {
+        action: "Excluir prompt guardado {{label}}",
+        tooltip: "Excluir",
+        confirmTitle: "Excluir prompt guardado?",
+        confirmMessage: "O prompt e seus anexos são removidos dos guardados.",
+        confirm: "Excluir",
+      },
+      errors: {
+        tooLarge: "O prompt é grande demais para ser guardado",
+        storageFailed:
+          "Não foi possível guardar o prompt. O armazenamento local está indisponível ou cheio.",
+        restoreFailed:
+          "Não foi possível restaurar o prompt. O armazenamento local está indisponível.",
+        deleteFailed:
+          "Não foi possível excluir o prompt guardado. O armazenamento local está indisponível.",
+      },
+    },
     loadout: en.composer.loadout,
     placeholders: {
       desktop: "Peça alterações, mencione arquivos com @, execute /commands",
@@ -2484,6 +2508,7 @@ export const ptBR: TranslationResources = {
         toggleFocusMode: "Alternar modo de foco",
         cycleTheme: "Alternar tema",
         focusMessageInput: "Focar entrada de mensagem",
+        stashPrompt: "Guardar ou restaurar prompt",
         cycleAgentMode: "Alternar modo do agente",
         toggleVoiceMode: "Alternar modo de voz",
         startStopDictation: "Iniciar/parar ditado",

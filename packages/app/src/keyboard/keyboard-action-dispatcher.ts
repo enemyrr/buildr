@@ -15,6 +15,7 @@ export type KeyboardActionId =
   | "message-input.mode-cycle"
   | "message-input.effort-cycle"
   | "message-input.fast-toggle"
+  | "message-input.stash"
   | "message-input.model-slot"
   | "workspace.agent.new"
   | "workspace.tab.menu.open"
@@ -72,6 +73,7 @@ export type KeyboardActionDefinition =
   | { id: "message-input.mode-cycle"; scope: KeyboardActionScope }
   | { id: "message-input.effort-cycle"; scope: KeyboardActionScope }
   | { id: "message-input.fast-toggle"; scope: KeyboardActionScope }
+  | { id: "message-input.stash"; scope: KeyboardActionScope }
   | { id: "message-input.model-slot"; scope: KeyboardActionScope; index: number }
   | { id: "workspace.agent.new"; scope: KeyboardActionScope }
   | { id: "workspace.tab.menu.open"; scope: KeyboardActionScope }

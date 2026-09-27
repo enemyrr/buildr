@@ -85,6 +85,8 @@ import {
   runMessageInputKeyboardAction,
   stopRealtimeVoice,
 } from "./state";
+import { resolveListKeyEdit } from "./list-continuation";
+import { useLargeTextPaste } from "./large-paste";
 
 const DEFAULT_SEND_KEYS: ShortcutKey[][] = [["Enter"]];
 const COMPOSER_INPUT_DATASET = { composerInput: "" } as const;
@@ -102,8 +104,16 @@ export interface ComposerInputSnapshot {
   selection: { start: number; end: number };
 }
 
+export interface ComposerKeyModifiers {
+  shiftKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+}
+
 export interface ComposerKeyPressEvent {
   key: string;
+  modifiers: ComposerKeyModifiers;
   preventDefault: () => void;
   input: ComposerInputSnapshot;
 }
@@ -131,6 +141,8 @@ export interface MessageInputProps {
   onAttachButtonRef?: (node: View | null) => void;
   onAddImages?: (images: ImageAttachment[]) => void;
   onPasteImages?: (files: readonly NativePastedFile[]) => void;
+  /** Receives a web text paste over the large-paste threshold instead of the input. */
+  onPasteLargeText?: (text: string) => void;
   client: DaemonClient | null;
   /** Dictation start gate from host runtime (socket connected + directory ready). */
   isReadyForDictation?: boolean;
@@ -186,6 +198,8 @@ export interface MessageInputRef {
   getText: () => string;
   getInputSnapshot: () => ComposerInputSnapshot;
   replaceText: (text: string, selection?: { start: number; end: number }) => void;
+  /** Replaces the text as one step on the input's native undo history. */
+  applyEdit: (edit: ComposerInputSnapshot) => void;
   runKeyboardAction: (action: MessageInputKeyboardActionKind) => boolean;
   /**
    * Web-only: return the underlying DOM element for focus assertions/retries.
@@ -204,6 +218,7 @@ type WebTextInputKeyPressEvent = NativeSyntheticEvent<
     metaKey?: boolean;
     ctrlKey?: boolean;
     shiftKey?: boolean;
+    altKey?: boolean;
     // Web-only: present on DOM KeyboardEvent during IME composition (CJK input).
     isComposing?: boolean;
     keyCode?: number;
@@ -391,6 +406,42 @@ interface DesktopKeyPressContext {
   disabled: boolean;
   handleAlternateSendAction: () => void;
   handleDefaultSendAction: () => void;
+  applyTextEdit: (edit: ComposerInputSnapshot) => void;
+}
+
+// Host interception runs first, so an open autocomplete menu keeps Enter and Tab.
+function handleEditingKeyPress(
+  event: WebTextInputKeyPressEvent,
+  ctx: DesktopKeyPressContext,
+  modifiers: ComposerKeyModifiers,
+): boolean {
+  const key = event.nativeEvent.key;
+  const handled = ctx.onKeyPressCallback?.({
+    key,
+    modifiers,
+    preventDefault: () => event.preventDefault(),
+    input: ctx.input,
+  });
+  if (handled) return true;
+  const listEdit = resolveListKeyEdit({
+    key,
+    modifiers,
+    submitOnEnter: ctx.submitOnEnter,
+    input: ctx.input,
+  });
+  if (!listEdit) return false;
+  event.preventDefault();
+  ctx.applyTextEdit(listEdit);
+  return true;
+}
+
+function readKeyModifiers(event: WebTextInputKeyPressEvent["nativeEvent"]): ComposerKeyModifiers {
+  return {
+    shiftKey: event.shiftKey === true,
+    altKey: event.altKey === true,
+    metaKey: event.metaKey === true,
+    ctrlKey: event.ctrlKey === true,
+  };
 }
 
 function handleDesktopKeyPressImpl(
@@ -399,16 +450,9 @@ function handleDesktopKeyPressImpl(
 ): void {
   if (isImeComposingKeyboardEvent(event.nativeEvent)) return;
 
-  if (ctx.onKeyPressCallback) {
-    const handled = ctx.onKeyPressCallback({
-      key: event.nativeEvent.key,
-      preventDefault: () => event.preventDefault(),
-      input: ctx.input,
-    });
-    if (handled) return;
-  }
-
-  const { shiftKey, metaKey, ctrlKey } = event.nativeEvent;
+  const modifiers = readKeyModifiers(event.nativeEvent);
+  const { shiftKey, metaKey, ctrlKey } = modifiers;
+  if (handleEditingKeyPress(event, ctx, modifiers)) return;
 
   if (event.nativeEvent.key !== "Enter") return;
   if (!ctx.submitOnEnter) return;
@@ -439,6 +483,17 @@ interface PasteImagesEffectArgs {
   isDictating: boolean;
   isRealtimeVoiceForCurrentAgent: boolean;
   onAddImages: ((images: ImageAttachment[]) => void) | undefined;
+}
+
+function canAcceptPaste(
+  args: Pick<
+    PasteImagesEffectArgs,
+    "isConnected" | "disabled" | "isDictating" | "isRealtimeVoiceForCurrentAgent"
+  >,
+): boolean {
+  return (
+    args.isConnected && !args.disabled && !args.isDictating && !args.isRealtimeVoiceForCurrentAgent
+  );
 }
 
 function usePasteImagesEffect(args: PasteImagesEffectArgs): void {
@@ -1014,6 +1069,7 @@ interface ResolvedMessageInputProps {
   onAttachButtonRef: ((node: View | null) => void) | undefined;
   onAddImages: ((images: ImageAttachment[]) => void) | undefined;
   onPasteImages: ((files: readonly NativePastedFile[]) => void) | undefined;
+  onPasteLargeText: ((text: string) => void) | undefined;
   client: DaemonClient | null;
   isReadyForDictation: boolean | undefined;
   placeholder: string | undefined;
@@ -1062,6 +1118,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     onAttachButtonRef: props.onAttachButtonRef,
     onAddImages: props.onAddImages,
     onPasteImages: props.onPasteImages,
+    onPasteLargeText: props.onPasteLargeText,
     client: props.client,
     isReadyForDictation: props.isReadyForDictation,
     placeholder: props.placeholder,
@@ -1118,6 +1175,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       onAttachButtonRef,
       onAddImages,
       onPasteImages,
+      onPasteLargeText,
       client,
       isReadyForDictation,
       placeholder,
@@ -1211,6 +1269,18 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       [onChangeText, updateComposerHeightForText, updateLiveTextPresence],
     );
 
+    const applyEdit = useCallback(
+      (edit: ComposerInputSnapshot) => {
+        updateComposerHeightForText?.(valueRef.current, edit.text);
+        valueRef.current = edit.text;
+        updateLiveTextPresence(edit.text);
+        selectionRef.current = edit.selection;
+        textInputRef.current?.applyEdit(edit.text, edit.selection);
+        onChangeText(edit.text);
+      },
+      [onChangeText, updateComposerHeightForText, updateLiveTextPresence],
+    );
+
     useImperativeHandle(ref, () => ({
       focus: () => {
         textInputRef.current?.focus();
@@ -1222,6 +1292,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       getInputSnapshot: () =>
         getComposerInputSnapshot(textInputRef.current, valueRef.current, selectionRef.current),
       replaceText,
+      applyEdit,
       runKeyboardAction: (action) =>
         runMessageInputKeyboardAction(action, {
           focusInput: () => textInputRef.current?.focus(),
@@ -1565,6 +1636,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
         disabled,
         handleAlternateSendAction,
         handleDefaultSendAction,
+        applyTextEdit: applyEdit,
       });
     }
 
@@ -1687,6 +1759,16 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       const element = getTextInputNativeElement(textInputRef.current);
       return element instanceof HTMLTextAreaElement ? element : null;
     }, []);
+    useLargeTextPaste({
+      getTextArea,
+      enabled: canAcceptPaste({
+        isConnected,
+        disabled,
+        isDictating,
+        isRealtimeVoiceForCurrentAgent,
+      }),
+      onPasteLargeText,
+    });
     const textInputStyle = useMemo(
       () => [styles.textInput, mode.isMonospace && styles.textInputMonospace, composerHeightStyle],
       [composerHeightStyle, mode.isMonospace],

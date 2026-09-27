@@ -88,6 +88,7 @@ const MESSAGE_INPUT_DISPATCH: Record<
   "mode-cycle": { id: "message-input.mode-cycle", scope: "message-input" },
   "effort-cycle": { id: "message-input.effort-cycle", scope: "message-input" },
   "fast-toggle": { id: "message-input.fast-toggle", scope: "message-input" },
+  stash: { id: "message-input.stash", scope: "message-input" },
 };
 
 function hasPayloadKey<K extends "index" | "delta" | "kind">(
