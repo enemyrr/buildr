@@ -1575,6 +1575,12 @@ export const AgentInterruptedTurnContinueRequestSchema = z.object({
   agentId: z.string(),
 });
 
+export const AgentInterruptedTurnDismissRequestSchema = z.object({
+  type: z.literal("agent.interrupted_turn.dismiss.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+});
+
 export const AgentTimelineAppendRequestSchema = z.object({
   type: z.literal("agent.timeline.append.request"),
   requestId: z.string(),
@@ -3308,6 +3314,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PluginRpcInvokeRequestSchema,
   AgentTimelineAppendRequestSchema,
   AgentInterruptedTurnContinueRequestSchema,
+  AgentInterruptedTurnDismissRequestSchema,
   AgentSkillsGetStatusRequestSchema,
   AgentSkillsReconcileRequestSchema,
   AgentSkillsUninstallRequestSchema,
@@ -3646,6 +3653,7 @@ export const ServerInfoStatusPayloadSchema = z
         // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
         agentShellRun: z.boolean().optional(),
         // COMPAT(interruptedTurnContinue): added in v0.10.2, remove gate after 2027-03-27.
+        // Covers both agent.interrupted_turn.continue and agent.interrupted_turn.dismiss.
         interruptedTurnContinue: z.boolean().optional(),
         // COMPAT(workspaceTerminals): added in v0.8.0, remove gate after 2027-09-05.
         workspaceTerminals: z.boolean().optional(),
@@ -6880,6 +6888,15 @@ export const AgentInterruptedTurnContinueResponseSchema = z.object({
   }),
 });
 
+export const AgentInterruptedTurnDismissResponseSchema = z.object({
+  type: z.literal("agent.interrupted_turn.dismiss.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
 function agentSkillsStatusResponse<const Type extends string>(type: Type) {
   return z.object({
     type: z.literal(type),
@@ -6936,6 +6953,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginRpcInvokeResponseSchema,
   AgentTimelineAppendResponseSchema,
   AgentInterruptedTurnContinueResponseSchema,
+  AgentInterruptedTurnDismissResponseSchema,
   AgentSkillsGetStatusResponseSchema,
   AgentSkillsReconcileResponseSchema,
   AgentSkillsUninstallResponseSchema,

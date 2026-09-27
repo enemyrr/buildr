@@ -3223,6 +3223,17 @@ export class DaemonClient {
     if (payload.error) throw new Error(payload.error);
   }
 
+  /** Clears a turn that a daemon restart interrupted, without continuing it. */
+  async dismissInterruptedTurn(agentId: string): Promise<void> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.interrupted_turn.dismiss.request", requestId, agentId },
+      responseType: "agent.interrupted_turn.dismiss.response",
+    });
+    if (payload.error) throw new Error(payload.error);
+  }
+
   async appendAgentTimelineItem(
     agentId: string,
     item: Omit<import("@getpaseo/protocol/agent-types").PluginTimelineItem, "pluginId">,

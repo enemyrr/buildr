@@ -32,9 +32,15 @@ from the later of its last activity and its registration. It skips an agent whos
 work: a run in flight, a pending permission or replacement, a running provider subagent, a running
 or initializing Paseo subagent, or provider background work reported by
 `AgentSession.hasBackgroundWork()`. Only Claude implements that method, from its task protocol, so a
-background shell keeps a Claude agent resident. `error` agents stay resident so the error status
-survives. An unloaded agent is `closed`, which lands in the same workspace status bucket as `idle`;
-the next open or prompt resumes it through `ensureAgentLoaded()` with its primed timeline.
+background shell keeps a Claude agent resident. It also skips an agent that has an agent-scoped
+`AgentManager` subscriber or a Hub owner: finish notifications, waits, and Hub executions read
+`closed` as the agent closing, and a parent told "was closed" would treat its subagent as gone.
+`error` agents stay resident so the error status survives.
+
+An unloaded agent is `closed`, the same status every agent has after a restart. Clients treat
+`closed` and `idle` alike: both land in the `done` workspace status bucket, show no status dot, and
+count as finished for **Archive finished**. The next open or prompt resumes the agent through
+`ensureAgentLoaded()` with its primed timeline.
 
 A provider runtime can still die on its own — crash, OOM kill, host suspend. Work the agent parked
 inside that process dies with it: Claude Code's background Bash shells, `Monitor` watches, and
@@ -57,11 +63,13 @@ to its timeline. The record carries the interruption until a new turn starts, so
 further restarts and idle unloads.
 
 With `daemon.autoContinueInterruptedTurns` off (the default), the agent also gets `error`
-attention and the app shows **Continue** above the composer. Continue, or the setting at startup,
-runs `continueInterruptedTurn()`: it resumes the agent, claims the marker back to `running`, and
-resubmits the stored prompt, or `Continue where you left off.` when the prompt was over 256 KB. A
-failed start restores the `interrupted` marker. Resubmitting can repeat a user message that the
-provider already recorded before the restart.
+attention and the app shows **Continue** and **Dismiss** above the composer. Dismiss clears the
+marker without loading the agent. Continue, or the setting at startup, runs
+`continueInterruptedTurn()`: it resumes the agent, claims the marker back to `running`, and
+resubmits the stored prompt. Many providers write the user message to their history on receipt,
+so when the last user message in the resumed timeline matches the stored prompt, it sends
+`Continue where you left off.` instead of repeating it. It sends the same text when the prompt was
+over 256 KB. A failed start restores the `interrupted` marker.
 
 ### Cancellation
 

@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import { AgentStorage, type StoredAgentRecord } from "./agent-storage.js";
-import { markInterruptedTurns } from "./interrupted-turns.js";
+import { markInterruptedTurns, resolveContinuationPrompt } from "./interrupted-turns.js";
+import type { AgentTimelineItem } from "./agent-sdk-types.js";
 
 const logger = createTestLogger();
 const NOW = new Date("2026-09-27T12:00:00.000Z");
@@ -108,4 +109,42 @@ test("leaves finished, archived, and already interrupted agents unchanged", asyn
   expect(await storage.get("interrupted")).toEqual(interrupted);
   expect(await storage.get("archived")).toEqual(archived);
   expect(await storage.get("idle")).toEqual(idle);
+});
+
+const EARLIER_TURN: AgentTimelineItem[] = [
+  { type: "user_message", text: "Add a test" },
+  { type: "assistant_message", text: "Added." },
+];
+
+test("resubmits the prompt when provider history ends before it", () => {
+  expect(resolveContinuationPrompt("Refactor the parser", EARLIER_TURN)).toBe(
+    "Refactor the parser",
+  );
+  expect(resolveContinuationPrompt("Refactor the parser", [])).toBe("Refactor the parser");
+});
+
+test("sends a generic continue when provider history already holds the prompt", () => {
+  const recorded: AgentTimelineItem[] = [
+    ...EARLIER_TURN,
+    { type: "user_message", text: "Refactor the parser\n" },
+    { type: "assistant_message", text: "Starting with" },
+    { type: "notification", level: "warning", message: "A daemon restart interrupted this turn." },
+  ];
+
+  expect(resolveContinuationPrompt("Refactor the parser", recorded)).toBe(
+    "Continue where you left off.",
+  );
+  expect(
+    resolveContinuationPrompt(
+      [
+        { type: "text", text: "Refactor the parser" },
+        { type: "image", data: "aGk=", mimeType: "image/png" },
+      ],
+      recorded,
+    ),
+  ).toBe("Continue where you left off.");
+});
+
+test("sends a generic continue when the prompt wasn't stored", () => {
+  expect(resolveContinuationPrompt(null, EARLIER_TURN)).toBe("Continue where you left off.");
 });

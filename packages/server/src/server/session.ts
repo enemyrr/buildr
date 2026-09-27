@@ -52,7 +52,7 @@ import {
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
-import { continueInterruptedTurn } from "./agent/interrupted-turns.js";
+import { continueInterruptedTurn, dismissInterruptedTurn } from "./agent/interrupted-turns.js";
 import {
   sendPromptToAgent,
   waitForAgentRunStartWithTimeout,
@@ -2634,6 +2634,8 @@ export class Session {
         return this.handleAgentTimelineAppendRequest(msg);
       case "agent.interrupted_turn.continue.request":
         return this.handleAgentInterruptedTurnContinueRequest(msg);
+      case "agent.interrupted_turn.dismiss.request":
+        return this.handleAgentInterruptedTurnDismissRequest(msg);
       case "agent.shell.run.request":
         return this.handleAgentShellRunRequest(msg);
       case "agent.shell.stop.request":
@@ -7833,6 +7835,25 @@ export class Session {
     }
     this.emit({
       type: "agent.interrupted_turn.continue.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
+    });
+  }
+
+  private async handleAgentInterruptedTurnDismissRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.interrupted_turn.dismiss.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      await dismissInterruptedTurn(
+        { agentManager: this.agentManager, agentStorage: this.agentStorage },
+        msg.agentId,
+      );
+    } catch (err) {
+      this.sessionLogger.warn({ err, agentId: msg.agentId }, "Failed to dismiss interrupted turn");
+      error = getErrorMessageOr(err, "Failed to dismiss the interrupted turn");
+    }
+    this.emit({
+      type: "agent.interrupted_turn.dismiss.response",
       payload: { requestId: msg.requestId, agentId: msg.agentId, error },
     });
   }

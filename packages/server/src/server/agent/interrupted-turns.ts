@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { Logger } from "pino";
 
 import type { AgentManager } from "./agent-manager.js";
-import type { AgentStorage, StoredAgentRecord, UnfinishedTurn } from "./agent-storage.js";
+import type {
+  AgentStorage,
+  StoredAgentRecord,
+  StoredPrompt,
+  UnfinishedTurn,
+} from "./agent-storage.js";
+import type { AgentTimelineItem } from "./agent-sdk-types.js";
 import { ensureAgentLoaded } from "./agent-loading.js";
 import { sendPromptToAgent, waitForAgentRunStartWithTimeout } from "./agent-prompt.js";
 
@@ -13,7 +19,7 @@ const CONTINUATION_PROMPT = "Continue where you left off.";
 
 export class InterruptedTurnNotFoundError extends Error {
   constructor(readonly agentId: string) {
-    super(`Agent ${agentId} has no interrupted turn to continue`);
+    super(`Agent ${agentId} has no interrupted turn`);
     this.name = "InterruptedTurnNotFoundError";
   }
 }
@@ -119,7 +125,7 @@ export async function continueInterruptedTurn(
     await sendPromptToAgent({
       ...deps,
       agentId,
-      prompt: turn.prompt ?? CONTINUATION_PROMPT,
+      prompt: resolveContinuationPrompt(turn.prompt, deps.agentManager.getTimeline(agentId)),
       messageId: randomUUID(),
       unarchive: false,
     });
@@ -133,6 +139,47 @@ export async function continueInterruptedTurn(
     deps.agentManager.notifyAgentState(agentId);
     throw error;
   }
+}
+
+/**
+ * Returns the prompt that continues an interrupted turn. Resubmits the stored prompt unless the
+ * resumed provider history already ends its user messages with it, because the provider then
+ * received it before the restart and resending would repeat it.
+ */
+export function resolveContinuationPrompt(
+  prompt: StoredPrompt | null,
+  timeline: readonly AgentTimelineItem[],
+): StoredPrompt {
+  if (prompt === null) return CONTINUATION_PROMPT;
+  const lastUserMessage = timeline.findLast((item) => item.type === "user_message");
+  if (lastUserMessage?.type !== "user_message") return prompt;
+  return historyContainsPrompt(lastUserMessage.text, prompt) ? CONTINUATION_PROMPT : prompt;
+}
+
+// A structured prompt's attachments render differently per provider, so its history entry
+// matches when it contains every text block.
+function historyContainsPrompt(historyText: string, prompt: StoredPrompt): boolean {
+  const recorded = historyText.trim();
+  if (typeof prompt === "string") return recorded === prompt.trim();
+  const texts = prompt.flatMap((block) =>
+    block.type === "text" && !("mimeType" in block) ? [block.text.trim()] : [],
+  );
+  return texts.length > 0 && texts.every((text) => recorded.includes(text));
+}
+
+/**
+ * Dismisses an interrupted turn without continuing it. Throws `InterruptedTurnNotFoundError`
+ * when the agent has no interrupted turn.
+ */
+export async function dismissInterruptedTurn(
+  deps: Pick<InterruptedTurnDeps, "agentManager" | "agentStorage">,
+  agentId: string,
+): Promise<void> {
+  const dismissed = await deps.agentStorage.update(agentId, (record) =>
+    record.unfinishedTurn?.state === "interrupted" ? { ...record, unfinishedTurn: null } : record,
+  );
+  if (!dismissed) throw new InterruptedTurnNotFoundError(agentId);
+  await deps.agentManager.notifyRecordChanged(agentId);
 }
 
 /**

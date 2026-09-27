@@ -2131,6 +2131,16 @@ export class AgentManager {
     this.emitState(agent);
   }
 
+  /** Broadcasts the agent's state after a direct record change, whether or not it's loaded. */
+  async notifyRecordChanged(agentId: string): Promise<void> {
+    if (this.agents.has(agentId)) {
+      this.notifyAgentState(agentId);
+      return;
+    }
+    const record = await this.registry?.get(agentId);
+    if (record && !record.internal) this.dispatchStoredAgentState(record);
+  }
+
   async clearAgentAttention(agentId: string): Promise<void> {
     const agent = this.requireAgent(agentId);
     if (agent.attention.requiresAttention) {
@@ -3216,7 +3226,22 @@ export class AgentManager {
       agent.pendingReplacement ||
       agent.pendingPermissions.size > 0 ||
       agent.inFlightPermissionResponses.size > 0;
-    return isIdleLongEnough && !hasPendingWork && !this.hasLiveDependentWork(agent);
+    return (
+      isIdleLongEnough &&
+      !hasPendingWork &&
+      !this.isObserved(agent) &&
+      !this.hasLiveDependentWork(agent)
+    );
+  }
+
+  // An agent-scoped subscriber, such as a finish notification or a wait, would read the unload's
+  // `closed` state as the agent closing. A Hub execution owns its agent's lifecycle.
+  private isObserved(agent: LiveManagedAgent): boolean {
+    if (agent.owner) return true;
+    for (const subscriber of this.subscribers) {
+      if (subscriber.agentId === agent.id) return true;
+    }
+    return false;
   }
 
   // Closing the runtime ends provider-owned background work and orphans the completion

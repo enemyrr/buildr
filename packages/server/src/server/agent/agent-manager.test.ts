@@ -11352,6 +11352,24 @@ test("keeps an idle agent resident while its provider reports background work", 
   }
 });
 
+test("keeps an idle agent resident while something observes it", async () => {
+  const { workdir, manager, cleanup } = createIdleUnloadHarness();
+  try {
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+    });
+    const unsubscribe = manager.subscribe(() => undefined, { agentId: agent.id });
+
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([]);
+    unsubscribe();
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([
+      agent.id,
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("keeps a running subagent and its idle parent resident", async () => {
   const { workdir, manager, cleanup } = createIdleUnloadHarness(
     (config) => new HeldTurnSession(config),

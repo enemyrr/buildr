@@ -10,8 +10,14 @@ import { INTERRUPTED_TURN_NOTICE } from "../agent/agent-manager.js";
 
 const HELD_PROMPT = "Please hold the turn open";
 
+const RECORDED_PROMPT = "Please hold the turn open and record this prompt";
+
 function isRunning(snapshot: AgentSnapshotPayload): boolean {
   return snapshot.status === "running";
+}
+
+function hasNoInterruption(snapshot: AgentSnapshotPayload): boolean {
+  return snapshot.interruptedTurn === undefined;
 }
 
 function tmpCwd(): string {
@@ -21,6 +27,10 @@ function tmpCwd(): string {
 async function readTimelineItems(client: DaemonClient, agentId: string) {
   const timeline = await client.fetchAgentTimeline(agentId, { direction: "tail", limit: 200 });
   return timeline.entries.map((entry) => entry.item);
+}
+
+function userMessageText(item: Awaited<ReturnType<typeof readTimelineItems>>[number]): string[] {
+  return item.type === "user_message" ? [item.text] : [];
 }
 
 function indexOfNotice(items: Awaited<ReturnType<typeof readTimelineItems>>): number {
@@ -104,7 +114,7 @@ describe("daemon restart resume", () => {
     });
 
     async function startHeldTurnAndRestart(
-      options: Parameters<typeof createDaemonTestContext>[0] = {},
+      options: { prompt?: string; daemon?: Parameters<typeof createDaemonTestContext>[0] } = {},
     ): Promise<string> {
       const agent = await ctx.client.createAgent({
         provider: "codex",
@@ -112,12 +122,33 @@ describe("daemon restart resume", () => {
         title: "Interrupted Turn Agent",
         modeId: "full-access",
       });
-      await ctx.client.sendMessage(agent.id, HELD_PROMPT);
+      await ctx.client.sendMessage(agent.id, options.prompt ?? HELD_PROMPT);
       await ctx.client.waitForAgentUpsert(agent.id, isRunning);
       await ctx.cleanup();
-      ctx = await createDaemonTestContext({ ...options, paseoHomeRoot, cleanup: false });
+      ctx = await createDaemonTestContext({ ...options.daemon, paseoHomeRoot, cleanup: false });
       return agent.id;
     }
+
+    test("sends a generic continue when provider history already holds the prompt", async () => {
+      const agentId = await startHeldTurnAndRestart({ prompt: RECORDED_PROMPT });
+
+      await ctx.client.continueInterruptedTurn(agentId);
+
+      const userMessages = (await readTimelineItems(ctx.client, agentId)).flatMap(userMessageText);
+      expect(userMessages).toEqual([RECORDED_PROMPT, "Continue where you left off."]);
+    }, 60_000);
+
+    test("dismisses the interruption without loading the agent", async () => {
+      const agentId = await startHeldTurnAndRestart();
+
+      await ctx.client.dismissInterruptedTurn(agentId);
+
+      const dismissed = await ctx.client.waitForAgentUpsert(agentId, hasNoInterruption, 10_000);
+      expect(dismissed.status).toBe("closed");
+      await expect(ctx.client.dismissInterruptedTurn(agentId)).rejects.toThrow(
+        `Agent ${agentId} has no interrupted turn`,
+      );
+    }, 60_000);
 
     test("marks the turn interrupted and continues it on request", async () => {
       const agentId = await startHeldTurnAndRestart();
@@ -142,7 +173,7 @@ describe("daemon restart resume", () => {
       expect(indexOfNotice(items)).toBeGreaterThan(-1);
       expect(lastIndexOfHeldPrompt(items)).toBeGreaterThan(indexOfNotice(items));
       await expect(ctx.client.continueInterruptedTurn(agentId)).rejects.toThrow(
-        `Agent ${agentId} has no interrupted turn to continue`,
+        `Agent ${agentId} has no interrupted turn`,
       );
     }, 60_000);
 
@@ -156,7 +187,9 @@ describe("daemon restart resume", () => {
     }, 60_000);
 
     test("continues the turn at startup when auto-continue is on", async () => {
-      const agentId = await startHeldTurnAndRestart({ autoContinueInterruptedTurns: true });
+      const agentId = await startHeldTurnAndRestart({
+        daemon: { autoContinueInterruptedTurns: true },
+      });
 
       const continued = await ctx.client.waitForAgentUpsert(agentId, isRunning, 20_000);
       expect(continued.interruptedTurn).toBeUndefined();
