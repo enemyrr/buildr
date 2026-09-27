@@ -43,7 +43,7 @@ export function WorkspaceUndoHost() {
       durationMs: UNDO_WINDOW_MS,
       testID: "workspace-undo-toast",
       key: UNDO_TOAST_KEY,
-      yieldsToErrors: true,
+      yieldsTo: "errors",
     });
   }, [latest, toast, undo]);
 

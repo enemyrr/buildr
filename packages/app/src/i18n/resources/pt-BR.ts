@@ -122,7 +122,6 @@ export const ptBR: TranslationResources = {
       stashCurrent: "Guardar prompt",
       attachmentsOnly: "Somente anexos",
       stashed: "Prompt guardado",
-      nothingToStash: "Nada para guardar",
       delete: {
         action: "Excluir prompt guardado {{label}}",
         tooltip: "Excluir",

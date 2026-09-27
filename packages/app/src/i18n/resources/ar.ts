@@ -121,7 +121,6 @@ export const ar: TranslationResources = {
       stashCurrent: "حفظ الطلب جانبًا",
       attachmentsOnly: "مرفقات فقط",
       stashed: "تم حفظ الطلب جانبًا",
-      nothingToStash: "لا يوجد ما يُحفظ جانبًا",
       delete: {
         action: "حذف الطلب المحفوظ {{label}}",
         tooltip: "حذف",

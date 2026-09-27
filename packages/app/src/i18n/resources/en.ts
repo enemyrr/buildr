@@ -117,7 +117,6 @@ export const en = {
       stashCurrent: "Stash prompt",
       attachmentsOnly: "Attachments only",
       stashed: "Prompt stashed",
-      nothingToStash: "Nothing to stash",
       delete: {
         action: "Delete stashed prompt {{label}}",
         tooltip: "Delete",

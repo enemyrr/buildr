@@ -122,7 +122,6 @@ export const ru: TranslationResources = {
       stashCurrent: "Отложить запрос",
       attachmentsOnly: "Только вложения",
       stashed: "Запрос отложен",
-      nothingToStash: "Нечего откладывать",
       delete: {
         action: "Удалить отложенный запрос {{label}}",
         tooltip: "Удалить",

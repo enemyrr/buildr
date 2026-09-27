@@ -121,7 +121,6 @@ export const zhCN: TranslationResources = {
       stashCurrent: "暂存提示词",
       attachmentsOnly: "仅附件",
       stashed: "已暂存提示词",
-      nothingToStash: "没有可暂存的内容",
       delete: {
         action: "删除暂存的提示词 {{label}}",
         tooltip: "删除",

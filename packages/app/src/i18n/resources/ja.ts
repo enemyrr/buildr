@@ -122,7 +122,6 @@ export const ja: TranslationResources = {
       stashCurrent: "プロンプトを退避",
       attachmentsOnly: "添付ファイルのみ",
       stashed: "プロンプトを退避しました",
-      nothingToStash: "退避するものがありません",
       delete: {
         action: "退避したプロンプト {{label}} を削除",
         tooltip: "削除",

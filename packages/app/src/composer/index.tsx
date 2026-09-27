@@ -2589,12 +2589,17 @@ function ComposerContentImpl({
     [applyUserEdit, resetSuppression, setSelectedAttachments],
   );
   const showStashError = useCallback((message: string) => toastErrorRef.current(message), []);
+  // A stash confirmation must not evict an undo toast, whose action the user can't get back.
+  const showStashNotice = useCallback(
+    (message: string) => toast.show(message, { yieldsTo: "errors-and-keyed" }),
+    [toast],
+  );
   const promptStash = usePromptStash({
     getDraft: getStashDraft,
     clearDraft: clearStashedDraft,
     restoreDraft: restoreStashedDraft,
     isBusy: isSubmitLoadingVisible || isComposerLocked,
-    onNotice: toast.show,
+    onNotice: showStashNotice,
     onError: showStashError,
   });
   const composerBeforeVoiceContent = useMemo(

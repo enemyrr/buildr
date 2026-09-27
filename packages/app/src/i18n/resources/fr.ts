@@ -124,7 +124,6 @@ export const fr: TranslationResources = {
       stashCurrent: "Mettre le prompt de côté",
       attachmentsOnly: "Pièces jointes uniquement",
       stashed: "Prompt mis de côté",
-      nothingToStash: "Rien à mettre de côté",
       delete: {
         action: "Supprimer le prompt mis de côté {{label}}",
         tooltip: "Supprimer",

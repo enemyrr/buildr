@@ -121,7 +121,6 @@ export const ko: TranslationResources = {
       stashCurrent: "프롬프트 보관",
       attachmentsOnly: "첨부 파일만",
       stashed: "프롬프트를 보관했습니다",
-      nothingToStash: "보관할 내용이 없습니다",
       delete: {
         action: "보관된 프롬프트 {{label}} 삭제",
         tooltip: "삭제",

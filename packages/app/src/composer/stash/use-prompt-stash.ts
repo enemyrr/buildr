@@ -31,8 +31,7 @@ export interface PromptStash {
   remove: (id: string) => void;
   /**
    * Stashes a draft with content; with an empty draft, restores the only stash or
-   * opens the menu. With nothing to do it shows a notice, so the chord never falls
-   * through to the browser's Save page.
+   * opens the menu. With no draft and no stash it does nothing.
    */
   runShortcut: () => void;
 }
@@ -114,16 +113,13 @@ export function usePromptStash(args: PromptStashArgs): PromptStash {
       return;
     }
     const [only, ...rest] = usePromptStashStore.getState().entries;
-    if (!only) {
-      onNotice(t("composer.stash.nothingToStash"));
-      return;
-    }
+    if (!only) return;
     if (rest.length === 0) {
       restore(only.id);
       return;
     }
     setIsMenuOpen(true);
-  }, [getDraft, isBusy, onNotice, restore, stashDraft, t]);
+  }, [getDraft, isBusy, restore, stashDraft]);
 
   return useMemo(
     () => ({

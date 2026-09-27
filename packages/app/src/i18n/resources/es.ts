@@ -122,7 +122,6 @@ export const es: TranslationResources = {
       stashCurrent: "Guardar prompt",
       attachmentsOnly: "Solo adjuntos",
       stashed: "Prompt guardado",
-      nothingToStash: "Nada que guardar",
       delete: {
         action: "Eliminar prompt guardado {{label}}",
         tooltip: "Eliminar",
