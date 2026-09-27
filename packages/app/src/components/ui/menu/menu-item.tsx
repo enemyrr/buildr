@@ -17,9 +17,9 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { Check, CheckCircle } from "lucide-react-native";
 import { AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
+import { focusOnHover } from "@/components/ui/focus-on-hover";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { MenuDepthProvider, useMenuContext } from "./menu-context";
 import { MENU_ITEM_HEIGHT } from "./menu-geometry";
@@ -298,12 +298,10 @@ export function MenuItem({
   }, [isDisabled, selectItem, onSelect, closeOnSelect]);
 
   // The surface focuses its first row on open for keyboard use, and focus draws the same fill as
-  // hover. Moving focus with the pointer keeps a single filled row, as native menus do.
+  // hover.
   const handleHoverIn = useCallback(
     (event: MouseEvent) => {
-      if (!isWeb || isDisabled) return;
-      const node: unknown = event.currentTarget;
-      if (node instanceof HTMLElement) node.focus({ preventScroll: true });
+      if (!isDisabled) focusOnHover(event);
     },
     [isDisabled],
   );

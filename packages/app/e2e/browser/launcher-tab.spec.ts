@@ -48,6 +48,18 @@ async function tabTestIds(tabs: Locator): Promise<(string | null)[]> {
   );
 }
 
+// Rows share one resting fill; hover and keyboard focus draw another. Counting rows off the most
+// common fill counts the ones that look selected.
+function countFilledLauncherRows(panel: Locator): Promise<number> {
+  return panel.locator('[data-new-tab-launcher-row="true"]').evaluateAll((nodes) => {
+    const fills = nodes.map((node) => getComputedStyle(node).backgroundColor);
+    const counts = new Map<string, number>();
+    for (const fill of fills) counts.set(fill, (counts.get(fill) ?? 0) + 1);
+    const resting = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return fills.filter((fill) => fill !== resting).length;
+  });
+}
+
 function tabIdentityKey(snapshot: Array<{ id: string }>): string {
   return JSON.stringify(snapshot.map(({ id }) => id));
 }
@@ -188,6 +200,27 @@ test.describe("Tab creation", () => {
     await page.locator("body").click({ position: { x: 1, y: 1 } });
     await panel.click({ position: { x: 20, y: 20 } });
     await expect(agent).toBeFocused();
+  });
+
+  test("only the hovered New tab row is filled", async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("@paseo:app-settings", JSON.stringify({ defaultNewTab: "launcher" }));
+    });
+    await gotoWorkspace(page, workspace.workspaceId);
+    await openNewTabMenuWithShortcut(page);
+
+    const panel = page.getByTestId("workspace-new-tab-panel").filter({ visible: true });
+    const agent = panel.getByRole("button", { name: /^Agent/ });
+    const terminal = panel.getByRole("button", { name: /^Terminal/ });
+    const diff = panel.getByRole("button", { name: /Diff/ });
+    await expect(agent).toBeFocused();
+
+    await diff.hover();
+    await expect.poll(() => countFilledLauncherRows(panel)).toBe(1);
+
+    // Arrow keys continue from the hovered row.
+    await page.keyboard.press("ArrowUp");
+    await expect(terminal).toBeFocused();
   });
 
   test("clicking new agent tab creates a draft tab", async ({ page }) => {

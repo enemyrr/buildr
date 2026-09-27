@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Pencil, Plus } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { TerminalProfileIcon } from "@/components/terminal-profile-icon";
+import { focusOnHover } from "@/components/ui/focus-on-hover";
 import { Shortcut } from "@/components/ui/shortcut";
 import { isWeb } from "@/constants/platform";
 import { useAppSettings, type DefaultNewTab } from "@/hooks/use-settings";
@@ -90,6 +91,7 @@ function LauncherRow({ item }: { item: WorkspaceTabLaunchItem }) {
       accessibilityLabel={item.label}
       dataSet={ROW_DATA_SET}
       disabled={item.disabled}
+      onHoverIn={focusOnHover}
       onPress={handlePress}
       style={rowStyle}
       tabIndex={-1}
