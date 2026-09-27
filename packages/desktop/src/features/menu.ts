@@ -1,4 +1,4 @@
-import { app, Menu, BrowserWindow, ipcMain } from "electron";
+import { app, Menu, BrowserWindow, ipcMain, webContents } from "electron";
 import { getActivePaseoBrowserWebContentsForHostWindow } from "./browser-webviews/index.js";
 import { getAppDisplayName } from "../desktop-variant.js";
 
@@ -65,6 +65,27 @@ export function reloadActiveBrowserOrWindow({
   win.webContents.reload();
 }
 
+interface PlainPasteContents {
+  send(channel: string, payload: unknown): void;
+  pasteAndMatchStyle(): void;
+}
+
+/**
+ * Runs Paste and Match Style in the focused contents. The accelerator can take
+ * the chord before the page sees its keydown, and the paste event carries no
+ * modifiers, so an app window first hears that the coming paste is a plain one;
+ * the composer then keeps a large paste inline instead of attaching it. The
+ * message is sent before the paste so the page holds the request when the
+ * paste event fires.
+ */
+export function pasteAndMatchStyleInContents(input: {
+  contents: PlainPasteContents;
+  isAppWindow: boolean;
+}): void {
+  if (input.isAppWindow) input.contents.send("paseo:event:plain-paste-requested", {});
+  input.contents.pasteAndMatchStyle();
+}
+
 function buildApplicationMenuTemplate(
   options: ApplicationMenuOptions,
   capturing: boolean,
@@ -113,8 +134,18 @@ function buildApplicationMenuTemplate(
         { role: "cut" },
         { role: "copy" },
         { role: "paste" },
-        // The composer reads this chord to keep a large paste inline.
-        { role: "pasteAndMatchStyle", accelerator: "CommandOrControl+Shift+V" },
+        {
+          label: "Paste and Match Style",
+          accelerator: "CommandOrControl+Shift+V",
+          click: () => {
+            const focused = webContents.getFocusedWebContents();
+            if (!focused) return;
+            pasteAndMatchStyleInContents({
+              contents: focused,
+              isAppWindow: BrowserWindow.fromWebContents(focused) !== null,
+            });
+          },
+        },
         { role: "selectAll" },
       ],
     },

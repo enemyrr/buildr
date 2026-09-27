@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reloadActiveBrowserOrWindow } from "./menu.js";
+import { pasteAndMatchStyleInContents, reloadActiveBrowserOrWindow } from "./menu.js";
 
 class FakeWebContents {
   public readonly reloads: string[] = [];
@@ -66,5 +66,28 @@ describe("reloadActiveBrowserOrWindow", () => {
     expect(browserReloads.firstBrowser.reloads).toEqual([]);
     expect(browserReloads.secondBrowser.reloads).toEqual(["force-reload"]);
     expect(browserReloads.secondWindow.webContents.reloads).toEqual([]);
+  });
+});
+
+describe("pasteAndMatchStyleInContents", () => {
+  function recordingContents() {
+    const calls: string[] = [];
+    return {
+      calls,
+      send: (channel: string) => calls.push(`send:${channel}`),
+      pasteAndMatchStyle: () => calls.push("paste"),
+    };
+  }
+
+  it("tells an app window the paste is plain before pasting", () => {
+    const contents = recordingContents();
+    pasteAndMatchStyleInContents({ contents, isAppWindow: true });
+    expect(contents.calls).toEqual(["send:paseo:event:plain-paste-requested", "paste"]);
+  });
+
+  it("only pastes into a browser tab", () => {
+    const contents = recordingContents();
+    pasteAndMatchStyleInContents({ contents, isAppWindow: false });
+    expect(contents.calls).toEqual(["paste"]);
   });
 });

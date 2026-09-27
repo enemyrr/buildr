@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   LARGE_PASTE_THRESHOLD_BYTES,
+  PLAIN_PASTE_WINDOW_MS,
+  createPlainPasteIntent,
   createPastedTextFile,
   formatPastedTextFileName,
   insertAtSelection,
@@ -61,5 +63,41 @@ describe("insertAtSelection", () => {
       text: "abXYef",
       selection: { start: 4, end: 4 },
     });
+  });
+});
+
+describe("createPlainPasteIntent", () => {
+  function fakeClock() {
+    let time = 0;
+    return { now: () => time, advance: (ms: number) => (time += ms) };
+  }
+
+  it("keeps only the next paste inline", () => {
+    const intent = createPlainPasteIntent(fakeClock().now);
+    intent.request();
+    expect(intent.consume()).toBe(true);
+    expect(intent.consume()).toBe(false);
+  });
+
+  it("is off without a request", () => {
+    expect(createPlainPasteIntent(fakeClock().now).consume()).toBe(false);
+  });
+
+  it("expires when no paste follows the request", () => {
+    const clock = fakeClock();
+    const intent = createPlainPasteIntent(clock.now);
+    intent.request();
+    clock.advance(PLAIN_PASTE_WINDOW_MS + 1);
+    expect(intent.consume()).toBe(false);
+  });
+
+  it("treats a keydown and a menu request for the same paste as one", () => {
+    const clock = fakeClock();
+    const intent = createPlainPasteIntent(clock.now);
+    intent.request();
+    clock.advance(5);
+    intent.request();
+    expect(intent.consume()).toBe(true);
+    expect(intent.consume()).toBe(false);
   });
 });

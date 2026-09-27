@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { isWeb } from "@/constants/platform";
+import { getIsElectronRuntime } from "@/constants/layout";
+import { listenToDesktopEvent } from "@/desktop/electron/events";
 import type { SelectedFile } from "@/attachments/selected-file";
 import { collectImageFilesFromClipboardData } from "@/utils/image-attachments-from-files";
 import type { ComposerInputSnapshot } from "./input";
@@ -60,6 +62,52 @@ export function insertAtSelection(
   };
 }
 
+/** How long a plain-paste request waits for its paste event. */
+export const PLAIN_PASTE_WINDOW_MS = 1000;
+
+export interface PlainPasteIntent {
+  request: () => void;
+  /** True once if a request is pending and fresh; clears the request either way. */
+  consume: () => boolean;
+}
+
+/**
+ * A one-shot "keep the next paste inline" flag. The paste event carries no
+ * modifiers, so the request comes from the chord's keydown or, in the desktop
+ * app, from the menu item, which can take the chord before the page sees it.
+ */
+export function createPlainPasteIntent(now: () => number): PlainPasteIntent {
+  let requestedAt: number | null = null;
+  return {
+    request: () => {
+      requestedAt = now();
+    },
+    consume: () => {
+      const isFresh = requestedAt !== null && now() - requestedAt <= PLAIN_PASTE_WINDOW_MS;
+      requestedAt = null;
+      return isFresh;
+    },
+  };
+}
+
+/** Sent by the desktop Edit menu right before it runs Paste and Match Style. */
+const PLAIN_PASTE_DESKTOP_EVENT = "plain-paste-requested";
+
+function listenForDesktopPlainPaste(onRequest: () => void): () => void {
+  if (!getIsElectronRuntime()) return () => {};
+  let isDisposed = false;
+  let unlisten: (() => void) | null = null;
+  void listenToDesktopEvent(PLAIN_PASTE_DESKTOP_EVENT, onRequest).then((dispose) => {
+    if (isDisposed) dispose();
+    else unlisten = dispose;
+    return undefined;
+  });
+  return () => {
+    isDisposed = true;
+    unlisten?.();
+  };
+}
+
 interface LargeTextPasteArgs {
   getTextArea: () => HTMLTextAreaElement | null;
   enabled: boolean;
@@ -73,15 +121,12 @@ export function useLargeTextPaste({ getTextArea, enabled, onPasteLargeText }: La
     const textarea = getTextArea();
     if (!textarea) return;
 
-    // The paste event carries no modifiers, so the chord is read from the
-    // keydown that triggers it. Any later keydown clears it.
-    let isPlainPasteRequested = false;
+    const plainPaste = createPlainPasteIntent(Date.now);
     const handleKeyDown = (event: KeyboardEvent) => {
-      isPlainPasteRequested = isPlainPasteChord(event);
+      if (isPlainPasteChord(event)) plainPaste.request();
     };
     const handlePaste = (event: ClipboardEvent) => {
-      const forceInline = isPlainPasteRequested;
-      isPlainPasteRequested = false;
+      const forceInline = plainPaste.consume();
       if (forceInline || event.defaultPrevented) return;
       if (collectImageFilesFromClipboardData(event.clipboardData).length > 0) return;
       const text = event.clipboardData?.getData("text/plain") ?? "";
@@ -92,9 +137,11 @@ export function useLargeTextPaste({ getTextArea, enabled, onPasteLargeText }: La
 
     textarea.addEventListener("keydown", handleKeyDown, true);
     textarea.addEventListener("paste", handlePaste);
+    const stopDesktopListener = listenForDesktopPlainPaste(plainPaste.request);
     return () => {
       textarea.removeEventListener("keydown", handleKeyDown, true);
       textarea.removeEventListener("paste", handlePaste);
+      stopDesktopListener();
     };
   }, [enabled, getTextArea, onPasteLargeText]);
 }
