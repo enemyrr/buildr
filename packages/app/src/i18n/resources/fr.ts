@@ -264,6 +264,8 @@ export const fr: TranslationResources = {
     interrupted: {
       callout: "Un redémarrage du daemon a interrompu ce tour",
       continue: "Continuer",
+      description: "Continuer reprend l'agent là où il s'est arrêté.",
+      dismiss: "Ignorer",
     },
   },
   home: {

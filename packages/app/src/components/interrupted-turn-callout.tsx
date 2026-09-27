@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { MAX_CONTENT_WIDTH } from "@/constants/layout";
@@ -16,12 +16,14 @@ interface InterruptedTurnCalloutProps {
   agentId: string;
 }
 
-type ContinueState =
+type InterruptedTurnAction = "continue" | "dismiss";
+
+type ActionState =
   | { status: "idle" }
-  | { status: "pending" }
+  | { status: "pending"; action: InterruptedTurnAction }
   | { status: "failed"; message: string };
 
-const IDLE_STATE: ContinueState = { status: "idle" };
+const IDLE_STATE: ActionState = { status: "idle" };
 
 function useIsInterrupted(serverId: string, agentId: string): boolean {
   return useSessionStore((state) => {
@@ -43,21 +45,34 @@ function InterruptedTurnAlert({ serverId, agentId }: InterruptedTurnCalloutProps
   const { t } = useTranslation();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const [continueState, setContinueState] = useState<ContinueState>(IDLE_STATE);
-  const isPending = continueState.status === "pending";
+  const [actionState, setActionState] = useState<ActionState>(IDLE_STATE);
+  const isPending = actionState.status === "pending";
+  const isUnavailable = !client || !isConnected || isPending;
 
-  const handleContinue = useCallback(async () => {
-    if (!client || !isConnected || isPending) return;
-    setContinueState({ status: "pending" });
-    try {
-      // The callout unmounts when the agent update clears the interruption.
-      await client.continueInterruptedTurn(agentId);
-    } catch (error) {
-      setContinueState({ status: "failed", message: toErrorMessage(error) });
-    }
-  }, [client, isConnected, isPending, agentId]);
+  const runAction = useCallback(
+    async (action: InterruptedTurnAction) => {
+      if (!client || !isConnected || isPending) return;
+      setActionState({ status: "pending", action });
+      try {
+        // The callout unmounts when the agent update clears the interruption.
+        if (action === "continue") await client.continueInterruptedTurn(agentId);
+        else await client.dismissInterruptedTurn(agentId);
+      } catch (error) {
+        setActionState({ status: "failed", message: toErrorMessage(error) });
+      }
+    },
+    [client, isConnected, isPending, agentId],
+  );
+  const handleContinue = useCallback(() => runAction("continue"), [runAction]);
+  const handleDismiss = useCallback(() => runAction("dismiss"), [runAction]);
 
-  const description = continueState.status === "failed" ? continueState.message : undefined;
+  const pendingAction = actionState.status === "pending" ? actionState.action : null;
+  const errorMessage = actionState.status === "failed" ? actionState.message : null;
+  const descriptionText = t("agentPanel.interrupted.description");
+  const description = useMemo(
+    () => <InterruptedTurnDescription text={descriptionText} error={errorMessage} />,
+    [descriptionText, errorMessage],
+  );
 
   return (
     <View style={styles.container}>
@@ -72,15 +87,38 @@ function InterruptedTurnAlert({ serverId, agentId }: InterruptedTurnCalloutProps
             variant="outline"
             size="sm"
             onPress={handleContinue}
-            disabled={!isConnected || isPending}
-            loading={isPending}
+            disabled={isUnavailable}
+            loading={pendingAction === "continue"}
             testID="agent-interrupted-turn-continue"
           >
             {t("agentPanel.interrupted.continue")}
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onPress={handleDismiss}
+            disabled={isUnavailable}
+            loading={pendingAction === "dismiss"}
+            testID="agent-interrupted-turn-dismiss"
+          >
+            {t("agentPanel.interrupted.dismiss")}
+          </Button>
         </Alert>
       </View>
     </View>
+  );
+}
+
+function InterruptedTurnDescription({ text, error }: { text: string; error: string | null }) {
+  return (
+    <>
+      <Text style={styles.description}>{text}</Text>
+      {error ? (
+        <Text style={styles.error} testID="agent-interrupted-turn-error">
+          {error}
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -94,5 +132,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   content: {
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
+  },
+  // Matches the Alert primitive's own description text.
+  description: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  error: {
+    color: theme.colors.palette.red[300],
+    fontSize: theme.fontSize.sm,
   },
 }));

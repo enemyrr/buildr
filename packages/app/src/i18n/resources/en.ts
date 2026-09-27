@@ -272,6 +272,8 @@ export const en = {
     interrupted: {
       callout: "A daemon restart interrupted this turn",
       continue: "Continue",
+      description: "Continue resumes the agent where it stopped.",
+      dismiss: "Dismiss",
     },
   },
   home: {

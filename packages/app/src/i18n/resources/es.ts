@@ -262,6 +262,8 @@ export const es: TranslationResources = {
     interrupted: {
       callout: "Un reinicio del daemon interrumpió este turno",
       continue: "Continuar",
+      description: "Continuar reanuda el agente donde se detuvo.",
+      dismiss: "Descartar",
     },
   },
   home: {

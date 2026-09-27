@@ -34,8 +34,15 @@ export interface ArchiveFinishedSubagents {
   archiveFinished(): Promise<ArchiveFinishedOutcome>;
 }
 
+// A `closed` subagent is idle with its runtime unloaded, after an idle unload or a restart.
+const FINISHED_MANAGED_STATUSES: ReadonlySet<ManagedSubagentSnapshot["status"]> = new Set([
+  "idle",
+  "error",
+  "closed",
+]);
+
 export function isFinishedSubagent(row: SubagentRow): boolean {
-  if (row.kind === "paseo") return row.status === "idle" || row.status === "error";
+  if (row.kind === "paseo") return FINISHED_MANAGED_STATUSES.has(row.status);
   return row.status === "completed" || row.status === "failed" || row.status === "canceled";
 }
 
@@ -47,7 +54,7 @@ function canArchiveManagedSubagent(
     agent &&
     !agent.archivedAt &&
     agent.parentAgentId === parentAgentId &&
-    (agent.status === "idle" || agent.status === "error"),
+    FINISHED_MANAGED_STATUSES.has(agent.status),
   );
 }
 

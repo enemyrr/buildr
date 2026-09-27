@@ -261,6 +261,8 @@ export const ptBR: TranslationResources = {
     interrupted: {
       callout: "Uma reinicialização do daemon interrompeu este turno",
       continue: "Continuar",
+      description: "Continuar retoma o agente de onde ele parou.",
+      dismiss: "Dispensar",
     },
   },
   home: {

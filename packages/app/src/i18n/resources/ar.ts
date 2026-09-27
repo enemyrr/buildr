@@ -257,6 +257,8 @@ export const ar: TranslationResources = {
     interrupted: {
       callout: "أوقفت إعادة تشغيل الخادم هذا الدور",
       continue: "متابعة",
+      description: "تستأنف المتابعة عمل الوكيل من حيث توقف.",
+      dismiss: "تجاهل",
     },
   },
   home: {

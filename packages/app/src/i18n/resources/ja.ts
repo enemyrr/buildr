@@ -262,6 +262,8 @@ export const ja: TranslationResources = {
     interrupted: {
       callout: "デーモンの再起動によりこのターンが中断されました",
       continue: "続行",
+      description: "続行すると、エージェントは停止した箇所から再開します。",
+      dismiss: "閉じる",
     },
   },
   home: {
