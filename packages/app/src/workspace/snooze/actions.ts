@@ -37,11 +37,6 @@ async function sendWorkspaceSnooze(
   return client.setWorkspaceSnooze(target.workspaceId, until);
 }
 
-/** Clears a snooze without offering an undo. Used when a workspace wakes on its own. */
-export async function clearWorkspaceSnooze(target: SnoozeTarget): Promise<void> {
-  await sendWorkspaceSnooze(target, null);
-}
-
 /**
  * Snoozes the workspace until `until`, or wakes it when `until` is null, and offers an undo that
  * restores `previous`.

@@ -42,7 +42,6 @@ import { DesktopWindowControls } from "@/components/desktop/window-controls";
 import { SidebarModelProvider } from "@/components/sidebar/sidebar-model";
 import { WorkspacePinShortcutHandler } from "@/components/workspace-pin-shortcut-handler";
 import { CustomSnoozeSheetHost } from "@/workspace/snooze/custom-snooze-sheet";
-import { SnoozeWakeHost } from "@/workspace/snooze/snooze-wake-host";
 import { WorkspaceUndoHost } from "@/workspace/undo/undo-host";
 import { WorkspaceRenameHost } from "@/components/workspace-rename-host";
 import { CompactExplorerSidebarHost } from "@/components/compact-explorer-sidebar-host";
@@ -613,7 +612,6 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <PluginCommandCenterActions />
         <WorkspacePinShortcutHandler />
         <WorkspaceUndoHost />
-        <SnoozeWakeHost />
         <CustomSnoozeSheetHost />
         <WorkspaceRenameHost />
         <CommandCenter />

@@ -68,7 +68,17 @@ class WorkspaceStatus {
   private readonly directory = new WorkspaceDirectory({
     logger: createTestLogger(),
     projectRegistry: { list: async () => [this.project] },
-    workspaceRegistry: { list: async () => this.workspaces },
+    workspaceRegistry: {
+      list: async () => this.workspaces,
+      update: async (workspaceId, updater) => {
+        const index = this.workspaces.findIndex((record) => record.workspaceId === workspaceId);
+        const existing = this.workspaces[index];
+        if (!existing) return null;
+        const updated = updater(existing);
+        this.workspaces[index] = updated;
+        return updated;
+      },
+    },
     listAgentPayloads: async () => this.agents,
     listProviderSubagentActivity: async () => this.providerSubagents,
     listTerminalActivityContributions: async () => this.terminals,
@@ -83,6 +93,7 @@ class WorkspaceStatus {
       projectKind: "git",
       workspaceKind: workspace.kind,
       name: workspace.displayName,
+      snooze: workspace.snooze ?? null,
       archivingAt: null,
       status: "done",
       activityAt: null,
@@ -92,6 +103,22 @@ class WorkspaceStatus {
       githubRuntime: null,
     }),
   });
+
+  isSnoozed(snooze: { snoozedAt: string; until: string }): void {
+    this.workspaces[0] = { ...this.workspace, snooze };
+  }
+
+  persistedSnooze(): PersistedWorkspaceRecord["snooze"] {
+    return this.workspaces[0]?.snooze ?? null;
+  }
+
+  async emittedSnooze(): Promise<WorkspaceDescriptorPayload["snooze"]> {
+    const entries = await this.directory.listFetchEntries({
+      type: "fetch_workspaces_request",
+      requestId: "workspace-snooze",
+    });
+    return entries.entries[0]?.snooze ?? null;
+  }
 
   hasRootAgent(input: AgentState): void {
     this.agents.push(
@@ -291,6 +318,49 @@ function createAgent(
     archivedAt: null,
   } satisfies AgentSnapshotPayload;
 }
+
+describe("WorkspaceDirectory snooze wake", () => {
+  const until = "2026-03-02T09:00:00.000Z";
+
+  test("wakes a snoozed workspace whose agent needs attention after the snooze started", async () => {
+    const workspace = new WorkspaceStatus();
+    workspace.isSnoozed({ snoozedAt: "2026-03-01T11:00:00.000Z", until });
+    workspace.hasRootAgent({
+      id: "root-agent",
+      status: "idle",
+      requiresAttention: true,
+      attentionReason: "finished",
+    });
+
+    expect(await workspace.emittedSnooze()).toBeNull();
+    await expect.poll(() => workspace.persistedSnooze()).toBeNull();
+  });
+
+  test("keeps the snooze when the workspace entered the attention bucket before it", async () => {
+    const workspace = new WorkspaceStatus();
+    const snooze = { snoozedAt: "2026-03-01T13:00:00.000Z", until };
+    workspace.isSnoozed(snooze);
+    workspace.hasRootAgent({
+      id: "root-agent",
+      status: "idle",
+      requiresAttention: true,
+      attentionReason: "finished",
+    });
+
+    expect(await workspace.emittedSnooze()).toEqual(snooze);
+    expect(workspace.persistedSnooze()).toEqual(snooze);
+  });
+
+  test("keeps the snooze while the workspace is only running", async () => {
+    const workspace = new WorkspaceStatus();
+    const snooze = { snoozedAt: "2026-03-01T11:00:00.000Z", until };
+    workspace.isSnoozed(snooze);
+    workspace.hasRootAgent({ id: "root-agent", status: "running" });
+
+    expect(await workspace.emittedSnooze()).toEqual(snooze);
+    expect(workspace.persistedSnooze()).toEqual(snooze);
+  });
+});
 
 describe("WorkspaceDirectory", () => {
   test("uses root agent activity, not delegated child activity, for workspace status", async () => {
@@ -557,7 +627,7 @@ describe("WorkspaceDirectory empty projects", () => {
     return new WorkspaceDirectory({
       logger: createTestLogger(),
       projectRegistry: { list: async () => input.projects },
-      workspaceRegistry: { list: async () => input.workspaces },
+      workspaceRegistry: { list: async () => input.workspaces, update: async () => null },
       listAgentPayloads: async () => [],
       listProviderSubagentActivity: async () => [],
       listTerminalActivityContributions: async () => [],
@@ -683,6 +753,7 @@ test("Git observation targets exclude archived records without hydrating app des
         workspace("hidden", "active", NOW),
         workspace("hidden-project", "archived"),
       ],
+      update: async () => null,
     },
     listAgentPayloads: unexpectedHydration,
     listProviderSubagentActivity: unexpectedHydration,

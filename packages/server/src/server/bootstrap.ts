@@ -151,6 +151,7 @@ import {
   FileBackedWorkspaceRegistry,
   type WorkspaceArchiveContext,
 } from "./workspace-registry.js";
+import { WorkspaceSnoozeTimer } from "./workspace-snooze.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { ScheduleService } from "./schedule/service.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
@@ -883,6 +884,7 @@ export async function createPaseoDaemon(
     paseoHome: config.paseoHome,
     workspaceRegistry,
   });
+  const workspaceSnoozeTimer = new WorkspaceSnoozeTimer({ workspaceRegistry, logger });
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
@@ -1776,6 +1778,11 @@ export async function createPaseoDaemon(
               );
             }
             idleUnloadTimer = startIdleAgentUnload();
+            void workspaceSnoozeTimer
+              .start()
+              .catch((error: unknown) =>
+                logger.warn({ err: error }, "workspace_snooze.start_failed"),
+              );
             relayRuntime = createRelayRuntime({
               config: {
                 enabled: relayEnabled,
@@ -1837,6 +1844,7 @@ export async function createPaseoDaemon(
     // they serve has been closed, further down.
     unsubscribePluginProviders();
     if (idleUnloadTimer) clearInterval(idleUnloadTimer);
+    workspaceSnoozeTimer.stop();
     await hubRelationships.stop();
     workspaceReconciliation.dispose();
     scriptHealthMonitor.stop();

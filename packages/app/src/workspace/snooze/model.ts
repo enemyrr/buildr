@@ -77,7 +77,11 @@ export function hasRaisedHandWhileSnoozed(state: WorkspaceSnoozeState): boolean 
   return state.statusEnteredAt.getTime() > Date.parse(state.snooze.snoozedAt);
 }
 
-/** True while the wake time is in the future and the workspace has not raised its hand. */
+/**
+ * True while the wake time is in the future and the workspace has not raised its hand. The
+ * daemon clears the snooze in both cases; this hides the workspace correctly until that
+ * update arrives.
+ */
 export function isWorkspaceSnoozed(state: WorkspaceSnoozeState, nowMs: number): boolean {
   if (!state.snooze) {
     return false;
@@ -87,15 +91,6 @@ export function isWorkspaceSnoozed(state: WorkspaceSnoozeState, nowMs: number): 
     return false;
   }
   return !hasRaisedHandWhileSnoozed(state);
-}
-
-/**
- * True if the workspace carries a snooze that no longer hides it. The daemon keeps the record
- * until a client clears it; without the clear, an agent that raised its hand would hide the
- * workspace again once you read it.
- */
-export function hasExpiredSnooze(state: WorkspaceSnoozeState, nowMs: number): boolean {
-  return state.snooze !== null && !isWorkspaceSnoozed(state, nowMs);
 }
 
 /** Returns the earliest future wake time, or null when nothing is waiting to wake. */

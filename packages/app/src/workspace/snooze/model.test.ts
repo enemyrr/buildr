@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   canSnoozeWorkspace,
   defaultCustomSnoozeSelection,
-  hasExpiredSnooze,
   isWorkspaceSnoozed,
   nextSnoozeWakeAtMs,
   resolveCustomSnooze,
@@ -59,7 +58,6 @@ describe("isWorkspaceSnoozed", () => {
   it("wakes early when the workspace enters an attention bucket after the snooze", () => {
     const state = snoozed({ status: "needs_input", statusEnteredAt: new Date(2026, 8, 23, 10, 5) });
     expect(isWorkspaceSnoozed(state, now)).toBe(false);
-    expect(hasExpiredSnooze(state, now)).toBe(true);
   });
 
   it("stays snoozed when the attention predates the snooze", () => {
@@ -70,10 +68,6 @@ describe("isWorkspaceSnoozed", () => {
   it("stays snoozed while the agent keeps running", () => {
     const state = snoozed({ status: "running", statusEnteredAt: new Date(2026, 8, 23, 10, 5) });
     expect(isWorkspaceSnoozed(state, now)).toBe(true);
-  });
-
-  it("reports no expired snooze for a workspace that was never snoozed", () => {
-    expect(hasExpiredSnooze(snoozed({ snooze: null }), now)).toBe(false);
   });
 });
 
