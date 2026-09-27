@@ -259,6 +259,8 @@ export const PersistedConfigSchema = z
           .strict()
           .optional(),
         autoArchiveAfterMerge: z.boolean().optional(),
+        autoContinueInterruptedTurns: z.boolean().optional(),
+        idleAgentUnloadMinutes: z.number().nonnegative().optional(),
         enableTerminalAgentHooks: z.boolean().optional(),
         appendSystemPrompt: z.string().optional(),
         agentDefaults: AgentDefaultsSchema.optional(),

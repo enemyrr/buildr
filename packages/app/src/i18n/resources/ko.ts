@@ -255,6 +255,12 @@ export const ko: TranslationResources = {
       callout: "이 에이전트는 보관되었습니다",
       unarchive: "보관 해제",
     },
+    interrupted: {
+      callout: "데몬 재시작으로 이 턴이 중단되었습니다",
+      continue: "계속",
+      description: "계속하면 에이전트가 멈춘 지점부터 다시 시작합니다.",
+      dismiss: "닫기",
+    },
   },
   home: {
     title: "홈",

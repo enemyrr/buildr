@@ -52,6 +52,7 @@ import {
   toAgentPersistenceHandle,
 } from "./persistence-hooks.js";
 import { ensureAgentLoaded, ensureUnarchivedAgentLoaded } from "./agent/agent-loading.js";
+import { continueInterruptedTurn, dismissInterruptedTurn } from "./agent/interrupted-turns.js";
 import {
   sendPromptToAgent,
   waitForAgentRunStartWithTimeout,
@@ -115,7 +116,11 @@ import {
   setAgentModeCommand,
   updateAgentCommand,
 } from "./agent/lifecycle-command.js";
-import { buildStoredAgentPayload, toAgentPayload } from "./agent/agent-projections.js";
+import {
+  buildStoredAgentPayload,
+  projectInterruptedTurn,
+  toAgentPayload,
+} from "./agent/agent-projections.js";
 import {
   appendTimelineItemIfAgentKnown,
   emitLiveTimelineItemIfAgentKnown,
@@ -2028,6 +2033,8 @@ export class Session {
     const storedRecord = await this.agentStorage.get(payload.id);
     payload.title = storedRecord?.title ?? null;
     payload.archivedAt = storedRecord?.archivedAt ?? null;
+    const interruptedTurn = storedRecord ? projectInterruptedTurn(storedRecord) : null;
+    if (interruptedTurn) payload.interruptedTurn = interruptedTurn;
     return payload;
   }
 
@@ -2625,6 +2632,10 @@ export class Session {
         return this.handleFetchAgentTimelineRequest(msg, source);
       case "agent.timeline.append.request":
         return this.handleAgentTimelineAppendRequest(msg);
+      case "agent.interrupted_turn.continue.request":
+        return this.handleAgentInterruptedTurnContinueRequest(msg);
+      case "agent.interrupted_turn.dismiss.request":
+        return this.handleAgentInterruptedTurnDismissRequest(msg);
       case "agent.shell.run.request":
         return this.handleAgentShellRunRequest(msg);
       case "agent.shell.stop.request":
@@ -7802,6 +7813,48 @@ export class Session {
     this.emit({
       type: "agent.timeline.append.response",
       payload: { requestId: msg.requestId, seq, epoch },
+    });
+  }
+
+  private async handleAgentInterruptedTurnContinueRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.interrupted_turn.continue.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      await continueInterruptedTurn(
+        {
+          agentManager: this.agentManager,
+          agentStorage: this.agentStorage,
+          logger: this.sessionLogger,
+        },
+        msg.agentId,
+      );
+    } catch (err) {
+      this.sessionLogger.warn({ err, agentId: msg.agentId }, "Failed to continue interrupted turn");
+      error = getErrorMessageOr(err, "Failed to continue the interrupted turn");
+    }
+    this.emit({
+      type: "agent.interrupted_turn.continue.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
+    });
+  }
+
+  private async handleAgentInterruptedTurnDismissRequest(
+    msg: Extract<SessionInboundMessage, { type: "agent.interrupted_turn.dismiss.request" }>,
+  ): Promise<void> {
+    let error: string | null = null;
+    try {
+      await dismissInterruptedTurn(
+        { agentManager: this.agentManager, agentStorage: this.agentStorage },
+        msg.agentId,
+      );
+    } catch (err) {
+      this.sessionLogger.warn({ err, agentId: msg.agentId }, "Failed to dismiss interrupted turn");
+      error = getErrorMessageOr(err, "Failed to dismiss the interrupted turn");
+    }
+    this.emit({
+      type: "agent.interrupted_turn.dismiss.response",
+      payload: { requestId: msg.requestId, agentId: msg.agentId, error },
     });
   }
 

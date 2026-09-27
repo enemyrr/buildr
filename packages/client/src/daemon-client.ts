@@ -3210,6 +3210,30 @@ export class DaemonClient {
     return payload;
   }
 
+  /** Resumes the agent and resubmits the turn a daemon restart interrupted. */
+  async continueInterruptedTurn(agentId: string): Promise<void> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.interrupted_turn.continue.request", requestId, agentId },
+      responseType: "agent.interrupted_turn.continue.response",
+      // Covers the provider resume plus the daemon's 60-second run-start budget.
+      timeout: 120_000,
+    });
+    if (payload.error) throw new Error(payload.error);
+  }
+
+  /** Clears a turn that a daemon restart interrupted, without continuing it. */
+  async dismissInterruptedTurn(agentId: string): Promise<void> {
+    const requestId = this.createRequestId();
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId,
+      message: { type: "agent.interrupted_turn.dismiss.request", requestId, agentId },
+      responseType: "agent.interrupted_turn.dismiss.response",
+    });
+    if (payload.error) throw new Error(payload.error);
+  }
+
   async appendAgentTimelineItem(
     agentId: string,
     item: Omit<import("@getpaseo/protocol/agent-types").PluginTimelineItem, "pluginId">,

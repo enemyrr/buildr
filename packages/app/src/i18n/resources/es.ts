@@ -259,6 +259,12 @@ export const es: TranslationResources = {
       callout: "Este agente está archivado.",
       unarchive: "Desarchivar",
     },
+    interrupted: {
+      callout: "Un reinicio del daemon interrumpió este turno",
+      continue: "Continuar",
+      description: "Continuar reanuda el agente donde se detuvo.",
+      dismiss: "Descartar",
+    },
   },
   home: {
     title: "Inicio",

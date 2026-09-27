@@ -23,6 +23,7 @@ import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
 import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { InterruptedTurnCallout } from "@/components/interrupted-turn-callout";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
 import { useRetainedPanelActive } from "@/components/retained-panel";
@@ -1501,18 +1502,21 @@ const AgentComposerSection = memo(function AgentComposerSection({
   }
 
   return (
-    <ActiveAgentComposer
-      agentId={agentId}
-      serverId={serverId}
-      isPaneFocused={isPaneFocused}
-      cwd={cwd}
-      isSubmitLoading={isSubmitLoading}
-      agentInputDraft={agentInputDraft}
-      onAttentionInputFocus={onAttentionInputFocus}
-      onAttentionPromptSend={onAttentionPromptSend}
-      onComposerHeightChange={onComposerHeightChange}
-      onMessageSent={onMessageSent}
-    />
+    <>
+      <InterruptedTurnCallout serverId={serverId} agentId={agentId} />
+      <ActiveAgentComposer
+        agentId={agentId}
+        serverId={serverId}
+        isPaneFocused={isPaneFocused}
+        cwd={cwd}
+        isSubmitLoading={isSubmitLoading}
+        agentInputDraft={agentInputDraft}
+        onAttentionInputFocus={onAttentionInputFocus}
+        onAttentionPromptSend={onAttentionPromptSend}
+        onComposerHeightChange={onComposerHeightChange}
+        onMessageSent={onMessageSent}
+      />
+    </>
   );
 });
 

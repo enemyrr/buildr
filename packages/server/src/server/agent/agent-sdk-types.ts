@@ -700,6 +700,12 @@ export interface AgentSession {
   revertFiles?(input: { messageId: string }): Promise<void>;
   revertBoth?(input: { messageId: string }): Promise<void>;
   /**
+   * True while the provider process owns work that outlives the foreground turn, such as a
+   * background shell. Closing the session ends that work. Providers without the method own
+   * none.
+   */
+  hasBackgroundWork?(): boolean;
+  /**
    * Out-of-band prompt handler. When non-null, the manager runs the returned
    * handler instead of allocating a turn. The handler emits stream events
    * directly via the provided `emit` callback, which routes through the

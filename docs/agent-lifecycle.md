@@ -25,8 +25,22 @@ Reload releases the old runtime before resuming its durable session: an idle pro
 still own an exclusive writer. A close failure retains that runtime for cleanup and blocks the
 replacement. Once closure succeeds, a failed resume leaves the durable agent closed and retryable.
 
-Idle agents remain resident indefinitely. Runtime closure happens only through an explicit lifecycle
-action such as archive, replacement, reload, workspace teardown, or daemon shutdown.
+Runtime closure happens through an explicit lifecycle action such as archive, replacement, reload,
+workspace teardown, or daemon shutdown, and through the idle unloader. The unloader closes a runtime
+that has been `idle` for `daemon.idleAgentUnloadMinutes` (default 30, `0` turns it off), measured
+from the later of its last activity and its registration. It skips an agent whose close would end
+work: a run in flight, a pending permission or replacement, a running provider subagent, a running
+or initializing Paseo subagent, or provider background work reported by
+`AgentSession.hasBackgroundWork()`. Only Claude implements that method, from its task protocol, so a
+background shell keeps a Claude agent resident. It also skips an agent that has an agent-scoped
+`AgentManager` subscriber or a Hub owner: finish notifications, waits, and Hub executions read
+`closed` as the agent closing, and a parent told "was closed" would treat its subagent as gone.
+`error` agents stay resident so the error status survives.
+
+An unloaded agent is `closed`, the same status every agent has after a restart. Clients treat
+`closed` and `idle` alike: both land in the `done` workspace status bucket, show no status dot, and
+count as finished for **Archive finished**. The next open or prompt resumes the agent through
+`ensureAgentLoaded()` with its primed timeline.
 
 A provider runtime can still die on its own — crash, OOM kill, host suspend. Work the agent parked
 inside that process dies with it: Claude Code's background Bash shells, `Monitor` watches, and
@@ -36,6 +50,26 @@ between turns nothing is watching, so the agent sits at `idle` looking healthy w
 work is gone. Report that exit as a turn failure so the agent lands in `error` with a timeline entry.
 Only the Claude provider does this today; the others still report a death only when a turn happens to
 be in flight.
+
+### Turns interrupted by a restart
+
+Accepting a foreground turn writes `unfinishedTurn: { state: "running" }` with its prompt to the
+agent record, and the turn's terminal event clears it. Shutdown doesn't clear it, so the marker
+survives both a crash and a graceful stop or update. At startup, before anything loads,
+`markInterruptedTurns()` rewrites every `running` marker as `interrupted`, sets a stale `running`
+status to `closed`, and treats a record with a `running` status and no marker (written before the
+marker existed) the same way, without a prompt. Loading the agent appends a warning notification
+to its timeline. The record carries the interruption until a new turn starts, so it survives
+further restarts and idle unloads.
+
+With `daemon.autoContinueInterruptedTurns` off (the default), the agent also gets `error`
+attention and the app shows **Continue** and **Dismiss** above the composer. Dismiss clears the
+marker without loading the agent. Continue, or the setting at startup, runs
+`continueInterruptedTurn()`: it resumes the agent, claims the marker back to `running`, and
+resubmits the stored prompt. Many providers write the user message to their history on receipt,
+so when the last user message in the resumed timeline matches the stored prompt, it sends
+`Continue where you left off.` instead of repeating it. It sends the same text when the prompt was
+over 256 KB. A failed start restores the `interrupted` marker.
 
 ### Cancellation
 
@@ -250,5 +284,6 @@ Each agent is a single JSON file. Fields relevant to this doc:
 | `labels["paseo.parent-agent-id"]`            | `string?`     | Parent agent ID, set automatically for agent-scoped creation and removed by detach |
 | `labels["paseo.open-agent-tab.<client-id>"]` | `string?`     | `"true"` protects an open tab on that client; detach clears every matching label   |
 | `lastStatus`                                 | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                           |
+| `unfinishedTurn`                             | `object?`     | [Interrupted-turn](#turns-interrupted-by-a-restart) marker                         |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

@@ -258,6 +258,12 @@ export const ru: TranslationResources = {
       callout: "Этот агент находится в архиве",
       unarchive: "Разархивировать",
     },
+    interrupted: {
+      callout: "Перезапуск демона прервал этот ход",
+      continue: "Продолжить",
+      description: "«Продолжить» возобновит работу агента с места остановки.",
+      dismiss: "Скрыть",
+    },
   },
   home: {
     title: "Главная",

@@ -259,6 +259,12 @@ export const ja: TranslationResources = {
       callout: "このエージェントはアーカイブされています",
       unarchive: "アーカイブ解除",
     },
+    interrupted: {
+      callout: "デーモンの再起動によりこのターンが中断されました",
+      continue: "続行",
+      description: "続行すると、エージェントは停止した箇所から再開します。",
+      dismiss: "閉じる",
+    },
   },
   home: {
     title: "ホーム",

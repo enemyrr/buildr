@@ -63,6 +63,22 @@ function deferred<T>() {
 }
 
 describe("createArchiveFinishedSubagents", () => {
+  it("archives a subagent whose idle runtime was unloaded", async () => {
+    const archived: string[] = [];
+    const archive = createArchiveFinishedSubagents([paseo("unloaded", "closed")], {
+      parentAgentId: "parent",
+      getManagedSubagent: () => managed("unloaded", "closed"),
+      archiveManagedSubagent: async (id) => {
+        archived.push(id);
+      },
+      dismissProviderSubagents: () => undefined,
+    });
+
+    expect(archive.getState().eligibleCount).toBe(1);
+    await archive.archiveFinished();
+    expect(archived).toEqual(["unloaded"]);
+  });
+
   it("dismisses provider rows before sequential managed archives and reports combined progress", async () => {
     const first = deferred<void>();
     const second = deferred<void>();

@@ -11271,3 +11271,124 @@ test("concurrent native restores run once before resuming the same agent", async
     rmSync(workdir, { recursive: true, force: true });
   }
 });
+
+class BackgroundWorkSession extends TestAgentSession {
+  hasBackgroundWork(): boolean {
+    return true;
+  }
+}
+
+class HeldTurnSession extends TestAgentSession {
+  override async startTurn(): Promise<{ turnId: string }> {
+    return { turnId: "held-turn" };
+  }
+}
+
+interface IdleUnloadHarness {
+  workdir: string;
+  storage: AgentStorage;
+  manager: AgentManager;
+  cleanup: () => Promise<void>;
+}
+
+function createIdleUnloadHarness(
+  createSession?: (config: AgentSessionConfig) => AgentSession,
+): IdleUnloadHarness {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-idle-unload-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const client = new (class extends TestAgentClient {
+    override async createSession(config: AgentSessionConfig): Promise<AgentSession> {
+      return createSession ? createSession(config) : new TestAgentSession(config);
+    }
+  })();
+  const manager = new AgentManager({ clients: { codex: client }, registry: storage, logger });
+  async function cleanup(): Promise<void> {
+    for (const agent of manager.listAgents()) await manager.closeAgent(agent.id);
+    await storage.flush();
+    rmSync(workdir, { recursive: true, force: true });
+  }
+  return { workdir, storage, manager, cleanup };
+}
+
+test("unloads an idle agent past the threshold and resumes it on demand", async () => {
+  const { workdir, storage, manager, cleanup } = createIdleUnloadHarness();
+  try {
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+    });
+
+    await expect(manager.unloadIdleAgents(new Date(Date.now() - 60_000))).resolves.toEqual([]);
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([
+      agent.id,
+    ]);
+    expect(manager.getAgent(agent.id)).toBeNull();
+    expect((await storage.get(agent.id))?.lastStatus).toBe("closed");
+
+    const resumed = await ensureAgentLoaded(agent.id, {
+      agentManager: manager,
+      agentStorage: storage,
+      logger,
+    });
+    expect(resumed.lifecycle).toBe("idle");
+    expect(resumed.persistence?.sessionId).toBe(agent.persistence?.sessionId);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("keeps an idle agent resident while its provider reports background work", async () => {
+  const { workdir, manager, cleanup } = createIdleUnloadHarness(
+    (config) => new BackgroundWorkSession(config),
+  );
+  try {
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+    });
+
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([]);
+    expect(manager.getAgent(agent.id)?.lifecycle).toBe("idle");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("keeps an idle agent resident while something observes it", async () => {
+  const { workdir, manager, cleanup } = createIdleUnloadHarness();
+  try {
+    const agent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+    });
+    const unsubscribe = manager.subscribe(() => undefined, { agentId: agent.id });
+
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([]);
+    unsubscribe();
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([
+      agent.id,
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("keeps a running subagent and its idle parent resident", async () => {
+  const { workdir, manager, cleanup } = createIdleUnloadHarness(
+    (config) => new HeldTurnSession(config),
+  );
+  try {
+    const parent = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+    });
+    const child = await manager.createAgent({ provider: "codex", cwd: workdir }, undefined, {
+      workspaceId: undefined,
+      labels: { [PARENT_AGENT_ID_LABEL]: parent.id },
+    });
+    void drainAsyncGenerator(manager.streamAgent(child.id, "work")).catch(() => undefined);
+    await manager.waitForAgentRunStart(child.id);
+
+    await expect(manager.unloadIdleAgents(new Date(Date.now() + 1_000))).resolves.toEqual([]);
+    expect(manager.getAgent(parent.id)?.lifecycle).toBe("idle");
+    expect(manager.getAgent(child.id)?.lifecycle).toBe("running");
+  } finally {
+    await cleanup();
+  }
+});

@@ -1689,6 +1689,8 @@ export class VoiceAssistantWebSocketServer {
         workspaceSetupRun: true,
         // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
         agentShellRun: true,
+        // COMPAT(interruptedTurnContinue): added in v0.10.2, remove gate after 2027-03-27.
+        interruptedTurnContinue: true,
         // COMPAT(projectGitSettings): added in v0.9.2, remove gate after 2027-03-22.
         projectGitSettings: true,
         // COMPAT(agentDefaults): added in v0.9.7, remove gate after 2027-03-25.

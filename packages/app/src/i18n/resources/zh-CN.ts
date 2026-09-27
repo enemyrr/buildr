@@ -254,6 +254,12 @@ export const zhCN: TranslationResources = {
       callout: "此 Agent 已归档",
       unarchive: "取消归档",
     },
+    interrupted: {
+      callout: "守护进程重启中断了此轮对话",
+      continue: "继续",
+      description: "继续会让代理从中断处接着工作。",
+      dismiss: "关闭",
+    },
   },
   home: {
     title: "主页",
