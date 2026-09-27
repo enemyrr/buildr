@@ -7,6 +7,7 @@ import {
 import type {
   SidebarProjectEntry,
   SidebarWorkspaceEntry,
+  SidebarWorkspacePlacement,
 } from "@/hooks/use-sidebar-workspaces-list";
 import type { SidebarGroupMode } from "@/stores/sidebar-view-store";
 import {
@@ -19,9 +20,16 @@ import {
   type SidebarShortcutSection,
 } from "@/utils/sidebar-shortcuts";
 import { statusWorkspaceGroups, type SidebarWorkspaceGroup } from "./sidebar-labels";
+import { splitSnoozedSidebarWorkspaces, type SnoozedSidebarKeys } from "@/workspace/snooze/sidebar";
+
+/** The sections hoisted out of the regular list: Pinned above it, Snoozed below it. */
+export interface SidebarSectionGroups extends PinnedSidebarGroups {
+  /** Snoozed workspaces in wake order. They leave Pinned and their project until they wake. */
+  snoozedWorkspaces: SidebarWorkspacePlacement[];
+}
 
 export interface SidebarProjection {
-  pinnedGroups: PinnedSidebarGroups;
+  pinnedGroups: SidebarSectionGroups;
   workspaceGroups: SidebarWorkspaceGroup[];
   /**
    * The project icons this projection needs fetched, keyed by `projectViewKey` — one per project,
@@ -38,6 +46,7 @@ export interface SidebarProjection {
 export interface SidebarProjectionInput {
   projects: SidebarProjectEntry[];
   pinnedKeys: PinnedSidebarKeys;
+  snoozedKeys: SnoozedSidebarKeys;
   pinnedWorkspaceOrder: string[];
   workspaceEntriesByKey: ReadonlyMap<string, SidebarWorkspaceEntry>;
   projectNamesByViewKey: Map<string, string>;
@@ -48,14 +57,23 @@ export interface SidebarProjectionInput {
 }
 
 export function buildSidebarProjection(input: SidebarProjectionInput): SidebarProjection {
-  const pinnedGroups = splitPinnedSidebarGroups({
+  const { snoozedWorkspaces, awakeProjects } = splitSnoozedSidebarWorkspaces({
     projects: input.projects,
-    keys: input.pinnedKeys,
-    pinnedWorkspaceOrder: input.pinnedWorkspaceOrder,
+    keys: input.snoozedKeys,
   });
+  const pinnedGroups: SidebarSectionGroups = {
+    ...splitPinnedSidebarGroups({
+      projects: awakeProjects,
+      keys: input.pinnedKeys,
+      pinnedWorkspaceOrder: input.pinnedWorkspaceOrder,
+    }),
+    snoozedWorkspaces,
+  };
   const pinnedWorkspaceKeys = new Set(input.pinnedKeys.pinnedWorkspaceKeys);
   const unpinnedWorkspaces = Array.from(input.workspaceEntriesByKey.values()).filter(
-    (workspace) => !pinnedWorkspaceKeys.has(workspace.workspaceKey),
+    (workspace) =>
+      !pinnedWorkspaceKeys.has(workspace.workspaceKey) &&
+      input.snoozedKeys.untilByKey[workspace.workspaceKey] === undefined,
   );
   // One switch decides both what the list groups by and what the keyboard shortcuts walk, so the
   // two cannot disagree and a new grouping mode is a compile error here rather than a silent

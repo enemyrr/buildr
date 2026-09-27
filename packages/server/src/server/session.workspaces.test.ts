@@ -8428,6 +8428,88 @@ test("workspace.pin.set.request stores the pin timestamp and emits an updated de
   });
 });
 
+test("workspace.snooze.set.request stores the snooze, emits it, and clears it on wake", async () => {
+  const emitted: SessionOutboundMessage[] = [];
+  const session = asTestSession(
+    createSessionForWorkspaceTests({ onMessage: (message) => emitted.push(message) }),
+  );
+  const project = createPersistedProjectRecord({
+    projectId: "proj-1",
+    rootPath: REPO_CWD,
+    kind: "git",
+    displayName: "acme/repo",
+    createdAt: "2026-03-01T12:00:00.000Z",
+    updatedAt: "2026-03-01T12:00:00.000Z",
+  });
+  const workspace = createPersistedWorkspaceRecord({
+    workspaceId: "ws-1",
+    projectId: project.projectId,
+    cwd: REPO_CWD,
+    kind: "local_checkout",
+    displayName: "main",
+    createdAt: "2026-03-01T12:00:00.000Z",
+    updatedAt: "2026-03-01T12:00:00.000Z",
+  });
+  const workspaces = new Map([[workspace.workspaceId, workspace]]);
+  session.projectRegistry.get = async (id: string) => (id === project.projectId ? project : null);
+  session.projectRegistry.list = async () => [project];
+  session.workspaceRegistry.list = async () => Array.from(workspaces.values());
+  session.workspaceRegistry.update = async (id, updater) => {
+    const existing = workspaces.get(id);
+    if (!existing) return null;
+    const updated = updater(existing);
+    workspaces.set(id, updated);
+    return updated;
+  };
+  await session.handleMessage({
+    type: "fetch_workspaces_request",
+    requestId: "sub-workspaces",
+    subscribe: { subscriptionId: "sub-workspaces" },
+  });
+
+  await session.handleMessage({
+    type: "workspace.snooze.set.request",
+    workspaceId: workspace.workspaceId,
+    until: "2026-03-02T09:00:00.000Z",
+    requestId: "req-snooze-1",
+  });
+
+  const response = findByType(emitted, "workspace.snooze.set.response");
+  expect(response?.payload).toMatchObject({
+    requestId: "req-snooze-1",
+    workspaceId: "ws-1",
+    accepted: true,
+    snooze: { until: "2026-03-02T09:00:00.000Z", snoozedAt: expect.any(String) },
+    error: null,
+  });
+  expect(workspaces.get("ws-1")?.snooze).toEqual(response?.payload.snooze);
+  expect(findByType(emitted, "workspace_update")?.payload).toMatchObject({
+    kind: "upsert",
+    workspace: { id: "ws-1", snooze: response?.payload.snooze },
+  });
+
+  await session.handleMessage({
+    type: "workspace.snooze.set.request",
+    workspaceId: workspace.workspaceId,
+    until: null,
+    requestId: "req-snooze-2",
+  });
+  expect(workspaces.get("ws-1")?.snooze).toBeNull();
+
+  await session.handleMessage({
+    type: "workspace.snooze.set.request",
+    workspaceId: workspace.workspaceId,
+    until: "not a date",
+    requestId: "req-snooze-3",
+  });
+  const rejected = emitted.find(
+    (message) =>
+      message.type === "workspace.snooze.set.response" &&
+      message.payload.requestId === "req-snooze-3",
+  );
+  expect(rejected?.payload).toMatchObject({ accepted: false, error: "Invalid snooze time" });
+});
+
 test("workspace.archived.list.request lists a project's archived workspaces, newest first", async () => {
   const emitted: SessionOutboundMessage[] = [];
   const session = asTestSession(

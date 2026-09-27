@@ -69,6 +69,7 @@ function createToast(): ToastApi {
     show: vi.fn<ToastApi["show"]>(),
     copied: vi.fn<ToastApi["copied"]>(),
     error: vi.fn<ToastApi["error"]>(),
+    dismiss: vi.fn<ToastApi["dismiss"]>(),
   };
 }
 

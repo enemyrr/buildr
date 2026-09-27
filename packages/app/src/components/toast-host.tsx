@@ -47,6 +47,7 @@ export interface ToastApi {
   show: (content: ReactNode, options?: ToastShowOptions) => void;
   copied: (label?: string) => void;
   error: (message: string) => void;
+  dismiss: () => void;
 }
 
 type ToastViewportPlacement = "app-shell" | "panel";
@@ -102,6 +103,10 @@ export function useToastHost(): {
     });
   }, []);
 
+  const dismiss = useCallback(() => {
+    setToast(null);
+  }, []);
+
   const api = useMemo<ToastApi>(
     () => ({
       show,
@@ -111,13 +116,10 @@ export function useToastHost(): {
           icon: <ThemedCheckCircle size={18} uniProps={foregroundIcon} />,
         }),
       error: (message: string) => show(message, { variant: "error", durationMs: 3200 }),
+      dismiss,
     }),
-    [show, t],
+    [dismiss, show, t],
   );
-
-  const dismiss = useCallback(() => {
-    setToast(null);
-  }, []);
 
   return { api, toast, dismiss };
 }

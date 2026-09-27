@@ -2922,6 +2922,8 @@ export class Session {
         return this.handleWorkspaceTitleSetRequest(msg.workspaceId, msg.title, msg.requestId);
       case "workspace.pin.set.request":
         return this.handleWorkspacePinSetRequest(msg.workspaceId, msg.pinned, msg.requestId);
+      case "workspace.snooze.set.request":
+        return this.handleWorkspaceSnoozeSetRequest(msg.workspaceId, msg.until, msg.requestId);
       default:
         return undefined;
     }
@@ -3799,6 +3801,51 @@ export class Session {
         },
       });
       emitResponse(false, null, getErrorMessageOr(error, "Failed to pin workspace"));
+    }
+  }
+
+  private async handleWorkspaceSnoozeSetRequest(
+    workspaceId: string,
+    until: string | null,
+    requestId: string,
+  ): Promise<void> {
+    const logContext = { workspaceId, until, requestId };
+    this.sessionLogger.info(logContext, "session: workspace.snooze.set.request");
+    const emitResponse = (
+      accepted: boolean,
+      snooze: PersistedWorkspaceRecord["snooze"],
+      error: string | null,
+    ) => {
+      this.emit({
+        type: "workspace.snooze.set.response",
+        payload: { requestId, workspaceId, accepted, snooze, error },
+      });
+    };
+
+    if (until !== null && Number.isNaN(Date.parse(until))) {
+      emitResponse(false, null, "Invalid snooze time");
+      return;
+    }
+    try {
+      const now = new Date().toISOString();
+      const nextSnooze = until === null ? null : { snoozedAt: now, until };
+      const updated = await this.workspaceRegistry.update(workspaceId, (existing) => ({
+        ...existing,
+        snooze: nextSnooze,
+        updatedAt: now,
+      }));
+      if (!updated) {
+        emitResponse(false, null, "Workspace not found");
+        return;
+      }
+      emitResponse(true, nextSnooze, null);
+      await this.emitWorkspaceUpdatesForWorkspaceIds([workspaceId]);
+    } catch (error) {
+      this.sessionLogger.error(
+        { ...logContext, err: error },
+        "session: workspace.snooze.set.request error",
+      );
+      emitResponse(false, null, getErrorMessageOr(error, "Failed to snooze workspace"));
     }
   }
 
@@ -5592,6 +5639,7 @@ export class Session {
       name: resolveWorkspaceDisplayName(workspace),
       title: workspace.title,
       pinnedAt: workspace.pinnedAt,
+      snooze: workspace.snooze,
       ...(workspace.labels && workspace.labels.length > 0 ? { labels: workspace.labels } : {}),
       archivingAt: null,
       status: "done",
@@ -5684,6 +5732,7 @@ export class Session {
       }),
       title: result.workspace.title,
       pinnedAt: result.workspace.pinnedAt,
+      snooze: result.workspace.snooze,
       ...(result.workspace.labels && result.workspace.labels.length > 0
         ? { labels: result.workspace.labels }
         : {}),
