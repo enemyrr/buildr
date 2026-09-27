@@ -522,6 +522,19 @@ function resolveBrowserToolsEnabled(persisted: ReturnType<typeof loadPersistedCo
  * empty array: for terminal profiles that is what selects the built-in
  * defaults, so an empty array has to keep meaning "the user removed them all".
  */
+// Both settings are read at startup only, so changing them requires a daemon restart.
+function resolveTurnRecoveryConfig(
+  persisted: ReturnType<typeof loadPersistedConfig>,
+): Pick<PaseoDaemonConfig, "autoContinueInterruptedTurns" | "idleAgentUnloadAfterMs"> {
+  const minutes = persisted.daemon?.idleAgentUnloadMinutes;
+  return {
+    ...(persisted.daemon?.autoContinueInterruptedTurns !== undefined
+      ? { autoContinueInterruptedTurns: persisted.daemon.autoContinueInterruptedTurns }
+      : {}),
+    ...(minutes !== undefined ? { idleAgentUnloadAfterMs: minutes * 60_000 } : {}),
+  };
+}
+
 function resolveProfileLists(persisted: ReturnType<typeof loadPersistedConfig>) {
   return {
     terminalProfiles: persisted.daemon?.terminalProfiles,
@@ -621,6 +634,7 @@ export function resolveConfigFromPersisted(
     browserToolsEnabled,
     git: resolveGitProcessConfig(env, persisted),
     autoArchiveAfterMerge,
+    ...resolveTurnRecoveryConfig(persisted),
     enableTerminalAgentHooks: persisted.daemon?.enableTerminalAgentHooks ?? false,
     appendSystemPrompt,
     agentDefaults,

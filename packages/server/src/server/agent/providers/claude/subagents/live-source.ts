@@ -180,6 +180,11 @@ export class ClaudeTaskProtocolSource {
   /** Claude facts stay inside the provider boundary; clients receive one compact subtitle. */
   private readonly presentationById = new Map<string, ClaudeSubagentPresentationFacts>();
   private readonly lastSubtitleById = new Map<string, string>();
+  /**
+   * Every announced task that hasn't reported a terminal status, including the ones the
+   * subagents track filters out, such as background shells.
+   */
+  private readonly liveTaskIds = new Set<string>();
   private sawTaskStarted = false;
   private sawAnyTask = false;
   private readonly getToolInput: (toolUseId: string) => AgentMetadata | null | undefined;
@@ -188,6 +193,11 @@ export class ClaudeTaskProtocolSource {
   constructor(input: ClaudeTaskProtocolSourceInput = {}) {
     this.getToolInput = input.getToolInput ?? (() => null);
     this.readWorkflowResult = input.readWorkflowResult ?? (() => undefined);
+  }
+
+  /** True while any announced task, filtered or not, is still running in the CLI process. */
+  get hasLiveTasks(): boolean {
+    return this.liveTaskIds.size > 0;
   }
 
   /**
@@ -281,6 +291,7 @@ export class ClaudeTaskProtocolSource {
     this.lastStatusById.clear();
     this.presentationById.clear();
     this.lastSubtitleById.clear();
+    this.liveTaskIds.clear();
     this.sawTaskStarted = false;
     this.sawAnyTask = false;
   }
@@ -309,6 +320,7 @@ export class ClaudeTaskProtocolSource {
 
   /** A lost Claude process terminates every task it owned, including backgrounded workflows. */
   failRunningTasks(): SubagentObservation[] {
+    this.liveTaskIds.clear();
     const observations: SubagentObservation[] = [];
     for (const id of this.declaredIds) {
       if (this.lastStatusById.get(id) !== "running") continue;
@@ -322,6 +334,7 @@ export class ClaudeTaskProtocolSource {
     // Recorded before the filter: what this proves is that the CLI announces its tasks, which is
     // true whether or not this particular one is a subagent.
     this.sawAnyTask = true;
+    if (message.skip_transcript !== true) this.liveTaskIds.add(message.task_id);
 
     const id = readString(message.tool_use_id);
     const parentSubagentId = id ? this.ownerSubagentIdByToolUseId.get(id) : undefined;
@@ -528,6 +541,8 @@ export class ClaudeTaskProtocolSource {
    * A status without a declaration describes nothing, so it is dropped.
    */
   private observeStatus(taskId: string, rawStatus: string | undefined): SubagentObservation[] {
+    const liveness = mapTaskStatus(rawStatus);
+    if (liveness && liveness !== "running") this.liveTaskIds.delete(taskId);
     const id = this.subagentIdByTaskId.get(taskId);
     if (!id) return [];
     const status = mapTaskStatus(rawStatus);

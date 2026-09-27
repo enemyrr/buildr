@@ -254,6 +254,10 @@ export const ar: TranslationResources = {
       callout: "تمت أرشفة هذا الوكيل",
       unarchive: "إلغاء الأرشفة",
     },
+    interrupted: {
+      callout: "أوقفت إعادة تشغيل الخادم هذا الدور",
+      continue: "متابعة",
+    },
   },
   home: {
     title: "الرئيسية",

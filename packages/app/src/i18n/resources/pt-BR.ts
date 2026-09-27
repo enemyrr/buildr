@@ -258,6 +258,10 @@ export const ptBR: TranslationResources = {
       callout: "Este agente está arquivado",
       unarchive: "Desarquivar",
     },
+    interrupted: {
+      callout: "Uma reinicialização do daemon interrompeu este turno",
+      continue: "Continuar",
+    },
   },
   home: {
     title: "Início",

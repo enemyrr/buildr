@@ -219,6 +219,7 @@ export function buildStoredAgentPayload(
 
   const runtimeInfo = buildStoredRuntimeInfo(record);
   const providerAvailable = isStoredAgentProviderAvailable(record, validProviders);
+  const interruptedTurn = projectInterruptedTurn(record);
   const persistence = projectPersistenceHandleForWire(
     buildStoredPersistenceHandle(record, validProviders),
   );
@@ -251,7 +252,17 @@ export function buildStoredAgentPayload(
     archivedAt: record.archivedAt ?? null,
     labels: normalizeLabels(record.labels),
     ...(providerAvailable ? {} : { providerUnavailable: true }),
+    ...(interruptedTurn ? { interruptedTurn } : {}),
   };
+}
+
+/** An absent field means the agent has no interrupted turn. */
+export function projectInterruptedTurn(
+  record: StoredAgentRecord,
+): AgentSnapshotPayload["interruptedTurn"] {
+  const turn = record.unfinishedTurn;
+  if (turn?.state !== "interrupted") return null;
+  return { startedAt: turn.startedAt, interruptedAt: turn.interruptedAt };
 }
 
 export function toAgentListItemPayload(agent: AgentSnapshotPayload): AgentListItemPayload {

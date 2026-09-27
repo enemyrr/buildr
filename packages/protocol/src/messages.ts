@@ -829,6 +829,12 @@ const AgentActiveTurnPayloadSchema = z.object({
   startedAt: z.string().nullable(),
 });
 
+/** A turn that a daemon restart stopped before it finished. */
+const AgentInterruptedTurnPayloadSchema = z.object({
+  startedAt: z.string(),
+  interruptedAt: z.string(),
+});
+
 export const AgentSnapshotPayloadSchema = z.object({
   id: z.string(),
   provider: AgentProviderSchema,
@@ -858,6 +864,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   attentionTimestamp: z.string().nullable().optional(),
   archivedAt: z.string().nullable().optional(),
   providerUnavailable: z.boolean().optional(),
+  // COMPAT(interruptedTurnContinue): added in v0.10.2, remove optional parsing after 2027-03-27.
+  interruptedTurn: AgentInterruptedTurnPayloadSchema.nullable().optional(),
 });
 
 export type AgentSnapshotPayload = z.infer<typeof AgentSnapshotPayloadSchema>;
@@ -1559,6 +1567,12 @@ export const PluginRpcInvokeRequestSchema = z.object({
   pluginId: PluginIdSchema,
   method: z.string().min(1),
   input: z.unknown(),
+});
+
+export const AgentInterruptedTurnContinueRequestSchema = z.object({
+  type: z.literal("agent.interrupted_turn.continue.request"),
+  requestId: z.string(),
+  agentId: z.string(),
 });
 
 export const AgentTimelineAppendRequestSchema = z.object({
@@ -3293,6 +3307,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   PluginRemoveRequestSchema,
   PluginRpcInvokeRequestSchema,
   AgentTimelineAppendRequestSchema,
+  AgentInterruptedTurnContinueRequestSchema,
   AgentSkillsGetStatusRequestSchema,
   AgentSkillsReconcileRequestSchema,
   AgentSkillsUninstallRequestSchema,
@@ -3630,6 +3645,8 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceSetupRun: z.boolean().optional(),
         // COMPAT(agentShellRun): added in v0.9.4, remove gate after 2027-03-24.
         agentShellRun: z.boolean().optional(),
+        // COMPAT(interruptedTurnContinue): added in v0.10.2, remove gate after 2027-03-27.
+        interruptedTurnContinue: z.boolean().optional(),
         // COMPAT(workspaceTerminals): added in v0.8.0, remove gate after 2027-09-05.
         workspaceTerminals: z.boolean().optional(),
         // COMPAT(checkoutForgeSetAutoMerge): added in v0.2.0-beta.1. Remove the
@@ -6854,6 +6871,15 @@ export const AgentTimelineAppendResponseSchema = z.object({
   }),
 });
 
+export const AgentInterruptedTurnContinueResponseSchema = z.object({
+  type: z.literal("agent.interrupted_turn.continue.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
 function agentSkillsStatusResponse<const Type extends string>(type: Type) {
   return z.object({
     type: z.literal(type),
@@ -6909,6 +6935,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   PluginRemoveResponseSchema,
   PluginRpcInvokeResponseSchema,
   AgentTimelineAppendResponseSchema,
+  AgentInterruptedTurnContinueResponseSchema,
   AgentSkillsGetStatusResponseSchema,
   AgentSkillsReconcileResponseSchema,
   AgentSkillsUninstallResponseSchema,

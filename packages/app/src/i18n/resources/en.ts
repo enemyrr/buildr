@@ -269,6 +269,10 @@ export const en = {
       callout: "This agent is archived",
       unarchive: "Unarchive",
     },
+    interrupted: {
+      callout: "A daemon restart interrupted this turn",
+      continue: "Continue",
+    },
   },
   home: {
     title: "Home",

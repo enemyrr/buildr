@@ -132,6 +132,10 @@ import { createSpeechService } from "./speech/speech-runtime.js";
 import { AgentManager } from "./agent/agent-manager.js";
 import { UserShellHistoryStore } from "./agent/user-shell-history.js";
 import { AgentStorage } from "./agent/agent-storage.js";
+import {
+  autoContinueInterruptedTurns as continueInterruptedTurnsInBackground,
+  markInterruptedTurns,
+} from "./agent/interrupted-turns.js";
 import { attachAgentStoragePersistence } from "./persistence-hooks.js";
 import { createAgentMcpServer } from "./agent/mcp-server.js";
 import {
@@ -404,6 +408,10 @@ export interface PaseoDaemonConfig {
     maxProcessConcurrency: number;
   };
   autoArchiveAfterMerge?: boolean;
+  /** If true, resubmits turns a restart interrupted. If false, the app offers Continue. Default: false. */
+  autoContinueInterruptedTurns?: boolean;
+  /** Closes provider runtimes idle for this long. 0 turns unloading off. Default: 30 minutes. */
+  idleAgentUnloadAfterMs?: number;
   enableTerminalAgentHooks?: boolean;
   appendSystemPrompt?: string;
   agentDefaults?: AgentDefaults;
@@ -959,7 +967,16 @@ export async function createPaseoDaemon(
     agentStorage,
   );
   await agentStorage.initialize();
-  logger.info({ elapsed: elapsed() }, "Agent storage initialized");
+  const autoContinueInterruptedTurns = config.autoContinueInterruptedTurns === true;
+  const interruptedAgentIds = await markInterruptedTurns({
+    agentStorage,
+    now: new Date(),
+    flagAttention: !autoContinueInterruptedTurns,
+  });
+  logger.info(
+    { elapsed: elapsed(), interruptedAgents: interruptedAgentIds.length },
+    "Agent storage initialized",
+  );
   await bootstrapWorkspaceRegistries({
     serverId,
     paseoHome: config.paseoHome,
@@ -1582,6 +1599,24 @@ export async function createPaseoDaemon(
 
   logger.info({ elapsed: elapsed() }, "Bootstrap complete, ready to start listening");
 
+  let idleUnloadTimer: NodeJS.Timeout | null = null;
+  const startIdleAgentUnload = (): NodeJS.Timeout | null => {
+    const thresholdMs = config.idleAgentUnloadAfterMs ?? DEFAULT_IDLE_AGENT_UNLOAD_AFTER_MS;
+    if (thresholdMs <= 0) return null;
+    const sweepIntervalMs = Math.min(IDLE_AGENT_UNLOAD_SWEEP_MS, Math.max(1_000, thresholdMs / 2));
+    const timer = setInterval(() => {
+      agentManager.unloadIdleAgents(new Date(Date.now() - thresholdMs)).then(
+        (agentIds) => {
+          if (agentIds.length > 0) logger.info({ agentIds }, "Unloaded idle agent runtimes");
+          return undefined;
+        },
+        (err: unknown) => logger.warn({ err }, "Idle agent unload failed"),
+      );
+    }, sweepIntervalMs);
+    timer.unref();
+    return timer;
+  };
+
   const start = async () => {
     let mainStarted = false;
     try {
@@ -1733,6 +1768,14 @@ export async function createPaseoDaemon(
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
             wsServer.beginAcceptingConnections();
+            // Plugin providers are registered by now, so every interrupted agent can resume.
+            if (autoContinueInterruptedTurns && interruptedAgentIds.length > 0) {
+              void continueInterruptedTurnsInBackground(
+                { agentManager, agentStorage, logger },
+                interruptedAgentIds,
+              );
+            }
+            idleUnloadTimer = startIdleAgentUnload();
             relayRuntime = createRelayRuntime({
               config: {
                 enabled: relayEnabled,
@@ -1793,6 +1836,7 @@ export async function createPaseoDaemon(
     // that is still open. Plugins themselves are stopped once every session
     // they serve has been closed, further down.
     unsubscribePluginProviders();
+    if (idleUnloadTimer) clearInterval(idleUnloadTimer);
     await hubRelationships.stop();
     workspaceReconciliation.dispose();
     scriptHealthMonitor.stop();
@@ -1852,6 +1896,9 @@ export async function createPaseoDaemon(
  * shutdown runs next and rejects the request that was still pending.
  */
 const AGENT_CLOSE_TIMEOUT_MS = 5_000;
+
+const DEFAULT_IDLE_AGENT_UNLOAD_AFTER_MS = 30 * 60_000;
+const IDLE_AGENT_UNLOAD_SWEEP_MS = 5 * 60_000;
 
 async function closeAllAgents(logger: Logger, agentManager: AgentManager): Promise<void> {
   const agents = agentManager.listAgents();

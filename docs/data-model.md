@@ -105,6 +105,7 @@ Each agent is stored as a separate JSON file, grouped by project directory.
 | `attentionTimestamp` | `string?` (ISO 8601)                     | When attention was flagged                                                                                                                                                                                                                                                                                                                                                          |
 | `internal`           | `boolean?`                               | Whether this is a system-internal agent                                                                                                                                                                                                                                                                                                                                             |
 | `archivedAt`         | `string?` (ISO 8601)                     | Soft-delete timestamp                                                                                                                                                                                                                                                                                                                                                               |
+| `unfinishedTurn`     | `UnfinishedTurn?` (nullable)             | Foreground turn without a terminal event: `{ state: "running", runId, startedAt, prompt }` or `{ state: "interrupted", startedAt, interruptedAt, prompt }`. `prompt` is the submitted prompt, or null above 256 KB. Only `AgentStorage.update` writes it; snapshot flushes carry it over. See [agent-lifecycle.md](./agent-lifecycle.md#turns-interrupted-by-a-restart).            |
 
 ### Nested: SerializableConfig
 
@@ -202,6 +203,8 @@ snapshot so a mixed edit can apply its live subset and still name the paths that
     trustedProxies: true | string[], // defaults to ["loopback"]; Express proxy names/CIDRs
     mcp: { enabled: boolean, injectIntoAgents: boolean },
     git: { maxProcessesPerSecond: number, maxProcessConcurrency: number },
+    autoContinueInterruptedTurns: boolean, // default false; startup-only, see agent-lifecycle.md
+    idleAgentUnloadMinutes: number,        // default 30, 0 turns it off; startup-only
     appendSystemPrompt: string,    // appended to supported provider system/developer prompts
     terminalProfiles: TerminalProfile[],  // named shell commands; omitted means DEFAULT_TERMINAL_PROFILES
     agentProfiles: AgentProfile[],        // named agent launch bundles; omitted means none

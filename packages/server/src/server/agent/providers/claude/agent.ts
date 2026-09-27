@@ -2681,6 +2681,10 @@ class ClaudeAgentSession implements AgentSession {
     });
   }
 
+  hasBackgroundWork(): boolean {
+    return this.taskProtocolSource.hasLiveTasks;
+  }
+
   describePersistence(): AgentPersistenceHandle | null {
     if (this.persistence) {
       return this.persistence;
