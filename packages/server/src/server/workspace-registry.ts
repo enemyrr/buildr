@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 
 import type { Logger } from "pino";
 import { z } from "zod";
+import { WorkspaceSnoozeSchema, type WorkspaceSnooze } from "@getpaseo/protocol/messages";
 
 import { writeJsonFileAtomic } from "./atomic-file.js";
 import { areEquivalentPaths } from "../utils/path.js";
@@ -100,9 +101,7 @@ const PersistedWorkspaceRecordSchema = z.object({
     .nullable()
     .optional()
     .transform((value) => value ?? null),
-  snooze: z
-    .object({ snoozedAt: z.string(), until: z.string() })
-    .nullable()
+  snooze: WorkspaceSnoozeSchema.nullable()
     .optional()
     .transform((value) => value ?? null),
   labels: z.array(z.string()).optional(),
@@ -687,7 +686,7 @@ export function createPersistedWorkspaceRecord(input: {
   archivedAt?: string | null;
   autoArchivedChangeRequestUrl?: string | null;
   pinnedAt?: string | null;
-  snooze?: { snoozedAt: string; until: string } | null;
+  snooze?: WorkspaceSnooze | null;
   labels?: string[];
   untrustedSource?: UntrustedWorkspaceSource;
 }): PersistedWorkspaceRecord {
