@@ -2069,7 +2069,7 @@ export const zhCN: TranslationResources = {
       commitSubtitle: "提交差异",
       turnLabel: "本轮更改",
       turnSubtitle: "代理单轮的更改",
-      turnMissing: "此轮没有检查点。",
+      turnMissing: "此轮没有记录更改。",
       turnCapabilityMissing: "请更新主机以查看本轮更改。",
       restoreBlocked: {
         notWorktree: "恢复文件要求代理在自己的工作树中运行。",

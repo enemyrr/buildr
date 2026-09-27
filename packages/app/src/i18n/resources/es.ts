@@ -2144,7 +2144,7 @@ export const es: TranslationResources = {
       commitSubtitle: "Diferencias del commit",
       turnLabel: "Cambios del turno",
       turnSubtitle: "Cambios de un turno del agente",
-      turnMissing: "No existe un punto de control para este turno.",
+      turnMissing: "No se registraron cambios para este turno.",
       turnCapabilityMissing: "Actualiza el host para ver los cambios del turno.",
       restoreBlocked: {
         notWorktree: "Restaurar archivos requiere que el agente se ejecute en su propio worktree.",

@@ -2126,7 +2126,7 @@ export const ru: TranslationResources = {
       commitSubtitle: "Изменения в коммите",
       turnLabel: "Изменения хода",
       turnSubtitle: "Изменения за один ход агента",
-      turnMissing: "Для этого хода нет контрольной точки.",
+      turnMissing: "Для этого хода изменения не записаны.",
       turnCapabilityMissing: "Обновите хост, чтобы видеть изменения хода.",
       restoreBlocked: {
         notWorktree: "Для восстановления файлов агент должен работать в собственном worktree.",

@@ -2113,7 +2113,7 @@ export const ja: TranslationResources = {
       commitSubtitle: "コミット差分",
       turnLabel: "ターンの変更",
       turnSubtitle: "エージェントの1ターン分の変更",
-      turnMissing: "このターンのチェックポイントはありません。",
+      turnMissing: "このターンの変更は記録されていません。",
       turnCapabilityMissing: "ターンの変更を表示するにはホストを更新してください。",
       restoreBlocked: {
         notWorktree:

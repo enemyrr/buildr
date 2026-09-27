@@ -2150,7 +2150,7 @@ export const fr: TranslationResources = {
       commitSubtitle: "Différences du commit",
       turnLabel: "Modifications du tour",
       turnSubtitle: "Modifications d'un tour de l'agent",
-      turnMissing: "Aucun point de contrôle n'existe pour ce tour.",
+      turnMissing: "Aucune modification enregistrée pour ce tour.",
       turnCapabilityMissing: "Mettez à jour l'hôte pour voir les modifications du tour.",
       restoreBlocked: {
         notWorktree:

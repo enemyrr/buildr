@@ -2090,7 +2090,7 @@ export const ar: TranslationResources = {
       commitSubtitle: "فروقات الالتزام",
       turnLabel: "تغييرات الدورة",
       turnSubtitle: "تغييرات دورة واحدة للوكيل",
-      turnMissing: "لا توجد نقطة حفظ لهذه الدورة.",
+      turnMissing: "لم تُسجَّل أي تغييرات لهذه الدورة.",
       turnCapabilityMissing: "حدّث المضيف لعرض تغييرات الدورة.",
       restoreBlocked: {
         notWorktree: "تتطلب استعادة الملفات تشغيل الوكيل في شجرة عمل خاصة به.",

@@ -2102,7 +2102,7 @@ export const ko: TranslationResources = {
       commitSubtitle: "커밋 diff",
       turnLabel: "턴 변경 사항",
       turnSubtitle: "에이전트 턴 하나의 변경 사항",
-      turnMissing: "이 턴의 체크포인트가 없습니다.",
+      turnMissing: "이 턴에 기록된 변경 사항이 없습니다.",
       turnCapabilityMissing: "턴 변경 사항을 보려면 호스트를 업데이트하세요.",
       restoreBlocked: {
         notWorktree: "파일을 복원하려면 에이전트가 자체 워크트리에서 실행되어야 합니다.",

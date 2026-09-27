@@ -2135,7 +2135,7 @@ export const en = {
       commitSubtitle: "Commit diff",
       turnLabel: "Turn changes",
       turnSubtitle: "Changes from one agent turn",
-      turnMissing: "No checkpoint exists for this turn.",
+      turnMissing: "No changes recorded for this turn.",
       turnCapabilityMissing: "Update the host to view turn changes.",
       restoreBlocked: {
         notWorktree: "File restore requires the agent to run in its own worktree.",

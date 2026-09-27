@@ -2130,7 +2130,7 @@ export const ptBR: TranslationResources = {
       commitSubtitle: "Diff do commit",
       turnLabel: "Alterações do turno",
       turnSubtitle: "Alterações de um turno do agente",
-      turnMissing: "Não há ponto de controle para este turno.",
+      turnMissing: "Nenhuma alteração registrada para este turno.",
       turnCapabilityMissing: "Atualize o host para ver as alterações do turno.",
       restoreBlocked: {
         notWorktree:
