@@ -11,7 +11,13 @@ const URL = "https://example.com/docs";
 const WRAPPER_STYLE = { position: "relative", width: 240, font: "14px sans-serif" } as const;
 const roots: Root[] = [];
 
-function Harness({ chips }: { chips?: readonly InlineChip[] }) {
+function Harness({
+  chips,
+  highlightUltrathink,
+}: {
+  chips?: readonly InlineChip[];
+  highlightUltrathink?: boolean;
+}) {
   const inputRef = useRef<EditingTextInputHandle | null>(null);
   const getTextArea = useCallback(() => {
     const element = inputRef.current?.getNativeRef();
@@ -20,17 +26,22 @@ function Harness({ chips }: { chips?: readonly InlineChip[] }) {
   return (
     <div style={WRAPPER_STYLE}>
       <EditingTextInput ref={inputRef} initialValue="" multiline={true} />
-      <ComposerTextOverlay getTextArea={getTextArea} value="" chips={chips} />
+      <ComposerTextOverlay
+        getTextArea={getTextArea}
+        value=""
+        chips={chips}
+        highlightUltrathink={highlightUltrathink}
+      />
     </div>
   );
 }
 
-function mount(chips?: readonly InlineChip[]) {
+function mount(chips?: readonly InlineChip[], highlightUltrathink?: boolean) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
   roots.push(root);
-  act(() => root.render(<Harness chips={chips} />));
+  act(() => root.render(<Harness chips={chips} highlightUltrathink={highlightUltrathink} />));
   const textarea = container.querySelector("textarea");
   if (!textarea) throw new Error("No textarea rendered");
   return { container, textarea };
@@ -130,5 +141,19 @@ describe("ComposerTextOverlay", () => {
     textarea.dispatchEvent(new MouseEvent("mousedown", { ...point, bubbles: true }));
     expect(onRemove).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("paints ultrathink only when the provider acts on it", () => {
+    const off = mount();
+    type(off.textarea, "ultrathink about this");
+    expect(off.textarea.style.color).toBe("");
+
+    const on = mount(undefined, true);
+    type(on.textarea, "please Ultrathink about this");
+    expect(on.textarea.style.color).toBe("transparent");
+    expect(on.container.textContent).toContain("please Ultrathink about this");
+
+    type(on.textarea, "ultrathinking is not the keyword");
+    expect(on.textarea.style.color).toBe("");
   });
 });

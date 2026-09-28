@@ -15,4 +15,6 @@ export interface ComposerTextOverlayProps {
   value: string;
   /** Chips in attachment order; tokens pair with them by label. */
   chips?: readonly InlineChip[];
+  /** Paints each `ultrathink` in the draft. */
+  highlightUltrathink?: boolean;
 }

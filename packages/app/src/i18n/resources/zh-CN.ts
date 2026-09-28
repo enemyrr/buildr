@@ -143,10 +143,25 @@ export const zhCN: TranslationResources = {
       terminal: "Prompt",
       followUp: "添加后续消息",
     },
+    historySearch: {
+      title: "搜索提示历史",
+      placeholder: "搜索提示",
+      empty: "没有匹配的提示",
+    },
+    memory: {
+      saved: "已保存到 {{file}}",
+    },
     input: {
       accessibilityLabel: "给 Agent 发消息...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}} 聚焦",
+      escapeAgainToClear: "再次按 Esc 清空",
+      shellMode: "Shell 模式",
+      escapeAgainToRewind: "再次按 Esc 回退",
+      editingExternally: "正在 {{editor}} 中编辑",
+      memoryMode: "记忆模式",
+      escapeToInterrupt: "按 Esc 中断",
+      pastedLines: "已粘贴 {{count}} 行",
       addAttachment: "添加附件",
       interruptAgent: "中断 Agent",
       queueMessage: "消息排队",
@@ -1998,6 +2013,11 @@ export const zhCN: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "回退到某条消息",
+      searchPlaceholder: "搜索消息",
+      empty: "没有可回退的消息",
+    },
     tooltip: "回退到此消息",
     turnChanges: "查看此轮的更改",
     warning: "此操作无法撤销",

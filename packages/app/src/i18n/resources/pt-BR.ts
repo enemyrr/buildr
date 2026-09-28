@@ -147,10 +147,25 @@ export const ptBR: TranslationResources = {
       terminal: "Prompt",
       followUp: "Adicionar um acompanhamento",
     },
+    historySearch: {
+      title: "Pesquisar histórico de prompts",
+      placeholder: "Pesquisar prompts",
+      empty: "Nenhum prompt encontrado",
+    },
+    memory: {
+      saved: "Salvo em {{file}}",
+    },
     input: {
       accessibilityLabel: "Enviar mensagem ao agente...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}} para focar",
+      escapeAgainToClear: "Pressione Esc novamente para limpar",
+      shellMode: "Modo shell",
+      escapeAgainToRewind: "Pressione Esc novamente para voltar",
+      editingExternally: "Editando no {{editor}}",
+      memoryMode: "Modo memória",
+      escapeToInterrupt: "Esc para interromper",
+      pastedLines: "{{count}} linhas coladas",
       addAttachment: "Adicionar anexo",
       interruptAgent: "Interromper agente",
       queueMessage: "Enfileirar mensagem",
@@ -2061,6 +2076,11 @@ export const ptBR: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "Voltar para uma mensagem",
+      searchPlaceholder: "Pesquisar mensagens",
+      empty: "Nenhuma mensagem para voltar",
+    },
     tooltip: "Voltar para esta mensagem",
     turnChanges: "Ver alterações deste turno",
     warning: "Esta ação não pode ser desfeita",
