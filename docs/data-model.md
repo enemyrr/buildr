@@ -56,6 +56,8 @@ $PASEO_HOME/
 │   └── {agentId}.json                   # Finished composer `!` commands, merged into provider history on rehydrate
 ├── schedules/
 │   └── {scheduleId}.json                # One file per schedule
+├── stats/
+│   └── activity.json                    # Daily prompt, turn, token, and time-in-app counters for Analytics
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   ├── workspaces.json                  # Workspace registry

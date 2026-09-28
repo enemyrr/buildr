@@ -41,10 +41,11 @@ describe("resolveSidebarNavItems", () => {
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
       { key: kanbanKey, visible: true },
       { key: notesKey, visible: true },
     ]);
-    expect(items[6]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
+    expect(items[7]).toEqual({ kind: "plugin", key: kanbanKey, group: kanban, visible: true });
     expect(items[0]).toEqual({
       kind: "builtin",
       key: "dashboard",
@@ -59,6 +60,7 @@ describe("resolveSidebarNavItems", () => {
       preferences: [
         { key: kanbanKey, visible: false },
         { key: "schedules", visible: true },
+        { key: "analytics", visible: true },
         { key: "new-workspace", visible: false },
       ],
     });
@@ -68,6 +70,7 @@ describe("resolveSidebarNavItems", () => {
       { key: "home", visible: true },
       { key: kanbanKey, visible: false },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
       { key: "new-workspace", visible: false },
       { key: "history", visible: true },
       { key: "search", visible: true },
@@ -92,6 +95,7 @@ describe("resolveSidebarNavItems", () => {
       "new-workspace",
       "search",
       "schedules",
+      "analytics",
     ]);
   });
 
@@ -111,6 +115,7 @@ describe("resolveSidebarNavItems", () => {
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
     ]);
   });
 });
@@ -128,6 +133,7 @@ describe("setSidebarNavItemVisible", () => {
       { key: "new-workspace", visible: true },
       { key: "search", visible: false },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
       { key: kanbanKey, visible: true },
     ]);
   });
@@ -149,6 +155,7 @@ describe("setSidebarNavItemVisible", () => {
       { key: "new-workspace", visible: true },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
     ]);
   });
 
@@ -161,6 +168,7 @@ describe("setSidebarNavItemVisible", () => {
       { key: "history", visible: true },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
     ];
     const items = resolveSidebarNavItems({ pluginGroups: [], preferences: previous });
 
@@ -174,6 +182,7 @@ describe("setSidebarNavItemVisible", () => {
       { key: "history", visible: false },
       { key: "search", visible: true },
       { key: "schedules", visible: true },
+      { key: "analytics", visible: true },
     ]);
     expect(summarize(resolveSidebarNavItems({ pluginGroups: [notes], preferences: next }))).toEqual(
       next,
@@ -202,12 +211,13 @@ describe("moveSidebarNavItem", () => {
       "search",
       "new-workspace",
       "schedules",
+      "analytics",
       kanbanKey,
     ]);
   });
 
   it("moves an item down", () => {
-    const next = moveSidebarNavItem({ items, key: "schedules", direction: "down", previous: [] });
+    const next = moveSidebarNavItem({ items, key: "analytics", direction: "down", previous: [] });
 
     expect(next.map((preference) => preference.key)).toEqual([
       "dashboard",
@@ -215,8 +225,9 @@ describe("moveSidebarNavItem", () => {
       "history",
       "new-workspace",
       "search",
-      kanbanKey,
       "schedules",
+      kanbanKey,
+      "analytics",
     ]);
   });
 
