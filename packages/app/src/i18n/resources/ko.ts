@@ -1847,6 +1847,10 @@ export const ko: TranslationResources = {
     },
   },
   pairing: {
+    hostPassword: {
+      title: "{{host}}의 비밀번호",
+      label: "호스트 비밀번호",
+    },
     connectionMethods: {
       title: "연결 추가",
       direct: {
@@ -2554,6 +2558,9 @@ export const ko: TranslationResources = {
       },
     },
     host: {
+      password: {
+        guidance: "이 호스트를 제거한 뒤 이 데몬이 요구하는 비밀번호로 다시 추가하세요.",
+      },
       appearance: {
         title: "모양",
         name: {

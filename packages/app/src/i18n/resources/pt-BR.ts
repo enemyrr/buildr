@@ -1873,6 +1873,10 @@ export const ptBR: TranslationResources = {
     },
   },
   pairing: {
+    hostPassword: {
+      title: "Senha de {{host}}",
+      label: "Senha do host",
+    },
     connectionMethods: {
       title: "Adicionar conexão",
       direct: {
@@ -2586,6 +2590,9 @@ export const ptBR: TranslationResources = {
       },
     },
     host: {
+      password: {
+        guidance: "Remova este host e adicione-o novamente com a senha que este daemon pede.",
+      },
       appearance: {
         title: "Aparência",
         name: {
