@@ -144,10 +144,25 @@ export const ko: TranslationResources = {
       terminal: "Prompt",
       followUp: "후속 메시지 추가",
     },
+    historySearch: {
+      title: "프롬프트 기록 검색",
+      placeholder: "프롬프트 검색",
+      empty: "일치하는 프롬프트 없음",
+    },
+    memory: {
+      saved: "{{file}}에 저장됨",
+    },
     input: {
       accessibilityLabel: "에이전트에게 메시지...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}로 포커스",
+      escapeAgainToClear: "지우려면 Esc를 한 번 더 누르세요",
+      shellMode: "셸 모드",
+      escapeAgainToRewind: "되돌리려면 Esc를 한 번 더 누르세요",
+      editingExternally: "{{editor}}에서 편집 중",
+      memoryMode: "메모리 모드",
+      escapeToInterrupt: "Esc로 중단",
+      pastedLines: "{{count}}줄 붙여넣음",
       addAttachment: "첨부 추가",
       interruptAgent: "에이전트 중단",
       queueMessage: "메시지 대기열에 추가",
@@ -2033,6 +2048,11 @@ export const ko: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "메시지로 되돌리기",
+      searchPlaceholder: "메시지 검색",
+      empty: "되돌릴 메시지가 없습니다",
+    },
     tooltip: "이 메시지로 되감기",
     turnChanges: "이 턴의 변경 사항 보기",
     warning: "이 작업은 되돌릴 수 없습니다",

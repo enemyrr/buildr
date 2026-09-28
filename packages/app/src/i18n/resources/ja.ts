@@ -145,10 +145,25 @@ export const ja: TranslationResources = {
       terminal: "Prompt",
       followUp: "フォローアップを追加",
     },
+    historySearch: {
+      title: "プロンプト履歴を検索",
+      placeholder: "プロンプトを検索",
+      empty: "一致するプロンプトはありません",
+    },
+    memory: {
+      saved: "{{file}} に保存しました",
+    },
     input: {
       accessibilityLabel: "エージェントにメッセージ...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}でフォーカス",
+      escapeAgainToClear: "もう一度 Esc を押すとクリアします",
+      shellMode: "シェルモード",
+      escapeAgainToRewind: "もう一度 Esc を押すと巻き戻します",
+      editingExternally: "{{editor}} で編集中",
+      memoryMode: "メモリモード",
+      escapeToInterrupt: "Esc で中断",
+      pastedLines: "{{count}} 行を貼り付けました",
       addAttachment: "添付ファイルを追加",
       interruptAgent: "エージェントを中断",
       queueMessage: "メッセージをキューに追加",
@@ -2043,6 +2058,11 @@ export const ja: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "メッセージまで巻き戻す",
+      searchPlaceholder: "メッセージを検索",
+      empty: "巻き戻せるメッセージはありません",
+    },
     tooltip: "このメッセージに巻き戻す",
     turnChanges: "このターンの変更を表示",
     warning: "この操作は元に戻せません",

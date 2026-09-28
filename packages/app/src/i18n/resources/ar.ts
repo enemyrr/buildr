@@ -143,10 +143,25 @@ export const ar: TranslationResources = {
       terminal: "Prompt",
       followUp: "أضف متابعة",
     },
+    historySearch: {
+      title: "البحث في سجل المطالبات",
+      placeholder: "ابحث في المطالبات",
+      empty: "لا توجد مطالبات مطابقة",
+    },
+    memory: {
+      saved: "تم الحفظ في {{file}}",
+    },
     input: {
       accessibilityLabel: "وكيل الرسائل...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}للتركيز",
+      escapeAgainToClear: "اضغط Esc مرة أخرى للمسح",
+      shellMode: "وضع الصدفة",
+      escapeAgainToRewind: "اضغط Esc مرة أخرى للرجوع",
+      editingExternally: "جارٍ التحرير في {{editor}}",
+      memoryMode: "وضع الذاكرة",
+      escapeToInterrupt: "Esc للمقاطعة",
+      pastedLines: "تم لصق {{count}} سطر",
       addAttachment: "إضافة مرفق",
       interruptAgent: "عامل المقاطعة",
       queueMessage: "رسالة قائمة الانتظار",
@@ -2021,6 +2036,11 @@ export const ar: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "الرجوع إلى رسالة",
+      searchPlaceholder: "ابحث في الرسائل",
+      empty: "لا توجد رسائل للرجوع إليها",
+    },
     tooltip: "الترجيع إلى هذه الرسالة",
     turnChanges: "عرض تغييرات هذه الدورة",
     warning: "لا يمكن التراجع عن هذا الإجراء",

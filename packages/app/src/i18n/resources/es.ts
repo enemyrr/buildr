@@ -147,10 +147,25 @@ export const es: TranslationResources = {
       terminal: "Prompt",
       followUp: "Añade un seguimiento",
     },
+    historySearch: {
+      title: "Buscar en el historial de prompts",
+      placeholder: "Buscar prompts",
+      empty: "No hay prompts que coincidan",
+    },
+    memory: {
+      saved: "Guardado en {{file}}",
+    },
     input: {
       accessibilityLabel: "Agente de mensajes...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}para enfocar",
+      escapeAgainToClear: "Pulsa Esc de nuevo para borrar",
+      shellMode: "Modo shell",
+      escapeAgainToRewind: "Pulsa Esc de nuevo para retroceder",
+      editingExternally: "Editando en {{editor}}",
+      memoryMode: "Modo memoria",
+      escapeToInterrupt: "Esc para interrumpir",
+      pastedLines: "{{count}} líneas pegadas",
       addAttachment: "Agregar archivo adjunto",
       interruptAgent: "agente de interrupción",
       queueMessage: "mensaje de cola",
@@ -2075,6 +2090,11 @@ export const es: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "Retroceder a un mensaje",
+      searchPlaceholder: "Buscar mensajes",
+      empty: "No hay mensajes a los que retroceder",
+    },
     tooltip: "Rebobinar a este mensaje",
     turnChanges: "Ver cambios de este turno",
     warning: "Esta acción no se puede deshacer.",

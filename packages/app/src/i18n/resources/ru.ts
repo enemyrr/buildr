@@ -144,10 +144,25 @@ export const ru: TranslationResources = {
       terminal: "Prompt",
       followUp: "Добавить уточнение",
     },
+    historySearch: {
+      title: "Поиск по истории запросов",
+      placeholder: "Искать запросы",
+      empty: "Нет подходящих запросов",
+    },
+    memory: {
+      saved: "Сохранено в {{file}}",
+    },
     input: {
       accessibilityLabel: "Написать агенту...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}, для фокуса",
+      escapeAgainToClear: "Нажмите Esc ещё раз, чтобы очистить",
+      shellMode: "Режим оболочки",
+      escapeAgainToRewind: "Нажмите Esc ещё раз, чтобы откатить",
+      editingExternally: "Редактирование в {{editor}}",
+      memoryMode: "Режим памяти",
+      escapeToInterrupt: "Esc — прервать",
+      pastedLines: "Вставлено строк: {{count}}",
       addAttachment: "Добавить вложение",
       interruptAgent: "Прервать агента",
       queueMessage: "Сообщение в очередь",
@@ -2056,6 +2071,11 @@ export const ru: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "Откатить к сообщению",
+      searchPlaceholder: "Искать сообщения",
+      empty: "Нет сообщений для отката",
+    },
     tooltip: "Вернуться к этому сообщению",
     turnChanges: "Показать изменения этого хода",
     warning: "Это действие нельзя отменить.",

@@ -148,10 +148,25 @@ export const fr: TranslationResources = {
       terminal: "Prompt",
       followUp: "Ajouter une suite",
     },
+    historySearch: {
+      title: "Rechercher dans l’historique des invites",
+      placeholder: "Rechercher des invites",
+      empty: "Aucune invite correspondante",
+    },
+    memory: {
+      saved: "Enregistré dans {{file}}",
+    },
     input: {
       accessibilityLabel: "Agent de messagerie...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}}pour se concentrer",
+      escapeAgainToClear: "Appuyez à nouveau sur Échap pour effacer",
+      shellMode: "Mode shell",
+      escapeAgainToRewind: "Appuyez à nouveau sur Échap pour revenir en arrière",
+      editingExternally: "Modification dans {{editor}}",
+      memoryMode: "Mode mémoire",
+      escapeToInterrupt: "Échap pour interrompre",
+      pastedLines: "{{count}} lignes collées",
       addAttachment: "Ajouter une pièce jointe",
       interruptAgent: "Agent d'interruption",
       queueMessage: "Message de file d'attente",
@@ -2080,6 +2095,11 @@ export const fr: TranslationResources = {
     },
   },
   rewind: {
+    picker: {
+      title: "Revenir à un message",
+      searchPlaceholder: "Rechercher des messages",
+      empty: "Aucun message vers lequel revenir",
+    },
     tooltip: "Revenez à ce message",
     turnChanges: "Voir les modifications de ce tour",
     warning: "Cette action ne peut pas être annulée",

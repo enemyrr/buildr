@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld("paseoDesktop", {
       line?: number;
       column?: number;
     }) => ipcRenderer.invoke("paseo:editor:openTarget", input),
+    openDraft: (input: { editorId: string; workspacePath: string; text: string }) =>
+      ipcRenderer.invoke("paseo:editor:openDraft", input) as Promise<{ draftId: string }>,
+    closeDraft: (draftId: string) => ipcRenderer.invoke("paseo:editor:closeDraft", draftId),
   },
   webUtils: {
     getPathForFile: (file: File) => webUtils.getPathForFile(file),

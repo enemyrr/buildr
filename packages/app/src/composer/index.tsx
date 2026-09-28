@@ -26,6 +26,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { COMPOSER_PILL_CLEARANCE, COMPOSER_PILL_MIN_HEIGHT } from "./pill-styles";
+import { useExternalDraftEditor } from "./external-editor";
+import { HistorySearchPicker } from "./history-search-picker";
+import { isCtrlChord, resolveInputHint, type EscapeArm, type InputHint } from "./input-hint";
+import { resolveMemoryNote, saveMemoryNote } from "./memory";
+import { RewindPicker } from "@/components/rewind/rewind-picker";
+import { selectRewindTargets } from "@/components/rewind/rewind-targets";
+import { resolveRewindMenuItems } from "@/components/rewind/use-rewind-capabilities";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useShallow } from "zustand/shallow";
 import {
@@ -704,6 +712,27 @@ function ComposerKeyboardRegistration({
 
 const LIST_OUTDENT_ACTIONS = ["message-input.mode-cycle"] as const;
 const LIST_OUTDENT_PRIORITY = 300;
+const ESCAPE_ARM_WINDOW_MS = 2000;
+const NOTICE_HINT_MS = 2500;
+
+function formatInputHint(hint: InputHint, t: TFunction): string {
+  switch (hint.kind) {
+    case "escape":
+      return hint.arm === "clear"
+        ? t("composer.input.escapeAgainToClear")
+        : t("composer.input.escapeAgainToRewind");
+    case "notice":
+      return hint.text;
+    case "external-editor":
+      return t("composer.input.editingExternally", { editor: hint.editor });
+    case "shell":
+      return t("composer.input.shellMode");
+    case "memory":
+      return t("composer.input.memoryMode");
+    case "interrupt":
+      return t("composer.input.escapeToInterrupt");
+  }
+}
 
 function ComposerAutocomplete(props: React.ComponentProps<typeof AutocompletePopover>) {
   const { isActiveComposer } = useComposerKeyboardScope();
@@ -1355,6 +1384,9 @@ function ComposerContentImpl({
   const { settings: appSettings } = useAppSettings();
 
   const agentState = useSessionStore(useShallow(buildAgentStateSelector(serverId, agentId)));
+  const agentCapabilities = useSessionStore(
+    (state) => state.sessions[serverId]?.agents?.get(agentId)?.capabilities ?? null,
+  );
 
   const queuedMessagesRaw = useSessionStore((state) =>
     state.sessions[serverId]?.queuedMessages?.get(agentId),
@@ -1377,6 +1409,11 @@ function ComposerContentImpl({
     textSource.subscribe,
     () => textSource.getSnapshot().trimStart().startsWith("!"),
     () => textSource.getSnapshot().trimStart().startsWith("!"),
+  );
+  const isMemoryNoteText = useSyncExternalStore(
+    textSource.subscribe,
+    () => resolveMemoryNote({ text: textSource.getSnapshot(), hasAttachments: false }) !== null,
+    () => resolveMemoryNote({ text: textSource.getSnapshot(), hasAttachments: false }) !== null,
   );
   const setUserInput = onChangeText;
   const workspaceAttachments = useWorkspaceAttachmentsForScopes(attachmentScopeKeys);
@@ -1569,6 +1606,70 @@ function ComposerContentImpl({
     [blurOnSubmit, clearDraft, onShellCommand, replaceUserInput, resetSuppression],
   );
 
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNotice = useCallback((text: string) => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setNotice(text);
+    noticeTimerRef.current = setTimeout(() => {
+      noticeTimerRef.current = null;
+      setNotice(null);
+    }, NOTICE_HINT_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    },
+    [],
+  );
+
+  const runMemoryNote = useCallback(
+    (note: string): boolean => {
+      if (!client) return false;
+      clearDraft("sent");
+      replaceUserInput("");
+      resetSuppression();
+      setSendError(null);
+      void saveMemoryNote({ client, cwd, provider: agentState.provider, note })
+        .then((file) => showNotice(t("composer.memory.saved", { file })))
+        .catch((error) => {
+          console.error("[Composer] Failed to save memory:", error);
+          toastErrorRef.current(error instanceof Error ? error.message : String(error));
+        });
+      return true;
+    },
+    [
+      agentState.provider,
+      clearDraft,
+      client,
+      cwd,
+      replaceUserInput,
+      resetSuppression,
+      showNotice,
+      t,
+    ],
+  );
+
+  const getDraftText = useCallback(
+    () => messageInputRef.current?.getText() ?? textSource.getSnapshot(),
+    [textSource],
+  );
+  const applyExternalDraft = useCallback(
+    (text: string) => applyUserEdit({ text, selection: { start: text.length, end: text.length } }),
+    [applyUserEdit],
+  );
+  const showExternalEditorError = useCallback(
+    (message: string) => toastErrorRef.current(message),
+    [],
+  );
+  const externalEditor = useExternalDraftEditor({
+    serverId,
+    cwd,
+    getText: getDraftText,
+    applyText: applyExternalDraft,
+    onError: showExternalEditorError,
+  });
+
   const { pickImages } = useImageAttachmentPicker();
   const { pickFiles } = useFilePicker();
   const agentIdRef = useRef(agentId);
@@ -1719,6 +1820,7 @@ function ComposerContentImpl({
     hasPendingPermission,
   );
   const hasAgent = agentState.status !== null;
+  const canSaveMemory = hasAgent && client !== null;
 
   const queueWriter = useMemo<QueueWriter>(
     () => ({
@@ -1822,6 +1924,11 @@ function ComposerContentImpl({
     (payload: MessagePayload) => {
       const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
+      externalEditor.stop();
+      const memoryNote = canSaveMemory
+        ? resolveMemoryNote({ text, hasAttachments: outgoingAttachments.length > 0 })
+        : null;
+      if (memoryNote && runMemoryNote(memoryNote)) return;
       const shellCommand = resolveShellCommand({
         text,
         hasAttachments: outgoingAttachments.length > 0,
@@ -1856,6 +1963,9 @@ function ComposerContentImpl({
       runShellCommand,
       sendMessageWithContent,
       serializeInlineText,
+      canSaveMemory,
+      externalEditor,
+      runMemoryNote,
     ],
   );
 
@@ -1944,11 +2054,15 @@ function ComposerContentImpl({
   const handlePasteLargeText = useCallback(
     async (text: string) => {
       const attached = await uploadSelectedFiles([createPastedTextFile(text, new Date())]);
+      if (attached) {
+        showNotice(t("composer.input.pastedLines", { count: text.split("\n").length }));
+        return;
+      }
       const input = messageInputRef.current?.getInputSnapshot();
-      if (attached || !input) return;
+      if (!input) return;
       applyUserEdit(insertAtSelection(input, text));
     },
-    [applyUserEdit, uploadSelectedFiles],
+    [applyUserEdit, showNotice, t, uploadSelectedFiles],
   );
 
   const handlePickFile = useCallback(async () => {
@@ -2098,6 +2212,11 @@ function ComposerContentImpl({
     (payload: MessagePayload) => {
       const text = serializeInlineText(payload.text);
       const outgoingAttachments = buildOutgoingAttachments(attachments);
+      externalEditor.stop();
+      const memoryNote = canSaveMemory
+        ? resolveMemoryNote({ text, hasAttachments: outgoingAttachments.length > 0 })
+        : null;
+      if (memoryNote && runMemoryNote(memoryNote)) return;
       const shellCommand = resolveShellCommand({
         text,
         hasAttachments: outgoingAttachments.length > 0,
@@ -2127,6 +2246,9 @@ function ComposerContentImpl({
       runPluginClientSlashCommand,
       runShellCommand,
       serializeInlineText,
+      canSaveMemory,
+      externalEditor,
+      runMemoryNote,
     ],
   );
 
@@ -2156,11 +2278,83 @@ function ComposerContentImpl({
     [agentId, applyUserEdit, serverId],
   );
 
-  // Autocomplete owns the arrows while its menu is open; history gets them otherwise.
+  // Esc arms, a second Esc within the window acts: it clears a draft, or opens rewind on an
+  // empty composer. A running agent keeps Esc for interrupt.
+  const [escapeArm, setEscapeArm] = useState<EscapeArm | null>(null);
+  const escapeArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disarmEscape = useCallback(() => {
+    if (escapeArmTimerRef.current) clearTimeout(escapeArmTimerRef.current);
+    escapeArmTimerRef.current = null;
+    setEscapeArm(null);
+  }, []);
+  useEffect(() => disarmEscape, [disarmEscape]);
+  const [isRewindPickerOpen, setIsRewindPickerOpen] = useState(false);
+  const canRewind =
+    hasAgent && agentCapabilities !== null && resolveRewindMenuItems(agentCapabilities).length > 0;
+  const handleEscapeKeyPress = useCallback(
+    (event: ComposerKeyPressEvent): boolean => {
+      if (event.key !== "Escape") {
+        if (escapeArmTimerRef.current) disarmEscape();
+        return false;
+      }
+      if (isAgentRunning) return false;
+      let arm: EscapeArm | null = null;
+      if (event.input.text.trim().length > 0) arm = "clear";
+      else if (
+        canRewind &&
+        selectRewindTargets(useSessionStore.getState().sessions[serverId], agentId).length > 0
+      ) {
+        arm = "rewind";
+      }
+      if (!arm) return false;
+      event.preventDefault();
+      if (escapeArmTimerRef.current) {
+        disarmEscape();
+        if (arm === "clear") applyUserEdit({ text: "", selection: { start: 0, end: 0 } });
+        else setIsRewindPickerOpen(true);
+        return true;
+      }
+      setEscapeArm(arm);
+      escapeArmTimerRef.current = setTimeout(disarmEscape, ESCAPE_ARM_WINDOW_MS);
+      return true;
+    },
+    [agentId, applyUserEdit, canRewind, disarmEscape, isAgentRunning, serverId],
+  );
+
+  const [isHistorySearchOpen, setIsHistorySearchOpen] = useState(false);
+  const handleHistorySearchPick = useCallback(
+    (prompt: string) => {
+      promptHistoryPositionRef.current = null;
+      applyUserEdit({ text: prompt, selection: { start: prompt.length, end: prompt.length } });
+      messageInputRef.current?.focus();
+    },
+    [applyUserEdit],
+  );
+  const handleChordKeyPress = useCallback(
+    (event: ComposerKeyPressEvent): boolean => {
+      if (hasAgent && isCtrlChord(event, "r")) {
+        event.preventDefault();
+        setIsHistorySearchOpen(true);
+        return true;
+      }
+      if (externalEditor.canOpen && isCtrlChord(event, "g")) {
+        event.preventDefault();
+        void externalEditor.toggle();
+        return true;
+      }
+      return false;
+    },
+    [externalEditor, hasAgent],
+  );
+
+  // Autocomplete owns the arrows and Esc while its menu is open; the rest get them otherwise.
   const handleCommandKeyPress = useCallback(
     (event: ComposerKeyPressEvent) =>
-      (autocompleteRef.current?.onKeyPress(event) ?? false) || handlePromptHistoryKeyPress(event),
-    [handlePromptHistoryKeyPress],
+      (autocompleteRef.current?.onKeyPress(event) ?? false) ||
+      handleEscapeKeyPress(event) ||
+      handleChordKeyPress(event) ||
+      handlePromptHistoryKeyPress(event),
+    [handleChordKeyPress, handleEscapeKeyPress, handlePromptHistoryKeyPress],
   );
 
   const isVoiceSwitching = voice?.isVoiceSwitching ?? false;
@@ -2479,10 +2673,36 @@ function ComposerContentImpl({
   // Mirrors resolveShellCommand: attachments send the draft to the agent instead.
   const isShellDraft =
     Boolean(onShellCommand) && startsWithShellPrefix && selectedAttachments.length === 0;
+  const isMemoryDraft = canSaveMemory && isMemoryNoteText && selectedAttachments.length === 0;
   const messageInputWrapperStyle = useMemo(
-    () => [inputWrapperStyle, isShellDraft && styles.shellInputWrapper],
-    [inputWrapperStyle, isShellDraft],
+    () => [
+      inputWrapperStyle,
+      isShellDraft && styles.shellInputWrapper,
+      isMemoryDraft && styles.memoryInputWrapper,
+    ],
+    [inputWrapperStyle, isMemoryDraft, isShellDraft],
   );
+  const inputHint = resolveInputHint({
+    escapeArm,
+    notice,
+    externalEditor: externalEditor.activeEditorLabel,
+    isShellDraft,
+    isMemoryDraft,
+    isAgentRunning: isAgentRunning && !isCompactLayout,
+  });
+  const inputHintNode = inputHint ? (
+    <View style={styles.inputHint}>
+      <Text
+        style={[
+          styles.inputHintText,
+          inputHint.kind === "shell" && styles.shellInputHint,
+          inputHint.kind === "memory" && styles.memoryInputHint,
+        ]}
+      >
+        {formatInputHint(inputHint, t)}
+      </Text>
+    </View>
+  ) : null;
 
   const attachmentTray = useMemo(
     () =>
@@ -2652,6 +2872,7 @@ function ComposerContentImpl({
         {/* Input area */}
         <View style={inputAreaContainerStyle}>
           <View style={styles.inputAreaContent}>
+            {inputHintNode}
             {queueList}
             {sendErrorNode}
 
@@ -2721,6 +2942,7 @@ function ComposerContentImpl({
                   inputWrapperStyle={messageInputWrapperStyle}
                   attachmentSlot={attachmentTray}
                   inlineChips={inlineAttachments.chips}
+                  highlightUltrathink={agentState.provider === "claude"}
                   inputMode={inputMode}
                   readOnly={readOnly}
                   textReplacement={textReplacement}
@@ -2748,6 +2970,27 @@ function ComposerContentImpl({
                 renderOption={renderGithubPickerOption}
               />
               {pluginAttachments.picker}
+              {hasAgent ? (
+                <HistorySearchPicker
+                  serverId={serverId}
+                  agentId={agentId}
+                  anchorRef={messageInputContainerRef}
+                  open={isHistorySearchOpen}
+                  onOpenChange={setIsHistorySearchOpen}
+                  onPick={handleHistorySearchPick}
+                />
+              ) : null}
+              {canRewind && agentCapabilities ? (
+                <RewindPicker
+                  serverId={serverId}
+                  agentId={agentId}
+                  client={client}
+                  capabilities={agentCapabilities}
+                  anchorRef={messageInputContainerRef}
+                  open={isRewindPickerOpen}
+                  onOpenChange={setIsRewindPickerOpen}
+                />
+              ) : null}
             </View>
           </View>
         </View>
@@ -2785,6 +3028,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     opacity: 0.6,
   },
   inputAreaContent: {
+    position: "relative",
     flexShrink: 1,
     width: "100%",
     maxWidth: MAX_CONTENT_WIDTH,
@@ -2798,6 +3042,32 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   shellInputWrapper: {
     borderColor: theme.colors.palette.purple[500],
+  },
+  // Rides the track pill rail above the composer, right-aligned opposite the pills.
+  inputHint: {
+    position: "absolute",
+    bottom: "100%",
+    right: 0,
+    minHeight: COMPOSER_PILL_MIN_HEIGHT,
+    marginBottom: {
+      xs: COMPOSER_PILL_CLEARANCE.compact,
+      md: COMPOSER_PILL_CLEARANCE.wide,
+    },
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+  inputHintText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+  },
+  shellInputHint: {
+    color: theme.colors.palette.purple[500],
+  },
+  memoryInputWrapper: {
+    borderColor: theme.colors.palette.blue[500],
+  },
+  memoryInputHint: {
+    color: theme.colors.palette.blue[500],
   },
   // Same box as the send button, so the swap doesn't move anything.
   // Same box as the send button, so the swap doesn't move or restyle anything.

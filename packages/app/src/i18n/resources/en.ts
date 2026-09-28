@@ -157,10 +157,25 @@ export const en = {
       terminal: "Prompt",
       followUp: "Add a follow up",
     },
+    historySearch: {
+      title: "Search prompt history",
+      placeholder: "Search prompts",
+      empty: "No matching prompts",
+    },
+    memory: {
+      saved: "Saved to {{file}}",
+    },
     input: {
       accessibilityLabel: "Message agent...",
       terminalAccessibilityLabel: "Terminal prompt",
       focusHint: "{{shortcut}} to focus",
+      escapeAgainToClear: "Press Esc again to clear",
+      shellMode: "Shell mode",
+      escapeAgainToRewind: "Press Esc again to rewind",
+      editingExternally: "Editing in {{editor}}",
+      memoryMode: "Memory mode",
+      escapeToInterrupt: "Esc to interrupt",
+      pastedLines: "Pasted {{count}} lines",
       addAttachment: "Add attachment",
       interruptAgent: "Interrupt agent",
       queueMessage: "Queue message",
@@ -2066,6 +2081,11 @@ export const en = {
     },
   },
   rewind: {
+    picker: {
+      title: "Rewind to a message",
+      searchPlaceholder: "Search messages",
+      empty: "No messages to rewind to",
+    },
     tooltip: "Rewind to this message",
     turnChanges: "View changes from this turn",
     warning: "This action cannot be undone",
