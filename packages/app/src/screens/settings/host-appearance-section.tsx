@@ -1,11 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Pencil } from "lucide-react-native";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { DropdownTrigger } from "@/components/ui/dropdown-trigger";
+import { ChevronDown, Pencil } from "lucide-react-native";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { WorkspaceMetaRow } from "@/components/sidebar/workspace-meta-row";
 import { useToast } from "@/contexts/toast-context";
@@ -24,9 +28,14 @@ import { settingsStyles } from "@/styles/settings";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import type { HostProfile } from "@/types/host-connection";
 
+const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedPencil = withUnistyles(Pencil);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+
+function dropdownTriggerStyle({ pressed }: PressableStateCallbackType) {
+  return pressed ? [styles.trigger, styles.triggerPressed] : styles.trigger;
+}
 
 function HostRenameButton({ host }: { host: HostProfile }) {
   const { t } = useTranslation();
@@ -110,22 +119,23 @@ function ColorMenuItem({
 function ColorRow({ color, onChange }: { color: HostColor; onChange: (color: HostColor) => void }) {
   const { t } = useTranslation();
   const selectedLabel = colorLabel(t, color);
-  const leading = useMemo(() => <ColorSwatch color={color} />, [color]);
   return (
     <View style={[settingsStyles.row, settingsStyles.rowBorder]}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{t("settings.host.appearance.color.label")}</Text>
       </View>
       <DropdownMenu>
-        <DropdownTrigger
+        <DropdownMenuTrigger
+          style={dropdownTriggerStyle}
           accessibilityRole="button"
           accessibilityLabel={t("settings.host.appearance.color.accessibilityLabel", {
             value: selectedLabel,
           })}
-          leading={leading}
         >
-          {selectedLabel}
-        </DropdownTrigger>
+          <ColorSwatch color={color} />
+          <Text style={styles.triggerText}>{selectedLabel}</Text>
+          <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
+        </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" width={200}>
           {HOST_COLORS.map((option) => (
             <ColorMenuItem
@@ -156,15 +166,17 @@ function BadgeDisplayRow({
         <Text style={settingsStyles.rowTitle}>{t("settings.host.appearance.badge.label")}</Text>
       </View>
       <DropdownMenu>
-        <DropdownTrigger
+        <DropdownMenuTrigger
           testID="host-appearance-badge-display"
+          style={dropdownTriggerStyle}
           accessibilityRole="button"
           accessibilityLabel={t("settings.host.appearance.badge.accessibilityLabel", {
             value: selectedLabel,
           })}
         >
-          {selectedLabel}
-        </DropdownTrigger>
+          <Text style={styles.triggerText}>{selectedLabel}</Text>
+          <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
+        </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" width={200}>
           {HOST_BADGE_DISPLAYS.map((option) => (
             <BadgeDisplayMenuItem
@@ -300,6 +312,23 @@ export function HostAppearanceSection({ host }: { host: HostProfile }) {
 }
 
 const styles = StyleSheet.create((theme) => ({
+  trigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingVertical: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+  },
+  triggerPressed: {
+    opacity: 0.85,
+  },
+  triggerText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+  },
   swatch: {
     width: ICON_SIZE.md,
     height: ICON_SIZE.md,

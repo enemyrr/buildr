@@ -1978,12 +1978,9 @@ export const en = {
     groupInfo: "About {{title}}",
     sections: {
       general: "General",
-      chat: "Chat",
       appearance: "Appearance",
-      sidebar: "Sidebar",
+      layout: "Layout",
       editor: "Editor",
-      terminal: "Terminal",
-      browser: "Browser",
       shortcuts: "Shortcuts",
       integrations: "Integrations",
       notifications: "Notifications",
@@ -2001,31 +1998,28 @@ export const en = {
         },
         sources: {
           explorerFiles: {
-            label: "Clicking a file in the Explorer sidebar",
+            label: "Selecting a file in Explorer",
             description: "Open files selected in the Explorer sidebar beside your work",
           },
           diffs: {
-            label: "Clicking a change in the Explorer sidebar or a chat",
+            label: "Opening a diff",
             description: "Open diffs from Explorer and agent conversations beside your work",
           },
           chatFiles: {
-            label: "Clicking a file in an agent chat",
+            label: "Opening a file from an agent chat",
             description: "Open file links and tool-call files beside the conversation",
           },
           diffFiles: {
-            label: "Clicking a file in a diff",
+            label: "Opening a file from Changes",
             description: "Open source files selected from a diff beside it",
           },
           subagents: {
-            label: "Clicking a subagent in an agent chat",
+            label: "Opening a subagent",
             description: "Open subagents beside their parent agent",
           },
           pullRequests: {
-            label: "Clicking a pull request in the Explorer sidebar",
+            label: "Opening a pull request from Changes",
             description: "Open pull request details beside Changes",
-          },
-          serviceUrls: {
-            label: "Clicking a script's service URL",
           },
         },
       },
@@ -2140,7 +2134,6 @@ export const en = {
     },
     general: {
       title: "General",
-      sending: "Sending",
       browserData: {
         title: "Browser data",
         siteData: "Cookies and site data",
@@ -2167,6 +2160,8 @@ export const en = {
         },
       },
       serviceUrls: {
+        label: "Service URLs",
+        description: "Where to open URLs from running scripts",
         options: {
           ask: "Ask",
           inApp: "In Paseo",
@@ -2185,6 +2180,7 @@ export const en = {
       toolCallDetail: {
         label: "Tool call display",
         description: "How tool calls appear in the timeline",
+        accessibilityLabel: "Select tool call display ({{value}})",
         options: {
           overview: "Summary",
           detailed: "Full detail",

@@ -9,10 +9,7 @@ const MAX_TRANSIENT_DETACHED_PANES = 2;
 const SETTINGS_DESTINATIONS = [
   "General",
   "Appearance",
-  "Sidebar",
-  "Chat",
-  "Terminal",
-  "Browser",
+  "Layout",
   "Editor",
   "Shortcuts",
   "Integrations",

@@ -228,22 +228,22 @@ export function createControlGeometry(theme: Theme) {
     buttonXs: {
       minHeight: buttonControlHeight.xs,
       paddingHorizontal: theme.spacing[3],
-      borderRadius: theme.borderRadius.xl,
+      borderRadius: theme.borderRadius.md,
     },
     buttonSm: {
       minHeight: buttonControlHeight.sm,
       paddingHorizontal: theme.spacing[3],
-      borderRadius: theme.borderRadius.xl,
+      borderRadius: theme.borderRadius.md,
     },
     buttonMd: {
       minHeight: buttonControlHeight.md,
       paddingHorizontal: theme.spacing[4],
-      borderRadius: theme.borderRadius["2xl"],
+      borderRadius: theme.borderRadius.lg,
     },
     buttonLg: {
       minHeight: buttonControlHeight.lg,
       paddingHorizontal: theme.spacing[6],
-      borderRadius: theme.borderRadius["2xl"],
+      borderRadius: theme.borderRadius.xl,
     },
     buttonText: {
       fontSize: theme.fontSize.base,
@@ -306,17 +306,17 @@ export function createControlGeometry(theme: Theme) {
     segmentedSegmentXs: {
       minHeight: CONTROL_HEIGHTS.tight - SEGMENTED_TIGHT_INSET * 2,
       paddingHorizontal: theme.spacing[2],
-      borderRadius: theme.borderRadius.xl,
+      borderRadius: theme.borderRadius.md,
     },
     segmentedSegmentSm: {
       minHeight: CONTROL_HEIGHTS.compact - SEGMENTED_COMPACT_INSET * 2,
       paddingHorizontal: theme.spacing[2],
-      borderRadius: theme.borderRadius.xl,
+      borderRadius: theme.borderRadius.md,
     },
     segmentedSegmentMd: {
       minHeight: CONTROL_HEIGHTS.field - SEGMENTED_FIELD_INSET * 2,
       paddingHorizontal: theme.spacing[3],
-      borderRadius: theme.borderRadius["2xl"],
+      borderRadius: theme.borderRadius.lg,
     },
     segmentedLabelXs: {
       fontSize: theme.fontSize.sm,

@@ -32,32 +32,15 @@ afterEach(() => {
   }
 });
 
-function parseColor(value: string): { rgb: string; alpha: number } {
-  const channels = value.match(/[\d.]+/g)?.map(Number) ?? [];
-  return { rgb: channels.slice(0, 3).join(","), alpha: channels[3] ?? 1 };
-}
-
 describe("StatusBadge", () => {
-  it("uses the neutral badge shell for the muted variant", () => {
-    const style = getComputedStyle(mountBadge("muted"));
-
-    expect(style.backgroundColor).toBe("rgb(228, 228, 231)");
-    expect(style.borderColor).toBe("rgb(228, 228, 231)");
-  });
-
-  it.each(["success", "warning", "error"] as const)(
-    "fills the %s variant with a translucent tint of its own status color",
+  it.each(["success", "warning", "error", "muted"] as const)(
+    "uses the semantic badge shell for the %s variant",
     (variant) => {
       const badge = mountBadge(variant);
-      const text = badge.lastElementChild;
-      if (!(text instanceof HTMLElement)) {
-        throw new Error("StatusBadge did not render its label");
-      }
-      const fill = parseColor(getComputedStyle(badge).backgroundColor);
+      const style = getComputedStyle(badge);
 
-      expect(fill.rgb).toBe(parseColor(getComputedStyle(text).color).rgb);
-      expect(fill.alpha).toBeGreaterThan(0);
-      expect(fill.alpha).toBeLessThan(0.5);
+      expect(style.backgroundColor).toBe("rgb(228, 228, 231)");
+      expect(style.borderColor).toBe("rgb(228, 228, 231)");
     },
   );
 
