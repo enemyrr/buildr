@@ -154,6 +154,7 @@ import {
 import { WorkspaceSnoozeTimer } from "./workspace-snooze.js";
 import { CheckoutDiffManager } from "./checkout-diff-manager.js";
 import { ScheduleService } from "./schedule/service.js";
+import { ActivityStatsService } from "./activity-stats/activity-stats.js";
 import { DaemonConfigStore, type MutableDaemonConfig } from "./daemon-config-store.js";
 import { createOrchestrationSkills } from "./orchestration-skills/index.js";
 import { resolveConfigFromPersisted, type CliConfigOverrides } from "./config.js";
@@ -1374,6 +1375,17 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
+  const activityStatsWorkspaces = workspaceRegistry;
+  const activityStats = new ActivityStatsService({
+    filePath: path.join(config.paseoHome, "stats", "activity.json"),
+    logger: logger.child({ module: "activity-stats" }),
+    sources: {
+      listAgents: () => agentStorage.list(),
+      listWorkspaces: () => activityStatsWorkspaces.list(),
+      listProjects: () => projectRegistry.list(),
+    },
+  });
+  await activityStats.start(agentManager);
   agentManager.setAgentArchivedCallback(async (agentId) => {
     try {
       await scheduleService.completeForAgent(agentId);
@@ -1770,6 +1782,7 @@ export async function createPaseoDaemon(
               pluginRuntime,
               orchestrationSkills,
               workspaceLabelService,
+              activityStats,
             );
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
@@ -1868,6 +1881,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     await speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    await activityStats.stop();
     await relayRuntime?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

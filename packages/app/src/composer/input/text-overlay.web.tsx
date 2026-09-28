@@ -43,6 +43,7 @@ interface OverlayGeometry {
 type OverlaySegment =
   | { kind: "text"; text: string; start: number }
   | { kind: "link"; text: string; start: number }
+  | { kind: "keyword"; text: string; start: number }
   | { kind: "chip"; text: string; label: string; start: number; chipIndex: number | null };
 
 function measureGeometry(textArea: HTMLTextAreaElement): OverlayGeometry {
@@ -60,7 +61,28 @@ function measureGeometry(textArea: HTMLTextAreaElement): OverlayGeometry {
   };
 }
 
-function splitSegments(text: string, chips: readonly InlineChip[]): OverlaySegment[] {
+// Claude Code reasons harder on a turn whose prompt contains this keyword.
+const ULTRATHINK_PATTERN = /\bultrathink\b/i;
+
+function pushKeywordSegments(segments: OverlaySegment[], text: string, start: number): void {
+  let cursor = 0;
+  for (const match of text.matchAll(new RegExp(ULTRATHINK_PATTERN, "gi"))) {
+    if (match.index > cursor) {
+      segments.push({ kind: "text", text: text.slice(cursor, match.index), start: start + cursor });
+    }
+    segments.push({ kind: "keyword", text: match[0], start: start + match.index });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) {
+    segments.push({ kind: "text", text: text.slice(cursor), start: start + cursor });
+  }
+}
+
+function splitSegments(
+  text: string,
+  chips: readonly InlineChip[],
+  highlightUltrathink: boolean,
+): OverlaySegment[] {
   const tokens = parseInlineTokens(text);
   const indexed = chips.map((chip, index) => ({ label: chip.label, index }));
   const paired = pairInlineTokens(tokens, indexed, (chip) => chip.label);
@@ -68,7 +90,12 @@ function splitSegments(text: string, chips: readonly InlineChip[]): OverlaySegme
   const pushText = (from: number, to: number) => {
     if (to <= from) return;
     for (const segment of splitTextLinks(text.slice(from, to))) {
-      segments.push({ kind: segment.kind, text: segment.text, start: from + segment.start });
+      const start = from + segment.start;
+      if (segment.kind === "text" && highlightUltrathink) {
+        pushKeywordSegments(segments, segment.text, start);
+      } else {
+        segments.push({ kind: segment.kind, text: segment.text, start });
+      }
     }
   };
   let cursor = 0;
@@ -87,8 +114,9 @@ function splitSegments(text: string, chips: readonly InlineChip[]): OverlaySegme
   return segments;
 }
 
-function hasDecorations(text: string): boolean {
+function hasDecorations(text: string, highlightUltrathink: boolean): boolean {
   return (
+    (highlightUltrathink && ULTRATHINK_PATTERN.test(text)) ||
     splitTextLinks(text).some((segment) => segment.kind === "link") ||
     parseInlineTokens(text).length > 0
   );
@@ -130,7 +158,12 @@ function hideTextAreaText(textArea: HTMLTextAreaElement): () => void {
   };
 }
 
-export function ComposerTextOverlay({ getTextArea, value, chips }: ComposerTextOverlayProps) {
+export function ComposerTextOverlay({
+  getTextArea,
+  value,
+  chips,
+  highlightUltrathink = false,
+}: ComposerTextOverlayProps) {
   const [text, setText] = useState(value);
   const [geometry, setGeometry] = useState<OverlayGeometry | null>(null);
   const [hoveredChip, setHoveredChip] = useState<number | null>(null);
@@ -138,7 +171,7 @@ export function ComposerTextOverlay({ getTextArea, value, chips }: ComposerTextO
   const contentRef = useRef<Text | null>(null);
   const chipsRef = useRef(chips);
   chipsRef.current = chips;
-  const active = hasDecorations(text);
+  const active = hasDecorations(text, highlightUltrathink);
 
   const syncText = useCallback(() => {
     const textArea = getTextArea();
@@ -236,8 +269,8 @@ export function ComposerTextOverlay({ getTextArea, value, chips }: ComposerTextO
   }, [active, getTextArea]);
 
   const segments = useMemo(
-    () => (active ? splitSegments(text, chips ?? []) : []),
-    [active, chips, text],
+    () => (active ? splitSegments(text, chips ?? [], highlightUltrathink) : []),
+    [active, chips, highlightUltrathink, text],
   );
   const boxStyle = useMemo(() => [styles.box, geometry?.box], [geometry]);
   const textStyle = useMemo(() => [styles.text, geometry?.text], [geometry]);
@@ -252,6 +285,9 @@ export function ComposerTextOverlay({ getTextArea, value, chips }: ComposerTextO
             return <OverlayLink key={segment.start} url={segment.text} />;
           }
           if (segment.kind === "text") return segment.text;
+          if (segment.kind === "keyword") {
+            return <OverlayKeyword key={segment.start} text={segment.text} />;
+          }
           const chip = segment.chipIndex === null ? null : (chips?.[segment.chipIndex] ?? null);
           return (
             <OverlayChip
@@ -279,6 +315,19 @@ function OverlayLink({ url }: { url: string }) {
   return (
     <Text style={styles.link} dataSet={dataSet}>
       {url}
+    </Text>
+  );
+}
+
+// One color per letter, cycling, like Claude Code's rainbow `ultrathink`.
+function OverlayKeyword({ text }: { text: string }) {
+  return (
+    <Text>
+      {Array.from(text, (letter, index) => (
+        <Text key={index} style={KEYWORD_LETTER_STYLES[index % KEYWORD_LETTER_STYLES.length]}>
+          {letter}
+        </Text>
+      ))}
     </Text>
   );
 }
@@ -369,6 +418,12 @@ const styles = StyleSheet.create((theme) => ({
   link: {
     color: theme.colors.accentBright,
   },
+  keywordRed: { color: theme.colors.palette.red[500] },
+  keywordOrange: { color: theme.colors.palette.orange[500] },
+  keywordYellow: { color: theme.colors.palette.yellow[400] },
+  keywordGreen: { color: theme.colors.palette.green[400] },
+  keywordBlue: { color: theme.colors.palette.blue[400] },
+  keywordPurple: { color: theme.colors.palette.purple[500] },
   chip: {
     position: "relative",
     color: "transparent",
@@ -411,3 +466,12 @@ const styles = StyleSheet.create((theme) => ({
     opacity: 1,
   },
 }));
+
+const KEYWORD_LETTER_STYLES = [
+  styles.keywordRed,
+  styles.keywordOrange,
+  styles.keywordYellow,
+  styles.keywordGreen,
+  styles.keywordBlue,
+  styles.keywordPurple,
+];
