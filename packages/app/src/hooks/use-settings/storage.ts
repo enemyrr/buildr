@@ -97,6 +97,8 @@ export interface AppSettings {
   defaultNewTab: DefaultNewTab;
   /** New chats start in the provider's plan mode when it has one. */
   defaultToPlanMode: boolean;
+  /** Set once the first-run onboarding has been finished or skipped. */
+  onboardingCompleted: boolean;
 }
 
 export type AppSettingsUpdate =
@@ -151,6 +153,7 @@ export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
   pullRequestOpenLocation: "explorer",
   defaultNewTab: "agent",
   defaultToPlanMode: false,
+  onboardingCompleted: false,
 };
 
 export const DEFAULT_APP_SETTINGS: Settings = {
@@ -269,6 +272,7 @@ const StoredAppSettingsSchema = z
     pullRequestOpenLocation: z.enum(["main", "side", "explorer"]).optional(),
     defaultNewTab: z.enum(["agent", "terminal", "browser", "launcher"]).catch("agent"),
     defaultToPlanMode: z.boolean().catch(false),
+    onboardingCompleted: z.boolean().catch(false),
     // COMPAT(explorerSidebarRouting): replaced by source-specific side-pane preferences in v0.6.
     openSupportingTabsInSidePanel: z.boolean().optional().catch(undefined),
     // COMPAT(rendererDesktopSettings): these fields used to share this renderer-owned key.

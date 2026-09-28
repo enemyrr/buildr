@@ -32,6 +32,7 @@ import { DownloadToast } from "@/components/download-toast";
 import { QuittingOverlay } from "@/components/quitting-overlay";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { ChangelogHost } from "@/changelog";
+import { OnboardingHost } from "@/onboarding/onboarding-host";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import { LeftSidebar } from "@/components/left-sidebar";
@@ -342,6 +343,10 @@ export function useEarliestOnlineHostServerId(): string | null {
   );
 }
 
+function OnboardingGate() {
+  return <OnboardingHost onlineServerId={useEarliestOnlineHostServerId()} />;
+}
+
 function useDaemonStartLastError(): string | null {
   const service = getDaemonStartService({ store: getHostRuntimeStore() });
   return useSyncExternalStore(
@@ -622,6 +627,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <KeyboardShortcutsDialog />
         <AppDiagnosticHost />
         <ChangelogHost />
+        <OnboardingGate />
         <QuittingOverlay />
       </AppearanceStyleBoundary>
     </View>

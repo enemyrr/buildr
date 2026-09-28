@@ -1794,6 +1794,7 @@ export const ja: TranslationResources = {
     actions: {
       settings: "設定",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "プロバイダーを選択",

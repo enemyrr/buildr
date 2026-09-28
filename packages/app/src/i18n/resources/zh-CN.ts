@@ -1757,6 +1757,7 @@ export const zhCN: TranslationResources = {
     actions: {
       settings: "设置",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "选择 provider",

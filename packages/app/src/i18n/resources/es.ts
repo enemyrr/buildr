@@ -1826,6 +1826,7 @@ export const es: TranslationResources = {
     actions: {
       settings: "Ajustes",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "Seleccionar proveedor",

@@ -1812,6 +1812,7 @@ export const ptBR: TranslationResources = {
     actions: {
       settings: "Configurações",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "Selecionar provedor",

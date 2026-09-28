@@ -72,7 +72,7 @@ export function HostDefaultModelsPage({ serverId }: { serverId: string }): React
   );
 }
 
-function DefaultModelsBoard({
+export function DefaultModelsBoard({
   serverId,
   entries,
   loadout,

@@ -1786,6 +1786,7 @@ export const ko: TranslationResources = {
     actions: {
       settings: "설정",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "프로바이더 선택",

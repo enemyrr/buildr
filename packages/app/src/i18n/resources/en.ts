@@ -1819,6 +1819,71 @@ export const en = {
     actions: {
       settings: "Settings",
     },
+    setup: {
+      stepLabel: "Step {{current}} of {{total}}",
+      back: "Back",
+      continue: "Continue",
+      skip: "Skip setup",
+      welcome: {
+        title: "Welcome to Buildr",
+        subtitle: "Set up how you work. You can change any of this later in Settings.",
+        start: "Get started",
+      },
+      models: {
+        title: "Pick your models",
+        subtitle:
+          "These models appear in the model picker. Drag a model into a slot or between slots to change the loadout. The first slot is the default.",
+      },
+      newTab: {
+        title: "What should a new tab open?",
+        subtitle: "Press Cmd+T or the + button to open a tab.",
+        options: {
+          agent: {
+            title: "Chat",
+            description: "Start a new chat with your default model",
+          },
+          terminal: {
+            title: "Terminal",
+            description: "Open a shell in the workspace",
+          },
+          browser: {
+            title: "Browser",
+            description: "Open a page next to your code",
+          },
+          launcher: {
+            title: "Choose each time",
+            description: "Show a picker for chat, terminal, or browser",
+          },
+        },
+      },
+      workspace: {
+        title: "Where should new workspaces run?",
+        subtitle: "New workspaces use this by default. You can switch it for each workspace.",
+        options: {
+          worktree: {
+            title: "New worktree",
+            description:
+              "Each workspace gets its own branch and folder. Agents work in parallel without touching your checkout.",
+          },
+          local: {
+            title: "Local",
+            description:
+              "Work directly in your project folder, on the branch you have checked out.",
+          },
+        },
+        preview: {
+          main: "main",
+          branch: "feature",
+          changes: "Changes",
+        },
+      },
+      project: {
+        title: "Add your first project",
+        subtitle: "Import a folder or Git repository to start a workspace.",
+        add: "Add project",
+        later: "Later",
+      },
+    },
   },
   modelSelector: {
     title: "Select provider",
