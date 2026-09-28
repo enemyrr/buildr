@@ -76,6 +76,8 @@ export interface PrStripStatusInput {
   autoMergeEnabled: boolean;
   hasUncommittedChanges?: boolean;
   hasUnpushedCommits?: boolean;
+  /** Continue and Archive only fit a Paseo worktree; a main checkout just shows the state. */
+  isPaseoOwnedWorktree?: boolean;
 }
 
 function matchingActions(gitActions: GitActions, prefix: string): GitAction[] {
@@ -141,11 +143,12 @@ export function derivePrStripState(
   status: PrStripStatusInput,
   gitActions: GitActions,
 ): PrStripState {
+  const wrapUp = status.isPaseoOwnedWorktree ? wrapUpActions(gitActions) : [];
   if (status.isMerged || status.state.toLowerCase() === "merged") {
-    return { label: "merged", tone: "merged", actions: wrapUpActions(gitActions) };
+    return { label: "merged", tone: "merged", actions: wrapUp };
   }
   if (status.state.toLowerCase() !== "open") {
-    return { label: "closed", tone: "danger", actions: wrapUpActions(gitActions) };
+    return { label: "closed", tone: "danger", actions: wrapUp };
   }
   return deriveOpenPrStripState(status, gitActions);
 }

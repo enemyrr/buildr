@@ -34,9 +34,11 @@ function summarize(status: PrStripStatusInput, gitActions: GitActions = actions(
 }
 
 describe("derivePrStripState", () => {
+  const owned = { ...open, isPaseoOwnedWorktree: true };
+
   it("offers Continue and Archive once merged", () => {
     const archive = action("archive-workspace");
-    expect(summarize({ ...open, state: "MERGED", isMerged: true }, actions(archive))).toEqual({
+    expect(summarize({ ...owned, state: "MERGED", isMerged: true }, actions(archive))).toEqual({
       label: "merged",
       tone: "merged",
       actions: ["continue", "archive"],
@@ -45,17 +47,27 @@ describe("derivePrStripState", () => {
 
   it("offers Continue and Archive once closed", () => {
     const archive = action("archive-workspace");
-    expect(summarize({ ...open, state: "CLOSED" }, actions(archive))).toEqual({
+    expect(summarize({ ...owned, state: "CLOSED" }, actions(archive))).toEqual({
       label: "closed",
       tone: "danger",
       actions: ["continue", "archive"],
     });
   });
 
-  it("keeps Archive, disabled, before the git actions resolve", () => {
+  it("offers no wrap-up outside a Paseo worktree", () => {
+    const archive = action("archive-workspace");
     for (const status of [
       { ...open, state: "MERGED", isMerged: true },
       { ...open, state: "CLOSED" },
+    ]) {
+      expect(summarize(status, actions(archive)).actions).toEqual([]);
+    }
+  });
+
+  it("keeps Archive, disabled, before the git actions resolve", () => {
+    for (const status of [
+      { ...owned, state: "MERGED", isMerged: true },
+      { ...owned, state: "CLOSED" },
     ]) {
       expect(derivePrStripState(status, actions(null)).actions).toEqual([
         { kind: "continue", label: "continue", emphasis: "outline" },

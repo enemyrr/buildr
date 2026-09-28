@@ -20,11 +20,20 @@ import {
 import { useSessionStore } from "@/stores/session-store";
 import { registerWorkspaceUndo } from "@/workspace/undo/store";
 
+/** The workspace's live agents, which archiving the workspace archives with it. */
+function listLiveAgentIds(input: { serverId: string; workspaceId: string }): string[] {
+  const agents = useSessionStore.getState().sessions[input.serverId]?.agents;
+  return [...(agents?.values() ?? [])]
+    .filter((agent) => agent.workspaceId === input.workspaceId && !agent.archivedAt)
+    .map((agent) => agent.id);
+}
+
 function offerArchiveUndo(input: {
   serverId: string;
   workspaceId: string;
   workspaceKey: string;
   wasViewing: boolean;
+  agentIds: string[];
 }): void {
   const serverInfo = useSessionStore.getState().sessions[input.serverId]?.serverInfo;
   if (!hostSupportsFeature(serverInfo, "workspaceRecovery")) {
@@ -39,9 +48,9 @@ function offerArchiveUndo(input: {
       if (!client) {
         throw new Error(i18n.t("sidebar.workspace.toasts.hostDisconnected"));
       }
-      // Restore recovers the workspace only; its agents stay archived, as with the route's
-      // Restore action.
+      // Restore recovers the workspace only, so unarchive the chats the archive took with it.
       await client.restoreWorkspace(input.workspaceId);
+      await Promise.allSettled(input.agentIds.map((agentId) => client.refreshAgent(agentId)));
       if (input.wasViewing) {
         navigateToWorkspace({ serverId: input.serverId, workspaceId: input.workspaceId });
       }
@@ -99,6 +108,7 @@ export function useWorkspaceArchive(input: ArchiveWorkspaceInput): WorkspaceArch
     const lastSelection = getLastWorkspaceSelection();
     const wasViewing =
       lastSelection?.serverId === serverId && lastSelection.workspaceId === workspaceId;
+    const agentIds = listLiveAgentIds({ serverId, workspaceId });
     try {
       onArchiveStarted();
       await archiveWorkspaceOptimistically({
@@ -111,7 +121,7 @@ export function useWorkspaceArchive(input: ArchiveWorkspaceInput): WorkspaceArch
       purgeArchivedWorkspaceState({ serverId, workspaceId });
       const workspaceKey = buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
       if (workspaceKey) {
-        offerArchiveUndo({ serverId, workspaceId, workspaceKey, wasViewing });
+        offerArchiveUndo({ serverId, workspaceId, workspaceKey, wasViewing, agentIds });
       }
     } catch (error) {
       toast.error(

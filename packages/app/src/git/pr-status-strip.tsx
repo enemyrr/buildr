@@ -70,7 +70,8 @@ interface PrStatusStripProps {
 /**
  * The change request's lifecycle on a wash of its state's color: the `#N` `↗` link, the state,
  * and the next step. An open PR always offers Merge, disabled with its reason until ready, beside
- * Commit and push while local work is unpushed. Continue or Archive once merged or closed.
+ * Commit and push while local work is unpushed. Continue or Archive once merged or closed, in a
+ * Paseo worktree only.
  */
 export function PrStatusStrip({
   serverId,
@@ -82,10 +83,13 @@ export function PrStatusStrip({
 }: PrStatusStripProps) {
   const { t } = useTranslation();
   const { status: prStatus, forge } = useCheckoutPrStatusQuery({ serverId, cwd });
-  const { hasUncommittedChanges, hasUnpushedCommits, uncommittedCount, baseRef } = useLocalWork({
-    serverId,
-    cwd,
-  });
+  const {
+    hasUncommittedChanges,
+    hasUnpushedCommits,
+    uncommittedCount,
+    baseRef,
+    isPaseoOwnedWorktree,
+  } = useLocalWork({ serverId, cwd });
   const requests = useInstructionRequests({ serverId, cwd });
   const runGitAction = useGitActionRunner();
   const toast = useToast();
@@ -104,10 +108,11 @@ export function PrStatusStrip({
         autoMergeEnabled: capability?.autoMergeEnabled ?? false,
         hasUncommittedChanges,
         hasUnpushedCommits,
+        isPaseoOwnedWorktree,
       },
       gitActions,
     );
-  }, [prStatus, gitActions, hasUncommittedChanges, hasUnpushedCommits]);
+  }, [prStatus, gitActions, hasUncommittedChanges, hasUnpushedCommits, isPaseoOwnedWorktree]);
   const commit = gitActions.primary?.id === "commit" ? gitActions.primary : null;
 
   const prUrl = prStatus?.url ?? null;
@@ -208,9 +213,10 @@ export function PrStatusStrip({
   );
 
   if (variant === "inline") {
-    // The header keeps only the live next step; the state rides on the glyph and its tooltip.
+    // The header drops the disabled actions; the state rides on the glyph and its tooltip.
     const primary = state.actions.filter(
-      (action) => action.emphasis === "filled" && !(action.kind === "git" && action.blocked),
+      (action) =>
+        action.kind !== "archive-unavailable" && !(action.kind === "git" && action.blocked),
     );
     return (
       <View style={styles.inline} testID="workspace-pr-status-inline">
@@ -255,6 +261,7 @@ function useLocalWork({ serverId, cwd }: { serverId: string; cwd: string }) {
     hasUnpushedCommits: (gitStatus?.aheadOfOrigin ?? 0) > 0,
     uncommittedCount: uncommitted?.fileCount ?? 0,
     baseRef: gitStatus?.baseRef ?? null,
+    isPaseoOwnedWorktree: gitStatus?.isPaseoOwnedWorktree === true,
   };
 }
 

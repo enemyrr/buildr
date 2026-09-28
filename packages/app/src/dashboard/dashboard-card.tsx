@@ -87,7 +87,9 @@ export const DashboardCard = memo(function DashboardCard({
 
 function DashboardCardAction({ workspace }: { workspace: SidebarWorkspaceEntry }) {
   const pr = workspace.prHint;
-  if (pr?.state === "merged" || pr?.state === "closed") {
+  // A main checkout outlives its PR, so only a worktree offers Archive once the PR ends.
+  const ended = pr?.state === "merged" || pr?.state === "closed";
+  if (ended && workspace.workspaceKind === "worktree") {
     return <DashboardCardArchive workspace={workspace} />;
   }
   if (pr) {

@@ -141,16 +141,16 @@ Archiving runs through `AgentManager.archiveAgent` (`packages/server/src/server/
 
 Cascade is what keeps subagent fleets from outliving their orchestrator.
 
-Workspace archive is a separate lifecycle. Archiving or removing a worktree can close a surviving
-agent record without setting the agent's `archivedAt`, while its `workspaceId` still points at the
-archived workspace. History navigation must not infer workspace lifecycle from `agent.archivedAt`
+Workspace archive is a separate lifecycle. Archiving a workspace archives every agent it owns, and
+each agent's `workspaceId` still points at the archived workspace. History navigation must not infer workspace lifecycle from `agent.archivedAt`
 or mutate either lifecycle. The workspace route asks the daemon for authoritative recovery state;
 only the route's explicit Unarchive or Restore action changes the archived workspace.
 
 History navigation opens the selected agent without changing either archive state. Workspace
 **Restore** recovers only the workspace; the selected archived agent stays open with its callout.
 The agent's **Unarchive** runs the provider's native unarchive hook before interactive resume and
-history hydration. Other archived agents stay archived.
+history hydration. Other archived agents stay archived. The one exception is **Undo** on the archive
+toast: it restores the workspace and unarchives the agents that were live when you archived it.
 
 Opening an agent is a navigation choice, independent of whether its details are cached. The
 layout retains that choice across reload while the panel fetches the agent from the daemon.

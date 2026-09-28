@@ -157,9 +157,12 @@ function computeShouldPromoteArchive(input: {
   hasUncommittedChanges: boolean;
   postShipArchiveSuggested: boolean;
   isMergedPullRequest: boolean;
+  isPaseoOwnedWorktree: boolean;
 }): boolean {
   return (
-    !input.hasUncommittedChanges && (input.postShipArchiveSuggested || input.isMergedPullRequest)
+    input.isPaseoOwnedWorktree &&
+    !input.hasUncommittedChanges &&
+    (input.postShipArchiveSuggested || input.isMergedPullRequest)
   );
 }
 
@@ -188,6 +191,7 @@ function deriveGitActionsState(args: DeriveGitActionsStateArgs): DerivedGitActio
       hasUncommittedChanges,
       postShipArchiveSuggested,
       isMergedPullRequest,
+      isPaseoOwnedWorktree,
     }),
   };
 }
