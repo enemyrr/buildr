@@ -20,6 +20,7 @@ import { WorkspacePreview } from "./workspace-preview";
 
 const STEPS = ["welcome", "models", "newTab", "workspace", "project"] as const;
 type Step = (typeof STEPS)[number];
+const SCROLL_CONTENT = { flexGrow: 1 };
 
 /**
  * First-run setup, drawn over the app once a host is online. Finishing or skipping sets
@@ -77,18 +78,22 @@ function Onboarding({ serverId }: { serverId: string }) {
         )}
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <Animated.View
-          key={step}
-          entering={FadeIn.duration(220)}
-          style={step === "models" ? styles.stepWide : styles.step}
-        >
-          {step === "welcome" ? <WelcomeStep /> : null}
-          {step === "models" ? <ModelsStep serverId={serverId} /> : null}
-          {step === "newTab" ? <NewTabStep /> : null}
-          {step === "workspace" ? <WorkspaceStep /> : null}
-          {step === "project" ? <ProjectStep /> : null}
-        </Animated.View>
+      {/* The wrapped ScrollView drops Unistyles `contentContainerStyle` on web, so the
+          themed layout lives on a View we own. See docs/unistyles.md. */}
+      <ScrollView style={styles.scroll} contentContainerStyle={SCROLL_CONTENT}>
+        <View style={styles.scrollContent}>
+          <Animated.View
+            key={step}
+            entering={FadeIn.duration(220)}
+            style={step === "models" ? styles.stepWide : styles.step}
+          >
+            {step === "welcome" ? <WelcomeStep /> : null}
+            {step === "models" ? <ModelsStep serverId={serverId} /> : null}
+            {step === "newTab" ? <NewTabStep /> : null}
+            {step === "workspace" ? <WorkspaceStep /> : null}
+            {step === "project" ? <ProjectStep /> : null}
+          </Animated.View>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -327,6 +332,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   scrollContent: {
     flexGrow: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     padding: theme.spacing[6],
