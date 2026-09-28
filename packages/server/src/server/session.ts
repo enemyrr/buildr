@@ -1,3 +1,4 @@
+import type { ActivityStatsService } from "./activity-stats/activity-stats.js";
 import { searchTimeline } from "./agent/chat-search/index.js";
 import type { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { BrowserAutomationHostCapabilitySchema } from "@getpaseo/protocol/browser-automation/capabilities";
@@ -531,6 +532,7 @@ export interface SessionOptions {
   terminalManager: TerminalManager | null;
   providerSnapshotManager: ProviderSnapshotManager;
   providerUsageService: ProviderUsageService;
+  activityStats?: ActivityStatsService;
   hubExecutionAgents?: HubExecutionAgents;
   hubRelationships?: HubRelationshipManagement;
   serviceProxy?: ServiceProxySubsystem;
@@ -741,6 +743,7 @@ export class Session {
   private readonly workspaceRecovery: WorkspaceRecoveryService;
   private readonly daemonConfigStore: DaemonConfigStore;
   private readonly pushNotifications: PushNotifications;
+  private readonly activityStats: ActivityStatsService | undefined;
   private readonly pluginRuntime: SessionOptions["pluginRuntime"];
   private readonly orchestrationSkills: SessionOptions["orchestrationSkills"];
   private unsubscribeAgentEvents: (() => void) | null = null;
@@ -876,6 +879,7 @@ export class Session {
     this.onLifecycleIntent = onLifecycleIntent ?? null;
     this.onWorkspaceRecovered = onWorkspaceRecovered ?? null;
     this.pushNotifications = pushNotifications;
+    this.activityStats = options.activityStats;
     this.paseoHome = paseoHome;
     this.messageReceipts = options.messageReceipts;
     this.creationService = options.creationService;
@@ -3069,6 +3073,8 @@ export class Session {
         return this.providerCatalogSession.handleProviderDiagnosticRequest(msg);
       case "provider.usage.list.request":
         return this.providerCatalogSession.handleProviderUsageListRequest(msg);
+      case "stats.activity.get.request":
+        return this.handleActivityStatsRequest(msg);
       default:
         return undefined;
     }
@@ -5038,6 +5044,35 @@ export class Session {
     }
     if (metadata.pushToken) {
       this.pushNotifications.renew(metadata.pushToken);
+    }
+    this.activityStats?.recordPresence({
+      appVisible: msg.appVisible,
+      lastActivityAt: new Date(msg.lastActivityAt),
+    });
+  }
+
+  private async handleActivityStatsRequest(
+    msg: Extract<SessionInboundMessage, { type: "stats.activity.get.request" }>,
+  ): Promise<void> {
+    try {
+      if (!this.activityStats) throw new Error("Activity stats are not available");
+      const stats = await this.activityStats.snapshot();
+      this.emit({
+        type: "stats.activity.get.response",
+        payload: { requestId: msg.requestId, stats },
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.sessionLogger.error({ err }, "Failed to read activity stats");
+      this.emit({
+        type: "rpc_error",
+        payload: {
+          requestId: msg.requestId,
+          requestType: msg.type,
+          error: `Failed to read activity stats: ${err.message}`,
+          code: "activity_stats_get_failed",
+        },
+      });
     }
   }
 

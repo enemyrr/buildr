@@ -1852,6 +1852,11 @@ export const ProviderUsageListRequestMessageSchema = z.object({
   requestId: z.string(),
 });
 
+export const StatsActivityGetRequestMessageSchema = z.object({
+  type: z.literal("stats.activity.get.request"),
+  requestId: z.string(),
+});
+
 export const ResumeAgentRequestMessageSchema = z.object({
   type: z.literal("resume_agent_request"),
   handle: AgentPersistenceHandleSchema,
@@ -3402,6 +3407,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotRequestMessageSchema,
   ProviderDiagnosticRequestMessageSchema,
   ProviderUsageListRequestMessageSchema,
+  StatsActivityGetRequestMessageSchema,
   ResumeAgentRequestMessageSchema,
   ImportAgentRequestMessageSchema,
   RefreshAgentRequestMessageSchema,
@@ -3804,6 +3810,8 @@ export const ServerInfoStatusPayloadSchema = z
         workspaceFileEditing: z.boolean().optional(),
         // COMPAT(providerUsageList): added in v0.1.98, drop the gate when daemon floor >= v0.1.98.
         providerUsageList: z.boolean().optional(),
+        // COMPAT(activityStats): added in v0.10.3, remove gate after 2027-03-28.
+        activityStats: z.boolean().optional(),
         // COMPAT(daemonResources): added in v0.9.2, remove gate after 2027-03-22.
         daemonResources: z.boolean().optional(),
         // COMPAT(agentDetach): added in v0.1.98, remove gate after 2026-12-19 once daemon floor >= v0.1.98.
@@ -6548,6 +6556,50 @@ export const ProviderUsageListResponseMessageSchema = z.object({
   }),
 });
 
+// Day keys are `YYYY-MM-DD` in the daemon's local time zone.
+export const ActivityStatsDaySchema = z.object({
+  date: z.string(),
+  prompts: z.number(),
+  agentsCreated: z.number(),
+  turns: z.number(),
+  tokens: z.number(),
+  activeMs: z.number(),
+});
+
+export const ActivityStatsModelSchema = z.object({
+  provider: z.string(),
+  model: z.string().nullable(),
+  agents: z.number(),
+  prompts: z.number(),
+  turns: z.number(),
+});
+
+export const ActivityStatsProjectSchema = z.object({
+  projectId: z.string(),
+  name: z.string(),
+  agents: z.number(),
+});
+
+export const ActivityStatsSchema = z.object({
+  generatedAt: z.string(),
+  timeZone: z.string(),
+  firstActivityAt: z.string().nullable(),
+  // Prompts, turns, tokens, and active time are counted from this instant on.
+  trackingSince: z.string(),
+  days: z.array(ActivityStatsDaySchema),
+  promptsByHour: z.array(z.number()),
+  models: z.array(ActivityStatsModelSchema),
+  projects: z.array(ActivityStatsProjectSchema),
+});
+
+export const StatsActivityGetResponseMessageSchema = z.object({
+  type: z.literal("stats.activity.get.response"),
+  payload: z.object({
+    requestId: z.string(),
+    stats: ActivityStatsSchema,
+  }),
+});
+
 const AgentSlashCommandSchema = z.object({
   name: z.string(),
   description: z.string(),
@@ -7264,6 +7316,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   RefreshProvidersSnapshotResponseMessageSchema,
   ProviderDiagnosticResponseMessageSchema,
   ProviderUsageListResponseMessageSchema,
+  StatsActivityGetResponseMessageSchema,
   ListCommandsResponseSchema,
   ListTerminalsResponseSchema,
   TerminalsChangedSchema,
@@ -7469,6 +7522,11 @@ export type ProviderUsageDetail = z.infer<typeof ProviderUsageDetailSchema>;
 export type ProviderUsageListResponseMessage = z.infer<
   typeof ProviderUsageListResponseMessageSchema
 >;
+export type ActivityStats = z.infer<typeof ActivityStatsSchema>;
+export type ActivityStatsDay = z.infer<typeof ActivityStatsDaySchema>;
+export type ActivityStatsModel = z.infer<typeof ActivityStatsModelSchema>;
+export type ActivityStatsProject = z.infer<typeof ActivityStatsProjectSchema>;
+export type StatsActivityGetResponseMessage = z.infer<typeof StatsActivityGetResponseMessageSchema>;
 export type ChatCreateResponse = z.infer<typeof ChatCreateResponseSchema>;
 export type ChatListResponse = z.infer<typeof ChatListResponseSchema>;
 export type ChatInspectResponse = z.infer<typeof ChatInspectResponseSchema>;

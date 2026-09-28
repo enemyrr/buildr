@@ -432,6 +432,10 @@ export function buildDashboardRoute() {
   return "/dashboard" as const;
 }
 
+export function buildAnalyticsRoute() {
+  return "/analytics" as const;
+}
+
 export function buildHomeRoute() {
   return "/home" as const;
 }
