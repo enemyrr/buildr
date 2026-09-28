@@ -20,6 +20,8 @@ export interface ModelLoadout {
   isSupported: boolean;
   isFull: boolean;
   add: (entry: ModelLoadoutEntry, index?: number) => Promise<void>;
+  /** Puts `entries` at the head of the list in one write. */
+  seed: (entries: readonly ModelLoadoutEntry[]) => Promise<void>;
   remove: (profileId: string) => Promise<void>;
   move: (profileId: string, toIndex: number) => Promise<void>;
   /** Swaps the slot's profile for a fresh one, keeping its position. */
@@ -46,6 +48,13 @@ export function useModelLoadout(serverId: string | null): ModelLoadout {
       const profile = buildLoadoutProfile(entry);
       const at = Math.min(index ?? MODEL_LOADOUT_SIZE, current.length, MODEL_LOADOUT_SIZE);
       await saveProfiles([...current.slice(0, at), profile, ...current.slice(at)]);
+    },
+    [profiles, saveProfiles],
+  );
+
+  const seed = useCallback(
+    async (entries: readonly ModelLoadoutEntry[]) => {
+      await saveProfiles([...entries.map(buildLoadoutProfile), ...(profiles ?? [])]);
     },
     [profiles, saveProfiles],
   );
@@ -93,7 +102,7 @@ export function useModelLoadout(serverId: string | null): ModelLoadout {
     [profiles, saveProfiles],
   );
 
-  return { slots, isSupported, isFull, add, remove, move, replace, setThinking };
+  return { slots, isSupported, isFull, add, seed, remove, move, replace, setThinking };
 }
 
 function buildLoadoutProfile(entry: ModelLoadoutEntry): AgentProfile {

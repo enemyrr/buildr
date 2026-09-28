@@ -1774,6 +1774,7 @@ export const ar: TranslationResources = {
     actions: {
       settings: "إعدادات",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "حدد المزود",

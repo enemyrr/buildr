@@ -1806,6 +1806,7 @@ export const ru: TranslationResources = {
     actions: {
       settings: "Настройки",
     },
+    setup: en.onboarding.setup,
   },
   modelSelector: {
     title: "Выберите провайдера",
