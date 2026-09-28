@@ -1484,6 +1484,8 @@ function UserShellToolCallSlot({
   const handleShare = useCallback(() => onShareDetail(detail), [detail, onShareDetail]);
   const handleStop = useCallback(() => onStopCall(callId), [callId, onStopCall]);
   const terminalId = rest.metadata?.terminalId;
+  const startedAt = rest.metadata?.startedAt;
+  const durationMs = rest.metadata?.durationMs;
   const liveTerminal = useMemo(
     () =>
       INLINE_TERMINAL_SUPPORTED && rest.status === "running" && typeof terminalId === "string" ? (
@@ -1500,6 +1502,8 @@ function UserShellToolCallSlot({
       forceInline
       onShare={handleShare}
       onStop={handleStop}
+      startedAt={typeof startedAt === "string" ? startedAt : undefined}
+      durationMs={typeof durationMs === "number" ? durationMs : undefined}
     />
   );
 }
