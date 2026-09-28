@@ -77,6 +77,8 @@ function buildShellTimelineItem(input: {
   output: string;
   exitCode: number | null;
   status: ShellStatus;
+  startedAt: string;
+  durationMs?: number;
   terminalId?: string;
 }): AgentTimelineItem {
   const base = {
@@ -91,9 +93,12 @@ function buildShellTimelineItem(input: {
       ...(input.status === "running" ? {} : { exitCode: input.exitCode }),
     },
     // `userShell` tells the app the user ran this from the composer. `terminalId` lets a
-    // client attach to the live terminal while the command runs.
+    // client attach to the live terminal while the command runs. `startedAt` and
+    // `durationMs` drive the elapsed time shown under the output.
     metadata: {
       userShell: true,
+      startedAt: input.startedAt,
+      ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
       ...(input.terminalId ? { terminalId: input.terminalId } : {}),
     },
   };
@@ -121,6 +126,8 @@ export async function runAgentShellCommand(options: RunAgentShellCommandOptions)
     args: invocation.args,
   });
   const callId = terminal.id;
+  const startedAtMs = Date.now();
+  const startedAt = new Date(startedAtMs).toISOString();
   let lines: string[] = [];
   let stopped = false;
 
@@ -134,6 +141,7 @@ export async function runAgentShellCommand(options: RunAgentShellCommandOptions)
           output: lines.join("\n"),
           exitCode: null,
           status: "running",
+          startedAt,
           terminalId: terminal.id,
         }),
       )
@@ -182,6 +190,7 @@ export async function runAgentShellCommand(options: RunAgentShellCommandOptions)
     options.captureIntervalMs ?? CAPTURE_INTERVAL_MS,
   );
   const outcome = await Promise.race([finished, exited]);
+  const durationMs = Date.now() - startedAtMs;
   clearInterval(interval);
   unsubscribeFinished();
   stopByCallId.delete(callId);
@@ -204,6 +213,8 @@ export async function runAgentShellCommand(options: RunAgentShellCommandOptions)
       output: output.join("\n"),
       exitCode: outcome.exitCode,
       status,
+      startedAt,
+      durationMs,
     }),
   );
 }
