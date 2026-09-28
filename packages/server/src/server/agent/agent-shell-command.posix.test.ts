@@ -56,12 +56,16 @@ describe.skipIf(process.platform === "win32")("runAgentShellCommand", () => {
     expect(live[0]).toMatchObject({
       type: "tool_call",
       status: "running",
-      metadata: { userShell: true, terminalId: expect.any(String) },
+      metadata: { userShell: true, startedAt: expect.any(String), terminalId: expect.any(String) },
     });
     expect(appended[0]).toMatchObject({
       status: "completed",
       detail: { type: "shell", command: "seq 1 40", exitCode: 0 },
-      metadata: { userShell: true },
+      metadata: {
+        userShell: true,
+        startedAt: live[0]?.type === "tool_call" ? live[0].metadata?.startedAt : undefined,
+        durationMs: expect.any(Number),
+      },
     });
     expect(shellOutput(appended[0]).split("\n")).toEqual(
       Array.from({ length: 40 }, (_, index) => String(index + 1)),

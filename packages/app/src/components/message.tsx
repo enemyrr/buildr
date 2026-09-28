@@ -3094,6 +3094,10 @@ interface ToolCallProps {
   onShare?: () => void;
   /** Shows a stop button under the details while the call runs. */
   onStop?: () => void;
+  /** ISO start time; shows the elapsed time under the details. */
+  startedAt?: string;
+  /** Final run time, shown under the details once the call finishes. */
+  durationMs?: number;
   /** Replaces the rendered detail, such as a live terminal while a command runs. */
   detailsContent?: ReactNode;
   /** Set when the timeline omitted the heavy detail; it loads when the call opens. */
@@ -3119,6 +3123,8 @@ export const ToolCall = memo(function ToolCall({
   maxDetailHeight = 400,
   onShare,
   onStop,
+  startedAt,
+  durationMs,
   detailsContent,
   detailSource,
 }: ToolCallProps) {
@@ -3232,6 +3238,25 @@ export const ToolCall = memo(function ToolCall({
     }
     return null;
   }, [isRunning, onShare, onStop, t]);
+  const detailElapsed = useMemo(() => {
+    if (isRunning && startedAt) {
+      return (
+        <LiveElapsed
+          startedAt={new Date(startedAt)}
+          style={toolCallActionStylesheet.elapsed}
+          testID="tool-call-elapsed"
+        />
+      );
+    }
+    if (!isRunning && durationMs !== undefined) {
+      return (
+        <Text style={toolCallActionStylesheet.elapsed} testID="tool-call-elapsed">
+          {formatTurnDuration(durationMs)}
+        </Text>
+      );
+    }
+    return null;
+  }, [isRunning, startedAt, durationMs]);
 
   // Render inline details for desktop
   const renderDetails = useCallback(() => {
@@ -3245,11 +3270,14 @@ export const ToolCall = memo(function ToolCall({
         showLoadingSkeleton={presentation.isLoadingDetails}
       />
     );
-    if (!detailAction) return content;
+    if (!detailAction && !detailElapsed) return content;
     return (
       <>
         {content}
-        <View style={toolCallActionStylesheet.row}>{detailAction}</View>
+        <View style={toolCallActionStylesheet.row}>
+          {detailElapsed}
+          {detailAction}
+        </View>
       </>
     );
   }, [
@@ -3261,6 +3289,7 @@ export const ToolCall = memo(function ToolCall({
     presentation.isLoadingDetails,
     maxDetailHeight,
     detailAction,
+    detailElapsed,
     detailsContent,
   ]);
 
@@ -3298,26 +3327,31 @@ export const ToolCall = memo(function ToolCall({
   );
 }, areToolCallPropsEqual);
 
+const TOOL_CALL_SHALLOW_PROPS = [
+  "toolName",
+  "args",
+  "result",
+  "error",
+  "status",
+  "detail",
+  "cwd",
+  "metadata",
+  "isLastInSequence",
+  "disableOuterSpacing",
+  "onOpenFilePath",
+  "defaultExpanded",
+  "forceInline",
+  "maxDetailHeight",
+  "onShare",
+  "onStop",
+  "startedAt",
+  "durationMs",
+  "detailsContent",
+] as const satisfies readonly (keyof ToolCallProps)[];
+
 function areToolCallPropsEqual(previous: ToolCallProps, next: ToolCallProps) {
-  if (previous.toolName !== next.toolName) return false;
-  if (previous.args !== next.args) return false;
-  if (previous.result !== next.result) return false;
-  if (previous.error !== next.error) return false;
-  if (previous.status !== next.status) return false;
-  if (previous.detail !== next.detail) return false;
-  if (previous.cwd !== next.cwd) return false;
-  if (previous.metadata !== next.metadata) return false;
-  if (previous.isLastInSequence !== next.isLastInSequence) return false;
-  if (previous.disableOuterSpacing !== next.disableOuterSpacing) return false;
-  if (previous.onOpenFilePath !== next.onOpenFilePath) return false;
-  if (previous.defaultExpanded !== next.defaultExpanded) return false;
-  if (previous.forceInline !== next.forceInline) return false;
-  if (previous.maxDetailHeight !== next.maxDetailHeight) return false;
-  if (previous.onShare !== next.onShare) return false;
-  if (previous.onStop !== next.onStop) return false;
-  if (previous.detailsContent !== next.detailsContent) return false;
-  if (!areToolCallDetailSourcesEqual(previous.detailSource, next.detailSource)) return false;
-  return true;
+  if (TOOL_CALL_SHALLOW_PROPS.some((key) => previous[key] !== next[key])) return false;
+  return areToolCallDetailSourcesEqual(previous.detailSource, next.detailSource);
 }
 
 function areToolCallDetailSourcesEqual(
@@ -3337,8 +3371,16 @@ function areToolCallDetailSourcesEqual(
 const toolCallActionStylesheet = StyleSheet.create((theme) => ({
   row: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "flex-end",
     paddingHorizontal: theme.spacing[2],
     paddingBottom: theme.spacing[2],
+  },
+  elapsed: {
+    marginRight: "auto",
+    paddingHorizontal: theme.spacing[1],
+    color: theme.colors.foregroundMuted,
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.sm,
   },
 }));

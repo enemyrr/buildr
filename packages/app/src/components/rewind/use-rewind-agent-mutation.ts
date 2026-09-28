@@ -19,6 +19,8 @@ interface UseRewindAgentMutationInput {
 interface RewindAgentInput {
   mode: RewindMode;
   rewoundText: string;
+  /** Overrides the hook's message, for pickers that choose the message at call time. */
+  messageId?: string;
 }
 
 export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
@@ -29,11 +31,11 @@ export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
   const { t } = useTranslation();
   const composerRestore = useRewindComposerRestore();
   const { isPending, mutateAsync } = useMutation({
-    mutationFn: async ({ mode }: RewindAgentInput) => {
-      if (!input.client || !input.agentId || !input.messageId) {
+    mutationFn: async ({ mode, messageId = input.messageId }: RewindAgentInput) => {
+      if (!input.client || !input.agentId || !messageId) {
         throw new Error(t("common.errors.daemonClientUnavailable"));
       }
-      await input.client.rewindAgent(input.agentId, input.messageId, mode);
+      await input.client.rewindAgent(input.agentId, messageId, mode);
       if (mode !== "files") {
         const cursor = input.serverId
           ? useSessionStore

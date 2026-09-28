@@ -182,6 +182,8 @@ export interface MessageInputProps {
   attachmentSlot?: React.ReactNode;
   /** Attachments painted as chips over their tokens in the text. Web only. */
   inlineChips?: readonly InlineChip[];
+  /** Paints the `ultrathink` keyword, for providers that act on it. Web only. */
+  highlightUltrathink?: boolean;
   /** What this composer is for. See `@/composer/input-mode` for what each mode implies. */
   inputMode?: ComposerInputMode;
   /** Renders `value` as static text on the same surface, for content there is nothing to type into. */
@@ -643,6 +645,7 @@ interface ComposerTextSurfaceProps {
   textInputRef: React.Ref<ComposerTextInputHandle>;
   getTextArea: () => HTMLTextAreaElement | null;
   inlineChips: readonly InlineChip[] | undefined;
+  highlightUltrathink: boolean;
   textInputStyle: EditingTextInputProps["style"];
   readOnlyTextStyle: React.ComponentProps<typeof Text>["style"];
   placeholder: string;
@@ -702,6 +705,7 @@ function ComposerTextSurface(props: ComposerTextSurfaceProps): React.ReactElemen
         getTextArea={props.getTextArea}
         value={props.value}
         chips={props.inlineChips}
+        highlightUltrathink={props.highlightUltrathink}
       />
       <FocusHint
         visible={props.focusHintVisible}
@@ -1093,6 +1097,7 @@ interface ResolvedMessageInputProps {
   inputWrapperStyle: import("react-native").StyleProp<import("react-native").ViewStyle>;
   attachmentSlot: React.ReactNode;
   inlineChips: readonly InlineChip[] | undefined;
+  highlightUltrathink: boolean;
   inputMode: ComposerInputMode;
   readOnly: boolean;
   textReplacement: TextReplacement;
@@ -1142,6 +1147,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     inputWrapperStyle: props.inputWrapperStyle,
     attachmentSlot: props.attachmentSlot,
     inlineChips: props.inlineChips,
+    highlightUltrathink: props.highlightUltrathink ?? false,
     inputMode: props.inputMode ?? "chat",
     readOnly: props.readOnly ?? false,
     textReplacement: props.textReplacement,
@@ -1199,6 +1205,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       inputWrapperStyle,
       attachmentSlot,
       inlineChips,
+      highlightUltrathink,
       inputMode,
       readOnly,
       textReplacement,
@@ -1841,6 +1848,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               textInputRef={textInputRef}
               getTextArea={getTextArea}
               inlineChips={inlineChips}
+              highlightUltrathink={highlightUltrathink}
               textInputStyle={textInputStyle}
               readOnlyTextStyle={readOnlyTextStyle}
               placeholder={placeholder ?? t("composer.placeholders.fallback")}

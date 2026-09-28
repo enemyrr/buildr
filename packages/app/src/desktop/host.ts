@@ -82,6 +82,13 @@ export interface DesktopEditorOpenTargetInput {
 export interface DesktopEditorBridge {
   listTargets?: () => Promise<DesktopEditorTargetDescriptor[]>;
   openTarget?: (input: DesktopEditorOpenTargetInput) => Promise<void>;
+  /** Opens `text` in a temp file; saves arrive as `editor-draft-changed` events. */
+  openDraft?: (input: {
+    editorId: string;
+    workspacePath: string;
+    text: string;
+  }) => Promise<{ draftId: string }>;
+  closeDraft?: (draftId: string) => Promise<void>;
 }
 
 export interface DesktopWebUtilsBridge {
