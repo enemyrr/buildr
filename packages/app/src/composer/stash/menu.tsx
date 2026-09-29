@@ -14,7 +14,7 @@ import { Shortcut } from "@/components/ui/shortcut";
 import { ComposerTrackActions, ComposerTrackRow } from "@/composer/tracks";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
-import { useCompactTimeAgo } from "@/hooks/use-compact-time-ago";
+import { useCompactTimeAgo } from "@/hooks/use-time-ago";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import type { Theme } from "@/styles/theme";
 import { previewStashEntry, type PromptStashEntry } from "./model";

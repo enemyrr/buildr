@@ -102,7 +102,6 @@ export function ContextWindowMeter({
   const { t } = useTranslation();
   const percentage =
     maxTokens !== null && usedTokens !== null ? getUsagePercentage(maxTokens, usedTokens) : null;
-
   const geometry = getMeterGeometry(showPercentage, glyphSize);
 
   // No usage yet: reserve the footprint with an empty box while a session is active,
@@ -134,7 +133,6 @@ export function ContextWindowMeter({
             width={svgSize}
             height={svgSize}
             viewBox={`0 0 ${svgSize} ${svgSize}`}
-            style={styles.svg}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
@@ -156,6 +154,8 @@ export function ContextWindowMeter({
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
+              // SVG strokes start at three o'clock; the ring reads clockwise from twelve.
+              transform={`rotate(-90 ${center} ${center})`}
             />
           </Svg>
           {showPercentage ? (
@@ -201,9 +201,6 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     gap: theme.spacing[1],
     borderRadius: theme.borderRadius.full,
-  },
-  svg: {
-    transform: [{ rotate: "-90deg" }],
   },
   percentageLabel: {
     color: theme.colors.foregroundMuted,

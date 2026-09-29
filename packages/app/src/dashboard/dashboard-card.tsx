@@ -16,7 +16,7 @@ import { BOARD_STATUS_LABEL_KEYS, BoardStatusGlyph } from "@/dashboard/board-sta
 import { WORKSPACE_BOARD_STATUSES, type WorkspaceBoardStatus } from "@/dashboard/board-status";
 import { usePrFlow } from "@/git/use-pr-flow";
 import type { SidebarWorkspaceEntry } from "@/hooks/use-sidebar-workspaces-list";
-import { useCompactTimeAgo } from "@/hooks/use-compact-time-ago";
+import { useCompactTimeAgo } from "@/hooks/use-time-ago";
 import { navigateToWorkspace } from "@/stores/navigation-active-workspace-store";
 import { setWorkspaceBoardStatus } from "@/stores/workspace-status-store";
 import { ICON_SIZE, type Theme } from "@/styles/theme";

@@ -52,8 +52,7 @@ import {
   useHosts,
 } from "@/runtime/host-runtime";
 import { ProvidersSection } from "@/screens/settings/providers-section";
-import { ProviderUsageSettingsSection } from "@/provider-usage/settings-section";
-import { useProviderUsage } from "@/provider-usage/use-provider-usage";
+import { HostUsageSection } from "@/usage";
 import { HostAppearanceSection } from "@/screens/settings/host-appearance-section";
 import { SettingsSection } from "@/components/settings/headings/settings-section";
 import { SettingsTabs } from "@/components/settings/settings-tabs";
@@ -302,7 +301,7 @@ export function HostAgentsPage({ serverId }: { serverId: string }) {
       <SettingsTabs tabs={tabs} value={tab} onChange={setTab} testID="settings-agents-tabs" />
       {tab === "providers" ? <ProvidersSection serverId={serverId} /> : null}
       {tab === "behavior" ? <HostAgentBehavior serverId={serverId} /> : null}
-      {tab === "usage" ? <HostUsage serverId={serverId} /> : null}
+      {tab === "usage" ? <HostUsageSection serverId={serverId} /> : null}
     </View>
   );
 }
@@ -327,15 +326,6 @@ function HostAgentBehavior({ serverId }: { serverId: string }) {
       <AgentSkillsSection serverId={serverId} />
     </View>
   );
-}
-
-function HostUsage({ serverId }: { serverId: string }) {
-  const { view: providerUsageView, refresh: refreshProviderUsage } = useProviderUsage(serverId);
-  const handleRefresh = useCallback(() => {
-    void refreshProviderUsage();
-  }, [refreshProviderUsage]);
-
-  return <ProviderUsageSettingsSection view={providerUsageView} onRefresh={handleRefresh} />;
 }
 
 export function HostWorkspacesPage({ serverId }: { serverId: string }) {
