@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { SearchField } from "@/components/ui/search-field";
 import { groupByDay, type HomeDayGroup } from "@/home/day-groups";
-import { useCompactTimeAgo } from "@/hooks/use-compact-time-ago";
+import { useCompactTimeAgo } from "@/hooks/use-time-ago";
 import { useSidebarWorkspaceEntries } from "@/hooks/use-sidebar-workspace-entries";
 import {
   useSidebarWorkspacesList,

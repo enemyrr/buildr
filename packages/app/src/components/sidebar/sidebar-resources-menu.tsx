@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useFetchQuery } from "@/data/query";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
-import { clampPct, formatPct } from "@/provider-usage/format";
-import { deriveTone } from "@/provider-usage/tone";
-import { useProviderUsage } from "@/provider-usage/use-provider-usage";
-import { ProviderUsageCard } from "@/provider-usage/card";
-import { providerUsageCopy } from "@/provider-usage/copy";
-import type { ProviderUsage, ProviderUsageView } from "@/provider-usage/types";
+import { UsageCard } from "@/usage/card";
+import { usageCopy } from "@/usage/copy";
+import { clampPct, formatPct } from "@/usage/format";
+import { useHostUsage } from "@/usage/queries";
+import { deriveTone } from "@/usage/tone";
+import type { UsageReportEntry, UsageView } from "@/usage/types";
 import type { MenuTriggerState } from "@/components/ui/menu";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent } from "@/stores/session-store";
@@ -199,25 +199,24 @@ function ContextSection({ serverId }: { serverId: string | null }) {
   );
 }
 
-function LimitsBody({ view }: { view: ProviderUsageView }) {
-  if (view.kind === "loading") return <Text style={styles.muted}>{providerUsageCopy.loading}</Text>;
-  if (view.kind === "error") return <Text style={styles.muted}>{view.message}</Text>;
-  if (view.payload.providers.length === 0)
-    return <Text style={styles.muted}>{providerUsageCopy.empty}</Text>;
-  return <ProviderLimits providers={view.payload.providers} />;
+function LimitsBody({ serverId, view }: { serverId: string; view: UsageView }) {
+  if (view.kind === "loading") return <Text style={styles.muted}>{usageCopy.loading}</Text>;
+  if (view.kind !== "ready") return <Text style={styles.muted}>{view.message}</Text>;
+  if (view.reports.length === 0) return <Text style={styles.muted}>{usageCopy.empty}</Text>;
+  return <UsageLimits serverId={serverId} reports={view.reports} />;
 }
 
-function ProviderLimits({ providers }: { providers: ProviderUsage[] }) {
+function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageReportEntry[] }) {
   const { t } = useTranslation();
   const [showUnavailable, setShowUnavailable] = useState(false);
   const toggleUnavailable = useCallback(() => setShowUnavailable((shown) => !shown), []);
-  const unavailable = providers.filter((usage) => usage.status === "unavailable");
-  const visible = providers.filter((usage) => usage.status !== "unavailable");
+  const unavailable = reports.filter((entry) => entry.report.status === "unavailable");
+  const visible = reports.filter((entry) => entry.report.status !== "unavailable");
   const expandedState = useMemo(() => ({ expanded: showUnavailable }), [showUnavailable]);
   return (
     <View style={styles.limitsList}>
-      {visible.map((usage) => (
-        <ProviderUsageCard key={usage.providerId} usage={usage} compact />
+      {visible.map((entry) => (
+        <UsageCard key={entry.id} serverId={serverId} entry={entry} compact />
       ))}
       {unavailable.length > 0 ? (
         <Button
@@ -232,20 +231,17 @@ function ProviderLimits({ providers }: { providers: ProviderUsage[] }) {
         </Button>
       ) : null}
       {showUnavailable
-        ? unavailable.map((usage) => (
-            <ProviderUsageCard key={usage.providerId} usage={usage} compact />
+        ? unavailable.map((entry) => (
+            <UsageCard key={entry.id} serverId={serverId} entry={entry} compact />
           ))
         : null}
     </View>
   );
 }
 
-function LimitsSection({ serverId, open }: { serverId: string | null; open: boolean }) {
+function LimitsSection({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
-  const { view, refresh, canFetch } = useProviderUsage(serverId, { enabled: open });
-  const handleRefresh = useCallback(() => {
-    void refresh();
-  }, [refresh]);
+  const { view, refresh } = useHostUsage(serverId);
   const busy = view.kind === "loading" || (view.kind === "ready" && view.isRefreshing);
   return (
     <View style={styles.section}>
@@ -255,14 +251,14 @@ function LimitsSection({ serverId, open }: { serverId: string | null; open: bool
           variant="ghost"
           size="xs"
           leftIcon={RefreshCw}
-          onPress={handleRefresh}
-          disabled={!canFetch || busy}
+          onPress={refresh}
+          disabled={view.kind === "unavailable" || busy}
           loading={busy}
-          accessibilityLabel={providerUsageCopy.refresh}
+          accessibilityLabel={usageCopy.refresh}
           testID="sidebar-usage-refresh"
         />
       </View>
-      <LimitsBody view={view} />
+      <LimitsBody serverId={serverId} view={view} />
     </View>
   );
 }
@@ -297,8 +293,12 @@ export function SidebarResourcesMenu() {
         scrollable
         testID="sidebar-resources-menu"
       >
-        <LimitsSection serverId={serverId} open={open} />
-        <View style={styles.divider} />
+        {serverId ? (
+          <>
+            <LimitsSection serverId={serverId} />
+            <View style={styles.divider} />
+          </>
+        ) : null}
         <View style={styles.section}>
           <SectionLabel>{t("sidebar.resources.context")}</SectionLabel>
           <ContextSection serverId={serverId} />

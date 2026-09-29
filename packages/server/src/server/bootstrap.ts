@@ -239,6 +239,7 @@ import {
 } from "./hub/relationship-remote.js";
 import { DaemonExecutions } from "./hub/daemon-executions.js";
 import { PluginService } from "./plugins/index.js";
+import { BuiltinPluginLoader } from "./plugins/builtin/index.js";
 import { ManagedPluginSources } from "./plugins/managed-source.js";
 
 const MCP_DEBUG_BATCH_LIMIT = 10;
@@ -489,6 +490,7 @@ export interface PaseoDaemon {
 }
 
 export interface PaseoDaemonDependencies {
+  builtinPlugins?: BuiltinPluginLoader;
   hubRelationshipRemote?: HubRelationshipRemote;
   hubRelationshipClock?: HubRelationshipClock;
   hubRelationshipRetryPolicy?: HubRelationshipRetryPolicy;
@@ -497,6 +499,10 @@ export interface PaseoDaemonDependencies {
     daemonStatusRpc?: boolean;
     relayConfig?: boolean;
   };
+}
+
+function resolveBuiltinPluginLoader(dependencies: PaseoDaemonDependencies): BuiltinPluginLoader {
+  return dependencies.builtinPlugins ?? new BuiltinPluginLoader();
 }
 
 function createBootstrapManagedProcessRegistry(
@@ -625,6 +631,7 @@ export async function createPaseoDaemon(
   const browserToolsBroker = new BrowserToolsBroker({});
   const pluginRuntime = new PluginService(logger, daemonConfigStore, daemonVersion, {
     managedSources: new ManagedPluginSources(config.paseoHome),
+    builtinPlugins: resolveBuiltinPluginLoader(dependencies),
     settingsDirectory: path.join(config.paseoHome, "plugin-settings"),
   });
 
