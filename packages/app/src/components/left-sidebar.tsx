@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { GitBranch, Server, Settings, X } from "lucide-react-native";
+import { ChartColumn, GitBranch, Server, Settings, X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -48,7 +48,11 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop-window";
 import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
 import { MobilePanelOverlay } from "@/mobile-panels/presentation";
-import { buildSettingsAddHostRoute, buildSettingsRoute } from "@/utils/host-routes";
+import {
+  buildAnalyticsRoute,
+  buildSettingsAddHostRoute,
+  buildSettingsRoute,
+} from "@/utils/host-routes";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { openHostOverview } from "@/navigation/settings-navigation";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
@@ -57,6 +61,7 @@ import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
 const ThemedSettings = withUnistyles(Settings);
 const ThemedServer = withUnistyles(Server);
+const ThemedChartColumn = withUnistyles(ChartColumn);
 const ThemedX = withUnistyles(X);
 const ThemedGitBranch = withUnistyles(GitBranch);
 
@@ -385,6 +390,25 @@ function IconTooltipContent({
   );
 }
 
+function SidebarAnalyticsButton() {
+  const { t } = useTranslation();
+  const isCompactLayout = useIsCompactFormFactor();
+  const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
+  const handlePress = useCallback(() => {
+    if (isCompactLayout) showMobileAgent();
+    router.push(buildAnalyticsRoute());
+  }, [isCompactLayout, showMobileAgent]);
+  return (
+    <FooterIconButton
+      onPress={handlePress}
+      testID="sidebar-analytics"
+      label={t("sidebar.sections.analytics")}
+      icon={ThemedChartColumn}
+      iconSize={ICON_SIZE.sm}
+    />
+  );
+}
+
 const SidebarFooter = memo(function SidebarFooter({
   handleSettings,
   labels,
@@ -410,6 +434,7 @@ const SidebarFooter = memo(function SidebarFooter({
           onAddHost={handleAddHost}
           onOpenHostSettings={handleOpenHostSettings}
         />
+        <SidebarAnalyticsButton />
         <FooterIconButton
           onPress={handleSettings}
           testID="sidebar-settings"
