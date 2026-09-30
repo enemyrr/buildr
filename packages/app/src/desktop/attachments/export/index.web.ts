@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type RefCallback } from "react";
 import type { View } from "react-native";
 import { releaseAttachmentPreviewUrl, resolveAttachmentPreviewUrl } from "@/attachments/service";
 import type { AttachmentMetadata } from "@/attachments/types";
-import { resolveAttachmentFileName } from "./file-name";
+import { resolveAttachmentFileName } from "@/attachments/export/file-name";
 
 export async function saveAttachment(attachment: AttachmentMetadata): Promise<void> {
   const url = await resolveAttachmentPreviewUrl(attachment);

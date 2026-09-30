@@ -13,7 +13,6 @@ import { useAgentHistory } from "@/hooks/use-agent-history";
 import { useHostFeature } from "@/runtime/host-features";
 import { useSessionStore } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
-import { toErrorMessage } from "@/utils/error-messages";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { formatTimeAgo } from "@/utils/time";
 
@@ -142,8 +141,6 @@ function ClosedChatsList({
 
 function ClosedChatItem({ agent }: { agent: AggregatedAgent }): ReactElement {
   const { t } = useTranslation();
-  const toast = useToast();
-  const client = useSessionStore((state) => state.sessions[agent.serverId]?.client ?? null);
   const leading = useMemo(
     () => (
       <View style={styles.leading}>
@@ -172,11 +169,7 @@ function ClosedChatItem({ agent }: { agent: AggregatedAgent }): ReactElement {
       workspaceId: agent.workspaceId,
       pin: true,
     });
-    // Unarchive is the same call the archived-agent callout makes.
-    client?.refreshAgent(agent.id).catch((error: unknown) => {
-      toast.error(toErrorMessage(error) || t("workspace.tabs.closedChats.restoreFailed"));
-    });
-  }, [agent.id, agent.serverId, agent.workspaceId, client, t, toast]);
+  }, [agent.id, agent.serverId, agent.workspaceId]);
 
   return (
     <DropdownMenuItem

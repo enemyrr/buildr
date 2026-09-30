@@ -288,8 +288,7 @@ export const ko: TranslationResources = {
       showAgainWhenReachable: "호스트에 연결되는 즉시 이 에이전트를 다시 표시합니다.",
     },
     archived: {
-      callout: "이 에이전트는 보관되었습니다",
-      unarchive: "보관 해제",
+      hint: "보관됨 · 메시지를 보내면 보관이 해제됩니다",
     },
     interrupted: {
       callout: "데몬 재시작으로 이 턴이 중단되었습니다",
@@ -707,7 +706,6 @@ export const ko: TranslationResources = {
       closedChats: {
         title: "닫은 채팅",
         empty: "닫은 채팅이 없습니다",
-        restoreFailed: "채팅을 복원할 수 없습니다",
       },
       newChat: {
         title: "{{path}}에서 새 채팅.",

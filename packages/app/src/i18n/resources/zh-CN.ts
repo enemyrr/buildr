@@ -286,8 +286,7 @@ export const zhCN: TranslationResources = {
       showAgainWhenReachable: "Host 可访问后将再次显示此 Agent。",
     },
     archived: {
-      callout: "此 Agent 已归档",
-      unarchive: "取消归档",
+      hint: "已归档 · 发送消息即可取消归档",
     },
     interrupted: {
       callout: "守护进程重启中断了此轮对话",
@@ -703,7 +702,6 @@ export const zhCN: TranslationResources = {
       closedChats: {
         title: "已关闭的聊天",
         empty: "没有已关闭的聊天",
-        restoreFailed: "无法恢复聊天",
       },
       newChat: {
         title: "在 {{path}} 中新建聊天。",

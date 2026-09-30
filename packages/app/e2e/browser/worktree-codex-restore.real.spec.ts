@@ -25,8 +25,8 @@ test("a fresh client restores an archived Codex agent across a reload without ag
     await codexRestore.waitForWorkspaceHydration();
     await codexRestore.expectArchivedAgentSelectedWithHistory();
   });
-  await test.step("Unarchive the agent and keep its idle composer after another cache-empty reload", async () => {
-    await codexRestore.unarchiveAgent();
+  await test.step("Send a message to unarchive the agent and keep its idle composer after another cache-empty reload", async () => {
+    await codexRestore.unarchiveAgentBySending();
     await codexRestore.reloadWithoutAgentCache();
     await codexRestore.expectIdleAgentWithVisibleComposer();
   });
@@ -54,8 +54,8 @@ test("restore an archived worktree, then unarchive its completed Codex agent", a
     await codexRestore.restoreWorkspace();
     await codexRestore.expectWorktreeRestoredWithArchivedAgentSelected();
   });
-  await test.step("7. Click Unarchive on the agent", async () => {
-    await codexRestore.unarchiveAgent();
+  await test.step("7. Send a message to unarchive the agent", async () => {
+    await codexRestore.unarchiveAgentBySending();
   });
   await test.step("8. Expect an idle agent with a visible editable composer", async () => {
     await codexRestore.expectIdleAgentWithVisibleComposer(60_000);
