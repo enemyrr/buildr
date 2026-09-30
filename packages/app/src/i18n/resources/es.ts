@@ -294,8 +294,7 @@ export const es: TranslationResources = {
         "Le mostraremos a este agente nuevamente tan pronto como podamos comunicarnos con el anfitrión.",
     },
     archived: {
-      callout: "Este agente está archivado.",
-      unarchive: "Desarchivar",
+      hint: "Archivado · Envía un mensaje para desarchivarlo",
     },
     interrupted: {
       callout: "Un reinicio del daemon interrumpió este turno",
@@ -714,7 +713,6 @@ export const es: TranslationResources = {
       closedChats: {
         title: "Chats cerrados",
         empty: "No hay chats cerrados",
-        restoreFailed: "No se pudo restaurar el chat",
       },
       newChat: {
         title: "Nuevo chat en {{path}}.",

@@ -9,6 +9,7 @@ import { test as base, expect, type Page } from "../fixtures";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { openSessions } from "./archive-tab";
 import { getE2EDaemonPort } from "./daemon-port";
+import { submitMessage } from "./composer";
 import { assertComposerIdle } from "./rewind-flow";
 import { getServerId } from "./server-id";
 import { archiveWorkspaceFromSidebar, expectWorkspaceAbsentFromSidebar } from "./sidebar";
@@ -165,7 +166,7 @@ async function createCodexRestoreJourney(page: Page, client: SeedDaemonClient, i
     async expectWorktreeRestoredWithArchivedAgentSelected() {
       await expect.poll(() => existsSync(created().cwd), { timeout: 30_000 }).toBe(true);
       await expectSelected();
-      await expect(page.getByText("This agent is archived", { exact: true })).toBeVisible();
+      await expect(page.getByTestId("agent-archived-pill")).toBeVisible();
       await info.attach("after-workspace-restore", {
         body: JSON.stringify(await client.fetchAgent({ agentId: created().agentId }), null, 2),
         contentType: "application/json",
@@ -173,7 +174,7 @@ async function createCodexRestoreJourney(page: Page, client: SeedDaemonClient, i
     },
     async expectArchivedAgentSelectedWithHistory() {
       await expectSelected();
-      await expect(page.getByText("This agent is archived", { exact: true })).toBeVisible();
+      await expect(page.getByTestId("agent-archived-pill")).toBeVisible();
       await expect(page.getByTestId("assistant-message")).toContainText(REPLY);
     },
     async reloadWithoutAgentCache() {
@@ -193,11 +194,12 @@ async function createCodexRestoreJourney(page: Page, client: SeedDaemonClient, i
     async waitForWorkspaceHydration() {
       await waitForSidebarHydration(page);
     },
-    async unarchiveAgent() {
-      await page.getByRole("button", { name: "Unarchive", exact: true }).click({ timeout: 30_000 });
-      await expect(page.getByText("This agent is archived", { exact: true })).toHaveCount(0, {
+    async unarchiveAgentBySending() {
+      await submitMessage(page, `Reply with exactly ${REPLY} and nothing else. Do not use tools.`);
+      await expect(page.getByTestId("agent-archived-pill")).toHaveCount(0, {
         timeout: 60_000,
       });
+      await client.waitForFinish(created().agentId, 120_000);
     },
     async expectIdleAgentWithVisibleComposer(statusTimeout?: number) {
       await expect

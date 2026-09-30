@@ -22,7 +22,7 @@ import invariant from "tiny-invariant";
 import { shallow, useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { AgentStreamView, type AgentStreamViewHandle } from "@/agent-stream/view";
-import { ArchivedAgentCallout } from "@/components/archived-agent-callout";
+import { ArchivedAgentPill } from "@/components/archived-agent-pill";
 import { InterruptedTurnCallout } from "@/components/interrupted-turn-callout";
 import { ComposerDock } from "@/composer/dock";
 import { FileDropZone } from "@/components/file-drop/file-drop-zone";
@@ -1173,7 +1173,7 @@ const ChatAgentReadyContent = memo(function ChatAgentReadyContent({
   });
   const hasPluginComposerPills = useHasPluginComposerPills(serverId, workspaceId, agentId);
   const jumpToBottomShift = useSharedValue(0);
-  const hasActiveComposer = !agentState.archivedAt && !isArchivingCurrentAgent;
+  const hasActiveComposer = !isArchivingCurrentAgent;
   const hasVisibleAgentTracks = hasAgentTracks({
     subagentRows,
     tasks,
@@ -1497,15 +1497,13 @@ const AgentComposerSection = memo(function AgentComposerSection({
   if (!agentId) {
     return null;
   }
-  if (archivedAt) {
-    return <ArchivedAgentCallout serverId={serverId} agentId={agentId} />;
-  }
   if (isArchivingCurrentAgent) {
     return null;
   }
 
   return (
     <>
+      {archivedAt ? <ArchivedAgentPill /> : null}
       <InterruptedTurnCallout serverId={serverId} agentId={agentId} />
       <ActiveAgentComposer
         agentId={agentId}

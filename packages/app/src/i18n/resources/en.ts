@@ -301,8 +301,7 @@ export const en = {
       showAgainWhenReachable: "We will show this agent again as soon as the host is reachable.",
     },
     archived: {
-      callout: "This agent is archived",
-      unarchive: "Unarchive",
+      hint: "Archived · Send a message to unarchive it",
     },
     interrupted: {
       callout: "A daemon restart interrupted this turn",
@@ -720,7 +719,6 @@ export const en = {
       closedChats: {
         title: "Closed chats",
         empty: "No closed chats",
-        restoreFailed: "Couldn't restore chat",
       },
       newChat: {
         title: "New chat in {{path}}.",

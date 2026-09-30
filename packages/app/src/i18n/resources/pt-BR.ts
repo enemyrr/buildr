@@ -293,8 +293,7 @@ export const ptBR: TranslationResources = {
         "Mostraremos este agente novamente assim que o host estiver acessível.",
     },
     archived: {
-      callout: "Este agente está arquivado",
-      unarchive: "Desarquivar",
+      hint: "Arquivado · Envie uma mensagem para desarquivá-lo",
     },
     interrupted: {
       callout: "Uma reinicialização do daemon interrompeu este turno",
@@ -713,7 +712,6 @@ export const ptBR: TranslationResources = {
       closedChats: {
         title: "Chats fechados",
         empty: "Nenhum chat fechado",
-        restoreFailed: "Não foi possível restaurar o chat",
       },
       newChat: {
         title: "Novo chat em {{path}}.",

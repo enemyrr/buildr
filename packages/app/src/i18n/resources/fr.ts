@@ -295,8 +295,7 @@ export const fr: TranslationResources = {
       showAgainWhenReachable: "Nous afficherons à nouveau cet agent dès que l'hôte sera joignable.",
     },
     archived: {
-      callout: "Cet agent est archivé",
-      unarchive: "Désarchiver",
+      hint: "Archivé · Envoyez un message pour le désarchiver",
     },
     interrupted: {
       callout: "Un redémarrage du daemon a interrompu ce tour",
@@ -714,7 +713,6 @@ export const fr: TranslationResources = {
       closedChats: {
         title: "Discussions fermées",
         empty: "Aucune discussion fermée",
-        restoreFailed: "Impossible de restaurer la discussion",
       },
       newChat: {
         title: "Nouvelle discussion dans {{path}}.",

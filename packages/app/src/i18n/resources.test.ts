@@ -577,8 +577,7 @@ describe("translation resources", () => {
     expect(en.message.compaction.manual).toBe("Context manually compacted");
     expect(en.message.compaction.withTokens).toBe("Context compacted ({{tokens}}K tokens)");
     expect(en.message.compaction.completed).toBe("Context compacted");
-    expect(en.agentPanel.archived.callout).toBe("This agent is archived");
-    expect(en.agentPanel.archived.unarchive).toBe("Unarchive");
+    expect(en.agentPanel.archived.hint).toBe("Archived · Send a message to unarchive it");
     expect(en.desktop.quitting.title).toBe("Quitting Buildr...");
     expect(en.desktop.quitting.detail).toBe("Stopping the local daemon.");
     expect(en.composer.attachments.dropImagesHere).toBe("Drop images here");

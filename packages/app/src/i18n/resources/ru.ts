@@ -290,8 +290,7 @@ export const ru: TranslationResources = {
       showAgainWhenReachable: "Агент снова появится, как только хост станет доступен.",
     },
     archived: {
-      callout: "Этот агент находится в архиве",
-      unarchive: "Разархивировать",
+      hint: "В архиве · Отправьте сообщение, чтобы разархивировать",
     },
     interrupted: {
       callout: "Перезапуск демона прервал этот ход",
@@ -712,7 +711,6 @@ export const ru: TranslationResources = {
       closedChats: {
         title: "Закрытые чаты",
         empty: "Нет закрытых чатов",
-        restoreFailed: "Не удалось восстановить чат",
       },
       newChat: {
         title: "Новый чат в {{path}}.",

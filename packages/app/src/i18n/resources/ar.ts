@@ -286,8 +286,7 @@ export const ar: TranslationResources = {
       showAgainWhenReachable: "سنعرض هذا الوكيل مرة أخرى بمجرد الوصول إلى المضيف.",
     },
     archived: {
-      callout: "تمت أرشفة هذا الوكيل",
-      unarchive: "إلغاء الأرشفة",
+      hint: "مؤرشف · أرسل رسالة لإلغاء أرشفته",
     },
     interrupted: {
       callout: "أوقفت إعادة تشغيل الخادم هذا الدور",
@@ -705,7 +704,6 @@ export const ar: TranslationResources = {
       closedChats: {
         title: "المحادثات المغلقة",
         empty: "لا توجد محادثات مغلقة",
-        restoreFailed: "تعذّرت استعادة المحادثة",
       },
       newChat: {
         title: "محادثة جديدة في {{path}}.",

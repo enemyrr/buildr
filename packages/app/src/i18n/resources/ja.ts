@@ -292,8 +292,7 @@ export const ja: TranslationResources = {
         "ホストに到達できるようになり次第、このエージェントを再び表示します。",
     },
     archived: {
-      callout: "このエージェントはアーカイブされています",
-      unarchive: "アーカイブ解除",
+      hint: "アーカイブ済み · メッセージを送信するとアーカイブが解除されます",
     },
     interrupted: {
       callout: "デーモンの再起動によりこのターンが中断されました",
@@ -712,7 +711,6 @@ export const ja: TranslationResources = {
       closedChats: {
         title: "閉じたチャット",
         empty: "閉じたチャットはありません",
-        restoreFailed: "チャットを復元できませんでした",
       },
       newChat: {
         title: "{{path}} で新しいチャット。",

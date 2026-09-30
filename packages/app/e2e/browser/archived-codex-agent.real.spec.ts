@@ -85,21 +85,10 @@ test.describe("archived Codex agent recovery", () => {
       await expect(
         page.getByTestId(`workspace-tab-agent_${handle.agentId}`).filter({ visible: true }).first(),
       ).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByText("This agent is archived", { exact: true })).toBeVisible({
-        timeout: 30_000,
-      });
+      await expect(page.getByTestId("agent-archived-pill")).toBeVisible({ timeout: 30_000 });
       await expect(page.getByTestId("agent-load-error")).toHaveCount(0);
       await expect(page.getByTestId("agent-timeline-sync-error")).toHaveCount(0);
       await expect(page.getByTestId("user-message")).toHaveCount(0);
-
-      await page.getByRole("button", { name: "Unarchive" }).click();
-      await expect(page.getByRole("button", { name: "Unarchive" })).toHaveCount(0, {
-        timeout: 60_000,
-      });
-      await assertChatTranscript(handle, [
-        { role: "user", text: INITIAL_PROMPT },
-        { role: "assistant", text: INITIAL_REPLY },
-      ]);
 
       await sendMessage(handle, FOLLOW_UP_PROMPT);
       await assertChatTranscript(handle, [
@@ -108,6 +97,7 @@ test.describe("archived Codex agent recovery", () => {
         { role: "user", text: FOLLOW_UP_PROMPT },
         { role: "assistant", text: FOLLOW_UP_REPLY },
       ]);
+      await expect(page.getByTestId("agent-archived-pill")).toHaveCount(0);
     } finally {
       await cleanupRewindFlow({ handle, cwd });
     }
