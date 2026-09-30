@@ -5,7 +5,7 @@ import invariant from "tiny-invariant";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { resolveAttachmentFileName } from "@/attachments/export/file-name";
-import { saveAttachment, useAttachmentDragSource } from "@/attachments/export";
+import { saveAttachment, useAttachmentDragSource } from "@/desktop/attachments/export";
 import { retainAttachmentForGarbageCollection } from "@/attachments/gc-retention";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";

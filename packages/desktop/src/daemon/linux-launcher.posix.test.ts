@@ -45,8 +45,14 @@ async function launch(
     }
     writeFileSync(join(app, "chrome-sandbox"), "helper");
     chmodSync(join(app, "chrome-sandbox"), 0o755);
-    await afterPack({ appOutDir: app, electronPlatformName: "linux", arch: 1 });
-    if (options.rerun) await afterPack({ appOutDir: app, electronPlatformName: "linux", arch: 1 });
+    const packContext = {
+      appOutDir: app,
+      electronPlatformName: "linux",
+      arch: 1,
+      packager: { appInfo: { productFilename: "Paseo" } },
+    };
+    await afterPack(packContext);
+    if (options.rerun) await afterPack(packContext);
     const executablePath = options.symlink ? join(root, "paseo") : join(app, "Paseo");
     if (options.symlink) symlinkSync(join(app, "Paseo"), executablePath);
     const args = options.args ?? ["path with spaces", "$(touch never)", "semi;colon", "*.txt"];

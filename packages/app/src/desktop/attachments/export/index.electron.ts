@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type RefCallback } from "react";
 import type { View } from "react-native";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { getDesktopHost } from "@/desktop/host";
-import { resolveAttachmentFileName } from "./file-name";
+import { resolveAttachmentFileName } from "@/attachments/export/file-name";
 
 export async function saveAttachment(attachment: AttachmentMetadata): Promise<void> {
   await getDesktopHost()?.attachments?.saveAs?.({
