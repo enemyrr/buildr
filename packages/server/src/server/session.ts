@@ -160,6 +160,7 @@ import {
   deriveWorkspaceDisplayName,
 } from "./workspace-registry-model.js";
 import { resolveWorkspaceIdForPath } from "./resolve-workspace-id-for-path.js";
+import { getScratchRoot, prepareScratchDirectory } from "./scratch-workspaces.js";
 import {
   resolveProjectDisplayName,
   resolveWorkspaceDisplayName,
@@ -225,7 +226,7 @@ import {
   matchesAgentUpdatesFilter,
   type AgentUpdatesService,
 } from "./session/agent-updates/agent-updates-service.js";
-import { expandTilde } from "../utils/path.js";
+import { areEquivalentPaths, expandTilde } from "../utils/path.js";
 import { readPaseoWorktreeMetadata } from "../utils/worktree-metadata.js";
 import {
   searchDirectoryEntries,
@@ -6842,7 +6843,16 @@ export class Session {
       throw new Error("Unexpected workspace source");
     }
 
-    const cwd = expandTilde(request.source.path);
+    const { scratch } = request.source;
+    const cwd = scratch
+      ? await prepareScratchDirectory(getScratchRoot(this.paseoHome), scratch)
+      : expandTilde(request.source.path);
+    if (scratch === "home") {
+      const home = (await this.workspaceRegistry.list()).find(
+        (workspace) => !workspace.archivedAt && areEquivalentPaths(workspace.cwd, cwd),
+      );
+      if (home) return this.describeWorkspaceRecord(home);
+    }
     const directoryExists = await this.filesystem.isDirectory(cwd).catch(() => false);
     if (!directoryExists) {
       throw new SessionRequestError("directory_not_found", `Directory not found: ${cwd}`);

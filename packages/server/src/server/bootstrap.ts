@@ -2,7 +2,7 @@ import { describeHookWorkspace } from "./plugins/lifecycle/index.js";
 import express from "express";
 import { createServer as createHTTPServer, type IncomingMessage, type ServerResponse } from "http";
 import { constants, existsSync, unlinkSync } from "fs";
-import { open, rm, stat } from "fs/promises";
+import { mkdir, open, rm, stat } from "fs/promises";
 import { randomUUID } from "node:crypto";
 import { hostname as getHostname } from "node:os";
 import path from "node:path";
@@ -163,6 +163,7 @@ import { BrowserToolsBroker } from "./browser-tools/broker.js";
 import { DaemonConfigBrowserToolsPolicy } from "./browser-tools/policy.js";
 import { WorkspaceGitServiceImpl } from "./workspace-git-service.js";
 import { resolveWorkspaceIdForPath } from "./resolve-workspace-id-for-path.js";
+import { getScratchRoot } from "./scratch-workspaces.js";
 import {
   archiveByScope,
   archivePersistedWorkspaceRecord,
@@ -921,6 +922,9 @@ export async function createPaseoDaemon(
     isDirectory: async (target) => (await stat(target).catch(() => null))?.isDirectory() ?? false,
     logger,
   });
+  const scratchRoot = getScratchRoot(config.paseoHome);
+  await mkdir(scratchRoot, { recursive: true });
+  await workspaceProvisioning.findOrCreateProjectForDirectory(scratchRoot, "Scratch");
   const agentProviderRuntime = await createAgentProviderRuntime({
     paseoHome: config.paseoHome,
     logger,

@@ -2797,6 +2797,9 @@ export const WorkspaceCreateRequestSchema = z.object({
       // Path of the existing checkout/directory to back the workspace.
       path: z.string(),
       projectId: z.string().optional(),
+      // Back the workspace with a daemon-owned directory under `server_info.scratchRoot`
+      // instead of `path`: a fresh one per "thread", or the shared, reused "home".
+      scratch: z.enum(["thread", "home"]).optional(),
     }),
     z.object({
       kind: z.literal("worktree"),
@@ -3720,6 +3723,8 @@ export const ServerInfoStatusPayloadSchema = z
     permissions: z.array(DaemonPermissionSchema).optional(),
     // COMPAT(desktopManaged): added in v0.1.X, remove optional parsing after 2027-01-16.
     desktopManaged: z.boolean().optional(),
+    // Root of the daemon's "Scratch" project, which holds projectless workspaces.
+    scratchRoot: z.string().optional(),
     capabilities: ServerCapabilitiesFromUnknownSchema.optional(),
     // COMPAT(providersSnapshot): added in v0.1.48, remove gating when all clients use snapshot
     features: z

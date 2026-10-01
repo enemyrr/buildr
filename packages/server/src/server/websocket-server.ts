@@ -86,6 +86,7 @@ import {
   type DaemonAuthConfig,
 } from "./auth.js";
 import { resolveSessionAdmission } from "./session-admission-auth.js";
+import { getScratchRoot } from "./scratch-workspaces.js";
 import {
   WebSocketRuntimeMetricsWindow,
   type WebSocketRuntimeCounters,
@@ -1786,6 +1787,7 @@ export class VoiceAssistantWebSocketServer {
       permissions: session.getPermissions(),
       // COMPAT(desktopManaged): added in v0.1.X, remove optional parsing after 2027-01-16.
       desktopManaged: this.daemonRuntimeConfig?.desktopManaged === true,
+      scratchRoot: getScratchRoot(this.paseoHome),
       ...(this.serverCapabilities ? { capabilities: this.serverCapabilities } : {}),
       features: {
         usageSources: true,
