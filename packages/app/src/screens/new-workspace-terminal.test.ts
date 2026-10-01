@@ -196,6 +196,33 @@ describe("runCreateTerminalWorkspace", () => {
     expect(sendTerminalInput).toHaveBeenCalledWith("term-5", "npm run dev\r");
   });
 
+  it("types the shell prelude before the command for a blank terminal", async () => {
+    const ensureWorkspace = vi
+      .fn()
+      .mockResolvedValue({ id: "ws-6", workspaceDirectory: "/scratch/home" });
+    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-6" });
+    const sendTerminalInput = vi.fn();
+    const { navigate } = createRecordingNavigate();
+
+    await runCreateTerminalWorkspace({
+      cwd: "/scratch",
+      prompt: "ls",
+      profile: null,
+      profileName: undefined,
+      shellPrelude: "cd ~ && clear",
+      ensureWorkspace,
+      createTerminal,
+      sendTerminalInput,
+      serverId: "server-abc",
+      navigate,
+    });
+
+    expect(sendTerminalInput.mock.calls).toEqual([
+      ["term-6", "cd ~ && clear\r"],
+      ["term-6", "ls\r"],
+    ]);
+  });
+
   it("launches a blank terminal without typing anything when no command was entered", async () => {
     const ensureWorkspace = vi
       .fn()

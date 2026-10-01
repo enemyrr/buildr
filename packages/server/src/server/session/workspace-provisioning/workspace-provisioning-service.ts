@@ -68,7 +68,10 @@ export interface WorkspaceProvisioningService {
   createWorkspaceForWorktree(
     input: CreateWorktreeWorkspaceInput,
   ): Promise<PersistedWorkspaceRecord>;
-  findOrCreateProjectForDirectory(cwd: string): Promise<PersistedProjectRecord>;
+  findOrCreateProjectForDirectory(
+    cwd: string,
+    displayName?: string,
+  ): Promise<PersistedProjectRecord>;
   ensureWorkspaceRecordUnarchived(
     workspace: PersistedWorkspaceRecord,
   ): Promise<PersistedWorkspaceRecord>;
@@ -189,14 +192,17 @@ export function createWorkspaceProvisioningService(deps: {
     }
   }
 
-  async function findOrCreateProjectForDirectory(cwd: string): Promise<PersistedProjectRecord> {
+  async function findOrCreateProjectForDirectory(
+    cwd: string,
+    displayName?: string,
+  ): Promise<PersistedProjectRecord> {
     const rootPath = resolve(cwd);
     const checkout = await workspaceGitService.getCheckout(rootPath);
     const timestamp = new Date().toISOString();
     return projectRegistry.getOrCreateActiveByRoot({
       rootPath,
       kind: checkout.isGit ? "git" : "non_git",
-      displayName: basename(rootPath) || rootPath,
+      displayName: displayName ?? (basename(rootPath) || rootPath),
       projectKey: deriveProjectKey({
         rootPath,
         remoteUrl: checkout.remoteUrl,

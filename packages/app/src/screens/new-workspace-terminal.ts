@@ -18,6 +18,8 @@ export interface CreateTerminalWorkspaceInput {
   profile: SubstitutableCommand | null;
   /** Terminal tab name: the profile's display name, or undefined for shell. */
   profileName: string | undefined;
+  /** Shell command typed before the prompt in a default-shell terminal. */
+  shellPrelude?: string;
   ensureWorkspace: (input: {
     cwd: string;
     prompt: string;
@@ -45,6 +47,7 @@ export async function runCreateTerminalWorkspace(
     prompt,
     profile,
     profileName,
+    shellPrelude,
     ensureWorkspace,
     createTerminal,
     sendTerminalInput,
@@ -77,8 +80,10 @@ export async function runCreateTerminalWorkspace(
   // also means the user's own shell parses it, which is the only thing that
   // gets quoting, pipes, and globs right on every platform.
   const trimmedPrompt = prompt.trim();
-  if (!profile && trimmedPrompt) {
-    sendTerminalInput(createdTerminal.terminalId, `${trimmedPrompt}\r`);
+  if (!profile) {
+    for (const line of [shellPrelude, trimmedPrompt]) {
+      if (line) sendTerminalInput(createdTerminal.terminalId, `${line}\r`);
+    }
   }
 
   navigate(serverId, ensuredWorkspace.id, {

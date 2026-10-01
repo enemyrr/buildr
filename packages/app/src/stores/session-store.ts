@@ -293,6 +293,7 @@ export interface DaemonServerInfo {
   hostname: string | null;
   version: string | null;
   desktopManaged?: boolean;
+  scratchRoot?: string;
   capabilities?: ServerCapabilities;
   features?: ServerInfoStatusPayload["features"];
 }
@@ -305,6 +306,7 @@ export function toDaemonServerInfo(serverInfo: ServerInfoStatusPayload): DaemonS
     ...(serverInfo.desktopManaged !== undefined
       ? { desktopManaged: serverInfo.desktopManaged }
       : {}),
+    ...(serverInfo.scratchRoot ? { scratchRoot: serverInfo.scratchRoot } : {}),
     ...(serverInfo.capabilities ? { capabilities: serverInfo.capabilities } : {}),
     ...(serverInfo.features ? { features: serverInfo.features } : {}),
   };
@@ -759,6 +761,7 @@ function isSessionServerInfoUnchanged(input: {
   nextHostname: string | null;
   nextVersion: string | null;
   nextDesktopManaged: boolean | undefined;
+  nextScratchRoot: string | undefined;
   nextCapabilities: ServerCapabilities | undefined;
   nextFeatures: ServerInfoStatusPayload["features"] | undefined;
   nextServerId: string;
@@ -768,6 +771,7 @@ function isSessionServerInfoUnchanged(input: {
     nextHostname,
     nextVersion,
     nextDesktopManaged,
+    nextScratchRoot,
     nextCapabilities,
     nextFeatures,
   } = input;
@@ -778,6 +782,7 @@ function isSessionServerInfoUnchanged(input: {
     prevHostname === nextHostname &&
     prevVersion === nextVersion &&
     currentServerInfo?.desktopManaged === nextDesktopManaged &&
+    currentServerInfo?.scratchRoot === nextScratchRoot &&
     areServerCapabilitiesEqual(currentServerInfo?.capabilities, nextCapabilities) &&
     areServerInfoFeaturesEqual(currentServerInfo?.features, nextFeatures)
   );
@@ -915,6 +920,7 @@ export const useSessionStore = create<SessionStore>()(
           const nextHostname = info.hostname?.trim() || null;
           const nextVersion = info.version?.trim() || null;
           const nextDesktopManaged = info.desktopManaged;
+          const nextScratchRoot = info.scratchRoot;
           const nextCapabilities = info.capabilities;
           const nextFeatures = info.features;
 
@@ -924,6 +930,7 @@ export const useSessionStore = create<SessionStore>()(
               nextHostname,
               nextVersion,
               nextDesktopManaged,
+              nextScratchRoot,
               nextCapabilities,
               nextFeatures,
               nextServerId: info.serverId,
@@ -945,6 +952,7 @@ export const useSessionStore = create<SessionStore>()(
                   ...(nextDesktopManaged !== undefined
                     ? { desktopManaged: nextDesktopManaged }
                     : {}),
+                  ...(nextScratchRoot ? { scratchRoot: nextScratchRoot } : {}),
                   ...(nextCapabilities ? { capabilities: nextCapabilities } : {}),
                   ...(nextFeatures ? { features: nextFeatures } : {}),
                 },

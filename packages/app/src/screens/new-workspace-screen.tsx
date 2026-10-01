@@ -76,7 +76,11 @@ import {
   navigateToWorkspace,
   useLastWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
-import { normalizeWorkspaceDescriptor, type WorkspaceDescriptor } from "@/stores/session-store";
+import {
+  normalizeWorkspaceDescriptor,
+  useSessionStore,
+  type WorkspaceDescriptor,
+} from "@/stores/session-store";
 import { useWorkspace } from "@/stores/session-store-hooks";
 import { buildNewWorkspaceDraftKey, generateDraftId } from "@/stores/draft-keys";
 import { useOpenAddProject } from "@/hooks/use-open-add-project";
@@ -796,6 +800,14 @@ interface WorkspaceDraftSubmissionConfig {
   target: WorkspaceTabTarget;
 }
 
+// Which daemon-owned directory backs a workspace in the Scratch project.
+type ScratchKind = "thread" | "home";
+
+function useIsScratchProject(serverId: string, sourceDirectory: string | null): boolean {
+  const scratchRoot = useSessionStore((state) => state.sessions[serverId]?.serverInfo?.scratchRoot);
+  return Boolean(scratchRoot) && sourceDirectory === scratchRoot;
+}
+
 interface WorkspaceCreationResult {
   workspace: ReturnType<typeof normalizeWorkspaceDescriptor>;
   agent?: AgentSnapshotPayload;
@@ -807,6 +819,7 @@ async function createMultiplicityWorkspace(input: {
   isolation: "local" | "worktree";
   project: HostProjectListItem;
   sourceDirectory: string;
+  scratch: ScratchKind | undefined;
   checkoutRequest: PickerCheckoutRequest | undefined;
   withInitialAgent: boolean;
   agent?: CreateWorkspaceRequestOptions["agent"];
@@ -842,6 +855,7 @@ async function createMultiplicityWorkspace(input: {
           kind: "directory",
           path: input.sourceDirectory,
           projectId,
+          ...(input.scratch ? { scratch: input.scratch } : {}),
         },
     ...(firstAgentContext ? { firstAgentContext } : {}),
   });
@@ -1989,9 +2003,11 @@ export function NewWorkspaceScreen({
     getClient: withConnectedClient,
   });
 
-  const worktreeSupport = selectedProject
-    ? getWorktreeSupportForHostProject({ project: selectedProject, serverId: selectedServerId })
-    : "unsupported";
+  const isScratchProject = useIsScratchProject(selectedServerId, selectedSourceDirectory);
+  const worktreeSupport =
+    selectedProject && !isScratchProject
+      ? getWorktreeSupportForHostProject({ project: selectedProject, serverId: selectedServerId })
+      : "unsupported";
   const isPending = isNewWorkspacePending({ pendingAction, isDraftHandoffActive });
   const { effectiveIsolation, setIsolation, canCreateWorktree, showRefPicker } =
     useWorkspaceIsolation({
@@ -2270,6 +2286,7 @@ export function NewWorkspaceScreen({
       withInitialAgent: boolean;
       agent?: CreateWorkspaceRequestOptions["agent"];
       onEvent?: (snapshot: CreationSnapshot) => void;
+      scratch?: ScratchKind;
     }) => {
       if (creationResult.workspace) {
         return creationResult;
@@ -2281,7 +2298,8 @@ export function NewWorkspaceScreen({
         throw new Error("Choose a host for this project");
       }
       const connectedClient = withConnectedClient();
-      const createsWorktree = !supportsWorkspaceMultiplicity || effectiveIsolation === "worktree";
+      const createsWorktree =
+        !isScratchProject && (!supportsWorkspaceMultiplicity || effectiveIsolation === "worktree");
       const checkoutStatusForCreate = createsWorktree
         ? await ensureCheckoutStatus({
             queryClient,
@@ -2302,6 +2320,7 @@ export function NewWorkspaceScreen({
         isolation: createsWorktree ? "worktree" : "local",
         project: selectedProject,
         sourceDirectory: selectedSourceDirectory,
+        scratch: isScratchProject ? (input.scratch ?? "thread") : undefined,
         checkoutRequest,
         withInitialAgent: input.withInitialAgent,
         prompt: input.prompt,
@@ -2320,6 +2339,7 @@ export function NewWorkspaceScreen({
       creationResult,
       effectiveIsolation,
       fetchProjectBaseBranch,
+      isScratchProject,
       mergeWorkspaces,
       queryClient,
       selectedItem,
@@ -2420,7 +2440,10 @@ export function NewWorkspaceScreen({
         prompt: terminalPromptText,
         profile: selectedTerminalProfile,
         profileName: selectedTerminalProfile?.name,
-        ensureWorkspace: async (request) => (await ensureWorkspace(request)).workspace,
+        ensureWorkspace: async (request) =>
+          (await ensureWorkspace({ ...request, scratch: "home" })).workspace,
+        // The Scratch home is a workspace directory, not the user's home. Move the shell there.
+        shellPrelude: isScratchProject ? "cd ~ && clear" : undefined,
         createTerminal: async (input) => {
           const connectedClient = withConnectedClient();
           const createdTerminal = await connectedClient.createTerminal(
@@ -2470,6 +2493,7 @@ export function NewWorkspaceScreen({
     }
   }, [
     ensureWorkspace,
+    isScratchProject,
     isStillOnCreateScreen,
     launchTarget,
     queryClient,
