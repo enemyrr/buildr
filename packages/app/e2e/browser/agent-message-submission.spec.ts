@@ -1239,6 +1239,7 @@ test.describe("Agent message submission", () => {
       await gate.waitForHeldServerMessage("send_agent_message_response");
       await expect(page.getByText("hello", { exact: true })).toHaveCount(1);
       await expect(page.getByLabel(/^Worked for/)).toHaveCount(0);
+      await expectAgentReadyToInterrupt(page);
       gate.releaseHeldServerMessage("send_agent_message_response");
       await expect(page.getByText("hello", { exact: true })).toHaveCount(1);
     } finally {

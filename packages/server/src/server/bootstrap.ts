@@ -1797,6 +1797,7 @@ export async function createPaseoDaemon(
             );
             pluginRuntime.bindPaseoSessionHost(wsServer);
             await pluginRuntime.start();
+            providerSnapshotManager.settlePluginProviders();
             wsServer.beginAcceptingConnections();
             // Plugin providers are registered by now, so every interrupted agent can resume.
             if (autoContinueInterruptedTurns && interruptedAgentIds.length > 0) {

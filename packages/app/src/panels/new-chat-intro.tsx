@@ -9,8 +9,7 @@ import {
   useWorkspaceAttachments,
   useWorkspaceAttachmentsStore,
 } from "@/attachments/workspace-attachments-store";
-import { getProviderIcon } from "@/components/provider-icons";
-import { MAX_CONTENT_WIDTH } from "@/constants/layout";
+import { useProviderIcon } from "@/components/provider-icons";
 import { useToast } from "@/contexts/toast-context";
 import { useHostFeature } from "@/runtime/host-features";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
@@ -148,7 +147,7 @@ function TranscriptChip({
     isChatHistoryAttachment(attachment, attachmentId),
   );
   const [pending, setPending] = useState(false);
-  const ProviderIcon = getProviderIcon(agent.provider, serverId);
+  const ProviderIcon = useProviderIcon(agent.provider, serverId);
 
   const handlePress = useCallback(async () => {
     const store = useWorkspaceAttachmentsStore.getState();
@@ -227,7 +226,7 @@ function TranscriptChip({
 const styles = StyleSheet.create((theme) => ({
   container: {
     width: "100%",
-    maxWidth: MAX_CONTENT_WIDTH,
+    maxWidth: theme.contentMaxWidth,
     alignSelf: "center",
     gap: theme.spacing[3],
     paddingTop: theme.spacing[4],

@@ -128,7 +128,6 @@ test("an open Import Session row keeps its age current", async ({ page }) => {
   await page.clock.install({ time: scenario.importSessionTimestamp + 60_000 });
   const flow = new ImportSessionFlow(page);
   await flow.openWorkspace(scenario.project.workspaceId, { width: 390, height: 844 });
-  await flow.revealMobileEntryPoint();
   await flow.openGlobally();
 
   const row = page.getByTestId(`import-session-session-claude-${scenario.importSessionId}`);

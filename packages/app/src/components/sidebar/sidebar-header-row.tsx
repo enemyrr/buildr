@@ -1,7 +1,13 @@
-import { useCallback, useMemo } from "react";
-import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+  type Ref,
+} from "react";
+import { Pressable, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import type { LucideIcon } from "lucide-react-native";
 import {
   HEADER_INNER_HEIGHT,
   HEADER_INNER_HEIGHT_MOBILE,
@@ -15,10 +21,12 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
-type SidebarHeaderRowVariant = "header" | "compact";
+type SidebarHeaderRowVariant = "header" | "compact" | "inline";
+
+export type SidebarRowIcon = ComponentType<{ size: number; color: string }>;
 
 interface SidebarHeaderRowProps {
-  icon: LucideIcon;
+  icon: SidebarRowIcon | null;
   label: string;
   onPress: () => void;
   isActive?: boolean;
@@ -28,11 +36,20 @@ interface SidebarHeaderRowProps {
   /**
    * "header" (default): a sidebar-height row with its own bottom separator —
    * the lone header at the top of a sidebar (settings "Back to workspace").
-   * "compact": a workspace-row-height row with no separator, for entries that
+   * "compact": a row with no separator, for entries that
    * sit in a header group whose wrapper owns the single divider.
+   * "inline": a full-width row with no inset, for a row inside a padded container such as the
+   * sidebar footer.
    */
   variant?: SidebarHeaderRowVariant;
+  /** Shown in the right slot on wide layouts, when `trailing` is not set. */
   shortcutKeys?: ShortcutKey[][] | null;
+  /**
+   * The right slot. A sibling of the row's button, never inside it (web cannot nest buttons). A
+   * press on the slot presses the row; a button inside it presses on its own.
+   */
+  trailing?: ReactNode;
+  rowRef?: Ref<View>;
 }
 
 export function SidebarHeaderRow({
@@ -45,79 +62,66 @@ export function SidebarHeaderRow({
   accessibilityLabel,
   variant = "header",
   shortcutKeys = null,
+  trailing,
+  rowRef,
 }: SidebarHeaderRowProps) {
   const isCompact = useIsCompactFormFactor();
-  const accessibilityState = useMemo(() => ({ selected: isActive }), [isActive]);
-  const ThemedIcon = useMemo(() => withUnistyles(Icon), [Icon]);
+  const [isHovered, setIsHovered] = useState(false);
+  const handlePointerEnter = useCallback(() => setIsHovered(true), []);
+  const handlePointerLeave = useCallback(() => setIsHovered(false), []);
+  const ThemedIcon = useMemo(() => (Icon ? withUnistyles(Icon) : null), [Icon]);
+  const isHighlighted = isHovered || isActive;
 
-  const containerStyle = useMemo(
-    () => (variant === "compact" ? styles.containerCompact : styles.container),
-    [variant],
-  );
-
-  const buttonStyle = useCallback(
-    ({ hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
-      styles.button,
-      variant === "compact" && styles.buttonCompact,
-      (Boolean(hovered) || isActive) && styles.buttonHovered,
-    ],
-    [isActive, variant],
-  );
-
-  const renderChildren = useCallback(
-    (state: PressableStateCallbackType & { hovered?: boolean }) => {
-      const isHighlighted = Boolean(state.hovered) || isActive;
-      return (
-        <>
-          <ThemedIcon
-            size={ICON_SIZE.sm}
-            uniProps={isHighlighted ? foregroundColorMapping : foregroundMutedColorMapping}
-          />
-          <SidebarHeaderRowLabel label={label} isHighlighted={isHighlighted} />
-          {shortcutKeys && !isCompact ? (
-            <Shortcut chord={shortcutKeys} style={styles.shortcut} />
-          ) : null}
-        </>
-      );
-    },
-    [ThemedIcon, isActive, isCompact, label, shortcutKeys],
-  );
+  let right = trailing ?? null;
+  if (right === null && shortcutKeys && !isCompact) {
+    right = <Shortcut chord={shortcutKeys} />;
+  }
 
   return (
-    <View style={containerStyle}>
-      <Pressable
-        onPress={onPress}
-        testID={testID}
-        nativeID={nativeID}
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
-        accessibilityState={accessibilityState}
-        style={buttonStyle}
+    <View ref={rowRef} collapsable={false} style={getContainerStyle(variant)}>
+      <View
+        style={[
+          styles.row,
+          variant !== "header" && styles.rowCompact,
+          isHighlighted && styles.rowHighlighted,
+        ]}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
       >
-        {renderChildren}
-      </Pressable>
+        <Pressable
+          onPress={onPress}
+          testID={testID}
+          nativeID={nativeID}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityState={isActive ? SELECTED_STATE : undefined}
+          aria-selected={isActive}
+          style={[styles.button, variant !== "header" && styles.buttonCompact]}
+        >
+          {ThemedIcon ? (
+            <ThemedIcon
+              size={ICON_SIZE.sm}
+              uniProps={isHighlighted ? foregroundColorMapping : foregroundMutedColorMapping}
+            />
+          ) : (
+            <View style={styles.iconSpacer} />
+          )}
+          <Text style={[styles.label, isHighlighted && styles.labelHighlighted]} numberOfLines={1}>
+            {label}
+          </Text>
+        </Pressable>
+        {right === null ? null : (
+          <Pressable onPress={onPress} accessible={false} focusable={false} style={styles.trailing}>
+            {right}
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
 
-function SidebarHeaderRowLabel({
-  label,
-  isHighlighted,
-}: {
-  label: string;
-  isHighlighted: boolean;
-}) {
-  const labelStyle = useMemo(
-    () => [styles.label, isHighlighted && styles.labelHighlighted],
-    [isHighlighted],
-  );
-  return (
-    <Text style={labelStyle} numberOfLines={1}>
-      {label}
-    </Text>
-  );
-}
+const SELECTED_STATE = { selected: true } as const;
 
 const styles = StyleSheet.create((theme) => ({
   container: {
@@ -137,29 +141,45 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     userSelect: "none",
   },
+  containerInline: {
+    width: "100%",
+    justifyContent: "center",
+    userSelect: "none",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    // Match the sidebar workspace-row shape (height, radius) so the header row
+    // lines up with the workspace list below.
+    minHeight: 36,
+    borderRadius: theme.borderRadius.lg,
+  },
+  // Compact and inline entries (the sidebar nav and footer) are dense 28px rows.
+  rowCompact: {
+    minHeight: 28,
+    borderRadius: theme.borderRadius.md,
+  },
+  rowHighlighted: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+  },
   button: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    // Match the sidebar workspace-row shape (height, padding, radius) so the
-    // compact header entries sit tight against the workspace list below.
     minHeight: 36,
     paddingVertical: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
   },
-  // Compact header entries (the sidebar nav) are dense 28px rows.
   buttonCompact: {
     minHeight: 28,
     paddingVertical: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
     // Match the project rows' inner padding so the icons align on one vertical
-    // edge with the workspace list below (base button uses a wider spacing[3]).
+    // edge with the workspace list below.
     paddingHorizontal: theme.spacing[2],
   },
-  buttonHovered: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
-  },
+  iconSpacer: { width: ICON_SIZE.sm, height: ICON_SIZE.sm },
   label: {
     flexShrink: 1,
     fontSize: theme.fontSize.base,
@@ -169,8 +189,21 @@ const styles = StyleSheet.create((theme) => ({
   labelHighlighted: {
     color: theme.colors.foreground,
   },
-  shortcut: {
-    marginLeft: "auto",
-    flexShrink: 0,
+  trailing: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingRight: theme.spacing[2],
   },
 }));
+
+function getContainerStyle(variant: SidebarHeaderRowVariant) {
+  switch (variant) {
+    case "header":
+      return styles.container;
+    case "compact":
+      return styles.containerCompact;
+    case "inline":
+      return styles.containerInline;
+  }
+}

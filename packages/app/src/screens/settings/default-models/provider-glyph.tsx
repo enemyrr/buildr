@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { withUnistyles } from "react-native-unistyles";
-import { getProviderIcon } from "@/components/provider-icons";
+import { useProviderIcon } from "@/components/provider-icons";
 import type { Theme } from "@/styles/theme";
 
 interface ProviderIconProps {
@@ -11,7 +11,7 @@ interface ProviderIconProps {
 }
 
 function ProviderIcon({ provider, serverId, size, color = "" }: ProviderIconProps): ReactElement {
-  const Icon = getProviderIcon(provider, serverId);
+  const Icon = useProviderIcon(provider, serverId);
   return <Icon size={size} color={color} />;
 }
 

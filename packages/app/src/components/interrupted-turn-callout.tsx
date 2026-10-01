@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useHostFeature } from "@/runtime/host-features";
 import { useSessionStore } from "@/stores/session-store";
@@ -131,7 +130,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   content: {
     width: "100%",
-    maxWidth: MAX_CONTENT_WIDTH,
+    maxWidth: theme.contentMaxWidth,
   },
   // Matches the Alert primitive's own description text.
   description: {

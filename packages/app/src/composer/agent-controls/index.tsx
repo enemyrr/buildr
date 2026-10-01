@@ -189,6 +189,7 @@ type AgentControlsSlice = {
   runtimeModelId: string | null;
   model: string | null | undefined;
   features: AgentFeature[] | undefined;
+  runtimeThinkingOptionId: string | null;
   thinkingOptionId: string | null | undefined;
   lastUsage: unknown;
 } | null;
@@ -208,6 +209,7 @@ function selectAgentControlsSlice(
     runtimeModelId: currentAgent.runtimeInfo?.model ?? null,
     model: currentAgent.model,
     features: currentAgent.features,
+    runtimeThinkingOptionId: currentAgent.runtimeInfo?.thinkingOptionId ?? null,
     thinkingOptionId: currentAgent.thinkingOptionId,
     lastUsage: currentAgent.lastUsage,
   };
@@ -385,6 +387,7 @@ export const AgentControls = memo(function AgentControls({
     models,
     runtimeModelId: agent?.runtimeModelId,
     configuredModelId: agent?.model,
+    runtimeThinkingOptionId: agent?.runtimeThinkingOptionId,
     explicitThinkingOptionId: agent?.thinkingOptionId,
   });
 

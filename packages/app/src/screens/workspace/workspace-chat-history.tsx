@@ -4,7 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { History, RotateCcw } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
-import { getProviderIcon } from "@/components/provider-icons";
+import { useProviderIcon } from "@/components/provider-icons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { ToolbarButton } from "@/components/ui/pane-content-toolbar";
 import { useToast } from "@/contexts/toast-context";
@@ -28,7 +28,7 @@ function AgentProviderIcon({
   serverId: string;
   color?: string;
 }): ReactElement {
-  const Icon = getProviderIcon(provider, serverId);
+  const Icon = useProviderIcon(provider, serverId);
   return <Icon size={14} color={color} />;
 }
 
