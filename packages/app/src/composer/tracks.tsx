@@ -11,7 +11,6 @@ import {
   type MenuTriggerState,
 } from "@/components/ui/menu";
 import { PixelLoader } from "@/components/pixel-loader";
-import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { getStatusDotColor } from "@/utils/status-dot-color";
 import { STATUS_INDICATOR_FILLED_DOT_SIZE } from "@/utils/status-indicator-geometry";
@@ -349,7 +348,7 @@ const styles = StyleSheet.create((theme) => {
     },
     track: {
       width: "100%",
-      maxWidth: MAX_CONTENT_WIDTH,
+      maxWidth: theme.contentMaxWidth,
       flexDirection: "row",
       alignItems: "center",
       gap: theme.spacing[1],

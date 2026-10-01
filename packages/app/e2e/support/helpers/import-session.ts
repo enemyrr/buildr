@@ -112,8 +112,12 @@ export class ImportSessionFlow {
     });
   }
   async expectTranscript(userText: string, assistantText: string) {
-    await expect(this.page.getByTestId("user-message")).toContainText(userText);
-    await expect(this.page.getByTestId("assistant-message")).toContainText(assistantText);
+    await expect(this.page.getByTestId("user-message").filter({ visible: true })).toContainText(
+      userText,
+    );
+    await expect(
+      this.page.getByTestId("assistant-message").filter({ visible: true }),
+    ).toContainText(assistantText);
   }
   async showAll() {
     await this.page.getByTestId("import-session-show-all").click();
@@ -124,7 +128,9 @@ export class ImportSessionFlow {
       timeout: 30_000,
     });
     const workspace = this.page.getByTestId(`workspace-deck-entry-${getServerId()}:${workspaceId}`);
-    await expect(workspace.getByTestId("user-message")).toContainText(userText);
+    await expect(workspace.getByTestId("user-message").filter({ visible: true })).toContainText(
+      userText,
+    );
   }
   async close() {
     await this.page.keyboard.press("Escape");

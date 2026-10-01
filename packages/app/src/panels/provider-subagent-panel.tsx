@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native-unistyles";
 import invariant from "tiny-invariant";
 import { useShallow } from "zustand/react/shallow";
 import { AgentStreamView } from "@/agent-stream/view";
-import { getProviderIcon } from "@/components/provider-icons";
+import { useProviderIcon } from "@/components/provider-icons";
 import { useSharedValue, type SharedValue } from "react-native-reanimated";
 import { resolveComposerTrackTailClearance } from "@/composer/pill-styles";
 import { ComposerTrackBar } from "@/composer/tracks";
@@ -93,7 +93,7 @@ function useProviderSubagentDescriptor(
       subagentType && subagentType !== label ? `${subagentType} · ${providerLabel}` : providerLabel,
     tooltip: label,
     titleState: descriptor ? "ready" : "loading",
-    icon: getProviderIcon(provider, context.serverId),
+    icon: useProviderIcon(provider, context.serverId),
     statusBucket: descriptor
       ? deriveSidebarStateBucket({
           status: providerSubagentLifecycleStatus(descriptor.status),

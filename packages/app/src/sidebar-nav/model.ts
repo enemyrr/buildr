@@ -1,14 +1,20 @@
 import type { PluginSidebarGroup } from "@/plugins/sidebar-groups";
+import type { PluginSidebarSection } from "@/plugins/types";
 
-export const BUILTIN_SIDEBAR_NAV_IDS = [
-  "dashboard",
-  "home",
-  "history",
-  "new-workspace",
-  "search",
-  "schedules",
-] as const;
-export type BuiltinSidebarNavId = (typeof BUILTIN_SIDEBAR_NAV_IDS)[number];
+export type SidebarSection = PluginSidebarSection;
+
+/**
+ * Each section's built-in items in their default order. The footer's bottom line
+ * (Add project and the Hosts, Help and support, Settings icons) is fixed.
+ */
+export const BUILTIN_SIDEBAR_ITEM_IDS = {
+  header: ["dashboard", "home", "history", "new-workspace", "search", "schedules"],
+  footer: ["usage"],
+} as const satisfies Record<SidebarSection, readonly string[]>;
+
+export type BuiltinSidebarItemId<Section extends SidebarSection = SidebarSection> =
+  (typeof BUILTIN_SIDEBAR_ITEM_IDS)[Section][number];
+export type BuiltinSidebarNavId = BuiltinSidebarItemId<"header">;
 
 /** Persisted shape. Array order is the display order. */
 export interface SidebarNavPreference {
@@ -16,10 +22,10 @@ export interface SidebarNavPreference {
   visible: boolean;
 }
 
-export interface BuiltinSidebarNavItem {
+export interface BuiltinSidebarNavItem<Section extends SidebarSection = SidebarSection> {
   kind: "builtin";
-  key: BuiltinSidebarNavId;
-  id: BuiltinSidebarNavId;
+  key: BuiltinSidebarItemId<Section>;
+  id: BuiltinSidebarItemId<Section>;
   visible: boolean;
 }
 
@@ -30,18 +36,21 @@ export interface PluginSidebarNavItem {
   visible: boolean;
 }
 
-export type SidebarNavItem = BuiltinSidebarNavItem | PluginSidebarNavItem;
+export type SidebarNavItem<Section extends SidebarSection = SidebarSection> =
+  | BuiltinSidebarNavItem<Section>
+  | PluginSidebarNavItem;
 
-const BUILTIN_LABEL_KEYS: Record<BuiltinSidebarNavId, string> = {
+const BUILTIN_LABEL_KEYS: Record<BuiltinSidebarItemId, string> = {
   dashboard: "sidebar.sections.dashboard",
   home: "sidebar.sections.home",
   "new-workspace": "sidebar.actions.newWorkspace",
   history: "sidebar.sections.sessions",
   search: "sidebar.sections.search",
   schedules: "sidebar.sections.schedules",
+  usage: "sidebar.footer.usage",
 };
 
-export function builtinSidebarNavLabelKey(id: BuiltinSidebarNavId): string {
+export function builtinSidebarNavLabelKey(id: BuiltinSidebarItemId): string {
   return BUILTIN_LABEL_KEYS[id];
 }
 
@@ -50,17 +59,30 @@ export function builtinSidebarNavLabelKey(id: BuiltinSidebarNavId): string {
  * Both the sidebar row and the Appearance settings row read the badge from here so the
  * two never disagree about which shortcut belongs to which item.
  */
-const BUILTIN_SHORTCUT_ACTIONS: Record<BuiltinSidebarNavId, string | null> = {
+const BUILTIN_SHORTCUT_ACTIONS: Record<BuiltinSidebarItemId, string | null> = {
   dashboard: null,
   home: null,
   "new-workspace": "new-workspace",
   history: null,
   search: "toggle-command-center",
   schedules: null,
+  usage: null,
 };
 
-export function builtinSidebarNavShortcutAction(id: BuiltinSidebarNavId): string | null {
+export function builtinSidebarNavShortcutAction(id: BuiltinSidebarItemId): string | null {
   return BUILTIN_SHORTCUT_ACTIONS[id];
+}
+
+/**
+ * Builtins that start hidden on compact layouts, until the user turns them on. A phone's footer
+ * has no room to spare for the Usage summary.
+ */
+const HIDDEN_BY_DEFAULT_ON_COMPACT: ReadonlySet<BuiltinSidebarItemId> = new Set(["usage"]);
+
+function builtinVisibleByDefault(id: BuiltinSidebarItemId, compact: boolean): boolean {
+  // Buildr's footer resources menu already shows usage, so the Usage row starts hidden everywhere.
+  if (id === "usage") return false;
+  return !(compact && HIDDEN_BY_DEFAULT_ON_COMPACT.has(id));
 }
 
 export function pluginSidebarNavKey(
@@ -69,18 +91,27 @@ export function pluginSidebarNavKey(
   return `plugin:${group.pluginId}:${group.contributionId}`;
 }
 
-function isBuiltinSidebarNavId(key: string): key is BuiltinSidebarNavId {
-  return (BUILTIN_SIDEBAR_NAV_IDS as readonly string[]).includes(key);
+function isBuiltinSidebarItemId<Section extends SidebarSection>(
+  section: Section,
+  key: string,
+): key is BuiltinSidebarItemId<Section> {
+  const ids: readonly string[] = BUILTIN_SIDEBAR_ITEM_IDS[section];
+  return ids.includes(key);
 }
 
-export function resolveSidebarNavItems(input: {
+export function resolveSidebarNavItems<Section extends SidebarSection>(input: {
+  section: Section;
+  /** Compact layouts start some builtins hidden; a stored preference always wins. */
+  compact: boolean;
   pluginGroups: readonly PluginSidebarGroup[];
   preferences: readonly SidebarNavPreference[];
-}): SidebarNavItem[] {
+}): SidebarNavItem<Section>[] {
+  const builtinIds: readonly BuiltinSidebarItemId<Section>[] =
+    BUILTIN_SIDEBAR_ITEM_IDS[input.section];
   const groupsByKey = new Map(
     input.pluginGroups.map((group) => [pluginSidebarNavKey(group), group] as const),
   );
-  const items: SidebarNavItem[] = [];
+  const items: SidebarNavItem<Section>[] = [];
   const placed = new Set<string>();
 
   for (const preference of input.preferences) {
@@ -89,7 +120,7 @@ export function resolveSidebarNavItems(input: {
     if (group) {
       placed.add(preference.key);
       items.push({ kind: "plugin", key: preference.key, group, visible: preference.visible });
-    } else if (isBuiltinSidebarNavId(preference.key)) {
+    } else if (isBuiltinSidebarItemId(input.section, preference.key)) {
       placed.add(preference.key);
       items.push({
         kind: "builtin",
@@ -100,9 +131,14 @@ export function resolveSidebarNavItems(input: {
     }
   }
 
-  for (const id of BUILTIN_SIDEBAR_NAV_IDS) {
+  for (const id of builtinIds) {
     if (placed.has(id)) continue;
-    const item: BuiltinSidebarNavItem = { kind: "builtin", key: id, id, visible: true };
+    const item: BuiltinSidebarNavItem<Section> = {
+      kind: "builtin",
+      key: id,
+      id,
+      visible: builtinVisibleByDefault(id, input.compact),
+    };
     // Dashboard and Home shipped after users had saved an order; they lead, in that order,
     // until the user moves them.
     if (id === "dashboard") items.unshift(item);

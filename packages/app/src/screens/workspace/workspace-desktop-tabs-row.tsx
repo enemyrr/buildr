@@ -715,6 +715,11 @@ function TabHandleContent({
   );
 }
 
+// Selecting on press-in makes web tabs feel instant; native keeps press so scroll gestures still work.
+function webOnlyPressIn(handler: () => void): (() => void) | undefined {
+  return isWeb ? handler : undefined;
+}
+
 function TabChip({
   serverId,
   tab,
@@ -848,9 +853,8 @@ function TabChip({
               {...(dragHandleProps?.listeners as object | undefined)}
               testID={`workspace-tab-${testIdentity}`}
               triggerRef={dragHandleProps?.setActivatorNodeRef as unknown as undefined}
-              enabledOnMobile={false}
               style={tabChipStyle}
-              onPressIn={handleNavigateTab}
+              onPressIn={webOnlyPressIn(handleNavigateTab)}
               onPress={handleNavigateTab}
               accessibilityRole="button"
               accessibilityLabel={accessibilityLabel}

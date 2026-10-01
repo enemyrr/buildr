@@ -16,8 +16,8 @@ import { UsageCard } from "@/usage/card";
 import { usageCopy } from "@/usage/copy";
 import { clampPct, formatPct } from "@/usage/format";
 import { useHostUsage } from "@/usage/queries";
-import { deriveTone } from "@/usage/tone";
-import type { UsageReportEntry, UsageView } from "@/usage/types";
+import { useUsagePreferences } from "@/usage/display";
+import type { UsageReportEntry, UsageTone, UsageView } from "@/usage/types";
 import type { MenuTriggerState } from "@/components/ui/menu";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
 import { useSessionStore, type Agent } from "@/stores/session-store";
@@ -156,12 +156,18 @@ function ResourcesSection({ serverId, open }: { serverId: string | null; open: b
   );
 }
 
+function contextTone(pct: number): UsageTone {
+  if (pct > 90) return "danger";
+  if (pct >= 70) return "warning";
+  return "default";
+}
+
 function ContextRow({ agent }: { agent: Agent }) {
   const { t } = useTranslation();
   const used = agent.lastUsage?.contextWindowUsedTokens ?? 0;
   const max = agent.lastUsage?.contextWindowMaxTokens ?? 1;
   const pct = clampPct((used / max) * 100);
-  const tone = deriveTone(pct);
+  const tone = contextTone(pct);
   const fillStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
       styles.meterFill,
@@ -208,6 +214,7 @@ function LimitsBody({ serverId, view }: { serverId: string; view: UsageView }) {
 
 function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageReportEntry[] }) {
   const { t } = useTranslation();
+  const { display } = useUsagePreferences();
   const [showUnavailable, setShowUnavailable] = useState(false);
   const toggleUnavailable = useCallback(() => setShowUnavailable((shown) => !shown), []);
   const unavailable = reports.filter((entry) => entry.report.status === "unavailable");
@@ -216,7 +223,7 @@ function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageRe
   return (
     <View style={styles.limitsList}>
       {visible.map((entry) => (
-        <UsageCard key={entry.id} serverId={serverId} entry={entry} compact />
+        <UsageCard key={entry.id} serverId={serverId} entry={entry} display={display} compact />
       ))}
       {unavailable.length > 0 ? (
         <Button
@@ -232,7 +239,7 @@ function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageRe
       ) : null}
       {showUnavailable
         ? unavailable.map((entry) => (
-            <UsageCard key={entry.id} serverId={serverId} entry={entry} compact />
+            <UsageCard key={entry.id} serverId={serverId} entry={entry} display={display} compact />
           ))
         : null}
     </View>

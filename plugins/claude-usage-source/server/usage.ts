@@ -112,9 +112,11 @@ const UNSCOPED_WINDOWS: ReadonlyArray<{
   field: "five_hour" | "seven_day";
   id: string;
   label: string;
+  shortLabel: string;
+  summary: boolean;
 }> = [
-  { field: "five_hour", id: "five_hour", label: "Session" },
-  { field: "seven_day", id: "weekly", label: "Weekly" },
+  { field: "five_hour", id: "five_hour", label: "Session", shortLabel: "5h", summary: true },
+  { field: "seven_day", id: "weekly", label: "Weekly", shortLabel: "wk", summary: true },
 ];
 
 // Scoped windows from before `limits[]` existed. Declaring the dimension here is what
@@ -253,6 +255,8 @@ function unscopedWindows(resp: ClaudeUsageResponse): UsageWindow[] {
       windowFromUsedPct({
         id: spec.id,
         label: spec.label,
+        shortLabel: spec.shortLabel,
+        summary: spec.summary,
         utilizationPct: window.utilization,
         resetsAt: window.resets_at ?? null,
         tone: toneFromUsedPct(window.utilization),
@@ -272,6 +276,7 @@ function scopedWindows(limits: ScopedLimit[]): UsageWindow[] {
     return windowFromUsedPct({
       id,
       label: `Weekly \u00b7 ${limit.name}`,
+      shortLabel: `wk ${limit.name}`,
       utilizationPct: limit.usedPct,
       resetsAt: limit.resetsAt,
       tone: toneFromUsedPct(limit.usedPct),
@@ -336,11 +341,9 @@ interface ClaudeCredentialLookup {
 
 /** Shared credential lookup for usage fetches and account identification. */
 export async function resolveClaudeCredentials(
-  input: UsageInput,
+  _input: UsageInput,
   lookup: ClaudeCredentialLookup = {},
 ): Promise<ClaudeCredentialRecord | null> {
-  if ("accessToken" in input) return { oauth: { accessToken: input.accessToken } };
-  if ("configDir" in input) return readCredentialFile(join(input.configDir, ".credentials.json"));
   const claudeHome = lookup.claudeHome ?? process.env["CLAUDE_HOME"] ?? join(homedir(), ".claude");
   const fileCredentials = await readCredentialFile(join(claudeHome, ".credentials.json"));
   if (fileCredentials) return fileCredentials;
@@ -433,7 +436,6 @@ export async function fetchUsage(
     scopedLimitsFromResponse(resp.limits),
   );
   const windows = [...unscopedWindows(resp), ...scopedWindows(scoped)];
-  if (windows[0]) windows[0].headline = true;
 
   if (windows.length === 0) {
     // The response parsed but described nothing. That silence is how the previous
@@ -484,21 +486,18 @@ export async function identify(
   now: () => number = Date.now,
   credentialLookup: ClaudeCredentialLookup = {},
 ) {
-  const directory =
-    "configDir" in input ? input.configDir : (credentialLookup.accountHome ?? homedir());
-  if (!("accessToken" in input)) {
-    try {
-      const config = z
-        .object({ oauthAccount: ClaudeAccountSchema })
-        .parse(JSON.parse(await fs.readFile(join(directory, ".claude.json"), "utf8")));
-      const account = config.oauthAccount;
-      return {
-        key: `${account.accountUuid}.${account.organizationUuid}`,
-        ...(account.emailAddress ? { label: account.emailAddress } : {}),
-      };
-    } catch {
-      // Credentials may still be present even when account metadata is absent.
-    }
+  const directory = credentialLookup.accountHome ?? homedir();
+  try {
+    const config = z
+      .object({ oauthAccount: ClaudeAccountSchema })
+      .parse(JSON.parse(await fs.readFile(join(directory, ".claude.json"), "utf8")));
+    const account = config.oauthAccount;
+    return {
+      key: `${account.accountUuid}.${account.organizationUuid}`,
+      ...(account.emailAddress ? { label: account.emailAddress } : {}),
+    };
+  } catch {
+    // Credentials may still be present even when account metadata is absent.
   }
   const credentials = await resolveClaudeCredentials(input, credentialLookup);
   if (!credentials) return null;

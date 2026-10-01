@@ -143,7 +143,6 @@ import {
   type AgentPermissionResponse,
   type AgentRunOptions,
   type AgentSessionConfig,
-  type UsageReference,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
 import type { AgentStorage } from "./agent/agent-storage.js";
@@ -532,9 +531,7 @@ export interface SessionOptions {
     listUsageReports(options?: {
       forceRefresh?: boolean;
       reportIds?: string[];
-      references?: UsageReference[];
     }): Promise<UsageReportEntry[]>;
-    resolveUsageReference(reference: UsageReference): Promise<string | null>;
     listLegacyUsage(): Promise<{ fetchedAt: string; providers: ProviderUsage[] }>;
   };
   orchestrationSkills?: import("./orchestration-skills/index.js").OrchestrationSkills;
@@ -1030,8 +1027,6 @@ export class Session {
     });
     this.usageSession = new UsageSession({
       emit: (msg) => this.emit(msg),
-      listAgents: () => this.agentManager.listAgents(),
-      getAgent: (agentId) => this.agentManager.getAgent(agentId),
       runtime: pluginRuntime,
       logger: this.sessionLogger,
     });
@@ -3093,8 +3088,6 @@ export class Session {
         return this.usageSession.handleLegacyList(msg);
       case "usage.list_reports.request":
         return this.usageSession.handleListReports(msg);
-      case "agent.resolve_usage_report.request":
-        return this.usageSession.handleResolveAgentReport(msg);
       case "stats.activity.get.request":
         return this.handleActivityStatsRequest(msg);
       default:

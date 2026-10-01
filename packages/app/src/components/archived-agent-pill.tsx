@@ -2,7 +2,6 @@ import { Text, View } from "react-native";
 import { Archive } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { MAX_CONTENT_WIDTH } from "@/constants/layout";
 import type { Theme } from "@/styles/theme";
 
 const ThemedArchive = withUnistyles(Archive);
@@ -32,7 +31,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   content: {
     width: "100%",
-    maxWidth: MAX_CONTENT_WIDTH,
+    maxWidth: theme.contentMaxWidth,
     alignItems: "center",
   },
   pill: {

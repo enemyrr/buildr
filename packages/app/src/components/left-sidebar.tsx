@@ -44,6 +44,8 @@ import type { SidebarWorkspaceGroup } from "@/components/sidebar/sidebar-labels"
 import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model";
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useHosts } from "@/runtime/host-runtime";
+import { PluginSidebarItem } from "@/plugins/sidebar-items";
+import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { usePanelStore } from "@/stores/panel-store";
 import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop-window";
 import { useCloseAgentListGesture } from "@/mobile-panels/gestures";
@@ -55,6 +57,7 @@ import {
 } from "@/utils/host-routes";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { openHostOverview } from "@/navigation/settings-navigation";
+import { UsageSidebarItem } from "@/usage";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -99,7 +102,6 @@ interface SidebarSharedProps {
 interface SidebarLabels {
   addProject: string;
   hosts: string;
-  importSession: string;
   settings: string;
   searchHosts: string;
   closeSidebar: string;
@@ -205,7 +207,6 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
     (): SidebarLabels => ({
       addProject: t("sidebar.actions.addProject"),
       hosts: t("sidebar.actions.hosts"),
-      importSession: t("importSession.title"),
       settings: t("sidebar.actions.settings"),
       searchHosts: t("sidebar.host.searchPlaceholder"),
       closeSidebar: t("sidebar.actions.closeSidebar"),
@@ -316,7 +317,7 @@ function FooterIconButton({
           )}
         </Pressable>
       </TooltipTrigger>
-      <TooltipContent side="top" align="center" offset={8}>
+      <TooltipContent side="top" align="center" offset={8} testID={`${testID}-tooltip`}>
         <IconTooltipContent label={label} shortcutKeys={shortcutKeys} />
       </TooltipContent>
     </Tooltip>
@@ -414,6 +415,7 @@ const SidebarFooter = memo(function SidebarFooter({
   labels,
   handleAddHost,
   handleOpenHostSettings,
+  onBeforeNavigate,
 }: {
   handleSettings: () => void;
   labels: {
@@ -422,30 +424,59 @@ const SidebarFooter = memo(function SidebarFooter({
   };
   handleAddHost: () => void;
   handleOpenHostSettings: (serverId: string) => void;
+  onBeforeNavigate?: () => void;
 }) {
   const settingsKeys = useShortcutKeys("toggle-settings");
 
   return (
-    <View style={styles.sidebarFooter}>
-      <SidebarResourcesMenu />
-      <View style={styles.footerIconRow}>
-        <SidebarHostPicker
-          label={labels.hosts}
-          onAddHost={handleAddHost}
-          onOpenHostSettings={handleOpenHostSettings}
-        />
-        <SidebarAnalyticsButton />
-        <FooterIconButton
-          onPress={handleSettings}
-          testID="sidebar-settings"
-          label={labels.settings}
-          icon={ThemedSettings}
-          shortcutKeys={settingsKeys}
-        />
+    <View testID="sidebar-footer">
+      <SidebarFooterRows onBeforeNavigate={onBeforeNavigate} />
+      <View style={styles.sidebarFooter}>
+        <SidebarResourcesMenu />
+        <View style={styles.footerIconRow}>
+          <SidebarHostPicker
+            label={labels.hosts}
+            onAddHost={handleAddHost}
+            onOpenHostSettings={handleOpenHostSettings}
+          />
+          <SidebarAnalyticsButton />
+          <FooterIconButton
+            onPress={handleSettings}
+            testID="sidebar-settings"
+            label={labels.settings}
+            icon={ThemedSettings}
+            shortcutKeys={settingsKeys}
+          />
+        </View>
       </View>
     </View>
   );
 });
+
+/** The footer rows in the user's `sidebarFooterItems` order: the Usage item and plugin rows. */
+function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void }) {
+  const { items } = useSidebarNavItems("footer");
+  const rowsRef = useRef<View | null>(null);
+  const visibleItems = items.filter((item) => item.visible);
+  if (visibleItems.length === 0) return null;
+  return (
+    <View ref={rowsRef} collapsable={false} style={styles.footerRows}>
+      {visibleItems.map((item) =>
+        item.kind === "plugin" ? (
+          <PluginSidebarItem
+            key={item.key}
+            group={item.group}
+            section="footer"
+            fallbackAnchorRef={rowsRef}
+            onBeforeNavigate={onBeforeNavigate}
+          />
+        ) : (
+          <UsageSidebarItem key={item.key} />
+        ),
+      )}
+    </View>
+  );
+}
 
 function MobileSidebar({
   active,
@@ -505,7 +536,11 @@ function MobileSidebar({
       >
         <WindowChromeSafeArea placement="below" />
         <SidebarNavRows style={styles.sidebarHeaderGroup} onBeforeNavigate={closeSidebar} />
-        <WindowChromeSafeArea placement="inline" style={styles.mobileCloseButtonRow}>
+        <WindowChromeSafeArea
+          placement="inline"
+          pointerEvents="box-none"
+          style={styles.mobileCloseButtonRow}
+        >
           <Pressable
             style={styles.mobileCloseButton}
             onPress={closeSidebar}
@@ -556,6 +591,7 @@ function MobileSidebar({
           labels={labels}
           handleAddHost={handleAddHost}
           handleOpenHostSettings={handleOpenHostSettings}
+          onBeforeNavigate={closeSidebar}
         />
       </View>
     </MobilePanelOverlay>
@@ -848,7 +884,6 @@ const styles = StyleSheet.create((theme) => ({
     right: 0,
     zIndex: 2,
     alignItems: "flex-end",
-    pointerEvents: "box-none",
   },
   mobileCloseButton: {
     // The 16px X paints farther inside its 32px hit target than the 14px Settings2 glyph.
@@ -905,6 +940,14 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[2],
     paddingVertical: theme.spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  // Usage and plugin rows sit above the footer's icon line, spaced like the header nav rows.
+  footerRows: {
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1.5],
+    gap: 2,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },

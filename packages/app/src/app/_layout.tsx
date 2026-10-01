@@ -51,6 +51,7 @@ import { WorkspaceSetupDialog } from "@/components/workspace-setup-dialog";
 import { WorkspaceShortcutTargetsSubscriber } from "@/components/workspace-shortcut-targets-subscriber";
 import { FloatingPanelPortalHost } from "@/components/ui/floating-panel-portal";
 import { HostChooserModal, useHostChooser } from "@/hosts/host-chooser";
+import { HostConfirmationSheet } from "@/hosts/host-confirmation-sheet";
 import {
   getIsElectronRuntime,
   HEADER_INNER_HEIGHT,
@@ -621,6 +622,7 @@ function AppContainer({ children, chromeEnabled: chromeEnabledOverride }: AppCon
         <CommandCenter />
         <AddProjectFlowHost />
         <HostChooserModal />
+        <HostConfirmationSheet />
         <ProviderSettingsHost />
         <WorkspaceSetupDialog />
         <KeyboardShortcutsDialog />
