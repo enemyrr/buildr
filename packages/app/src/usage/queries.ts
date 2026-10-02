@@ -70,8 +70,14 @@ function toQueryState(query: {
   return { data: query.data, error: query.error, isFetching: query.isFetching };
 }
 
-/** Usage reports for one host, as shown on its settings page. */
-export function useHostUsage(serverId: string): { view: UsageView; refresh: () => void } {
+/**
+ * Usage reports for one host, as shown on its settings page. Always-visible summaries pass
+ * `refetchIntervalMs` so they stay current without a refresh.
+ */
+export function useHostUsage(
+  serverId: string,
+  { refetchIntervalMs }: { refetchIntervalMs?: number } = {},
+): { view: UsageView; refresh: () => void } {
   const queryClient = useQueryClient();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const isSupported = useSessionStore((state) => supportsUsage(state.sessions[serverId]));
@@ -81,6 +87,7 @@ export function useHostUsage(serverId: string): { view: UsageView; refresh: () =
     enabled: isConnected && isSupported,
     dataShape: "list",
     staleTimeMs: REPORTS_STALE_TIME_MS,
+    refetchInterval: refetchIntervalMs,
   });
   const refresh = useCallback(() => {
     void refreshReports(queryClient, serverId).catch(() => undefined);

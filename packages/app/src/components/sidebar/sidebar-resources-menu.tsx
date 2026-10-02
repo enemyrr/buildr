@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { createControlGeometry } from "@/components/ui/control-geometry";
 import {
   DropdownMenu,
@@ -14,9 +15,13 @@ import { useFetchQuery } from "@/data/query";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { UsageCard } from "@/usage/card";
 import { usageCopy } from "@/usage/copy";
-import { clampPct, formatPct } from "@/usage/format";
+import { clampPct, formatDisplayPct, formatPct, formatResetLabel } from "@/usage/format";
 import { useHostUsage } from "@/usage/queries";
 import { useUsagePreferences } from "@/usage/display";
+import { resolvePinnedUsage } from "@/usage/pinned";
+import type { UsagePreferences } from "@/usage/preferences";
+import { UsageRing } from "@/usage/ring";
+import { UsageSourceIcon } from "@/usage/source-icon";
 import type { UsageReportEntry, UsageTone, UsageView } from "@/usage/types";
 import type { MenuTriggerState } from "@/components/ui/menu";
 import { useHostRuntimeClient, useHostRuntimeIsConnected, useHosts } from "@/runtime/host-runtime";
@@ -33,6 +38,9 @@ const RESOURCES_POLL_MS = 2_000;
 const COLLAPSED_ROW_COUNT = 8;
 const CONTEXT_AGENT_LIMIT = 6;
 const INDENT_PER_DEPTH = 12;
+// Matches the daemon's report cache, so polling never reaches the source's API.
+const TRIGGER_USAGE_POLL_MS = 5 * 60_000;
+const NO_REPORTS: UsageReportEntry[] = [];
 
 function useResourcesServerId(): string | null {
   const localServerId = useLocalDaemonServerId();
@@ -270,6 +278,123 @@ function LimitsSection({ serverId }: { serverId: string }) {
   );
 }
 
+type TriggerStyle = (state: MenuTriggerState) => StyleProp<ViewStyle>;
+
+interface TriggerUsageLine {
+  key: string;
+  icon: string | null;
+  title: string;
+  windows: { key: string; percent: number; tone: UsageTone; text: string }[];
+}
+
+/** The pinned summary windows, with the source and window names the tooltip spells out. */
+function resolveTriggerUsage(
+  reports: readonly UsageReportEntry[],
+  preferences: UsagePreferences,
+): TriggerUsageLine[] {
+  return resolvePinnedUsage(reports, preferences).flatMap((source) => {
+    const entry = reports.find((report) => report.id === source.key);
+    if (!entry) return [];
+    const windows = source.windows.map((pinned) => {
+      const window = entry.report.windows.find(
+        (candidate) => `${entry.id}/${candidate.id}` === pinned.key,
+      );
+      const percent = formatDisplayPct(pinned.percent, preferences.displayAs);
+      const reset = formatResetLabel(window?.resetsAt);
+      return {
+        key: pinned.key,
+        percent: pinned.percent,
+        tone: pinned.tone,
+        text: [`${window?.label ?? pinned.shortLabel} ${percent}`, reset]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    });
+    return [{ key: source.key, icon: source.icon, title: entry.sourceLabel, windows }];
+  });
+}
+
+function useTriggerUsage(serverId: string): TriggerUsageLine[] {
+  const { preferences } = useUsagePreferences();
+  const { view } = useHostUsage(serverId, { refetchIntervalMs: TRIGGER_USAGE_POLL_MS });
+  const reports = view.kind === "ready" ? view.reports : NO_REPORTS;
+  return useMemo(() => resolveTriggerUsage(reports, preferences), [preferences, reports]);
+}
+
+function usageAccessibilityLabel(label: string, lines: readonly TriggerUsageLine[]): string {
+  const parts = lines.map(
+    (line) => `${line.title} ${line.windows.map((window) => window.text).join(", ")}`,
+  );
+  return `${label}: ${parts.join("; ")}`;
+}
+
+function PlainTrigger({ label, style }: { label: string; style: TriggerStyle }) {
+  return (
+    <DropdownMenuTrigger
+      style={style}
+      testID="sidebar-resources"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text style={styles.triggerText}>{label}</Text>
+    </DropdownMenuTrigger>
+  );
+}
+
+/**
+ * Each account's icon and a ring per summary window, so limits read without opening the menu;
+ * hovering spells out the percents. Falls back to the label while no window has data.
+ */
+function UsageRingsTrigger({
+  serverId,
+  label,
+  style,
+}: {
+  serverId: string;
+  label: string;
+  style: TriggerStyle;
+}) {
+  const lines = useTriggerUsage(serverId);
+  if (lines.length === 0) return <PlainTrigger label={label} style={style} />;
+  return (
+    <Tooltip delayDuration={300}>
+      <TooltipTrigger asChild>
+        <DropdownMenuTrigger
+          style={style}
+          testID="sidebar-resources"
+          accessibilityRole="button"
+          accessibilityLabel={usageAccessibilityLabel(label, lines)}
+        >
+          <View style={styles.triggerRings} testID="sidebar-resources-rings">
+            {lines.map((line) => (
+              <View key={line.key} style={styles.triggerSource}>
+                <UsageSourceIcon svg={line.icon} size={12} />
+                {line.windows.map((window) => (
+                  <UsageRing key={window.key} percent={window.percent} tone={window.tone} />
+                ))}
+              </View>
+            ))}
+          </View>
+        </DropdownMenuTrigger>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" offset={8} testID="sidebar-resources-tooltip">
+        <View style={styles.tooltipBody}>
+          {lines.map((line) => (
+            <View key={line.key} style={styles.tooltipLine}>
+              <Text style={styles.tooltipTitle}>{line.title}</Text>
+              {line.windows.map((window) => (
+                <Text key={window.key} style={styles.tooltipText}>
+                  {window.text}
+                </Text>
+              ))}
+            </View>
+          ))}
+        </View>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function SidebarResourcesMenu() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -283,14 +408,15 @@ export function SidebarResourcesMenu() {
   );
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger
-        style={triggerStyle}
-        testID="sidebar-resources"
-        accessibilityRole="button"
-        accessibilityLabel={t("sidebar.resources.trigger")}
-      >
-        <Text style={styles.triggerText}>{t("sidebar.resources.trigger")}</Text>
-      </DropdownMenuTrigger>
+      {serverId ? (
+        <UsageRingsTrigger
+          serverId={serverId}
+          label={t("sidebar.resources.trigger")}
+          style={triggerStyle}
+        />
+      ) : (
+        <PlainTrigger label={t("sidebar.resources.trigger")} style={triggerStyle} />
+      )}
       <DropdownMenuContent
         side="top"
         align="start"
@@ -335,6 +461,31 @@ const styles = StyleSheet.create((theme) => ({
   triggerText: {
     ...createControlGeometry(theme).buttonTextXs,
     color: theme.colors.foregroundMuted,
+  },
+  triggerRings: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  triggerSource: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
+  tooltipBody: {
+    gap: theme.spacing[2],
+  },
+  tooltipLine: {
+    gap: theme.spacing[0.5],
+  },
+  tooltipTitle: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.popoverForeground,
+    fontWeight: theme.fontWeight.medium,
+  },
+  tooltipText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.popoverForeground,
   },
   sectionHeader: {
     flexDirection: "row",
