@@ -30,6 +30,7 @@ import {
   type ActiveWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { density, densityFontSize } from "@/styles/density";
 import type { Theme } from "@/styles/theme";
 import { getSidebarRowBackdrop } from "@/components/sidebar/sidebar-row-backdrop";
 import { type GestureType } from "react-native-gesture-handler";
@@ -68,11 +69,7 @@ import {
   type SidebarWorkspacePlacement,
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
-import {
-  hasActiveSidebarLabelFilter,
-  useSidebarViewStore,
-  type SidebarGroupMode,
-} from "@/stores/sidebar-view-store";
+import { useSidebarViewStore, type SidebarGroupMode } from "@/stores/sidebar-view-store";
 import { useShowShortcutBadges } from "@/hooks/use-show-shortcut-badges";
 import {
   ContextMenu,
@@ -1947,9 +1944,6 @@ export function SidebarWorkspaceList({
   const onToggleWorkspacePin = useSidebarWorkspacePinController();
   const getPinnedWorkspaceOrder = useSidebarOrderStore((state) => state.getPinnedWorkspaceOrder);
   const setPinnedWorkspaceOrder = useSidebarOrderStore((state) => state.setPinnedWorkspaceOrder);
-  const hasActiveLabelFilter = useSidebarViewStore((state) =>
-    hasActiveSidebarLabelFilter(state.labelFilter),
-  );
   const handlePinnedWorkspaceReorder = useCallback(
     (reorderedWorkspaces: SidebarWorkspacePlacement[]) => {
       const reorderedWorkspaceKeys = reorderedWorkspaces.map((workspace) => workspace.workspaceKey);
@@ -1981,11 +1975,10 @@ export function SidebarWorkspaceList({
   // this whole subtree, which unmounted the header — and the header is where the display menu's
   // trigger lives, so filtering the last row away closed the menu you were filtering from.
   //
-  // Only the label filter can get here. The project filter resolves against the projects it can
-  // see and falls back to "all projects" when nothing matches, so it either keeps at least one
-  // project or is not applied at all — it can narrow this list but never empty it.
-  const sidebarFilterEmpty =
-    hasActiveLabelFilter && hasProjectsBeforeFilter && projects.length === 0;
+  // Background visibility can also hide the last project. Keep the header mounted
+  // whenever a local filter empties an otherwise populated directory, so users can
+  // reach the display menu to reveal their work again.
+  const sidebarFilterEmpty = hasProjectsBeforeFilter && projects.length === 0;
 
   // Project mode is the one that keeps its project headers; every other grouping mode is a flat
   // list of grouped rows, so a new mode lands in the grouped branch rather than silently in this
@@ -2619,7 +2612,7 @@ const styles = StyleSheet.create((theme) => ({
   // ... reveal on hover without growing the row.
   projectRow: {
     position: "relative",
-    minHeight: 36,
+    minHeight: density.rowHeight,
     paddingVertical: theme.spacing[1.5],
     paddingHorizontal: theme.spacing[2],
     borderRadius: theme.borderRadius.md,
@@ -2666,7 +2659,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   projectTitle: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
+    fontSize: densityFontSize(theme, "base"),
     fontWeight: theme.fontWeight.medium,
     minWidth: 0,
     flexShrink: 1,
@@ -2731,7 +2724,7 @@ const styles = StyleSheet.create((theme) => ({
     right: theme.spacing[2],
   },
   workspaceRow: {
-    minHeight: 36,
+    minHeight: density.rowHeight,
     marginBottom: theme.spacing[1],
     paddingVertical: theme.spacing[2],
     paddingLeft: theme.spacing[2],

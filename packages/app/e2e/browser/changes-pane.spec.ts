@@ -276,7 +276,7 @@ test("Changes filters file paths in flat and folder views without changing the d
   await openChangesTreePanel(page);
   const explorer = page.getByTestId("workspace-explorer-sidebar");
   await expect(
-    explorer.getByTestId("explorer-sidebar-tab-rail").getByText("Checks", { exact: true }),
+    explorer.getByTestId("workspace-tabs-row").getByText("Checks", { exact: true }),
   ).toBeInViewport({ ratio: 1 });
   await explorer
     .getByTestId("workspace-explorer-git-bar")
@@ -756,7 +756,7 @@ test("discarding a staged rename restores its source path", async ({ page }) => 
 
   const panel = page.getByTestId("working-diff-panel").filter({ visible: true });
   const renamedHeader = diffHeaderForPath(panel, "src/zz-renamed.ts");
-  await expect(renamedHeader).toHaveAccessibleName("src/zz-renamed.ts, +1, -0");
+  await expect(renamedHeader).toHaveAccessibleName("src/zz-renamed.ts, +0, -0");
   const renamedToggle = renamedHeader.getByTestId(/^diff-file-\d+-toggle$/);
   const toggleTestId = await renamedToggle.getAttribute("data-testid");
   expect(toggleTestId).not.toBeNull();

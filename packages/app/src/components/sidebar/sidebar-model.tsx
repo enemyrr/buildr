@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import {
   useSidebarWorkspacesList,
@@ -57,7 +58,9 @@ export function SidebarModelProvider({
   active?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const list = useSidebarWorkspacesList({ enabled: active });
+  const showBackground = useSidebarViewStore((state) => state.showBackground);
   const groupMode = useSidebarViewStore((state) => state.groupMode);
   const labelFilter = useSidebarViewStore((state) => state.labelFilter);
   const projectFilters = useSidebarViewStore((state) => state.projectFilters);
@@ -98,29 +101,45 @@ export function SidebarModelProvider({
   // anything; the label filter reads `labels`, which only exists on an entry. Hydration opens a
   // live session-store subscription over every workspace on every visible host, so widening this
   // for a filter that does not need it costs a retained-but-inactive sidebar real work.
-  const needsWorkspaceEntries = groupMode !== "project" || hasActiveLabelFilter;
+  // Hiding background workspaces reads `background`, which also only exists on an entry.
+  const needsWorkspaceEntries = groupMode !== "project" || hasActiveLabelFilter || !showBackground;
   const workspaceEntriesByKey = useSidebarWorkspaceEntries(
     list.workspacePlacements,
     active !== false || needsWorkspaceEntries,
   );
   const filteredWorkspaceEntriesByKey = useMemo(() => {
-    if (!hasActiveProjectFilter && !hasActiveLabelFilter) return workspaceEntriesByKey;
+    if (!hasActiveProjectFilter && !hasActiveLabelFilter && showBackground) {
+      return workspaceEntriesByKey;
+    }
     const byProject = filterWorkspacesByProjects({
       workspaces: [...workspaceEntriesByKey.values()],
       projectFilters: resolvedProjectFilters,
     });
-    const filtered = filterWorkspacesByLabels({ workspaces: byProject, ...labelFilter });
+    const filtered = filterWorkspacesByLabels({
+      workspaces: byProject.filter((workspace) => showBackground || !workspace.background),
+      ...labelFilter,
+    });
     return new Map(filtered.map((workspace) => [workspace.workspaceKey, workspace]));
   }, [
+    showBackground,
     hasActiveLabelFilter,
     hasActiveProjectFilter,
     labelFilter,
     resolvedProjectFilters,
     workspaceEntriesByKey,
   ]);
+  // Keyed by membership, not by entry identity: hiding background workspaces filters entries, which
+  // change on every status tick, and the project list only cares which keys survive.
+  const visibleWorkspaceKeysSignature =
+    hasActiveLabelFilter || !showBackground
+      ? [...filteredWorkspaceEntriesByKey.keys()].join("\n")
+      : null;
   const visibleWorkspaceKeys = useMemo(
-    () => (hasActiveLabelFilter ? new Set(filteredWorkspaceEntriesByKey.keys()) : null),
-    [filteredWorkspaceEntriesByKey, hasActiveLabelFilter],
+    () =>
+      visibleWorkspaceKeysSignature === null
+        ? null
+        : new Set(visibleWorkspaceKeysSignature.split("\n").filter(Boolean)),
+    [visibleWorkspaceKeysSignature],
   );
   // The two filters prune differently on purpose. The project filter is a membership test on the
   // project itself, so a project you filtered TO survives even with no workspaces — it still owns
@@ -137,11 +156,19 @@ export function SidebarModelProvider({
         const workspaces = project.workspaces.filter((workspace) =>
           visibleWorkspaceKeys.has(workspace.workspaceKey),
         );
-        return workspaces.length > 0 ? [{ ...project, workspaces }] : [];
+        return workspaces.length > 0 || (!hasActiveLabelFilter && project.workspaces.length === 0)
+          ? [{ ...project, workspaces }]
+          : [];
       });
     }
     return projects;
-  }, [hasActiveProjectFilter, resolvedProjectFilters, list.projects, visibleWorkspaceKeys]);
+  }, [
+    hasActiveLabelFilter,
+    hasActiveProjectFilter,
+    resolvedProjectFilters,
+    list.projects,
+    visibleWorkspaceKeys,
+  ]);
   const pinnedKeys = usePinnedSidebarKeys(filteredProjects);
   const snoozedKeys = useSnoozedSidebarKeys(filteredProjects);
   // Project mode projects structure only; feeding it entries would rebuild the shortcut model and
@@ -160,6 +187,7 @@ export function SidebarModelProvider({
       pinnedCollapsed,
       collapsedProjectKeys,
       collapsedWorkspaceGroupKeys,
+      t,
     }),
     [
       collapsedProjectKeys,
@@ -172,6 +200,7 @@ export function SidebarModelProvider({
       pinnedWorkspaceOrder,
       projectionEntriesByKey,
       snoozedKeys,
+      t,
     ],
   );
   const projection = useMemo(() => buildSidebarProjection(projectionInput), [projectionInput]);

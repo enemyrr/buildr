@@ -130,7 +130,12 @@ function useNewTabDescriptor() {
  */
 function PromoteToDefaultTab({ target }: { target: Exclude<DefaultNewTab, "launcher"> }): null {
   const { serverId, tabId } = usePaneContext();
-  const groups = useWorkspaceTabLaunchCatalog({ serverId, purpose: "primary", host: "main" });
+  const groups = useWorkspaceTabLaunchCatalog({
+    serverId,
+    purpose: "primary",
+    host: "main",
+    surface: "panel",
+  });
   const items = groups.flatMap((group) => group.items);
   const item =
     items.find((candidate) => candidate.id === target) ??
@@ -162,6 +167,7 @@ function NewTabLauncher(): ReactElement {
     serverId,
     purpose: host === "explorer" ? "supporting" : "primary",
     host,
+    surface: "panel",
   });
 
   useEffect(() => {

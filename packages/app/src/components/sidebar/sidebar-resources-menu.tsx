@@ -223,7 +223,15 @@ function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageRe
   return (
     <View style={styles.limitsList}>
       {visible.map((entry) => (
-        <UsageCard key={entry.id} serverId={serverId} entry={entry} display={display} compact />
+        <UsageCard
+          key={entry.id}
+          serverId={serverId}
+          entry={entry}
+          display={display}
+          pinnable={false}
+          refreshable
+          compact
+        />
       ))}
       {unavailable.length > 0 ? (
         <Button
@@ -239,7 +247,15 @@ function UsageLimits({ serverId, reports }: { serverId: string; reports: UsageRe
       ) : null}
       {showUnavailable
         ? unavailable.map((entry) => (
-            <UsageCard key={entry.id} serverId={serverId} entry={entry} display={display} compact />
+            <UsageCard
+              key={entry.id}
+              serverId={serverId}
+              entry={entry}
+              display={display}
+              pinnable={false}
+              refreshable
+              compact
+            />
           ))
         : null}
     </View>

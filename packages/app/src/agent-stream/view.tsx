@@ -863,6 +863,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               detailSource={toolCallDetailSource(resolvedServerId, agentId, data)}
               cwd={context.cwd}
               metadata={data.metadata}
+              agentMessage={data.agentMessage}
               isLastInSequence={isLastInSequence}
               onOpenFilePath={handleToolCallOpenFile}
               maxDetailHeight={maxDetailHeight}
@@ -1249,6 +1250,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                 baseListContentContainerStyle: stylesheet.listContentContainer,
                 forwardListContentContainerStyle: stylesheet.forwardListContentContainer,
                 contentMaxWidth,
+                imageContext: { serverId: resolvedServerId, workspaceRoot },
               })}
             </MessageOuterSpacingProvider>
             <ChatOutlineRail

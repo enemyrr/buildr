@@ -1,6 +1,7 @@
 import "@/styles/unistyles";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { PortalProvider } from "@gorhom/portal";
+import { LucideProvider } from "lucide-react-native";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { Stack, useNavigationContainerRef, usePathname, useRouter } from "expo-router";
@@ -36,7 +37,7 @@ import { OnboardingHost } from "@/onboarding/onboarding-host";
 import { AppDiagnosticHost } from "@/components/app-diagnostic-host";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import { LeftSidebar } from "@/components/left-sidebar";
-import { WindowSidebarMenuToggle } from "@/components/headers/menu-header";
+import { WindowSidebarMenuToggle } from "@/components/headers/sidebar-menu-toggle";
 import { NavigationHistoryButtons } from "@/components/headers/navigation-history-buttons";
 import { useNavigationHistoryRecorder } from "@/navigation/navigation-history-store";
 import { DesktopWindowControls } from "@/components/desktop/window-controls";
@@ -119,7 +120,7 @@ import {
 import { getDaemonStartService } from "@/runtime/daemon-start-service";
 import { usePanelStore } from "@/stores/panel-store";
 import { flushDraftPersistStorage } from "@/stores/draft-store";
-import { getNextThemePreference } from "@/styles/theme";
+import { getNextThemePreference, ICON_STROKE_WIDTH } from "@/styles/theme";
 import { useSessionStore } from "@/stores/session-store";
 import { installWebScrollbarStyles } from "@/styles/install-web-scrollbar-styles";
 import type { HostProfile } from "@/types/host-connection";
@@ -881,7 +882,6 @@ function AppWithSidebar({ children }: { children: ReactNode }) {
       pathname === "/analytics" ||
       pathname === "/home" ||
       pathname === "/schedules" ||
-      pathname === "/usage" ||
       routeHasKnownHost);
 
   return <AppContainer chromeEnabled={shouldShowAppChrome}>{children}</AppContainer>;
@@ -924,7 +924,6 @@ function RootStack() {
         <Stack.Screen name="analytics" />
         <Stack.Screen name="home" />
         <Stack.Screen name="schedules" />
-        <Stack.Screen name="usage" />
         <Stack.Screen name="pair-scan" />
       </Stack.Protected>
       <Stack.Screen name="h/[serverId]" />
@@ -1002,11 +1001,13 @@ function RootAppTree() {
   return (
     <GestureHandlerRootView style={flexStyle}>
       <View style={layoutStyles.surfaceFill}>
-        <RootProviders>
-          <RuntimeProviders>
-            <AppShell />
-          </RuntimeProviders>
-        </RootProviders>
+        <LucideProvider strokeWidth={ICON_STROKE_WIDTH}>
+          <RootProviders>
+            <RuntimeProviders>
+              <AppShell />
+            </RuntimeProviders>
+          </RootProviders>
+        </LucideProvider>
       </View>
     </GestureHandlerRootView>
   );

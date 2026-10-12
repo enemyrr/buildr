@@ -318,14 +318,17 @@ export function buildPickerOptionData(input: {
     if (!pr.headRefName) continue;
     const id = prPickerOptionId(pr.number);
     itemById.set(id, { kind: "github-pr", item: pr });
-    timedOptions.push({ option: { id, label: formatPrLabel(pr) }, timestamp: toSeconds(pr) });
+    timedOptions.push({
+      option: { id, label: formatPrLabel(pr), searchText: pr.body ?? undefined },
+      timestamp: toSeconds(pr),
+    });
   }
 
   for (const issue of input.issueItems ?? []) {
     const id = issuePickerOptionId(issue.number);
     itemById.set(id, { kind: "issue", item: issue });
     timedOptions.push({
-      option: { id, label: formatIssueLabel(issue) },
+      option: { id, label: formatIssueLabel(issue), searchText: issue.body ?? undefined },
       timestamp: toSeconds(issue),
     });
   }
@@ -342,7 +345,13 @@ export function buildPickerOptionData(input: {
     const labeledItem = disambiguate(baseItem, timedOptions);
     itemById.set(selectedOptionId, labeledItem);
     timedOptions.push({
-      option: { id: selectedOptionId, label: pickerItemLabel(labeledItem) },
+      option: {
+        id: selectedOptionId,
+        label: pickerItemLabel(labeledItem),
+        ...(labeledItem.kind === "github-pr"
+          ? { searchText: labeledItem.item.body ?? undefined }
+          : {}),
+      },
       // The base sorts first: it is what a workspace is created from unless you pick something.
       timestamp: Number.POSITIVE_INFINITY,
     });

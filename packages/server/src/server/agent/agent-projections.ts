@@ -141,6 +141,7 @@ export function toAgentPayload(
     persistence: projectPersistenceHandleForWire(agent.persistence),
     title: options?.title ?? null,
     labels: agent.labels,
+    ...(agent.internal ? { internal: true } : {}),
   };
 
   const usage = sanitizeUsage(agent.lastUsage);
@@ -219,7 +220,6 @@ export function buildStoredAgentPayload(
 
   const runtimeInfo = buildStoredRuntimeInfo(record);
   const providerAvailable = isStoredAgentProviderAvailable(record, validProviders);
-  const interruptedTurn = projectInterruptedTurn(record);
   const persistence = projectPersistenceHandleForWire(
     buildStoredPersistenceHandle(record, validProviders),
   );
@@ -251,6 +251,18 @@ export function buildStoredAgentPayload(
     attentionTimestamp: record.attentionTimestamp ?? null,
     archivedAt: record.archivedAt ?? null,
     labels: normalizeLabels(record.labels),
+    ...buildStoredAgentOptionalFields(record, providerAvailable),
+  };
+}
+
+function buildStoredAgentOptionalFields(
+  record: StoredAgentRecord,
+  providerAvailable: boolean,
+): Partial<AgentSnapshotPayload> {
+  const interruptedTurn = projectInterruptedTurn(record);
+  return {
+    ...(record.internal ? { internal: true } : {}),
+    ...(typeof record.lastError === "string" ? { lastError: record.lastError } : {}),
     ...(providerAvailable ? {} : { providerUnavailable: true }),
     ...(interruptedTurn ? { interruptedTurn } : {}),
   };

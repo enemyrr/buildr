@@ -1,3 +1,5 @@
+import type { AgentMessage } from "@getpaseo/protocol/agent-message";
+import { ASSISTANT_IMAGE_DEFAULT_ASPECT_RATIO } from "@/utils/assistant-image-metadata";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { TaskListRow } from "@/components/task-list-row";
 import {
@@ -116,6 +118,7 @@ import { useRetainedPanelActive } from "@/components/retained-panel";
 import { Button } from "@/components/ui/button";
 import {
   markdownCopyDataSet,
+  markdownCopyImageDataSet,
   markdownCopyOrderedListDataSet,
   markdownCopyTableCellDataSet,
   type MarkdownCopyInlineTag,
@@ -796,8 +799,6 @@ export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
-const ASSISTANT_IMAGE_MIN_HEIGHT = 160;
-
 function AssistantMarkdownImage({
   source,
   occurrenceKey,
@@ -850,11 +851,9 @@ function AssistantMarkdownImage({
     [containerStyle],
   );
   const imageSizeStyle = useMemo<ViewStyle>(() => {
-    if (aspectRatio) {
-      return { aspectRatio };
-    }
-    return { height: ASSISTANT_IMAGE_MIN_HEIGHT };
-  }, [aspectRatio]);
+    if (image.status === "failed") return { height: 160 };
+    return { aspectRatio: aspectRatio ?? ASSISTANT_IMAGE_DEFAULT_ASPECT_RATIO };
+  }, [aspectRatio, image.status]);
   const surfaceStyle = useMemo<StyleProp<ViewStyle>>(
     () => [assistantMessageStylesheet.imageSurface, imageSizeStyle],
     [imageSizeStyle],
@@ -872,15 +871,16 @@ function AssistantMarkdownImage({
     () => [
       assistantMessageStylesheet.imageFrame,
       containerStyle,
-      { height: ASSISTANT_IMAGE_MIN_HEIGHT },
+      imageSizeStyle,
       assistantMessageStylesheet.imageState,
     ],
-    [containerStyle],
+    [containerStyle, imageSizeStyle],
   );
+  const copyDataSet = useMemo(() => markdownCopyImageDataSet(source, alt), [source, alt]);
 
   if (image.status === "failed") {
     return (
-      <View style={stateFrameStyle}>
+      <View style={stateFrameStyle} dataSet={copyDataSet}>
         <Text style={assistantMessageStylesheet.imageErrorText}>{image.message}</Text>
       </View>
     );
@@ -888,14 +888,14 @@ function AssistantMarkdownImage({
 
   if (!binding) {
     return (
-      <View style={stateFrameStyle}>
+      <View style={stateFrameStyle} dataSet={copyDataSet}>
         <ThemedLoadingSpinner size="small" uniProps={foregroundMutedColorMapping} />
       </View>
     );
   }
 
   return (
-    <View style={frameStyle}>
+    <View style={frameStyle} dataSet={copyDataSet}>
       <Pressable
         accessibilityLabel={t("composer.attachments.openImage")}
         accessibilityRole="button"
@@ -3074,6 +3074,7 @@ function resolveToolCallDetail(
 }
 
 interface ToolCallProps {
+  agentMessage?: AgentMessage;
   toolName: string;
   args?: unknown;
   result?: unknown;
@@ -3105,6 +3106,7 @@ interface ToolCallProps {
 }
 
 export const ToolCall = memo(function ToolCall({
+  agentMessage,
   toolName,
   args,
   result,
@@ -3143,6 +3145,7 @@ export const ToolCall = memo(function ToolCall({
 
   const presentation = useMemo(() => {
     const base = buildToolCallPresentation({
+      agentMessage,
       toolName,
       status,
       error: error ?? null,
@@ -3156,7 +3159,17 @@ export const ToolCall = memo(function ToolCall({
       canOpenDetails: base.canOpenDetails || detailSource !== undefined,
       isLoadingDetails: base.isLoadingDetails || loaded.isLoading,
     };
-  }, [toolName, status, error, effectiveDetail, metadata, cwd, detailSource, loaded.isLoading]);
+  }, [
+    agentMessage,
+    toolName,
+    status,
+    error,
+    effectiveDetail,
+    metadata,
+    cwd,
+    detailSource,
+    loaded.isLoading,
+  ]);
   const handleOpenFile = useMemo(() => {
     const openFilePath = presentation.openFilePath;
     if (!openFilePath || !onOpenFilePath) {
@@ -3171,7 +3184,7 @@ export const ToolCall = memo(function ToolCall({
         toolName,
         displayName: presentation.displayName,
         summary: presentation.summary,
-        detail: effectiveDetail,
+        detail: presentation.detail,
         errorText: presentation.errorText,
         icon: presentation.icon,
         showLoadingSkeleton: presentation.isLoadingDetails,
@@ -3184,12 +3197,12 @@ export const ToolCall = memo(function ToolCall({
     shouldRenderInline,
     openToolCall,
     toolName,
+    presentation.detail,
     presentation.displayName,
     presentation.summary,
     presentation.errorText,
     presentation.icon,
     presentation.isLoadingDetails,
-    effectiveDetail,
     detailSource,
   ]);
 
@@ -3264,7 +3277,7 @@ export const ToolCall = memo(function ToolCall({
     const content = detailsContent ?? (
       <ToolCallDetailsContent
         toolName={toolName}
-        detail={loaded.isLoading ? undefined : effectiveDetail}
+        detail={loaded.isLoading ? undefined : presentation.detail}
         errorText={presentation.errorText}
         maxHeight={maxDetailHeight}
         showLoadingSkeleton={presentation.isLoadingDetails}
@@ -3283,7 +3296,7 @@ export const ToolCall = memo(function ToolCall({
   }, [
     shouldRenderInline,
     toolName,
-    effectiveDetail,
+    presentation.detail,
     presentation.errorText,
     loaded.isLoading,
     presentation.isLoadingDetails,
