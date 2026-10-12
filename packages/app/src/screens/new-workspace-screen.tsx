@@ -45,8 +45,7 @@ import { ComboboxTrigger } from "@/components/ui/combobox-trigger";
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
-import { SidebarMenuToggle } from "@/components/headers/menu-header";
-import { ScreenHeader } from "@/components/headers/screen-header";
+import { MenuHeader } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
@@ -2636,7 +2635,6 @@ export function NewWorkspaceScreen({
     },
   });
 
-  const screenHeaderLeft = useMemo(() => <SidebarMenuToggle />, []);
   const importSession = useImportSession({ serverId: selectedServerId });
 
   const composer = isTerminalLaunch ? (
@@ -2710,7 +2708,6 @@ export function NewWorkspaceScreen({
       formStack={formStack}
       cardHeader={cardHeader}
       errorMessage={errorMessage}
-      headerLeft={screenHeaderLeft}
       importSession={importSession}
     >
       {composer}
@@ -2725,7 +2722,6 @@ function NewWorkspaceFrame({
   formStack,
   cardHeader,
   errorMessage,
-  headerLeft,
   importSession,
   children,
 }: {
@@ -2735,7 +2731,6 @@ function NewWorkspaceFrame({
   formStack: ReactNode;
   cardHeader: NewWorkspaceCardHeader | null;
   errorMessage: string | null;
-  headerLeft: ReactNode;
   importSession: ReturnType<typeof useImportSession>;
   children: ReactNode;
 }) {
@@ -2749,7 +2744,7 @@ function NewWorkspaceFrame({
   }
   return (
     <FileDropZone style={styles.container}>
-      <ScreenHeader left={headerLeft} borderless />
+      <MenuHeader borderless />
       <View style={styles.content}>
         <TitlebarDragRegion />
         <NewWorkspaceLayout

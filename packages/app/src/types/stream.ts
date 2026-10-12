@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@getpaseo/protocol/agent-message";
 import type {
   AgentProvider,
   AgentTimelineItem,
@@ -746,6 +747,7 @@ interface OrchestratorToolCallData {
 }
 
 export interface AgentToolCallData {
+  agentMessage?: AgentMessage;
   provider: AgentProvider;
   callId: string;
   name: string;
@@ -1196,6 +1198,7 @@ function isSameAgentToolCallData(a: AgentToolCallData, b: AgentToolCallData): bo
     a.error === b.error &&
     a.detail === b.detail &&
     a.metadata === b.metadata &&
+    a.agentMessage === b.agentMessage &&
     a.detailOmitted === b.detailOmitted &&
     a.lineStats?.additions === b.lineStats?.additions &&
     a.lineStats?.deletions === b.lineStats?.deletions
@@ -1460,6 +1463,7 @@ function reduceTimelineToolCall(
       metadata: item.metadata,
       ...(item.detailOmitted ? { detailOmitted: true } : {}),
       ...(item.lineStats ? { lineStats: item.lineStats } : {}),
+      ...(item.agentMessage ? { agentMessage: item.agentMessage } : {}),
     },
     timestamp,
     timelineCursor,

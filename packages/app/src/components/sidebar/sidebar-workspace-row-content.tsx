@@ -16,6 +16,7 @@ import {
   type SidebarWorkspaceTrailing,
 } from "@/components/sidebar/workspace-trailing";
 import { useAppSettings } from "@/hooks/use-settings";
+import { density, densityFontSize, densityIconBox } from "@/styles/density";
 import type { Theme } from "@/styles/theme";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { getStatusDotColor } from "@/utils/status-dot-color";
@@ -29,7 +30,6 @@ import { resolveSidebarWorkspacePrimaryLabel } from "@/components/sidebar/sideba
 import { useWorkspaceLabelDefinitions } from "@/workspace-labels";
 import { WorkspaceTitleEditor } from "@/components/workspace-title-editor";
 
-const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const needsInputColorMapping = (theme: Theme) => ({
   color: theme.colors.surface0,
   fill: getStatusDotColor({ theme, bucket: "needs_input" }) ?? undefined,
@@ -245,7 +245,7 @@ function getBranchColorMapping(prHint: SidebarWorkspaceEntry["prHint"]) {
   if (!prHint) return foregroundExtraMutedColorMapping;
   if (prHint.state === "merged") return mergedColorMapping;
   if (prHint.state === "closed") return dangerColorMapping;
-  return prHint.isDraft ? foregroundMutedColorMapping : successColorMapping;
+  return prHint.isDraft ? mutedColorMapping : successColorMapping;
 }
 
 function StatusDotOverlay({ dotColorStyle }: { dotColorStyle: ViewStyle }) {
@@ -467,8 +467,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   workspaceStatusDot: {
     position: "relative",
-    width: theme.iconSize.md,
-    height: 20,
+    width: densityIconBox("md"),
+    height: density.rowLineHeight,
     borderRadius: theme.borderRadius.full,
     flexShrink: 0,
     alignItems: "center",
@@ -487,9 +487,9 @@ const styles = StyleSheet.create((theme) => ({
   // to the meta row, so it takes the full width the trailing slot leaves behind.
   workspaceBranchText: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.base,
+    fontSize: densityFontSize(theme, "base"),
     fontWeight: "400",
-    lineHeight: 20,
+    lineHeight: density.rowLineHeight,
     flex: 1,
     minWidth: 0,
   },

@@ -425,6 +425,7 @@ function serializeAgentToolCall(data: AgentToolCallData): StoredToolCall {
     ...(data.metadata ? { metadata: data.metadata } : {}),
     ...(data.detailOmitted ? { detailOmitted: true } : {}),
     ...(data.lineStats ? { lineStats: data.lineStats } : {}),
+    ...(data.agentMessage ? { agentMessage: data.agentMessage } : {}),
   };
   switch (data.status) {
     case "running":
@@ -590,6 +591,7 @@ function deserializeBuiltinTimelineItem(
             ...(tool.metadata ? { metadata: tool.metadata } : {}),
             ...(tool.detailOmitted ? { detailOmitted: true } : {}),
             ...(tool.lineStats ? { lineStats: tool.lineStats } : {}),
+            ...(tool.agentMessage ? { agentMessage: tool.agentMessage } : {}),
           },
         },
       };

@@ -1,16 +1,11 @@
 import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { Pressable, Text } from "react-native";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
+import { DensityIcon } from "@/components/ui/density-icon";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
-import type { Theme } from "@/styles/theme";
-
-const ThemedChevronDown = withUnistyles(ChevronDown);
-const ThemedChevronRight = withUnistyles(ChevronRight);
-const foregroundMutedColorMapping = (theme: Theme) => ({
-  color: theme.colors.foregroundMuted,
-});
+import { density } from "@/styles/density";
 
 /** The collapsible label over a hoisted sidebar section, such as Pinned or Snoozed. */
 export function SidebarSectionHeader({
@@ -26,7 +21,6 @@ export function SidebarSectionHeader({
 }) {
   const isCompact = useIsCompactFormFactor();
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
-  const Chevron = collapsed ? ThemedChevronRight : ThemedChevronDown;
 
   return (
     <Pressable
@@ -40,7 +34,11 @@ export function SidebarSectionHeader({
         <>
           <Text style={styles.title}>{title}</Text>
           {hovered || isNative || isCompact ? (
-            <Chevron size={12} uniProps={foregroundMutedColorMapping} />
+            <DensityIcon
+              icon={collapsed ? ChevronRight : ChevronDown}
+              size="xs"
+              color="foregroundMuted"
+            />
           ) : null}
         </>
       )}
@@ -50,7 +48,7 @@ export function SidebarSectionHeader({
 
 const styles = StyleSheet.create((theme) => ({
   header: {
-    minHeight: 28,
+    minHeight: density.tightRowHeight,
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",

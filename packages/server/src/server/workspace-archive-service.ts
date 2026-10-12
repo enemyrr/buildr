@@ -34,7 +34,7 @@ export interface ArchiveDependencies {
   // Base directory that may hold worktrees across repositories.
   paseoWorktreesBaseRoot?: string;
   github: ForgeService;
-  workspaceGitService: Pick<WorkspaceGitService, "getSnapshot">;
+  workspaceGitService: Pick<WorkspaceGitService, "getSnapshot" | "invalidateWorktrees">;
   agentManager: Pick<AgentManager, "listAgents" | "getAgent" | "archiveAgent" | "archiveSnapshot">;
   agentStorage: Pick<AgentStorage, "listByWorkspace">;
   // Resolves the worktree at a path to its workspaceId for archive-by-path. The
@@ -454,6 +454,7 @@ async function maybeRemoveDirectory(
           "Background removal of archived worktree files failed",
         ),
     });
+    dependencies.workspaceGitService.invalidateWorktrees();
     dependencies.github.invalidate({ cwd: backing.path });
   } catch (error) {
     dependencies.sessionLogger?.warn(
@@ -561,7 +562,7 @@ export async function archiveWorkspaceContents(
   const archivedAgents = new Set<string>();
 
   const liveAgents = dependencies.agentManager
-    .listAgents()
+    .listAgents({ includeInternal: true })
     .filter((agent) => agent.workspaceId === workspaceId);
   for (const agent of liveAgents) {
     archivedAgents.add(agent.id);

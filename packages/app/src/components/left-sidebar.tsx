@@ -1,5 +1,13 @@
 import { router } from "expo-router";
-import { ChartColumn, GitBranch, Server, Settings, X } from "lucide-react-native";
+import {
+  ChartColumn,
+  CircleGauge,
+  GitBranch,
+  Server,
+  Settings,
+  X,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -23,10 +31,12 @@ import {
 } from "@/components/sidebar-resize-handle-layout";
 import { HostPicker } from "@/components/hosts/host-picker";
 import { SidebarDisplayPreferencesMenu } from "@/components/sidebar/display-preferences/menu";
+import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarNewMenu } from "@/components/sidebar/sidebar-new-menu";
 import { SidebarResourcesMenu } from "@/components/sidebar/sidebar-resources-menu";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
+import { DensityIcon } from "@/components/ui/density-icon";
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HEADER_INNER_HEIGHT, useIsCompactFormFactor } from "@/constants/layout";
@@ -37,6 +47,7 @@ import {
   type SidebarProjectEntry,
   type SidebarWorkspaceEntry,
 } from "@/hooks/use-sidebar-workspaces-list";
+import { density, type DensityIconSize } from "@/styles/density";
 import { useSidebarModel } from "@/components/sidebar/sidebar-model";
 import type { SidebarSectionGroups } from "@/components/sidebar/sidebar-projection";
 import { RetainedPanelActivity } from "@/components/retained-panel";
@@ -45,6 +56,7 @@ import type { SidebarProjectIconTarget } from "@/utils/sidebar-project-row-model
 import { type SidebarGroupMode, useSidebarViewStore } from "@/stores/sidebar-view-store";
 import { useHosts } from "@/runtime/host-runtime";
 import { PluginSidebarItem } from "@/plugins/sidebar-items";
+import { builtinSidebarNavLabelKey } from "@/sidebar-nav/model";
 import { useSidebarNavItems } from "@/sidebar-nav/use-sidebar-nav-items";
 import { usePanelStore } from "@/stores/panel-store";
 import { useOwnsWindowChromeCorner, WindowChromeSafeArea } from "@/utils/desktop-window";
@@ -57,18 +69,18 @@ import {
 } from "@/utils/host-routes";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { openHostOverview } from "@/navigation/settings-navigation";
-import { UsageSidebarItem } from "@/usage";
+import {
+  UsageSidebarItem,
+  UsageSidebarRoot,
+  useHasUsageSummary,
+  useOpenSidebarUsage,
+} from "@/usage";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
-const ThemedSettings = withUnistyles(Settings);
-const ThemedServer = withUnistyles(Server);
-const ThemedChartColumn = withUnistyles(ChartColumn);
 const ThemedX = withUnistyles(X);
 const ThemedGitBranch = withUnistyles(GitBranch);
-
-type ThemedIcon = typeof ThemedSettings;
 
 const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
@@ -283,15 +295,18 @@ function FooterIconButton({
   onPress,
   testID,
   label,
-  icon: Icon,
-  iconSize = ICON_SIZE.md,
+  icon,
+  iconSize = "md",
+  iconSizeAdjustment = 0,
   shortcutKeys,
 }: {
   onPress: () => void;
   testID: string;
   label: string;
-  icon: ThemedIcon;
-  iconSize?: number;
+  icon: LucideIcon;
+  iconSize?: DensityIconSize;
+  /** Only for a glyph that reads larger than the others at the same size. */
+  iconSizeAdjustment?: number;
   shortcutKeys?: ReturnType<typeof useShortcutKeys>;
   buttonRef?: RefObject<View | null>;
 }) {
@@ -310,9 +325,11 @@ function FooterIconButton({
           onPress={onPress}
         >
           {({ hovered }) => (
-            <Icon
+            <DensityIcon
+              icon={icon}
               size={iconSize}
-              uniProps={hovered ? foregroundColorMapping : foregroundMutedColorMapping}
+              sizeAdjustment={iconSizeAdjustment}
+              color={hovered ? "foreground" : "foregroundMuted"}
             />
           )}
         </Pressable>
@@ -369,8 +386,8 @@ function SidebarHostPicker({
         onPress={handleOpen}
         testID="sidebar-hosts-trigger"
         label={label}
-        icon={ThemedServer}
-        iconSize={ICON_SIZE.sm}
+        icon={Server}
+        iconSize="sm"
       />
     </HostPicker>
   );
@@ -404,8 +421,8 @@ function SidebarAnalyticsButton() {
       onPress={handlePress}
       testID="sidebar-analytics"
       label={t("sidebar.sections.analytics")}
-      icon={ThemedChartColumn}
-      iconSize={ICON_SIZE.sm}
+      icon={ChartColumn}
+      iconSize="sm"
     />
   );
 }
@@ -429,29 +446,48 @@ const SidebarFooter = memo(function SidebarFooter({
   const settingsKeys = useShortcutKeys("toggle-settings");
 
   return (
-    <View testID="sidebar-footer">
-      <SidebarFooterRows onBeforeNavigate={onBeforeNavigate} />
-      <View style={styles.sidebarFooter}>
-        <SidebarResourcesMenu />
-        <View style={styles.footerIconRow}>
-          <SidebarHostPicker
-            label={labels.hosts}
-            onAddHost={handleAddHost}
-            onOpenHostSettings={handleOpenHostSettings}
-          />
-          <SidebarAnalyticsButton />
-          <FooterIconButton
-            onPress={handleSettings}
-            testID="sidebar-settings"
-            label={labels.settings}
-            icon={ThemedSettings}
-            shortcutKeys={settingsKeys}
-          />
+    <UsageSidebarRoot>
+      <View testID="sidebar-footer">
+        <SidebarFooterRows onBeforeNavigate={onBeforeNavigate} />
+        <View style={styles.sidebarFooter} testID="sidebar-footer-bottom-line">
+          <SidebarResourcesMenu />
+          <View style={styles.footerIconRow}>
+            <SidebarHostPicker
+              label={labels.hosts}
+              onAddHost={handleAddHost}
+              onOpenHostSettings={handleOpenHostSettings}
+            />
+            <SidebarAnalyticsButton />
+            <FooterIconButton
+              onPress={handleSettings}
+              testID="sidebar-settings"
+              label={labels.settings}
+              icon={Settings}
+              shortcutKeys={settingsKeys}
+            />
+          </View>
         </View>
       </View>
-    </View>
+    </UsageSidebarRoot>
   );
 });
+
+/** The Usage row: the summary while it has data, otherwise a plain row so Usage stays reachable. */
+function SidebarUsageRow() {
+  const { t } = useTranslation();
+  const openUsage = useOpenSidebarUsage();
+  const hasUsageSummary = useHasUsageSummary();
+  if (hasUsageSummary) return <UsageSidebarItem />;
+  return (
+    <SidebarHeaderRow
+      variant="inline"
+      icon={CircleGauge}
+      label={t(builtinSidebarNavLabelKey("usage"))}
+      onPress={openUsage}
+      testID="sidebar-usage"
+    />
+  );
+}
 
 /** The footer rows in the user's `sidebarFooterItems` order: the Usage item and plugin rows. */
 function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void }) {
@@ -471,7 +507,7 @@ function SidebarFooterRows({ onBeforeNavigate }: { onBeforeNavigate?: () => void
             onBeforeNavigate={onBeforeNavigate}
           />
         ) : (
-          <UsageSidebarItem key={item.key} />
+          <SidebarUsageRow key={item.key} />
         ),
       )}
     </View>
@@ -958,8 +994,8 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
   },
   footerIconButton: {
-    width: 28,
-    height: 28,
+    width: density.iconButton,
+    height: density.iconButton,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: theme.spacing[1],
