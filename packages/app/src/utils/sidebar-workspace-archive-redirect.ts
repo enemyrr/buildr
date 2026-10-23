@@ -19,7 +19,6 @@ function readSidebarWorkspaces() {
   const { projects } = composeWorkspaceStructure({
     projects: selectWorkspaceStructureProjects(sessionState, Object.keys(sessionState.sessions)),
     projectOrder: orderState.projectOrder ?? [],
-    workspaceOrderByScope: orderState.workspaceOrderByProject ?? {},
   });
   return collectArchiveNeighborCandidates({ projects, sessions: sessionState.sessions });
 }

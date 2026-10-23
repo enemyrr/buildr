@@ -1,3 +1,5 @@
+import { supportsDesktopPaneSplits } from "@/constants/layout";
+import { revealWorkspaceTab } from "./navigation";
 import {
   collectAllPanes,
   collectAllTabs,
@@ -8,10 +10,8 @@ import {
   useWorkspaceLayoutStore,
 } from "@/stores/workspace-layout-store";
 import type { OpenInSidePanePreferences, PullRequestOpenLocation } from "@/hooks/use-settings";
-import type { ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
 import {
   openExplorerSidebarView,
-  usesCompactExplorerSidebar,
   type ExplorerSidebarView,
 } from "@/workspace-tabs/explorer-sidebar";
 import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
@@ -19,7 +19,6 @@ import { openPreferredWorkspaceTarget } from "@/workspace-tabs/open-beside";
 interface WorkspaceViewInput {
   isCompact: boolean;
   workspaceKey: string | null;
-  checkout: ExplorerCheckoutContext | null;
   supportsPaneSplits?: boolean;
 }
 
@@ -31,18 +30,21 @@ interface OpenWorkspacePullRequestInput extends WorkspaceViewInput {
   destination: PullRequestOpenLocation;
 }
 
+function supportingViewsBelongInExplorer(input: WorkspaceViewInput): boolean {
+  return input.isCompact || !(input.supportsPaneSplits ?? supportsDesktopPaneSplits());
+}
+
 function openExplorerView(input: WorkspaceViewInput, view: ExplorerSidebarView): void {
   openExplorerSidebarView({ ...input, view });
 }
 
 /** Opens the workspace Changes view according to the current layout and diff preference. */
 export function openWorkspaceChanges(input: OpenWorkspaceChangesInput): string | null {
-  if (usesCompactExplorerSidebar(input)) {
+  if (supportingViewsBelongInExplorer(input)) {
     openExplorerView(input, "changes");
     return null;
   }
   return openPreferredWorkspaceTarget({
-    isCompact: input.isCompact,
     workspaceKey: input.workspaceKey,
     target: { kind: "working_diff" },
     source: "diffs",
@@ -52,11 +54,19 @@ export function openWorkspaceChanges(input: OpenWorkspaceChangesInput): string |
 
 /** Opens the workspace pull request at its semantic destination. */
 export function openWorkspacePullRequest(input: OpenWorkspacePullRequestInput): string | null {
-  if (usesCompactExplorerSidebar(input) || input.destination === "explorer") {
-    openExplorerView(input, "pr");
-    return null;
-  }
   if (!input.workspaceKey) return null;
+  if (supportingViewsBelongInExplorer(input) || input.destination === "explorer") {
+    const store = useWorkspaceLayoutStore.getState();
+    const paneId = store.ensureExplorerSidebar(input.workspaceKey);
+    const tabId = store.openTab({
+      workspaceKey: input.workspaceKey,
+      target: { kind: "pull_request" },
+      intent: "reveal",
+      placement: paneId ? { mode: "prefer", paneId } : undefined,
+    });
+    revealWorkspaceTab(input.workspaceKey, tabId);
+    return tabId;
+  }
   const workspaceKey = input.workspaceKey;
   const store = useWorkspaceLayoutStore.getState();
   const layout = store.layoutByWorkspace[workspaceKey];

@@ -1,6 +1,7 @@
 import type { TextInputProps } from "react-native";
 import type { NativePastedFile } from "@/composer/native-pasted-image";
 
+/** Stable for the mounted editor lifetime; reset() owns any inner input replacement. */
 export interface EditingTextInputHandle {
   focus(): void;
   blur(): void;
@@ -9,6 +10,7 @@ export interface EditingTextInputHandle {
   replaceText(text: string, selection?: { start: number; end: number }): void;
   /** Like `replaceText`, but the change joins the input's native undo history where it has one. */
   applyEdit(text: string, selection: { start: number; end: number }): void;
+  setSelection(selection: { start: number; end: number }): void;
   /** Clear the editor and reset its intrinsic layout, preserving focus intent. */
   reset(): void;
   getNativeRef(): unknown;

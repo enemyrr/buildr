@@ -58,39 +58,47 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
       onChangeTextRef.current?.(nextText);
     }, []);
 
-    useImperativeHandle(ref, () => ({
-      focus: () => inputRef.current?.focus(),
-      blur: () => inputRef.current?.blur(),
-      isFocused: () => document.activeElement === inputRef.current,
-      getText: () => {
-        const input = inputRef.current as WebTextInputElement | null;
-        const nextText = input?.value ?? textRef.current;
-        textRef.current = nextText;
-        return nextText;
-      },
-      replaceText: (nextText, selection) => {
-        textRef.current = nextText;
-        const input = inputRef.current as WebTextInputElement | null;
-        if (input && "value" in input) input.value = nextText;
-        if (selection && typeof input?.setSelectionRange === "function") {
-          input.setSelectionRange(selection.start, selection.end);
-        }
-      },
-      applyEdit: (nextText, selection) => {
-        // Set first: the edit fires an input event, and matching text skips the echo.
-        textRef.current = nextText;
-        const input = inputRef.current;
-        if (input instanceof HTMLTextAreaElement) {
-          applyUndoableTextEdit(input, nextText, selection);
-        }
-      },
-      reset: () => {
-        textRef.current = "";
-        const input = inputRef.current as WebTextInputElement | null;
-        if (input && "value" in input) input.value = "";
-      },
-      getNativeRef: () => inputRef.current,
-    }));
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: () => inputRef.current?.focus(),
+        blur: () => inputRef.current?.blur(),
+        isFocused: () => document.activeElement === inputRef.current,
+        getText: () => {
+          const input = inputRef.current as WebTextInputElement | null;
+          const nextText = input?.value ?? textRef.current;
+          textRef.current = nextText;
+          return nextText;
+        },
+        replaceText: (nextText, selection) => {
+          textRef.current = nextText;
+          const input = inputRef.current as WebTextInputElement | null;
+          if (input && "value" in input) input.value = nextText;
+          if (selection && typeof input?.setSelectionRange === "function") {
+            input.setSelectionRange(selection.start, selection.end);
+          }
+        },
+        setSelection: (selection) => {
+          const input = inputRef.current as WebTextInputElement | null;
+          input?.setSelectionRange?.(selection.start, selection.end);
+        },
+        applyEdit: (nextText, selection) => {
+          // Set first: the edit fires an input event, and matching text skips the echo.
+          textRef.current = nextText;
+          const input = inputRef.current;
+          if (input instanceof HTMLTextAreaElement) {
+            applyUndoableTextEdit(input, nextText, selection);
+          }
+        },
+        reset: () => {
+          textRef.current = "";
+          const input = inputRef.current as WebTextInputElement | null;
+          if (input && "value" in input) input.value = "";
+        },
+        getNativeRef: () => inputRef.current,
+      }),
+      [],
+    );
 
     return (
       <TextInput

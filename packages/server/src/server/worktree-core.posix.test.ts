@@ -454,7 +454,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           worktreeSlug: "legacy-rpc",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -480,7 +479,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "branch-off",
           refName: "main",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -501,7 +499,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
         {
           cwd: repoDir,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -524,7 +521,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 123,
           refName: "feature/review-pr",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -551,7 +547,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 123,
           refName: "feature/review-pr",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -569,7 +564,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           worktreeSlug: "mcp-standalone",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -596,7 +590,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "branch-off",
           refName: "dev",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -625,7 +618,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           refName: "dev",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -653,7 +645,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 123,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -705,7 +696,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -743,7 +733,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 14,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ forge: { forge: "gitlab", service: gitlab } }),
       );
@@ -795,7 +784,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 14,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ forge: { forge: "gitlab", service: gitlab } }),
       );
@@ -845,7 +833,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 14,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ forge: { forge: "gitlab", service: gitlab } }),
       );
@@ -890,7 +877,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 14,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ forge: { forge: "gitlab", service: gitlab } }),
       );
@@ -901,7 +887,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 14,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ forge: { forge: "gitlab", service: gitlab } }),
       );
@@ -959,7 +944,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1004,7 +988,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1046,7 +1029,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1057,7 +1039,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1167,7 +1148,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1178,7 +1158,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 1790,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1228,7 +1207,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 526,
           refName: "main",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1334,7 +1312,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 526,
           refName: "main",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1432,7 +1409,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 526,
           refName: "main",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1444,7 +1420,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           githubPrNumber: 526,
           refName: "main",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );
@@ -1466,7 +1441,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
             action: "checkout",
             refName: "missing-branch",
             paseoHome,
-            runSetup: false,
           },
           createCoreDeps(),
         ),
@@ -1482,7 +1456,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           worktreeSlug: "agent-worktree",
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps(),
       );
@@ -1501,11 +1474,11 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       const deps = createCoreDeps();
 
       const first = await createCoreWorktree(
-        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome, runSetup: false },
+        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome },
         deps,
       );
       const second = await createCoreWorktree(
-        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome, runSetup: false },
+        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome },
         deps,
       );
 
@@ -1524,7 +1497,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
         githubPrNumber: 123,
         refName: "feature/review-pr",
         paseoHome,
-        runSetup: false,
       };
 
       const first = await createCoreWorktree(input, deps);
@@ -1565,7 +1537,6 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           worktreeSlug: "stubbed-github",
           githubPrNumber: 123,
           paseoHome,
-          runSetup: false,
         },
         createCoreDeps({ github }),
       );

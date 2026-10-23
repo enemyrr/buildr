@@ -8,7 +8,8 @@ import {
   type ReactElement,
   type RefObject,
 } from "react";
-import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
+import { ScrollView, Text, View, type LayoutChangeEvent } from "react-native";
+import { PressHighlight } from "@/components/ui/press-highlight";
 import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useTranslation } from "react-i18next";
@@ -25,10 +26,8 @@ import { useAppSettings } from "@/hooks/use-settings";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { WorkspacePanelHost } from "@/screens/workspace/workspace-panel-host";
 import type { WorkspacePaneContentModel } from "@/screens/workspace/workspace-pane-content";
-import {
-  ScriptRow,
-  useWorkspaceScriptControls,
-} from "@/screens/workspace/workspace-scripts-button";
+import { ScriptRow } from "@/screens/workspace/scripts/workspace-scripts-button";
+import { useWorkspaceScriptActions } from "@/screens/workspace/scripts/use-workspace-script-actions";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useExplorerUtilityStore, type ExplorerUtilityTab } from "@/stores/explorer-utility-store";
@@ -167,7 +166,7 @@ export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
       testID="workspace-explorer-utility-panel"
     >
       <View style={styles.header}>
-        <Pressable
+        <PressHighlight
           accessibilityRole="button"
           accessibilityLabel={
             collapsed ? t("workspace.utilityPanel.expand") : t("workspace.utilityPanel.collapse")
@@ -181,7 +180,7 @@ export const ExplorerUtilityPanel = memo(function ExplorerUtilityPanel({
           ) : (
             <ThemedChevronDown size={14} uniProps={mutedColorMapping} />
           )}
-        </Pressable>
+        </PressHighlight>
         {TABS.map((item) => (
           <UtilityTab key={item} tab={item} active={!collapsed && item === tab} />
         ))}
@@ -320,20 +319,23 @@ function RunScripts({
     },
     [onTrackScriptTerminal, scripts, setRunScript, workspaceKey],
   );
-  const controls = useWorkspaceScriptControls({
+  const baseActions = useWorkspaceScriptActions({
     serverId,
     workspaceId,
     scripts,
-    liveTerminalIds,
     onScriptTerminalStarted: handleScriptTerminalStarted,
   });
-  const { onStartScript } = controls;
-  const handleStartScript = useCallback(
-    (scriptName: string) => {
-      setRunScript(workspaceKey, scriptName);
-      onStartScript(scriptName);
-    },
-    [onStartScript, setRunScript, workspaceKey],
+  const liveTerminalIdSet = useMemo(() => new Set(liveTerminalIds), [liveTerminalIds]);
+  // Starting a script also selects it in the Run panel.
+  const actions = useMemo(
+    () => ({
+      ...baseActions,
+      start: (scriptName: string) => {
+        setRunScript(workspaceKey, scriptName);
+        baseActions.start(scriptName);
+      },
+    }),
+    [baseActions, setRunScript, workspaceKey],
   );
   const handleViewTerminal = useCallback(
     (viewedTerminalId: string) => {
@@ -362,8 +364,8 @@ function RunScripts({
         <ScriptRow
           key={script.scriptName}
           script={script}
-          {...controls}
-          onStartScript={handleStartScript}
+          liveTerminalIdSet={liveTerminalIdSet}
+          actions={actions}
           onViewTerminal={handleViewTerminal}
           onOpenUrlInBrowserTab={onOpenUrlInBrowserTab}
         />
@@ -466,7 +468,7 @@ function UtilityTab({ tab, active }: { tab: ExplorerUtilityTab; active: boolean 
   const handlePress = useCallback(() => selectTab(tab), [selectTab, tab]);
   const accessibilityState = useMemo(() => ({ selected: active }), [active]);
   return (
-    <Pressable
+    <PressHighlight
       accessibilityRole="tab"
       accessibilityState={accessibilityState}
       onPress={handlePress}
@@ -477,7 +479,7 @@ function UtilityTab({ tab, active }: { tab: ExplorerUtilityTab; active: boolean 
         {t(`workspace.utilityPanel.${tab}`)}
       </Text>
       {active ? <View style={styles.tabIndicator} /> : null}
-    </Pressable>
+    </PressHighlight>
   );
 }
 

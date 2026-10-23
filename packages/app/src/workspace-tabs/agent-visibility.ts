@@ -12,15 +12,11 @@ function agentBelongsToWorkspace(agent: Agent, workspaceId: string): boolean {
   return normalizeWorkspaceOpaqueId(agent.workspaceId) === workspaceId;
 }
 
-interface WorkspaceAgentVisibilityInput {
+export function deriveWorkspaceAgentVisibility(input: {
   sessionAgents: Map<string, Agent> | undefined;
   agentDetails?: Map<string, Agent> | undefined;
   workspaceId: string | null | undefined;
-}
-
-export function deriveWorkspaceAgentVisibility(
-  input: WorkspaceAgentVisibilityInput,
-): WorkspaceAgentVisibility {
+}): WorkspaceAgentVisibility {
   const { sessionAgents, agentDetails } = input;
   const workspaceId = normalizeWorkspaceOpaqueId(input.workspaceId);
   if ((!sessionAgents && !agentDetails) || !workspaceId) {
@@ -49,27 +45,43 @@ export function deriveWorkspaceAgentVisibility(
   return { activeAgentIds, autoOpenAgentIds };
 }
 
-interface WorkspaceAgentVisibilityCache {
-  input: WorkspaceAgentVisibilityInput;
-  result: WorkspaceAgentVisibility;
+interface AgentMapsSnapshot {
+  sessions: Record<
+    string,
+    { agents: Map<string, Agent>; agentDetails: Map<string, Agent> } | undefined
+  >;
 }
 
-// Store selectors run on every commit; reuse the last result while the agent maps are unchanged.
-export function createWorkspaceAgentVisibilitySelector() {
-  let cache: WorkspaceAgentVisibilityCache | null = null;
-  return function selectWorkspaceAgentVisibility(
-    input: WorkspaceAgentVisibilityInput,
-  ): WorkspaceAgentVisibility {
-    if (
-      cache &&
-      cache.input.sessionAgents === input.sessionAgents &&
-      cache.input.agentDetails === input.agentDetails &&
-      cache.input.workspaceId === input.workspaceId
-    ) {
-      return cache.result;
+// Session-store selectors run on every store update, including every stream tick, which
+// leaves the agent maps untouched. Reuse the previous result until either map changes, and
+// keep it when a recompute yields the same sets so the hook's equality check stays O(1).
+export function createWorkspaceAgentVisibilitySelector(input: {
+  serverId: string;
+  workspaceId: string | null | undefined;
+}): (state: AgentMapsSnapshot) => WorkspaceAgentVisibility {
+  let previousAgents: Map<string, Agent> | undefined;
+  let previousAgentDetails: Map<string, Agent> | undefined;
+  let previousVisibility: WorkspaceAgentVisibility | null = null;
+
+  return (state) => {
+    const session = state.sessions[input.serverId];
+    const agents = session?.agents;
+    const agentDetails = session?.agentDetails;
+    if (previousVisibility && agents === previousAgents && agentDetails === previousAgentDetails) {
+      return previousVisibility;
     }
-    cache = { input, result: deriveWorkspaceAgentVisibility(input) };
-    return cache.result;
+
+    const visibility = deriveWorkspaceAgentVisibility({
+      sessionAgents: agents,
+      agentDetails,
+      workspaceId: input.workspaceId,
+    });
+    previousAgents = agents;
+    previousAgentDetails = agentDetails;
+    if (!previousVisibility || !workspaceAgentVisibilityEqual(previousVisibility, visibility)) {
+      previousVisibility = visibility;
+    }
+    return previousVisibility;
   };
 }
 
@@ -99,8 +111,9 @@ export function workspaceAgentVisibilityEqual(
   b: WorkspaceAgentVisibility,
 ): boolean {
   return (
-    setsEqual(a.activeAgentIds, b.activeAgentIds) &&
-    setsEqual(a.autoOpenAgentIds, b.autoOpenAgentIds)
+    a === b ||
+    (setsEqual(a.activeAgentIds, b.activeAgentIds) &&
+      setsEqual(a.autoOpenAgentIds, b.autoOpenAgentIds))
   );
 }
 

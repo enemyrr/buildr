@@ -77,6 +77,8 @@ describe("resolveWorkspaceArchiveRedirectTarget", () => {
 
 function workspace(id: string, overrides: Partial<WorkspaceDescriptor> = {}): WorkspaceDescriptor {
   return {
+    createdAt: null,
+    lastUserMessageAt: null,
     id,
     projectId: "project-1",
     projectDisplayName: "Project",

@@ -43,6 +43,7 @@ export const CLIENT_CAPS = {
   timelineNotifications: "timeline_notifications",
   // COMPAT(pluginTimelineItems): added in v0.8.0, remove after 2027-03-07 once client floor >= v0.8.0.
   pluginTimelineItems: "plugin_timeline_items",
+  workspaceSetupObservation: "workspace_setup_observation",
   // COMPAT(workspaceSetupBlocked): added in v0.8.0, remove after 2027-03-07 once client floor >= v0.8.0.
   workspaceSetupBlocked: "workspace_setup_blocked",
   // Opt-in, not a default: the client must fetch omitted tool call details on demand with

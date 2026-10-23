@@ -81,7 +81,7 @@ export function buildOverviewGroup(run: ToolCallRun): OverviewToolCallGroup {
   }
   for (const item of run.items) {
     if (item.kind === "assistant_message") {
-      messageIds.add(item.blockGroupId ?? item.id);
+      messageIds.add(item.id);
     }
   }
 

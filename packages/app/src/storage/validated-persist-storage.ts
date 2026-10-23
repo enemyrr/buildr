@@ -77,7 +77,13 @@ export function createValidatedPersistStorage<State>(
     if (!value) return;
     const serialized = JSON.stringify(value);
     if (written.get(name) === serialized) return;
-    await backingStorage.setItem(name, serialized);
+    try {
+      await backingStorage.setItem(name, serialized);
+    } catch (error) {
+      // Forget the failed value so saving it again retries instead of being skipped as unchanged.
+      if (latest.get(name) === value) latest.delete(name);
+      throw error;
+    }
     written.set(name, serialized);
   }
 
@@ -93,31 +99,46 @@ export function createValidatedPersistStorage<State>(
     written.delete(name);
   }
 
+  const reading = new Set<string>();
+
+  async function read(name: string): Promise<StorageValue<State> | null> {
+    await flushPendingWrites();
+    const raw = await backingStorage.getItem(name);
+    if (raw === null) return null;
+
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(raw);
+    } catch {
+      forget(name);
+      await backingStorage.removeItem(name);
+      return null;
+    }
+
+    const result = envelopeSchema.safeParse(decoded);
+    if (!result.success) {
+      forget(name);
+      await backingStorage.removeItem(name);
+      return null;
+    }
+    written.set(name, raw);
+    return result.data;
+  }
+
   return {
     getItem: async (name) => {
-      await flushPendingWrites();
-      const raw = await backingStorage.getItem(name);
-      if (raw === null) return null;
-
-      let decoded: unknown;
+      reading.add(name);
       try {
-        decoded = JSON.parse(raw);
-      } catch {
-        forget(name);
-        await backingStorage.removeItem(name);
-        return null;
+        return await read(name);
+      } finally {
+        reading.delete(name);
       }
-
-      const result = envelopeSchema.safeParse(decoded);
-      if (!result.success) {
-        forget(name);
-        await backingStorage.removeItem(name);
-        return null;
-      }
-      written.set(name, raw);
-      return result.data;
     },
     setItem: (name, value) => {
+      // A store that changes before hydration settles writes the defaults it started with.
+      // Hydration then merges the stored state in memory without writing it back, so that
+      // write would replace the stored state until the next change.
+      if (reading.has(name)) return;
       const previous = latest.get(name);
       if (previous && isSameStorageValue(previous, value)) return pending.get(name)?.done;
       latest.set(name, value);

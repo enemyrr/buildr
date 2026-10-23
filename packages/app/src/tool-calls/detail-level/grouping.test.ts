@@ -39,7 +39,7 @@ function call(
   };
 }
 
-function text(id: string, options: { blockGroupId?: string; turnId?: string } = {}) {
+function text(id: string, options: { turnId?: string } = {}) {
   return {
     kind: "assistant_message",
     id,
@@ -64,7 +64,7 @@ function group(tail: StreamItem[]) {
 describe("turn activity grouping", () => {
   it("folds tools, thoughts, and intermediate text into one row and keeps the answer outside", () => {
     const members = [text("plan"), call("1"), thought("t"), text("between"), call("2")];
-    const answer = [text("a:0", { blockGroupId: "a" }), text("a:1", { blockGroupId: "a" })];
+    const answer = [text("a:0"), text("a:1")];
     const tail = [user("u"), ...members, ...answer];
 
     const result = group(tail);

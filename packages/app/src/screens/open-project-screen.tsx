@@ -1,7 +1,7 @@
 import { useHosts, useHostRuntimeLastError } from "@/runtime/host-runtime";
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { View, Text, Pressable, type PressableStateCallbackType } from "react-native";
+import { View, Text, Pressable, ScrollView, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useReducedMotion } from "react-native-reanimated";
 import { useRouter } from "expo-router";
@@ -18,11 +18,12 @@ import {
   HEADER_INNER_HEIGHT_MOBILE,
   HEADER_TOP_PADDING_MOBILE,
 } from "@/constants/layout";
-import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
 import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import type { Theme } from "@/styles/theme";
+
+const WINDOW_CONTENT_DATASET = { "window-content": "" };
 
 export function OpenProjectScreen() {
   const { t } = useTranslation();
@@ -62,50 +63,55 @@ export function OpenProjectScreen() {
   return (
     <View style={styles.container}>
       <MenuHeader borderless />
-      <View style={styles.content}>
-        <TitlebarDragRegion />
-        <HomeLogo />
-        {hosts.map((host) => (
-          <HostError key={host.serverId} serverId={host.serverId} label={host.label} />
-        ))}
-        <View style={isCompactLayout ? styles.tiles : styles.desktopTiles}>
-          <HomeTile
-            icon={ThemedFolderOpen}
-            accent
-            compact={isCompactLayout}
-            title={t("openProject.tiles.addProject.title")}
-            description={t("openProject.tiles.addProject.description")}
-            onPress={handleOpenPicker}
-            testID="open-project-submit"
-          />
-          <HomeTile
-            icon={ThemedInbox}
-            compact={isCompactLayout}
-            title={t("openProject.tiles.importSession.title")}
-            description={t("openProject.tiles.importSession.description")}
-            onPress={importSession.open}
-            testID="open-project-import-session"
-          />
-          <HomeTile
-            icon={ThemedPlug}
-            compact={isCompactLayout}
-            title={t("openProject.tiles.setupProviders.title")}
-            description={t("openProject.tiles.setupProviders.description")}
-            onPress={handleOpenProviders}
-            testID="open-project-setup-providers"
-          />
-          {localServerId ? (
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        dataSet={WINDOW_CONTENT_DATASET}
+      >
+        <View style={styles.content}>
+          <HomeLogo />
+          {hosts.map((host) => (
+            <HostError key={host.serverId} serverId={host.serverId} label={host.label} />
+          ))}
+          <View style={isCompactLayout ? styles.tiles : styles.desktopTiles}>
             <HomeTile
-              icon={ThemedSmartphone}
+              icon={ThemedFolderOpen}
+              accent
               compact={isCompactLayout}
-              title={t("openProject.tiles.pairDevice.title")}
-              description={t("openProject.tiles.pairDevice.description")}
-              onPress={handleOpenPairDevice}
-              testID="open-project-pair-device"
+              title={t("openProject.tiles.addProject.title")}
+              description={t("openProject.tiles.addProject.description")}
+              onPress={handleOpenPicker}
+              testID="open-project-submit"
             />
-          ) : null}
+            <HomeTile
+              icon={ThemedInbox}
+              compact={isCompactLayout}
+              title={t("openProject.tiles.importSession.title")}
+              description={t("openProject.tiles.importSession.description")}
+              onPress={importSession.open}
+              testID="open-project-import-session"
+            />
+            <HomeTile
+              icon={ThemedPlug}
+              compact={isCompactLayout}
+              title={t("openProject.tiles.setupProviders.title")}
+              description={t("openProject.tiles.setupProviders.description")}
+              onPress={handleOpenProviders}
+              testID="open-project-setup-providers"
+            />
+            {localServerId ? (
+              <HomeTile
+                icon={ThemedSmartphone}
+                compact={isCompactLayout}
+                title={t("openProject.tiles.pairDevice.title")}
+                description={t("openProject.tiles.pairDevice.description")}
+                onPress={handleOpenPairDevice}
+                testID="open-project-pair-device"
+              />
+            ) : null}
+          </View>
         </View>
-      </View>
+      </ScrollView>
       <PairDeviceModal
         serverId={localServerId ?? ""}
         visible={isPairDeviceOpen}
@@ -227,9 +233,16 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface0,
     userSelect: "none",
   },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
     position: "relative",
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     justifyContent: { xs: "flex-start", md: "center" },
     alignItems: "center",
     gap: 0,
@@ -246,7 +259,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing[8],
   },
   logoLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
   },

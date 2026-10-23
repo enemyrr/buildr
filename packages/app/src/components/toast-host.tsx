@@ -57,8 +57,11 @@ export interface ToastState {
   key?: string;
 }
 
+/** Dismisses the toast it was returned for; a no-op once another toast replaced it. */
+export type DismissToast = () => void;
+
 export interface ToastApi {
-  show: (content: ReactNode, options?: ToastShowOptions) => void;
+  show: (content: ReactNode, options?: ToastShowOptions) => DismissToast;
   copied: (label?: string) => void;
   error: (message: string) => void;
   /** Dismisses the visible toast if it was shown with `key`. */
@@ -68,6 +71,7 @@ export interface ToastApi {
 type ToastViewportPlacement = "app-shell" | "panel";
 
 const DEFAULT_DURATION_MS = 2200;
+const noopDismiss: DismissToast = () => {};
 const TOAST_MAX_WIDTH = 480;
 const toastEntering = FadeIn.duration(140);
 const toastExiting = FadeOut.duration(140);
@@ -95,10 +99,10 @@ export function useToastHost(): {
   const [toast, setToast] = useState<ToastState | null>(null);
   const idRef = useRef(0);
 
-  const show = useCallback((content: ReactNode, options?: ToastShowOptions) => {
+  const show = useCallback((content: ReactNode, options?: ToastShowOptions): DismissToast => {
     const nativeMessage = typeof content === "string" ? content.trim() : null;
     if (!content || nativeMessage === "") {
-      return;
+      return noopDismiss;
     }
 
     const variant = options?.variant ?? "default";
@@ -109,12 +113,13 @@ export function useToastHost(): {
       const duration =
         durationMs !== null && durationMs <= 2500 ? ToastAndroid.SHORT : ToastAndroid.LONG;
       ToastAndroid.showWithGravity(nativeMessage, duration, ToastAndroid.TOP);
-      return;
+      return noopDismiss;
     }
 
     idRef.current += 1;
+    const id = idRef.current;
     const next: ToastState = {
-      id: idRef.current,
+      id,
       content,
       nativeMessage,
       icon: options?.icon,
@@ -125,6 +130,7 @@ export function useToastHost(): {
     };
     const yieldsTo = options?.yieldsTo;
     setToast((current) => (current && outranks(current, yieldsTo) ? current : next));
+    return () => setToast((current) => (current?.id === id ? null : current));
   }, []);
 
   const dismiss = useCallback(() => {
