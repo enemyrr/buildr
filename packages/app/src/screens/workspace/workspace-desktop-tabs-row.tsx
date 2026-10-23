@@ -1,6 +1,7 @@
 import { useWorkspaceTabLaunchCatalog } from "@/workspace-tabs/launcher";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import React, {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -10,7 +11,8 @@ import React, {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Pressable, Text, View, type LayoutChangeEvent } from "react-native";
+import { Pressable, Text, View, type LayoutChangeEvent, type ScrollView } from "react-native";
+import { useFilePanelOpenWithMenu } from "@/file-panels";
 import {
   CopyX,
   ArrowLeftToLine,
@@ -67,6 +69,10 @@ import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-
 import type { PaneHost } from "@/panels/panel-manifest";
 import type { WorkspaceTabLaunchPurpose } from "@/workspace-tabs/launcher";
 import type { SurfaceBackdrop } from "@/styles/surface-backdrop";
+import {
+  resolveWorkspaceTabChipBackdrop,
+  type WorkspaceTabRailSurface,
+} from "@/screens/workspace/workspace-tab-chip-backdrop";
 import type { Theme } from "@/styles/theme";
 import { RenderProfile } from "@/utils/render-profiler";
 import { TrailingActionScrim } from "@/components/ui/trailing-action-scrim";
@@ -752,13 +758,11 @@ function useMiddleClickClose(onClose: () => void) {
   return ref;
 }
 
-/** Tabs have no fill, so the close scrim always fades into the row surface. */
-const TAB_CLOSE_SCRIM_BACKDROP: SurfaceBackdrop = "surface0";
-
 function TabHandleContent({
   presentation,
   isHighlighted,
   showLabel,
+  backdrop,
   tabLabelSkeletonStyle,
   tabLabelStyle,
   modifiedTestId,
@@ -767,6 +771,7 @@ function TabHandleContent({
   presentation: WorkspaceTabPresentation;
   isHighlighted: boolean;
   showLabel: boolean;
+  backdrop: SurfaceBackdrop;
   tabLabelSkeletonStyle: React.ComponentProps<typeof View>["style"];
   tabLabelStyle: React.ComponentProps<typeof Text>["style"];
   modifiedTestId: string;
@@ -785,6 +790,7 @@ function TabHandleContent({
           presentation={presentation}
           active={isHighlighted}
           size={TAB_STATUS_GLYPH_SIZE}
+          backdrop={backdrop}
         />
       </View>
       {showLabel && presentation.titleState === "loading" ? (
@@ -809,13 +815,9 @@ function TabHandleContent({
   );
 }
 
-// Selecting on press-in makes web tabs feel instant; native keeps press so scroll gestures still work.
-function webOnlyPressIn(handler: () => void): (() => void) | undefined {
-  return isWeb ? handler : undefined;
-}
-
 function TabChip({
   serverId,
+  workspaceId,
   tab,
   isActive,
   isDragging,
@@ -823,6 +825,7 @@ function TabChip({
   resolvedTabWidth,
   showLabel,
   showCloseButton,
+  rail,
   isCloseHovered,
   isClosingTab,
   presentation,
@@ -836,6 +839,7 @@ function TabChip({
   trailing,
 }: {
   serverId: string;
+  workspaceId: string;
   tab: WorkspaceTabDescriptor;
   isActive: boolean;
   isDragging: boolean;
@@ -843,6 +847,8 @@ function TabChip({
   resolvedTabWidth: number;
   showLabel: boolean;
   showCloseButton: boolean;
+  /** The surface the row paints, so chip fills and their knockouts match the host. */
+  rail: WorkspaceTabRailSurface;
   isCloseHovered: boolean;
   isClosingTab: boolean;
   presentation: WorkspaceTabPresentation;
@@ -857,6 +863,10 @@ function TabChip({
 }) {
   const { closeButtonTestId, contextMenuTestId, menuEntries } = resolvedTab;
   const { t } = useTranslation();
+  const openWith = useFilePanelOpenWithMenu(
+    { serverId, workspaceId, tabId: tab.tabId },
+    contextMenuTestId,
+  );
   const middleClickRef = useMiddleClickClose(
     useCallback(() => void onCloseTab(tab.tabId), [onCloseTab, tab.tabId]),
   );
@@ -867,6 +877,12 @@ function TabChip({
   const isActiveFocused = isActive && isFocused;
   const isHovered = hovered || isCloseHovered;
   const isHighlighted = isActiveFocused || isHovered;
+  // Tabs have no fill, so the status dot and close scrim sit on the rail's own surface.
+  const railBackdrop: SurfaceBackdrop = resolveWorkspaceTabChipBackdrop({
+    rail,
+    isActiveFocused: false,
+    isFilled: false,
+  });
   const showCloseControl =
     showCloseButton && (isHovered || isActiveFocused || isNative || isCompact || isClosingTab);
   const closeButtonDragBlockers = isWeb
@@ -950,7 +966,6 @@ function TabChip({
               testID={`workspace-tab-${testIdentity}`}
               triggerRef={dragHandleProps?.setActivatorNodeRef as unknown as undefined}
               style={tabChipStyle}
-              onPressIn={webOnlyPressIn(handleNavigateTab)}
               onPress={handleNavigateTab}
               accessibilityRole="button"
               accessibilityLabel={accessibilityLabel}
@@ -961,6 +976,7 @@ function TabChip({
                 presentation={presentation}
                 isHighlighted={isHighlighted}
                 showLabel={showLabel}
+                backdrop={railBackdrop}
                 tabLabelSkeletonStyle={tabLabelSkeletonStyle}
                 tabLabelStyle={tabLabelStyle}
                 modifiedTestId={`workspace-tab-modified-${testIdentity}`}
@@ -995,7 +1011,7 @@ function TabChip({
               showCloseControl ? styles.tabTrailingOverlayShown : styles.tabTrailingOverlayHidden,
             ]}
           >
-            <TrailingActionScrim backdrop={TAB_CLOSE_SCRIM_BACKDROP} />
+            <TrailingActionScrim backdrop={railBackdrop} />
             <Pressable
               {...(closeButtonDragBlockers as object | undefined)}
               testID={closeButtonTestId}
@@ -1039,14 +1055,19 @@ function TabChip({
           />
         ) : null}
 
-        <ContextMenuContent align="start" width={DROPDOWN_WIDTH} testID={contextMenuTestId}>
-          {menuEntries.map((entry) =>
-            entry.kind === "separator" ? (
-              <ContextMenuSeparator key={entry.key} />
-            ) : (
-              <TabContextMenuItem key={entry.key} entry={entry} />
-            ),
-          )}
+        <ContextMenuContent
+          align="start"
+          width={DROPDOWN_WIDTH}
+          pages={openWith.pages}
+          testID={contextMenuTestId}
+        >
+          {menuEntries.map((entry) => {
+            if (entry.kind === "separator") return <ContextMenuSeparator key={entry.key} />;
+            if (entry.kind === "file-panel-open-with") {
+              return <Fragment key={entry.key}>{openWith.trigger}</Fragment>;
+            }
+            return <TabContextMenuItem key={entry.key} entry={entry} />;
+          })}
         </ContextMenuContent>
       </ContextMenu>
     </View>
@@ -1159,8 +1180,10 @@ function ResolvedWorkspaceDesktopTabsRow({
   onExitFocusMode,
 }: ResolvedWorkspaceDesktopTabsRowProps) {
   const { t } = useTranslation();
+  const isCompact = useIsCompactFormFactor();
   const newTabKeys = useShortcutKeys("workspace-tab-new");
   const [tabsContainerWidth, setTabsContainerWidth] = useState<number>(0);
+  const tabsScrollRef = useRef<ScrollView>(null);
   const [exitFocusModeWidth, setExitFocusModeWidth] = useState<number>(0);
   const tabScrollBoundary = useHorizontalScrollBoundary();
   const [labelMeasurements, setLabelMeasurements] = useState(
@@ -1336,7 +1359,15 @@ function ResolvedWorkspaceDesktopTabsRow({
     tabLabelWidths: trackSnapshot?.labelWidths ?? [],
     viewportWidthOverride: tabsContainerWidth > 0 ? tabsContainerWidth : null,
     metrics: layoutMetrics,
+    compact: isCompact,
   });
+  // A scroll view keeps its offset when its content shrinks under the viewport, so a row that
+  // stops scrolling would leave the tabs it had panned past out of view with no way back.
+  useEffect(() => {
+    if (!layout.requiresHorizontalScrollFallback) {
+      tabsScrollRef.current?.scrollTo({ x: 0, animated: false });
+    }
+  }, [layout.requiresHorizontalScrollFallback]);
 
   const handleDragEnd = useCallback(
     (nextTabs: ResolvedWorkspaceDesktopTabRowItem[]) => {
@@ -1381,6 +1412,9 @@ function ResolvedWorkspaceDesktopTabsRow({
     handle: handleNewTabKeyboardAction,
   });
 
+  const rail: WorkspaceTabRailSurface = host === "explorer" ? "sidebar" : "surface";
+  const onSidebar = rail === "sidebar";
+
   const renderTab = useCallback(
     ({
       item,
@@ -1403,6 +1437,7 @@ function ResolvedWorkspaceDesktopTabsRow({
         <ResolvedDesktopTabChip
           key={`${item.tab.key}:${item.tab.kind}`}
           serverId={normalizedServerId}
+          workspaceId={normalizedWorkspaceId}
           item={item}
           isFocused={isFocused}
           isDragging={isActive}
@@ -1421,6 +1456,7 @@ function ResolvedWorkspaceDesktopTabsRow({
           resolvedTabWidth={resolvedTabWidth}
           showLabel={showLabel}
           showCloseButton={shouldShowCloseButton}
+          rail={rail}
           setHoveredCloseTabKey={setHoveredCloseTabKey}
           onNavigateTab={onNavigateTab}
           onCloseTab={onCloseTab}
@@ -1454,6 +1490,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       onNavigateTab,
       onReloadAgent,
       onRenameTab,
+      rail,
       setHoveredCloseTabKey,
       tabMenuLabels,
       tabDropPreviewIndex,
@@ -1473,7 +1510,7 @@ function ResolvedWorkspaceDesktopTabsRow({
 
   const row = (
     <View
-      style={styles.tabsContainer}
+      style={[styles.tabsContainer, onSidebar && styles.tabsContainerSidebar]}
       testID="workspace-tabs-row"
       onLayout={handleTabsContainerLayout}
     >
@@ -1499,6 +1536,7 @@ function ResolvedWorkspaceDesktopTabsRow({
       />
       <View style={styles.tabsScrollContainer}>
         <Animated.ScrollView
+          ref={tabsScrollRef}
           horizontal
           scrollEnabled={layout.requiresHorizontalScrollFallback}
           testID="workspace-tabs-scroll"
@@ -1535,7 +1573,7 @@ function ResolvedWorkspaceDesktopTabsRow({
         </Animated.ScrollView>
         <HorizontalScrollBoundaryShades
           visible={layout.requiresHorizontalScrollFallback}
-          backdrop="surface"
+          backdrop={rail}
           testIDPrefix="workspace-tabs-scroll-shade"
           leftStyle={tabScrollBoundary.leftShadeStyle}
           rightStyle={tabScrollBoundary.rightShadeStyle}
@@ -1564,6 +1602,7 @@ function ResolvedWorkspaceDesktopTabsRow({
 }
 function ResolvedDesktopTabChip({
   serverId,
+  workspaceId,
   item,
   isFocused,
   isDragging,
@@ -1582,6 +1621,7 @@ function ResolvedDesktopTabChip({
   resolvedTabWidth,
   showLabel,
   showCloseButton,
+  rail,
   setHoveredCloseTabKey,
   onNavigateTab,
   onCloseTab,
@@ -1592,6 +1632,7 @@ function ResolvedDesktopTabChip({
   changesCountWorkspaceId,
 }: {
   serverId: string;
+  workspaceId: string;
   item: ResolvedWorkspaceDesktopTabRowItem;
   isFocused: boolean;
   isDragging: boolean;
@@ -1610,6 +1651,7 @@ function ResolvedDesktopTabChip({
   resolvedTabWidth: number;
   showLabel: boolean;
   showCloseButton: boolean;
+  rail: WorkspaceTabRailSurface;
   setHoveredCloseTabKey: Dispatch<SetStateAction<string | null>>;
   onNavigateTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => Promise<void> | void;
@@ -1691,6 +1733,7 @@ function ResolvedDesktopTabChip({
       ) : null}
       <TabChip
         serverId={serverId}
+        workspaceId={workspaceId}
         tab={item.tab}
         isActive={item.isActive}
         isDragging={isDragging}
@@ -1698,6 +1741,7 @@ function ResolvedDesktopTabChip({
         resolvedTabWidth={resolvedTabWidth}
         showLabel={showLabel}
         showCloseButton={showCloseButton}
+        rail={rail}
         isCloseHovered={item.isCloseHovered}
         isClosingTab={item.isClosingTab}
         presentation={presentation}
@@ -1727,6 +1771,9 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     overflow: "visible",
+  },
+  tabsContainerSidebar: {
+    backgroundColor: theme.colors.surfaceSidebar,
   },
   tabsScroll: {
     minWidth: 0,

@@ -397,6 +397,10 @@ export async function openModelBrowser(page: Page): Promise<void> {
   await expect(page.getByTestId("model-search-all-input")).toBeVisible({ timeout: 30_000 });
 }
 
+export async function drillIntoProvider(page: Page, providerId: string): Promise<void> {
+  await modelBrowser(page).getByTestId(`model-provider-${providerId}`).click();
+}
+
 export async function closeModelPicker(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
   await expect(loadoutMenu(page)).toHaveCount(0, { timeout: 30_000 });

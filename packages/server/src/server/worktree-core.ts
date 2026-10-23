@@ -29,7 +29,6 @@ export interface CreateWorktreeCoreInput {
   firstAgentContext?: FirstAgentContext;
   paseoHome?: string;
   worktreesRoot?: string;
-  runSetup?: boolean;
 }
 
 export interface CreateWorktreeCoreDeps {
@@ -129,7 +128,6 @@ async function createNamedWorktree(
       cwd: repoRoot,
       worktreeSlug: requestedWorktreeSlug,
       source: intent,
-      runSetup: input.runSetup ?? true,
       paseoHome: input.paseoHome,
       worktreesRoot: input.worktreesRoot,
     }),

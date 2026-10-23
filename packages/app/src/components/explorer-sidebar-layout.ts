@@ -1,38 +1,16 @@
-import {
-  paneContentToolbarIconSize,
-  paneContentToolbarTrailingPadding,
-} from "@/components/ui/pane-content-toolbar";
-import { smallIconButtonChromeFrameSize } from "@/components/ui/icon-button-chrome";
 import { DEFAULT_SIDEBAR_WIDTH } from "@/stores/panel-store";
-
-export function explorerSidebarCloseButtonLayout(compact: boolean) {
-  // The inline native dock retains its padded close action and touch slop.
-  if (!compact) {
-    return { size: 34, iconSize: 18, hitSlop: 8, trailingPadding: 8 };
-  }
-  return {
-    size: smallIconButtonChromeFrameSize(compact),
-    iconSize: paneContentToolbarIconSize(compact),
-    hitSlop: 0,
-    trailingPadding: paneContentToolbarTrailingPadding(compact, "glyph"),
-  };
-}
-
-/**
- * Outer inset of an Explorer tab rail. With each tab's own horizontal padding it puts
- * the tab label on the pane's shared leading rail (`treeRowPaddingLeft(0)`).
- */
-export const EXPLORER_TAB_RAIL_INSET = 4;
 
 // Explorer carries diffs and file trees, so it is never narrower than 1.5x the left sidebar.
 const MIN_EXPLORER_SIDEBAR_WIDTH = Math.round(DEFAULT_SIDEBAR_WIDTH * 1.5);
 const DEFAULT_EXPLORER_SIDEBAR_WIDTH = MIN_EXPLORER_SIDEBAR_WIDTH;
-const MIN_WORKSPACE_BODY_WIDTH = 400;
+const MIN_WORKSPACE_BODY_WIDTH = 360;
+export const EXPLORER_WORKSPACE_MIN_WIDTH = MIN_EXPLORER_SIDEBAR_WIDTH + MIN_WORKSPACE_BODY_WIDTH;
 
 export function resolveExplorerSidebarWidth(input: {
   requestedWidth?: number;
   containerWidth: number;
 }): number {
+  "worklet";
   const requestedWidth = input.requestedWidth ?? DEFAULT_EXPLORER_SIDEBAR_WIDTH;
   const maximumVisibleWidth =
     input.containerWidth > 0

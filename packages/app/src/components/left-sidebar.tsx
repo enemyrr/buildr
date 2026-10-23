@@ -5,7 +5,6 @@ import {
   GitBranch,
   Server,
   Settings,
-  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
@@ -23,6 +22,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { SidebarCloseButton } from "@/components/headers/sidebar-close-button";
 import { resolveDesktopSidebarWidth } from "@/components/desktop-sidebar-layout";
 import { NavigationHistoryButtons } from "@/components/headers/navigation-history-buttons";
 import {
@@ -35,6 +35,7 @@ import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import { SidebarNavRows } from "@/components/sidebar/sidebar-nav-rows";
 import { SidebarNewMenu } from "@/components/sidebar/sidebar-new-menu";
 import { SidebarResourcesMenu } from "@/components/sidebar/sidebar-resources-menu";
+import { SidebarFooterIconHighlight } from "@/components/sidebar/sidebar-footer-icon-highlight";
 import { SidebarResizeHandle } from "@/components/sidebar-resize-handle";
 import { DensityIcon } from "@/components/ui/density-icon";
 import { Shortcut } from "@/components/ui/shortcut";
@@ -67,7 +68,7 @@ import {
   buildSettingsAddHostRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
-import { ICON_SIZE, type Theme } from "@/styles/theme";
+import type { Theme } from "@/styles/theme";
 import { openHostOverview } from "@/navigation/settings-navigation";
 import {
   UsageSidebarItem,
@@ -79,10 +80,8 @@ import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
-const ThemedX = withUnistyles(X);
 const ThemedGitBranch = withUnistyles(GitBranch);
 
-const foregroundColorMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const foregroundMutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
 const DEV_BUILD_LABEL = process.env.EXPO_PUBLIC_PASEO_DEV_BUILD_LABEL?.trim() || null;
@@ -172,9 +171,8 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
   const { open: openImportSession, sheet: importSessionSheet } = useImportSession();
 
   const handleOpenProjectMobile = useCallback(() => {
-    showMobileAgent();
     void openProjectPicker();
-  }, [showMobileAgent, openProjectPicker]);
+  }, [openProjectPicker]);
 
   const handleOpenProjectDesktop = useCallback(() => {
     void openProjectPicker();
@@ -211,9 +209,8 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
   }, []);
 
   const handleImportSessionMobile = useCallback(() => {
-    showMobileAgent();
     openImportSession();
-  }, [openImportSession, showMobileAgent]);
+  }, [openImportSession]);
 
   const labels = useMemo(
     (): SidebarLabels => ({
@@ -324,13 +321,16 @@ function FooterIconButton({
           accessibilityRole="button"
           onPress={onPress}
         >
-          {({ hovered }) => (
-            <DensityIcon
-              icon={icon}
-              size={iconSize}
-              sizeAdjustment={iconSizeAdjustment}
-              color={hovered ? "foreground" : "foregroundMuted"}
-            />
+          {({ hovered, pressed }) => (
+            <>
+              <SidebarFooterIconHighlight visible={pressed} />
+              <DensityIcon
+                icon={icon}
+                size={iconSize}
+                sizeAdjustment={iconSizeAdjustment}
+                color={hovered ? "foreground" : "foregroundMuted"}
+              />
+            </>
           )}
         </Pressable>
       </TooltipTrigger>
@@ -557,6 +557,19 @@ function MobileSidebar({
     closeSidebar();
   }, [closeSidebar]);
 
+  const closeButton = useMemo(
+    () => (
+      <SidebarCloseButton
+        label={labels.closeSidebar}
+        onPress={closeSidebar}
+        testID="sidebar-close"
+        nativeID="sidebar-close"
+        style={styles.mobileCloseButton}
+      />
+    ),
+    [labels.closeSidebar, closeSidebar],
+  );
+
   const mobileSidebarInsetStyle = useMemo(
     () => ({ paddingTop: insetsTop, paddingBottom: insetsBottom }),
     [insetsTop, insetsBottom],
@@ -571,30 +584,11 @@ function MobileSidebar({
         pointerEvents="auto"
       >
         <WindowChromeSafeArea placement="below" />
-        <SidebarNavRows style={styles.sidebarHeaderGroup} onBeforeNavigate={closeSidebar} />
-        <WindowChromeSafeArea
-          placement="inline"
-          pointerEvents="box-none"
-          style={styles.mobileCloseButtonRow}
-        >
-          <Pressable
-            style={styles.mobileCloseButton}
-            onPress={closeSidebar}
-            testID="sidebar-close"
-            nativeID="sidebar-close"
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel={labels.closeSidebar}
-            hitSlop={8}
-          >
-            {({ hovered, pressed }) => (
-              <ThemedX
-                size={ICON_SIZE.md}
-                uniProps={hovered || pressed ? foregroundColorMapping : foregroundMutedColorMapping}
-              />
-            )}
-          </Pressable>
-        </WindowChromeSafeArea>
+        <SidebarNavRows
+          style={styles.sidebarHeaderGroup}
+          onBeforeNavigate={closeSidebar}
+          firstRowTrailing={closeButton}
+        />
 
         {isInitialLoad && !hasActiveHostFilter ? (
           <SidebarAgentListSkeleton />
@@ -672,7 +666,9 @@ function DesktopSidebar({
   const hasActiveHostFilter = useSidebarViewStore((state) => state.hostFilters.length > 0);
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
   const setSidebarWidth = usePanelStore((state) => state.setSidebarWidth);
-  const { width: viewportWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const viewportWidth = windowWidth - insets.left - insets.right;
   const visibleSidebarWidth = resolveDesktopSidebarWidth({
     requestedWidth: sidebarWidth,
     viewportWidth,
@@ -913,24 +909,8 @@ const styles = StyleSheet.create((theme) => ({
   mobileSidebarSurface: {
     backgroundColor: theme.colors.surfaceSidebar,
   },
-  mobileCloseButtonRow: {
-    position: "absolute",
-    top: theme.spacing[3],
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    alignItems: "flex-end",
-  },
   mobileCloseButton: {
-    // The 16px X paints farther inside its 32px hit target than the 14px Settings2 glyph.
-    // This optical inset puts their painted right edges on the same sidebar rail.
-    marginRight: theme.spacing[2] + 1.5,
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.surfaceSidebar,
+    marginRight: theme.spacing[2],
   },
   desktopSidebarBorder: {
     borderRightWidth: 1,

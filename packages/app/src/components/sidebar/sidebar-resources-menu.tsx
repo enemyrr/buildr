@@ -13,7 +13,6 @@ import {
 import { useFetchQuery } from "@/data/query";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { UsageCard } from "@/usage/card";
-import { usageCopy } from "@/usage/copy";
 import { clampPct, formatPct } from "@/usage/format";
 import { useHostUsage } from "@/usage/queries";
 import { useUsagePreferences } from "@/usage/display";
@@ -206,9 +205,12 @@ function ContextSection({ serverId }: { serverId: string | null }) {
 }
 
 function LimitsBody({ serverId, view }: { serverId: string; view: UsageView }) {
-  if (view.kind === "loading") return <Text style={styles.muted}>{usageCopy.loading}</Text>;
+  const { t } = useTranslation();
+  if (view.kind === "loading")
+    return <Text style={styles.muted}>{t("providerUsage.loading")}</Text>;
   if (view.kind !== "ready") return <Text style={styles.muted}>{view.message}</Text>;
-  if (view.reports.length === 0) return <Text style={styles.muted}>{usageCopy.empty}</Text>;
+  if (view.reports.length === 0)
+    return <Text style={styles.muted}>{t("providerUsage.empty")}</Text>;
   return <UsageLimits serverId={serverId} reports={view.reports} />;
 }
 
@@ -277,7 +279,7 @@ function LimitsSection({ serverId }: { serverId: string }) {
           onPress={refresh}
           disabled={view.kind === "unavailable" || busy}
           loading={busy}
-          accessibilityLabel={usageCopy.refresh}
+          accessibilityLabel={t("providerUsage.refresh")}
           testID="sidebar-usage-refresh"
         />
       </View>

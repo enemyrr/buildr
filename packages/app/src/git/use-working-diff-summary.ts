@@ -32,12 +32,7 @@ export function useWorkingDiffSummary({
   const { preferences } = useChangesPreferences();
   const { status } = useCheckoutStatusQuery({ serverId, cwd });
   const gitStatus = status?.isGit ? status : null;
-  const { comparison } = useWorkingDiffComparison({
-    serverId,
-    workspaceId,
-    cwd,
-    isDirty: Boolean(gitStatus?.isDirty),
-  });
+  const { comparison } = useWorkingDiffComparison({ serverId, workspaceId, cwd });
   const diffMode = mode ?? comparison;
   const { files, isLoading } = useCheckoutDiffQuery({
     serverId,

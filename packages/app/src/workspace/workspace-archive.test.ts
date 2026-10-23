@@ -36,6 +36,7 @@ function archivePayload(input: {
 
 function workspacePayload(input?: Partial<FetchWorkspacesEntry>): FetchWorkspacesEntry {
   return {
+    lastUserMessageAt: null,
     id: "workspace-1",
     projectId: "project-1",
     projectDisplayName: "Project",

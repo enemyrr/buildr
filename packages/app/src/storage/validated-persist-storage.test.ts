@@ -102,3 +102,40 @@ describe("createValidatedPersistStorage", () => {
     });
   });
 });
+
+it("retries an unchanged state after a failed save", async () => {
+  let attempts = 0;
+  const backing = new MemoryStorage();
+  const storage = createValidatedPersistStorage(
+    {
+      getItem: (name) => backing.getItem(name),
+      setItem: (name, value) => {
+        attempts += 1;
+        if (attempts === 1) return Promise.reject(new Error("storage unavailable"));
+        backing.setItem(name, value);
+      },
+      removeItem: (name) => backing.removeItem(name),
+    },
+    StateSchema,
+  );
+  const value = { state: { enabled: true }, version: 1 };
+  await expect(storage.setItem("layout", value)).rejects.toThrow("storage unavailable");
+  await storage.setItem("layout", value);
+  expect(attempts).toBe(2);
+  expect(backing.getItem("layout")).toBe(JSON.stringify(value));
+});
+
+it("saves the same state again after removal or rehydration clears invalid storage", async () => {
+  const backing = new MemoryStorage();
+  const storage = createValidatedPersistStorage(backing, StateSchema);
+  const value = { state: { enabled: true }, version: 1 };
+  await storage.setItem("layout", value);
+  await storage.removeItem("layout");
+  await storage.setItem("layout", value);
+  expect(backing.getItem("layout")).toBe(JSON.stringify(value));
+
+  backing.values.set("layout", "{");
+  await expect(storage.getItem("layout")).resolves.toBeNull();
+  await storage.setItem("layout", value);
+  expect(backing.getItem("layout")).toBe(JSON.stringify(value));
+});

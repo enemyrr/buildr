@@ -28,7 +28,7 @@ import type { HostBadgeModel } from "@/hosts/appearance";
 import { isWeb as platformIsWeb, isNative as platformIsNative } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { StyleSheet } from "react-native-unistyles";
-import { density, densityFontSize, densityIconBox, densityIconProps } from "@/styles/density";
+import { density, densityIconBox, densityIconProps } from "@/styles/density";
 import { withUnistyles } from "react-native-unistyles";
 import {
   ChevronDown,
@@ -147,6 +147,7 @@ export function SidebarStatusWorkspaceList({
   parentGestureRef,
   dragGestureHostActive,
 }: StatusWorkspaceListProps) {
+  const { t } = useTranslation();
   const collapsedWorkspaceGroupKeys = useSidebarCollapsedSectionsStore(
     (state) => state.collapsedWorkspaceGroupKeys,
   );
@@ -158,7 +159,6 @@ export function SidebarStatusWorkspaceList({
   const toggleSnoozedExpanded = useSidebarCollapsedSectionsStore(
     (state) => state.toggleSnoozedExpanded,
   );
-  const { t } = useTranslation();
   const {
     visibleItems: visiblePinnedWorkspaces,
     expanded: pinnedWorkspacesExpanded,
@@ -353,6 +353,11 @@ function StatusGroupList({
   );
 }
 
+const STATUS_GROUP_VISIBILITY = {
+  kind: "workspaces" as const,
+  getStatusBucket: (workspace: SidebarWorkspaceEntry) => workspace.statusBucket,
+};
+
 function StatusGroupRows({
   group,
   collapsed,
@@ -379,7 +384,7 @@ function StatusGroupRows({
     expanded: workspacesExpanded,
     canToggle: canToggleWorkspaces,
     toggleExpanded: toggleWorkspacesExpanded,
-  } = useLimitedSidebarGroup(group.rows);
+  } = useLimitedSidebarGroup(group.rows, STATUS_GROUP_VISIBILITY);
 
   return (
     <View style={collapsed ? undefined : styles.statusGroupBlockExpanded}>
@@ -540,7 +545,6 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
   canPin,
   onToggleWorkspacePin,
   inStatusGroup = true,
-  onWorkspacePress,
   drag,
   isDragging = false,
   dragHandleProps,
@@ -570,9 +574,8 @@ const StatusWorkspaceRow = memo(function StatusWorkspaceRow({
 
   const handlePress = useCallback(() => {
     if (!workspace.serverId) return;
-    onWorkspacePress?.();
     navigateToWorkspace({ serverId: workspace.serverId, workspaceId: workspace.workspaceId });
-  }, [onWorkspacePress, workspace.serverId, workspace.workspaceId]);
+  }, [workspace.serverId, workspace.workspaceId]);
 
   return (
     <StatusWorkspaceRowWithMenu
@@ -1131,7 +1134,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   statusGroupTitle: {
     color: theme.colors.foreground,
-    fontSize: densityFontSize(theme, "base"),
+    fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
     minWidth: 0,
     flexShrink: 1,

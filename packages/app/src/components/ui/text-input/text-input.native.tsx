@@ -106,6 +106,13 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
         replaceText,
         // The native input keeps no undo history to join.
         applyEdit: replaceText,
+        setSelection: (selection) => {
+          if (inputRef.current?.setSelection) {
+            inputRef.current.setSelection(selection.start, selection.end);
+            return;
+          }
+          inputRef.current?.setNativeProps?.({ selection });
+        },
         reset: () => {
           textRef.current = "";
           const autoFocus = inputRef.current?.isFocused?.() ?? false;
@@ -119,7 +126,7 @@ export const EditingTextInput = forwardRef<EditingTextInputHandle, EditingTextIn
         },
         getNativeRef: () => inputRef.current?.getNativeRef?.() ?? inputRef.current,
       };
-    });
+    }, [setReplacementFocus]);
 
     const handleChangeText = useCallback(
       (nextText: string) => {

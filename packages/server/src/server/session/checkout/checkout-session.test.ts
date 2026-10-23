@@ -2050,7 +2050,6 @@ it("creates a PR from a restored exact base using the host metadata and a forge 
       paseoHome,
       worktreeSlug: "restored-pr",
       source: { kind: "branch-off", baseBranch: baseRef, branchName: "restored-pr" },
-      runSetup: false,
     });
     writeFileSync(join(created.worktreePath, "feature.txt"), "feature\n");
     git(created.worktreePath, "add", ".");
@@ -2061,7 +2060,6 @@ it("creates a PR from a restored exact base using the host metadata and a forge 
       paseoHome,
       worktreeSlug: "restored-pr",
       source: { kind: "restore", branchName: created.branchName, baseRef },
-      runSetup: false,
     });
     const requests: Array<Parameters<ForgeService["createPullRequest"]>[0]> = [];
     const service: ForgeService = {
