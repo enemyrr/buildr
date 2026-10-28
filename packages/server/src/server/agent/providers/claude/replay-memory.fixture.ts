@@ -170,7 +170,18 @@ export function generateWorkflowReplayCorpus(
   );
   writeFileSync(
     path.join(sessionDirectory, "workflows", `${runId}.json`),
-    JSON.stringify({ runId, status: "completed", summary: "Large workflow" }),
+    JSON.stringify({
+      runId,
+      status: "completed",
+      summary: "Large workflow",
+      workflowProgress: Array.from({ length: 5 }, (_, i) => ({
+        type: "workflow_agent",
+        index: i + 1,
+        label: `child:${i}`,
+        agentId: `child-${i}`,
+        state: "done",
+      })),
+    }),
   );
   for (let i = 0; i < 5; i++) {
     const file = path.join(childrenDirectory, `agent-child-${i}.jsonl`);

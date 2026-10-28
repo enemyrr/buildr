@@ -6,6 +6,12 @@ import type { ProviderSubagentStatus } from "../../../provider-subagents/store.j
 import type { SubagentObservation } from "./observation.js";
 import { buildClaudeSubagentSubtitle } from "./presentation.js";
 import type { ClaudeReplayEntry } from "./replay-source.js";
+import {
+  claudeWorkflowMemberId,
+  convertClaudeWorkflowMemberEntry,
+  declareClaudeWorkflowMember,
+  parseClaudeWorkflowMembers,
+} from "./workflow-members.js";
 import { formatClaudeWorkflowResult } from "./workflow-output.js";
 
 const ClaudeWorkflowRunSchema = z.object({
@@ -18,6 +24,8 @@ const ClaudeWorkflowRunSchema = z.object({
   defaultModel: z.string().optional().catch(undefined),
   totalTokens: z.number().optional().catch(undefined),
   result: z.unknown().optional(),
+  /** The last `workflow_progress` snapshot, which names every member and its outcome. */
+  workflowProgress: z.unknown().optional(),
 });
 
 export type ClaudeWorkflowRun = z.infer<typeof ClaudeWorkflowRunSchema>;
@@ -43,13 +51,14 @@ export function parseClaudeWorkflowRun(contents: string): ClaudeWorkflowRun | nu
  * The parent tool result links a Workflow tool-use id to a run id. The run summary owns the
  * terminal outcome and presentation facts. A nonterminal summary cannot still be live after the
  * provider runtime was recreated, so replay terminalizes it as failed instead of resurrecting a
- * row that can never receive another update.
+ * row that can never receive another update. Members replay as children of the workflow, the
+ * same tree the live source builds.
  */
 export function observeReplayWorkflows(input: {
   workflows: readonly ClaudeWorkflowRun[];
   parentEntries: Iterable<ClaudeWorkflowParentEntry>;
-  /** Repeatable entries in chronological order, supplied by the transcript reader. */
-  entriesByRunId?: ReadonlyMap<string, Iterable<ClaudeReplayEntry>>;
+  /** Repeatable member transcripts by run id, then by member agent id. */
+  membersByRunId?: ReadonlyMap<string, ReadonlyMap<string, Iterable<ClaudeReplayEntry>>>;
   convertEntry?: (entry: ClaudeReplayEntry) => AgentTimelineItem[];
 }): SubagentObservation[] {
   const toolCallIdByRunId = readWorkflowLinks(input.parentEntries);
@@ -79,14 +88,14 @@ export function observeReplayWorkflows(input: {
       });
     }
 
-    for (const observation of observeWorkflowTimeline({
-      id,
-      result: workflow.result,
-      entries: input.entriesByRunId?.get(workflow.runId) ?? [],
-      convertEntry: input.convertEntry,
-      finishedAt,
-    })) {
-      observations.push(observation);
+    const resultText = formatClaudeWorkflowResult(workflow.result);
+    if (resultText) {
+      observations.push({
+        kind: "timeline",
+        id,
+        item: { type: "assistant_message", text: resultText },
+        ...(finishedAt ? { timestamp: finishedAt } : {}),
+      });
     }
 
     const subtitle = buildClaudeSubagentSubtitle({
@@ -104,10 +113,21 @@ export function observeReplayWorkflows(input: {
         ...(finishedAt ? { timestamp: finishedAt } : {}),
       });
     }
+    const status = replayWorkflowStatus(workflow.status);
+    observations.push(
+      ...observeWorkflowMembers({
+        workflowId: id,
+        progress: workflow.workflowProgress,
+        transcripts: input.membersByRunId?.get(workflow.runId),
+        convertEntry: input.convertEntry,
+        workflowStatus: status,
+        finishedAt,
+      }),
+    );
     observations.push({
       kind: "status",
       id,
-      status: replayWorkflowStatus(workflow.status),
+      status,
       ...(finishedAt ? { timestamp: finishedAt } : {}),
     });
   }
@@ -115,39 +135,44 @@ export function observeReplayWorkflows(input: {
   return observations;
 }
 
-function observeWorkflowTimeline(input: {
-  id: string;
-  result: unknown;
-  entries: Iterable<ClaudeReplayEntry>;
+function observeWorkflowMembers(input: {
+  workflowId: string;
+  progress: unknown;
+  transcripts: ReadonlyMap<string, Iterable<ClaudeReplayEntry>> | undefined;
   convertEntry?: (entry: ClaudeReplayEntry) => AgentTimelineItem[];
+  workflowStatus: ProviderSubagentStatus;
   finishedAt?: string;
 }): SubagentObservation[] {
   const observations: SubagentObservation[] = [];
-  const replayedAssistantText = new Set<string>();
-
-  for (const entry of input.entries) {
-    const timestamp = normalizeProviderReplayTimestamp(entry.timestamp);
-    const items = input.convertEntry?.(entry) ?? [];
-    for (const item of items) {
-      if (item.type === "assistant_message") replayedAssistantText.add(item.text.trim());
-      observations.push({
-        kind: "timeline",
-        id: input.id,
-        item,
-        ...(timestamp ? { timestamp } : {}),
-      });
+  for (const member of parseClaudeWorkflowMembers(input.progress)) {
+    const id = claudeWorkflowMemberId(input.workflowId, member.agentId);
+    observations.push(
+      declareClaudeWorkflowMember({
+        workflowId: input.workflowId,
+        member,
+        ...(member.startedAt ? { timestamp: member.startedAt } : {}),
+      }),
+    );
+    for (const entry of input.transcripts?.get(member.agentId) ?? []) {
+      const timestamp = normalizeProviderReplayTimestamp(entry.timestamp);
+      for (const item of convertClaudeWorkflowMemberEntry(entry, input.convertEntry ?? noItems)) {
+        observations.push({ kind: "timeline", id, item, ...(timestamp ? { timestamp } : {}) });
+      }
     }
+    if (member.subtitle) observations.push({ kind: "subtitle", id, subtitle: member.subtitle });
+    // A member the snapshot left running ended with its workflow.
+    observations.push({
+      kind: "status",
+      id,
+      status: member.status === "running" ? input.workflowStatus : member.status,
+      ...(input.finishedAt ? { timestamp: input.finishedAt } : {}),
+    });
   }
-
-  const resultText = formatClaudeWorkflowResult(input.result);
-  if (!resultText || replayedAssistantText.has(resultText.trim())) return observations;
-  observations.push({
-    kind: "timeline",
-    id: input.id,
-    item: { type: "assistant_message", text: resultText },
-    ...(input.finishedAt ? { timestamp: input.finishedAt } : {}),
-  });
   return observations;
+}
+
+function noItems(): AgentTimelineItem[] {
+  return [];
 }
 
 function readWorkflowLinks(entries: Iterable<ClaudeWorkflowParentEntry>): Map<string, string> {

@@ -59,6 +59,7 @@ describe("Claude workflow replay", () => {
       startTime: 1786003484150,
       defaultModel: "claude-sonnet-5",
       totalTokens: 20_417,
+      workflowProgress: [{ type: "workflow_phase", title: "Inspect" }],
     });
   });
 
@@ -145,25 +146,85 @@ describe("Claude workflow replay", () => {
     expect(JSON.stringify(observations)).not.toContain("SECRET CHILD PROMPT");
   });
 
-  it("does not duplicate a result already present in the child transcript", () => {
-    const report = "What Paseo is\nA local-first coding-agent environment.";
+  it("replays each member as a child of the workflow with its own timeline", () => {
     const observations = observeReplayWorkflows({
       workflows: [
-        { runId: RUN_ID, summary: "Inspect Paseo", status: "completed", result: { report } },
+        {
+          runId: RUN_ID,
+          summary: "Build the Paper rebuild",
+          status: "killed",
+          workflowProgress: [
+            {
+              type: "workflow_agent",
+              index: 1,
+              label: "build:P09",
+              agentId: "a1",
+              state: "done",
+              phaseTitle: "Build",
+            },
+            {
+              type: "workflow_agent",
+              index: 2,
+              label: "verify:P09",
+              agentId: "a2",
+              state: "start",
+            },
+          ],
+        },
       ],
       parentEntries: parentEntries(),
-      entriesByRunId: new Map([[RUN_ID, [{} as never]]]),
-      convertEntry: () => [{ type: "assistant_message", text: report }],
+      membersByRunId: new Map([
+        [
+          RUN_ID,
+          new Map([
+            [
+              "a1",
+              [
+                { type: "user", text: "[Workflow harness] Task follows:\n  Build P09" },
+                { type: "assistant", text: "Built." },
+              ],
+            ],
+          ]),
+        ],
+      ]),
+      convertEntry: (entry) => [
+        entry.type === "user"
+          ? { type: "user_message", text: String(entry.text) }
+          : { type: "assistant_message", text: String(entry.text) },
+      ],
     });
+    const store = new ProviderSubagentStore();
+    for (const event of foldSubagentObservations(observations)) {
+      store.apply("parent", "claude", event);
+    }
 
+    expect(store.get("parent", `${TOOL_CALL_ID}:a1`)).toMatchObject({
+      title: "build:P09",
+      subtitle: "Build",
+      parentSubagentId: TOOL_CALL_ID,
+      status: "completed",
+    });
+    // The snapshot left this member running; it ended when its workflow was stopped.
+    expect(store.get("parent", `${TOOL_CALL_ID}:a2`)).toMatchObject({
+      title: "verify:P09",
+      status: "canceled",
+    });
     expect(
       observations.filter(
-        (observation) =>
-          observation.kind === "timeline" &&
-          observation.item.type === "assistant_message" &&
-          observation.item.text === report,
+        (observation) => observation.kind === "timeline" && observation.id === `${TOOL_CALL_ID}:a1`,
       ),
-    ).toHaveLength(1);
+    ).toEqual([
+      {
+        kind: "timeline",
+        id: `${TOOL_CALL_ID}:a1`,
+        item: { type: "user_message", text: "Build P09" },
+      },
+      {
+        kind: "timeline",
+        id: `${TOOL_CALL_ID}:a1`,
+        item: { type: "assistant_message", text: "Built." },
+      },
+    ]);
   });
 
   it("fails a nonterminal persisted run because its former runtime cannot update it", () => {

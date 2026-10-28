@@ -133,7 +133,9 @@ describe("ClaudeAgentSession persisted history load", () => {
           expect([...history.parentEntries]).toEqual([parentEntry]);
           expect(history.subagents).toHaveLength(1);
           expect([...history.subagents[0]!.entries]).toEqual([childEntry]);
-          expect([...history.workflowEntriesByRunId.get("wf_test")!]).toEqual([childEntry]);
+          expect([...history.workflowMembersByRunId.get("wf_test")!.get("child")!]).toEqual([
+            childEntry,
+          ]);
         }
       });
     },
