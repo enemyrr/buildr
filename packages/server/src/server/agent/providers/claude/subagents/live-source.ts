@@ -1,6 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentMetadata } from "../../../agent-sdk-types.js";
+import type { AgentMetadata, AgentTimelineItem } from "../../../agent-sdk-types.js";
 import type { ProviderSubagentStatus } from "../../../provider-subagents/store.js";
 import { resolveObservedClaudeModelId } from "../models.js";
 import type { SubagentObservation } from "./observation.js";
@@ -9,6 +9,9 @@ import {
   type ClaudeSubagentPresentationFacts,
   type ClaudeSubagentUsage,
 } from "./presentation.js";
+import type { ClaudeReplayEntry } from "./replay-source.js";
+import { ClaudeWorkflowMemberSource } from "./workflow-member-source.js";
+import type { ClaudeTranscriptChunk } from "./workflow-members.js";
 
 /**
  * Claude Code announces subagent lifecycle on the SDK stream. This reads those announcements
@@ -105,6 +108,14 @@ export interface ClaudeHookObservationInput {
 interface TaskProgressMessage {
   task_id: string;
   usage?: { total_tokens?: number; tool_uses?: number; duration_ms?: number };
+  /** Undeclared in the SDK types. Workflows report a full member snapshot on every frame. */
+  workflow_progress?: unknown;
+}
+
+/** The background-launch result of a Workflow call, read off the main-session user frame. */
+interface WorkflowLaunchMessage {
+  message?: { content?: unknown };
+  tool_use_result?: { taskType?: unknown; transcriptDir?: unknown } | null;
 }
 
 function readUsage(
@@ -153,6 +164,9 @@ export interface ClaudeTaskProtocolSourceInput {
   getToolInput?: (toolUseId: string) => AgentMetadata | null | undefined;
   /** Reads the safe, provider-owned result from a completed workflow's task output file. */
   readWorkflowResult?: (outputFile: string) => string | undefined;
+  /** Converts a workflow member's transcript entry, the same way replay converts it. */
+  convertTranscriptEntry?: (entry: ClaudeReplayEntry) => AgentTimelineItem[];
+  readTranscript?: (file: string, offset: number) => ClaudeTranscriptChunk;
 }
 
 export class ClaudeTaskProtocolSource {
@@ -195,10 +209,15 @@ export class ClaudeTaskProtocolSource {
   private sawAnyTask = false;
   private readonly getToolInput: (toolUseId: string) => AgentMetadata | null | undefined;
   private readonly readWorkflowResult: (outputFile: string) => string | undefined;
+  private readonly workflowMembers: ClaudeWorkflowMemberSource;
 
   constructor(input: ClaudeTaskProtocolSourceInput = {}) {
     this.getToolInput = input.getToolInput ?? (() => null);
     this.readWorkflowResult = input.readWorkflowResult ?? (() => undefined);
+    this.workflowMembers = new ClaudeWorkflowMemberSource({
+      convertEntry: input.convertTranscriptEntry,
+      readTranscript: input.readTranscript,
+    });
   }
 
   /** True while any announced task, filtered or not, is still running in the CLI process. */
@@ -262,6 +281,9 @@ export class ClaudeTaskProtocolSource {
   }
 
   observe(message: SDKMessage): SubagentObservation[] {
+    if (message.type === "user") {
+      return this.observeWorkflowLaunch(message as unknown as WorkflowLaunchMessage);
+    }
     if (message.type !== "system") return [];
     switch (message.subtype) {
       case "task_started":
@@ -298,6 +320,7 @@ export class ClaudeTaskProtocolSource {
     this.presentationById.clear();
     this.lastSubtitleById.clear();
     this.liveTaskIds.clear();
+    this.workflowMembers.reset();
     this.sawTaskStarted = false;
     this.sawAnyTask = false;
   }
@@ -319,6 +342,7 @@ export class ClaudeTaskProtocolSource {
       if (this.backgroundedIds.has(id)) continue;
       if (this.lastStatusById.get(id) !== "running") continue;
       this.lastStatusById.set(id, "canceled");
+      observations.push(...this.workflowMembers.settle(id, "canceled"));
       observations.push({ kind: "status", id, status: "canceled" });
     }
     return observations;
@@ -331,6 +355,7 @@ export class ClaudeTaskProtocolSource {
     for (const id of this.declaredIds) {
       if (this.lastStatusById.get(id) !== "running") continue;
       this.lastStatusById.set(id, "failed");
+      observations.push(...this.workflowMembers.settle(id, "failed"));
       observations.push({ kind: "status", id, status: "failed" });
     }
     return observations;
@@ -467,7 +492,29 @@ export class ClaudeTaskProtocolSource {
    * sidechain frames at all and would otherwise show no activity while they work.
    */
   private observeTaskProgress(message: TaskProgressMessage): SubagentObservation[] {
-    return this.observeUsage(message.task_id, message.usage);
+    const observations = this.observeUsage(message.task_id, message.usage);
+    const id = this.subagentIdByTaskId.get(message.task_id);
+    if (id && this.workflowTaskIds.has(message.task_id)) {
+      observations.push(...this.workflowMembers.observeProgress(id, message.workflow_progress));
+    }
+    return observations;
+  }
+
+  private observeWorkflowLaunch(message: WorkflowLaunchMessage): SubagentObservation[] {
+    const result = message.tool_use_result;
+    if (result?.taskType !== CLAUDE_WORKFLOW_TASK_TYPE) return [];
+    const transcriptDir = readString(result.transcriptDir);
+    const content = message.message?.content;
+    const block = Array.isArray(content)
+      ? (content as { type?: unknown; tool_use_id?: unknown }[]).find(
+          (candidate) => candidate?.type === "tool_result",
+        )
+      : undefined;
+    const toolUseId = readString(block?.tool_use_id);
+    if (!transcriptDir || !toolUseId) return [];
+    // The launch result may precede `task_started`, whose canonical id is this same tool id.
+    const id = this.canonicalIdByToolUseId.get(toolUseId) ?? toolUseId;
+    return this.workflowMembers.setTranscriptDir(id, transcriptDir);
   }
 
   private observeUsage(
@@ -556,6 +603,8 @@ export class ClaudeTaskProtocolSource {
     const status = mapTaskStatus(rawStatus);
     if (!status || this.lastStatusById.get(id) === status) return [];
     this.lastStatusById.set(id, status);
-    return [{ kind: "status", id, status }];
+    const observations = status === "running" ? [] : this.workflowMembers.settle(id, status);
+    observations.push({ kind: "status", id, status });
+    return observations;
   }
 }

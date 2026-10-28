@@ -2316,6 +2316,7 @@ class ClaudeAgentSession implements AgentSession {
   private readonly taskProtocolSource = new ClaudeTaskProtocolSource({
     getToolInput: (toolUseId) => this.toolUseCache.get(toolUseId)?.input ?? null,
     readWorkflowResult: readClaudeWorkflowResultFile,
+    convertTranscriptEntry: (entry) => this.convertHistoryEntry(entry),
   });
   /**
    * Subagent tool calls Claude has already answered while the child still runs, with the input
@@ -5341,7 +5342,7 @@ class ClaudeAgentSession implements AgentSession {
       ...observeReplayWorkflows({
         workflows: history.workflows,
         parentEntries: history.parentEntries,
-        entriesByRunId: history.workflowEntriesByRunId,
+        membersByRunId: history.workflowMembersByRunId,
         convertEntry: (entry) => this.convertHistoryEntry(entry),
       }),
     ];

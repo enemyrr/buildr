@@ -126,8 +126,10 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
     status: string,
     options: {
       children?: { agentId: string; output: string; timestamp: string }[];
+      members?: string[];
     } = {},
   ): void {
+    const members = options.members ?? options.children?.map((child) => child.agentId) ?? [];
     const subagentDirectory = writeParentSession([
       parentEntry([
         {
@@ -172,6 +174,14 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
         timestamp: "2026-08-06T08:04:46.347Z",
         defaultModel: "claude-sonnet-5",
         totalTokens: 20_417,
+        workflowProgress: members.map((agentId, index) => ({
+          type: "workflow_agent",
+          index: index + 1,
+          label: `member:${agentId}`,
+          agentId,
+          state: "done",
+          phaseTitle: "Verify",
+        })),
       }),
     );
     for (const child of options.children ?? []) {
@@ -581,7 +591,7 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
       label: "five 2 MiB workflow sidechains",
       mode: "workflow",
       generate: (root: string) => generateWorkflowReplayCorpus(root, 2),
-      expected: { parentItems: 3, completed: 1, histories: 5 },
+      expected: { parentItems: 3, completed: 6, histories: 5 },
     },
   ])(
     "opens $label with all history under a 256 MB heap",
@@ -633,8 +643,8 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
     ]);
   });
 
-  test("converts workflow tools in timestamp order before correlating their results", async () => {
-    writeWorkflowSession("completed");
+  test("correlates a workflow member's tool calls with their results", async () => {
+    writeWorkflowSession("completed", { members: ["a-member"] });
     const directory = path.join(
       claudeProjectDirSync(cwd, { configDir }),
       "replay-session",
@@ -644,20 +654,7 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
     );
     writeSubagent({
       subagentDir: directory,
-      agentId: "a-result",
-      sidechainLines: [
-        JSON.stringify({
-          type: "user",
-          timestamp: "2026-07-26T06:28:01.000Z",
-          message: {
-            content: [{ type: "tool_result", tool_use_id: "workflow-bash", content: "finished" }],
-          },
-        }),
-      ],
-    });
-    writeSubagent({
-      subagentDir: directory,
-      agentId: "z-call",
+      agentId: "a-member",
       sidechainLines: [
         JSON.stringify({
           type: "assistant",
@@ -673,6 +670,13 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
             ],
           },
         }),
+        JSON.stringify({
+          type: "user",
+          timestamp: "2026-07-26T06:28:01.000Z",
+          message: {
+            content: [{ type: "tool_result", tool_use_id: "workflow-bash", content: "finished" }],
+          },
+        }),
       ],
     });
     const events = await replayDescriptors();
@@ -681,11 +685,11 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
       .filter((event) => event.type === "timeline" && event.item.type === "tool_call");
     expect(calls).toEqual([
       expect.objectContaining({
-        id: WORKFLOW_TOOL_USE_ID,
+        id: `${WORKFLOW_TOOL_USE_ID}:a-member`,
         item: expect.objectContaining({ callId: "workflow-bash", name: "Bash", status: "running" }),
       }),
       expect.objectContaining({
-        id: WORKFLOW_TOOL_USE_ID,
+        id: `${WORKFLOW_TOOL_USE_ID}:a-member`,
         item: expect.objectContaining({
           callId: "workflow-bash",
           name: "Bash",
@@ -721,7 +725,7 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
     expect(upserts(await replayDescriptors())).toEqual([]);
   });
 
-  test("replays a completed workflow as one generic provider-subagent row", async () => {
+  test("replays a completed workflow with each member as its own child row", async () => {
     writeWorkflowSession("completed", {
       children: [
         {
@@ -754,34 +758,38 @@ describe("ClaudeAgentSession persisted subagent replay", () => {
       id: WORKFLOW_TOOL_USE_ID,
       status: "completed",
     });
-    expect(descriptors).toContainEqual({
-      type: "provider_subagent",
-      provider: "claude",
-      event: {
-        type: "timeline",
-        id: WORKFLOW_TOOL_USE_ID,
-        item: expect.objectContaining({
-          type: "assistant_message",
-          text: "earlier workflow child result",
-        }),
-        timestamp: "2026-08-06T08:04:45.000Z",
-      },
-    });
-    expect(new Set(events.map((event) => event.id))).toEqual(new Set([WORKFLOW_TOOL_USE_ID]));
-    const workflowOutputs = descriptors
-      .map((event) => event.event)
-      .filter((event) => event.type === "timeline" && event.item.type === "assistant_message")
-      .map((event) => (event.item.type === "assistant_message" ? event.item.text : ""));
-    expect(workflowOutputs).toEqual([
-      "earlier workflow child result",
-      "later workflow child result",
-    ]);
-    expect(
+    const memberId = `${WORKFLOW_TOOL_USE_ID}:z-earlier-child`;
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        id: memberId,
+        title: "member:z-earlier-child",
+        parentSubagentId: WORKFLOW_TOOL_USE_ID,
+      }),
+    );
+    expect(events).toContainEqual(expect.objectContaining({ id: memberId, status: "completed" }));
+    expect(new Set(events.map((event) => event.id))).toEqual(
+      new Set([
+        WORKFLOW_TOOL_USE_ID,
+        `${WORKFLOW_TOOL_USE_ID}:a-later-child`,
+        `${WORKFLOW_TOOL_USE_ID}:z-earlier-child`,
+      ]),
+    );
+    const timeline = (id: string) =>
       descriptors
         .map((event) => event.event)
-        .filter((event) => event.type === "timeline" && event.item.type === "user_message")
-        .map((event) => (event.item.type === "user_message" ? event.item.text : "")),
-    ).toEqual(["Verify the workflow row lifecycle"]);
+        .filter((event) => event.type === "timeline" && event.id === id)
+        .map((event) =>
+          event.type === "timeline" && "text" in event.item
+            ? `${event.item.type}:${event.item.text}`
+            : "",
+        );
+    expect(timeline(WORKFLOW_TOOL_USE_ID)).toEqual([
+      "user_message:Verify the workflow row lifecycle",
+    ]);
+    expect(timeline(memberId)).toEqual([
+      "user_message:Internal workflow prompt for z-earlier-child",
+      "assistant_message:earlier workflow child result",
+    ]);
     expect(
       replayed
         .filter((event) => event.type === "timeline")

@@ -6,6 +6,7 @@ import {
   type ClaudeReplayEntry,
   type ClaudeSubagentMeta,
 } from "./subagents/replay-source.js";
+import { isShownClaudeWorkflowMemberEntry } from "./subagents/workflow-members.js";
 import {
   parseClaudeWorkflowRun,
   type ClaudeWorkflowRun,
@@ -105,13 +106,6 @@ function indexedRecords(
   };
 }
 
-function isToolResult(entry: TranscriptEntry): boolean {
-  return (
-    Array.isArray(entry.message?.content) &&
-    entry.message.content.some((block) => block?.type === "tool_result")
-  );
-}
-
 function parseRecord(line: string): TranscriptEntry | null {
   try {
     const value: unknown = JSON.parse(line);
@@ -141,7 +135,8 @@ export interface ClaudeReplayHistory {
     entries: Iterable<TranscriptEntry>;
   }[];
   workflows: ClaudeWorkflowRun[];
-  workflowEntriesByRunId: Map<string, Iterable<TranscriptEntry>>;
+  /** Member transcripts by run id, then by member agent id. */
+  workflowMembersByRunId: Map<string, Map<string, Iterable<TranscriptEntry>>>;
 }
 
 /** Own descriptors through every pass so unlink or rename cannot invalidate discovered history.
@@ -158,6 +153,19 @@ export function withClaudeReplayHistory<T>(
   }
 }
 
+/** Each member writes `agent-<agentId>.jsonl`; the run's `journal.jsonl` is not a transcript. */
+function addWorkflowMemberFile(
+  workflowFiles: Map<string, Map<string, string>>,
+  runId: string,
+  file: string,
+): void {
+  const agentId = /^agent-(.+)\.jsonl$/.exec(path.basename(file))?.[1];
+  if (!agentId) return;
+  const files = workflowFiles.get(runId) ?? new Map<string, string>();
+  files.set(agentId, file);
+  workflowFiles.set(runId, files);
+}
+
 function indexHistory(historyPath: string, descriptors: Map<string, number>): ClaudeReplayHistory {
   const sessionDirectory = path.join(
     path.dirname(historyPath),
@@ -165,7 +173,7 @@ function indexHistory(historyPath: string, descriptors: Map<string, number>): Cl
   );
   const sidechainDirectory = path.join(sessionDirectory, "subagents");
   const sidechainFiles = [historyPath];
-  const workflowFiles = new Map<string, string[]>();
+  const workflowFiles = new Map<string, Map<string, string>>();
   const metaByAgentId = new Map<string, ClaudeSubagentMeta>();
   const directories = [sidechainDirectory];
   while (directories.length) {
@@ -181,10 +189,7 @@ function indexHistory(historyPath: string, descriptors: Map<string, number>): Cl
       if (entry.name.endsWith(".jsonl")) {
         const parts = path.relative(sidechainDirectory, file).split(path.sep);
         if (parts[0] === "workflows" && parts.length >= 3) {
-          const runId = parts[1]!;
-          const files = workflowFiles.get(runId) ?? [];
-          files.push(file);
-          workflowFiles.set(runId, files);
+          addWorkflowMemberFile(workflowFiles, parts[1]!, file);
         } else sidechainFiles.push(file);
         continue;
       }
@@ -214,20 +219,19 @@ function indexHistory(historyPath: string, descriptors: Map<string, number>): Cl
       locationsByAgentId.set(entry.agentId, locations);
     });
   }
-  const workflowEntriesByRunId = new Map<string, Iterable<TranscriptEntry>>();
+  const workflowMembersByRunId = new Map<string, Map<string, Iterable<TranscriptEntry>>>();
   for (const [runId, files] of workflowFiles) {
-    const locations: RecordLocation[] = [];
-    for (const file of files)
+    const members = new Map<string, Iterable<TranscriptEntry>>();
+    for (const [agentId, file] of files) {
+      const locations: RecordLocation[] = [];
       scan(file, (entry, location) => {
-        if (entry.type !== "user" || isToolResult(entry)) locations.push(location);
+        if (isShownClaudeWorkflowMemberEntry(entry, locations.length === 0)) {
+          locations.push(location);
+        }
       });
-    locations.sort((a, b) => {
-      if (!a.timestamp && !b.timestamp) return 0;
-      if (!a.timestamp) return 1;
-      if (!b.timestamp) return -1;
-      return Date.parse(a.timestamp) - Date.parse(b.timestamp);
-    });
-    workflowEntriesByRunId.set(runId, indexedRecords(locations, descriptors));
+      members.set(agentId, indexedRecords(locations, descriptors));
+    }
+    workflowMembersByRunId.set(runId, members);
   }
   return {
     parentEntries: indexedRecords(parentLocations, descriptors),
@@ -237,7 +241,7 @@ function indexHistory(historyPath: string, descriptors: Map<string, number>): Cl
       entries: indexedRecords(locations, descriptors),
     })),
     workflows: readWorkflows(sessionDirectory),
-    workflowEntriesByRunId,
+    workflowMembersByRunId,
   };
 }
 

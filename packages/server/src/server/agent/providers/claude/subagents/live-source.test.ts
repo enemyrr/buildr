@@ -1,5 +1,11 @@
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { AgentTimelineItem } from "../../../agent-sdk-types.js";
 
 import { ClaudeTaskProtocolSource } from "./live-source.js";
 
@@ -594,6 +600,132 @@ describe("ClaudeTaskProtocolSource", () => {
     expect(
       source.observe({ type: "system", subtype: "init", model: "opus" } as unknown as SDKMessage),
     ).toEqual([]);
+  });
+});
+
+describe("ClaudeTaskProtocolSource workflow members", () => {
+  const WORKFLOW_ID = "toolu_01DgLoPMW9";
+  const MEMBER_ID = `${WORKFLOW_ID}:a299ffba35d8e55b7`;
+  let transcriptDir: string;
+  let transcript: string;
+
+  beforeEach(() => {
+    transcriptDir = mkdtempSync(path.join(tmpdir(), "claude-workflow-members-"));
+    transcript = path.join(transcriptDir, "agent-a299ffba35d8e55b7.jsonl");
+  });
+
+  afterEach(() => {
+    rmSync(transcriptDir, { recursive: true, force: true });
+  });
+
+  /** Stands in for the adapter's history converter: one item per entry, by role. */
+  function convertTranscriptEntry(entry: { type?: unknown; text?: unknown }): AgentTimelineItem[] {
+    const text = String(entry.text);
+    return entry.type === "user"
+      ? [{ type: "user_message", text }]
+      : [{ type: "assistant_message", text }];
+  }
+
+  function launchResult(): SDKMessage {
+    return {
+      type: "user",
+      parent_tool_use_id: null,
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: WORKFLOW_ID, content: "Launched." }],
+      },
+      tool_use_result: {
+        status: "async_launched",
+        taskType: "local_workflow",
+        runId: "wf_2632b417-804",
+        transcriptDir,
+      },
+    } as unknown as SDKMessage;
+  }
+
+  function progress(state: string): SDKMessage {
+    return {
+      type: "system",
+      subtype: "task_progress",
+      task_id: "a1730a6215e1f5cf6",
+      tool_use_id: WORKFLOW_ID,
+      usage: { total_tokens: 1000, tool_uses: 1, duration_ms: 10 },
+      workflow_progress: [
+        { type: "workflow_phase", index: 1, title: "Build" },
+        {
+          type: "workflow_agent",
+          index: 1,
+          label: "build:P09",
+          agentId: "a299ffba35d8e55b7",
+          state,
+          phaseTitle: "Build",
+        },
+      ],
+    } as unknown as SDKMessage;
+  }
+
+  function startedSource(): ClaudeTaskProtocolSource {
+    const source = new ClaudeTaskProtocolSource({ convertTranscriptEntry });
+    source.observe(taskStarted({ task_type: "local_workflow", subagent_type: undefined }));
+    source.observe(launchResult());
+    return source;
+  }
+
+  it("declares each member beneath its workflow and streams its transcript", () => {
+    const source = startedSource();
+    writeFileSync(
+      transcript,
+      `${JSON.stringify({ type: "user", text: "[Workflow harness] The computed task text follows:\n  Build P09" })}\n`,
+    );
+
+    expect(source.observe(progress("start"))).toEqual([
+      { kind: "subtitle", id: WORKFLOW_ID, subtitle: "Workflow · 1k tokens" },
+      { kind: "declared", id: MEMBER_ID, title: "build:P09", parentSubagentId: WORKFLOW_ID },
+      { kind: "subtitle", id: MEMBER_ID, subtitle: "Build" },
+      { kind: "timeline", id: MEMBER_ID, item: { type: "user_message", text: "Build P09" } },
+    ]);
+
+    appendFileSync(transcript, `${JSON.stringify({ type: "assistant", text: "Built." })}\n`);
+    expect(source.observe(progress("done"))).toEqual([
+      { kind: "timeline", id: MEMBER_ID, item: { type: "assistant_message", text: "Built." } },
+      { kind: "status", id: MEMBER_ID, status: "completed" },
+    ]);
+  });
+
+  it("ends members still running when their workflow is stopped", () => {
+    const source = startedSource();
+    source.observe(progress("start"));
+
+    expect(source.observe(taskNotification("killed"))).toEqual([
+      { kind: "status", id: MEMBER_ID, status: "canceled" },
+      { kind: "status", id: WORKFLOW_ID, status: "canceled" },
+    ]);
+  });
+
+  it("fails running members when the Claude process is lost", () => {
+    const source = startedSource();
+    source.observe(progress("start"));
+
+    expect(source.failRunningTasks()).toEqual([
+      { kind: "status", id: MEMBER_ID, status: "failed" },
+      { kind: "status", id: WORKFLOW_ID, status: "failed" },
+    ]);
+  });
+
+  it("does not reopen a member that already settled", () => {
+    const source = startedSource();
+    source.observe(progress("done"));
+
+    expect(source.observe(progress("start"))).toEqual([]);
+  });
+
+  it("ignores progress snapshots for a regular subagent", () => {
+    const source = new ClaudeTaskProtocolSource({ convertTranscriptEntry });
+    source.observe(taskStarted());
+
+    expect(source.observe(progress("start"))).toEqual([
+      { kind: "subtitle", id: WORKFLOW_ID, subtitle: "general-purpose · 1k tokens" },
+    ]);
   });
 });
 
